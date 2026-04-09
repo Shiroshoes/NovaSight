@@ -14,6 +14,7 @@ from routes.coas import coas_bp
 from routes.ctec import ctec_bp
 import os
 
+
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
