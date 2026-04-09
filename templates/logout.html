@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>logout confirmation</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/logout/logout.css') }}">
+</head>
+<body>
+<div class="modal-overlay">
+  <div class="logout-card">
+    <h1 class="brand-name">NovaSight</h1>
+    <p class="confirmation-text">Are you sure you want to logout?</p>
+    
+    <div class="button-group">
+      <button class="btn btn-primary">Logout</button>
+      <button class="btn btn-primary">Back</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

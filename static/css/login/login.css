@@ -1,0 +1,199 @@
+:root {
+    --primary-blue: #2A86FD;
+    --bg-dark: #020F17;
+    --card-bg: rgba(14, 22, 40, 0.7);
+    --input-bg: rgba(255, 255, 255, 0.05);
+    --text-muted: #94a3b8;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-dark);
+    color: white;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.login-container {
+    display: flex;
+    height: 100%;
+    width: 100%;
+}
+
+/* --- Floating Nav --- */
+.floating-nav {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    align-items: center;
+    align-content: center;
+    z-index: 100;
+    display: flex;
+    gap: 100px;
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    padding-right: 80px;
+    padding-left: 80px;
+    padding-bottom: 30px;
+    padding-top: 30px;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.icon-floatingnav {
+    width: 24px;
+    height: 24px;
+    margin-right: 1px;
+}
+
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: white;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: 0.3s;
+    opacity: 0.8;
+}
+
+.nav-link:hover {
+    color: var(--primary-blue);
+    opacity: 1;
+}
+
+/* --- Left Branding Side --- */
+.login-left {
+    flex: 1;
+    background: radial-gradient(circle at center, #0d3866 0%, #020F17 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.logo-wrapper {
+    text-align: center;
+    z-index: 5;
+}
+
+.logo-box-large {
+    background-color: var(--primary-blue);
+    width: 180px;
+    height: 180px;
+    border-radius: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 25px;
+    box-shadow: 0 20px 40px rgba(42, 134, 253, 0.3);
+}
+
+.brand-img { width: 80%; height: auto; }
+
+.brand-title h1 { 
+    font-size: 2.2rem; 
+    letter-spacing: 5px; 
+    margin: 0; }
+.brand-title span { color: var(--text-muted); font-size: 0.8rem; letter-spacing: 1px; }
+
+.watermark {
+    position: absolute;
+    bottom: 15%;
+    font-size: 7rem;
+    font-weight: 800;
+    opacity: 0.03;
+    user-select: none;
+}
+
+/* --- Right Form Side --- */
+.login-right {
+    flex: 1;
+    background-color: #050a14;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding: 40px;
+}
+
+.form-container {
+    width: 100%;
+    max-width: 420px;
+}
+
+.form-header h2 { font-size: 2rem; margin-bottom: 10px; }
+.form-header p { color: var(--text-muted); margin-bottom: 40px; font-size: 0.95rem; }
+
+.input-field { margin-bottom: 25px; }
+.input-field label { display: block; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 10px; }
+
+.input-field input {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 14px 20px;
+    border-radius: 25px;
+    color: white;
+    outline: none;
+    transition: 0.3s;
+}
+
+.input-field input:focus { border-color: var(--primary-blue); }
+
+.login-btn {
+    width: 100%;
+    background: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(42, 134, 253, 0.2);
+    transition: 0.3s;
+}
+
+.login-btn:hover { background-color: #2563eb; transform: translateY(-2px); }
+
+.footer-link { text-align: center; margin-top: 25px; font-size: 0.9rem; color: var(--text-muted); }
+.footer-link a { color: white; text-decoration: none; font-weight: 600; }
+
+/* --- Bottom Credits --- */
+.bottom-info {
+    position: absolute;
+    bottom: 40px;
+    width: 100%;
+    padding: 0 60px;
+}
+
+.page-indicator { text-align: right; margin-bottom: 10px; color: var(--text-muted); font-size: 0.95rem; }
+.page-indicator strong { color: white; }
+
+.group-credits {
+    text-align: center;
+    font-size: 0.75rem;
+    color: rgba(148, 163, 184, 0.3);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 15px;
+}
+
+
+.hidden {
+    display: none;
+}
+
+.icon-eye {
+    width: 24px;
+    height: 24px;
+    padding-top: 3px;
+}
