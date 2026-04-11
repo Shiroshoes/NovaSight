@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from models import AcadUser, db
-from utils import allowed_file, save_file
+from database.models import AcadUser, db
+from util.utils import allowed_file, save_file
 
 # Create a new Blueprint for CCST Dean
 ccst_bp = Blueprint('ccst_bp', __name__, url_prefix='/NovaSight/ccst') 
@@ -46,7 +46,7 @@ def maindash_ccst():
     if 'user_id' not in session or session.get('role') != 'CCSTdean':
         return redirect(url_for('home'))
 
-    return render_template('deans/CCSTDean/dashboard/maindashboardccstdean.html') 
+    return render_template('deans/CCSTDean/dashboard/maindashboardccstdean.html', college_type='all') 
 
 # ccst dash (if there's a specific dashboard for CCST itself, distinct from the Dean's)
 @ccst_bp.route('/ccstdashboard')
@@ -54,7 +54,7 @@ def ccstdash_ccst(): # Renamed function to avoid confusion
     if 'user_id' not in session or session.get('role') != 'CCSTdean': 
         return redirect(url_for('home'))
 
-    return render_template('deans/CCSTDean/dashboard/ccstdashboardccstdean.html') 
+    return render_template('deans/CCSTDean/dashboard/ccstdashboardccstdean.html', college_type='CCST') 
 
 
 # --- Common Routes (Password Update, Image Upload) ---

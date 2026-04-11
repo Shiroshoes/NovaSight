@@ -1,0 +1,3 @@
+pip install flask flask_sqlalchemy werkzeug
+
+pip install pandas numpy scikit-learn sqlalchemy joblib openpyxl

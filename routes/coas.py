@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from models import AcadUser, db
-from utils import allowed_file, save_file
+from database.models import AcadUser, db
+from util.utils import allowed_file, save_file
 
 # Create a new Blueprint for COAS Dean
 coas_bp = Blueprint('coas_bp', __name__, url_prefix='/NovaSight/coas')
@@ -46,7 +46,7 @@ def maindash_coas():
     if 'user_id' not in session or session.get('role') != 'CoASdean':
         return redirect(url_for('home'))
 
-    return render_template('deans/COASDean/dashboard/maindashboardcoasdean.html') 
+    return render_template('deans/COASDean/dashboard/maindashboardcoasdean.html', college_type='all') 
 
 # coas dash (if there's a specific dashboard for COAS itself, distinct from the Dean's)
 @coas_bp.route('/coasdashboard')
@@ -54,7 +54,7 @@ def coasdash_coas():
     if 'user_id' not in session or session.get('role') != 'CoASdean':
         return redirect(url_for('home'))
 
-    return render_template('deans/COASDean/dashboard/coasdashboardcoasdean.html') 
+    return render_template('deans/COASDean/dashboard/coasdashboardcoasdean.html', college_type='COAS') 
 
 
 # --- Common Routes (Password Update, Image Upload) ---

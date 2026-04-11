@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from models import AcadUser, db
-from utils import allowed_file, save_file
+from database.models import AcadUser, db
+from util.utils import allowed_file, save_file
 
 registrar_bp = Blueprint('registrar_bp', __name__, url_prefix='/NovaSight/registrar')
 
@@ -40,49 +40,49 @@ def help_registrar():
 def maindash_registrar():
     if 'user_id' not in session or session.get('role') != 'Registrar':
         return redirect(url_for('home'))
-    return render_template('registrar/dashboard/maindashboardregistrar/html/maindashboardregistrar.html')
+    return render_template('registrar/dashboard/maindashboardregistrar/html/maindashboardregistrar.html', college_type='all')
 
 # cahs dash
 @registrar_bp.route('/cahsdashboard')
 def cahsdash_registrar():
     if 'user_id' not in session or session.get('role') != 'Registrar':
         return redirect(url_for('home'))
-    return render_template('registrar/dashboard/cahsdashboardregistrar/html/cahsdashboardregistrar.html')
+    return render_template('registrar/dashboard/cahsdashboardregistrar/html/cahsdashboardregistrar.html', college_type='CAHS')
 
 # cba dash
 @registrar_bp.route('/cbadashboard')
 def cbadash_registrar():
     if 'user_id' not in session or session.get('role') != 'Registrar':
         return redirect(url_for('home'))
-    return render_template('registrar/dashboard/cbadashboardregistrar/html/cbadashboardregistrar.html')
+    return render_template('registrar/dashboard/cbadashboardregistrar/html/cbadashboardregistrar.html', college_type='CBA')
 
 # ccst dash
 @registrar_bp.route('/ccstdashboard')
 def ccstdash_registrar():
     if 'user_id' not in session or session.get('role') != 'Registrar':
         return redirect(url_for('home'))
-    return render_template('registrar/dashboard/ccstdashboardregistrar/html/ccstdashboardregistrar.html')
+    return render_template('registrar/dashboard/ccstdashboardregistrar/html/ccstdashboardregistrar.html', college_type='CCST')
 
 #cea dash
 @registrar_bp.route('/ceadashboard')
 def ceadash_registrar():
     if 'user_id' not in session or session.get('role') != 'Registrar':
         return redirect(url_for('home'))
-    return render_template('registrar/dashboard/ceadashboardregistrar/html/ceadashboardregistrar.html')
+    return render_template('registrar/dashboard/ceadashboardregistrar/html/ceadashboardregistrar.html', college_type='CEA')
 
 #coas dash
 @registrar_bp.route('/coasdashboard')
 def coasdash_registrar():
     if 'user_id' not in session or session.get('role') != 'Registrar':
         return redirect(url_for('home'))
-    return render_template('registrar/dashboard/coasdashboardregistrar/html/coasdashboardregistrar.html')
+    return render_template('registrar/dashboard/coasdashboardregistrar/html/coasdashboardregistrar.html', college_type='COAS')
 
 #ctec dash
 @registrar_bp.route('/ctecdashboard')
 def ctecdash_registrar():
     if 'user_id' not in session or session.get('role') != 'Registrar':
         return redirect(url_for('home'))
-    return render_template('registrar/dashboard/ctecdashboardregistrar/html/ctecdashboardregistrar.html')
+    return render_template('registrar/dashboard/ctecdashboardregistrar/html/ctecdashboardregistrar.html', college_type='CTEC')
 
 
 # Update Password

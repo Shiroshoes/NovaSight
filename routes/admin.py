@@ -1,8 +1,7 @@
-# routes/admin.py
 from flask import Blueprint, render_template, request, session, redirect, flash, jsonify, url_for
-from models import AcadUser, db
-from utils import allowed_file, save_file
-from config import ALLOWED_ROLES
+from database.models import AcadUser, db
+from util.utils import allowed_file, save_file
+from configs.config import ALLOWED_ROLES
 
 # ---------------- Blueprint Setup ----------------
 admin_bp = Blueprint('admin_bp', __name__, url_prefix='/NovaSight/admin')
@@ -57,7 +56,7 @@ def maindash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
     
-    return render_template('admin/dashboard/maindashboardadmin/html/maindashboardadmin.html')
+    return render_template('admin/dashboard/maindashboardadmin/html/maindashboardadmin.html', college_type='all')
 
 #cahs dashboard
 @admin_bp.route('/cahsdashboard')
@@ -65,7 +64,7 @@ def cahsdash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
     
-    return render_template('admin/dashboard/cahsdashboardadmin/html/cahsdashboardadmin.html')
+    return render_template('admin/dashboard/cahsdashboardadmin/html/cahsdashboardadmin.html', college_type='CAHS')
 
 #cba dashboard
 @admin_bp.route('/cbadashboard')
@@ -73,7 +72,7 @@ def cbadash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
     
-    return render_template('admin/dashboard/cbadashboardadmin/html/cbadashboardadmin.html')
+    return render_template('admin/dashboard/cbadashboardadmin/html/cbadashboardadmin.html', college_type='CBA')
 
 
 #ccst dash
@@ -82,7 +81,7 @@ def ccstdash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
     
-    return render_template('admin/dashboard/ccstdashboardadmin/html/ccstdashboardadmin.html')
+    return render_template('admin/dashboard/ccstdashboardadmin/html/ccstdashboardadmin.html', college_type='CCST')
 
 
 #cea dash
@@ -92,7 +91,7 @@ def ceadash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
     
-    return render_template('admin/dashboard/ceadashboardadmin/html/ceadashboardadmin.html')
+    return render_template('admin/dashboard/ceadashboardadmin/html/ceadashboardadmin.html', college_type='CEA')
 
 
 #coas dash
@@ -101,7 +100,7 @@ def coasdash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
     
-    return render_template('admin/dashboard/coasdashboardadmin/html/coasdashboardadmin.html')
+    return render_template('admin/dashboard/coasdashboardadmin/html/coasdashboardadmin.html', college_type='COAS')
 
 
 #ctec dash
@@ -110,7 +109,7 @@ def ctecdash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
     
-    return render_template('admin/dashboard/ctecdashboardadmin/html/ctecdashboardadmin.html')
+    return render_template('admin/dashboard/ctecdashboardadmin/html/ctecdashboardadmin.html', college_type='CTEC')
 
 
 # ---------------- Add User ----------------
