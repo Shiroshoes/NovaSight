@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from models import AcadUser, db
-from utils import allowed_file, save_file
+from database.models import AcadUser, db
+from util.utils import allowed_file, save_file
 
 # Create a new Blueprint for SASO
 saso_bp = Blueprint('saso_bp', __name__, url_prefix='/NovaSight/saso')
@@ -45,49 +45,49 @@ def help_saso():
 def maindash_saso():
     if 'user_id' not in session or session.get('role') != 'SASO':
         return redirect(url_for('home'))
-    return render_template('saso/dashboard/maindashboardsaso/html/maindashboardsaso.html') # Adjust template path
+    return render_template('saso/dashboard/maindashboardsaso/html/maindashboardsaso.html', college_type='all')
 
 # CAHS Dashboard (SASO)
 @saso_bp.route('/cahsdashboard')
 def cahsdash_saso():
     if 'user_id' not in session or session.get('role') != 'SASO':
         return redirect(url_for('home'))
-    return render_template('saso/dashboard/cahsdashboardsaso/html/cahsdashboardsaso.html') # Adjust template path
+    return render_template('saso/dashboard/cahsdashboardsaso/html/cahsdashboardsaso.html', college_type='CAHS')
 
 # CBA Dashboard (SASO)
 @saso_bp.route('/cbadashboard')
 def cbadash_saso():
     if 'user_id' not in session or session.get('role') != 'SASO':
         return redirect(url_for('home'))
-    return render_template('saso/dashboard/cbadashboardsaso/html/cbadashboardsaso.html') # Adjust template path
+    return render_template('saso/dashboard/cbadashboardsaso/html/cbadashboardsaso.html', college_type='CBA')
 
 # CCST Dashboard (SASO)
 @saso_bp.route('/ccstdashboard')
 def ccstdash_saso():
     if 'user_id' not in session or session.get('role') != 'SASO':
         return redirect(url_for('home'))
-    return render_template('saso/dashboard/ccstdashboardsaso/html/ccstdashboardsaso.html') # Adjust template path
+    return render_template('saso/dashboard/ccstdashboardsaso/html/ccstdashboardsaso.html', college_type='CCST')
 
 # CEA Dashboard (SASO)
 @saso_bp.route('/ceadashboard')
 def ceadash_saso():
     if 'user_id' not in session or session.get('role') != 'SASO':
         return redirect(url_for('home'))
-    return render_template('saso/dashboard/ceadashboardsaso/html/ceadashboardsaso.html') # Adjust template path
+    return render_template('saso/dashboard/ceadashboardsaso/html/ceadashboardsaso.html', college_type='CEA')
 
 # COAS Dashboard (SASO)
 @saso_bp.route('/coasdashboard')
 def coasdash_saso():
     if 'user_id' not in session or session.get('role') != 'SASO':
         return redirect(url_for('home'))
-    return render_template('saso/dashboard/coasdashboardsaso/html/coasdashboardsaso.html') # Adjust template path
+    return render_template('saso/dashboard/coasdashboardsaso/html/coasdashboardsaso.html', college_type='COAS')
 
 # CTEC Dashboard (SASO)
 @saso_bp.route('/ctecdashboard')
 def ctecdash_saso():
     if 'user_id' not in session or session.get('role') != 'SASO':
         return redirect(url_for('home'))
-    return render_template('saso/dashboard/ctecdashboardsaso/html/ctecdashboardsaso.html') # Adjust template path
+    return render_template('saso/dashboard/ctecdashboardsaso/html/ctecdashboardsaso.html', college_type='CTEC')
 
 
 # --- Common Routes (Password Update, Image Upload) ---

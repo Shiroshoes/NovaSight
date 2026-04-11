@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from models import AcadUser, db
-from utils import allowed_file, save_file
+from database.models import AcadUser, db
+from util.utils import allowed_file, save_file
 
 # Create a new Blueprint for CAHS
 cahs_bp = Blueprint('cahs_bp', __name__, url_prefix='/NovaSight/cahs')
@@ -45,14 +45,14 @@ def help_cahs():
 def maindash_cahs():
     if 'user_id' not in session or session.get('role') != 'CAHSdean':
         return redirect(url_for('home'))
-    return render_template('deans/CAHSdean/dashboard/maindashboardcahsdean.html') 
+    return render_template('deans/CAHSdean/dashboard/maindashboardcahsdean.html', college_type='all') 
 
 # cahs dash
 @cahs_bp.route('/cahsdashboard')
 def cahsdash_cahs():
     if 'user_id' not in session or session.get('role') != 'CAHSdean':
         return redirect(url_for('home'))
-    return render_template('deans/CAHSdean/dashboard/cahsdashboardcahsdean.html') 
+    return render_template('deans/CAHSdean/dashboard/cahsdashboardcahsdean.html', college_type='CAHS') 
 
 # --- Common Routes (Password Update, Image Upload) ---
 # These functions are generally role-agnostic if they operate on the logged-in user's ID.

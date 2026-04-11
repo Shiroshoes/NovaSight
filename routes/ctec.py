@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from models import AcadUser, db
-from utils import allowed_file, save_file
+from database.models import AcadUser, db
+from util.utils import allowed_file, save_file
 
 # Create a new Blueprint for CTEC Dean
 ctec_bp = Blueprint('ctec_bp', __name__, url_prefix='/NovaSight/ctec')
@@ -46,7 +46,7 @@ def maindash_ctec():
     if 'user_id' not in session or session.get('role') != 'CTECdean':
         return redirect(url_for('home'))
     
-    return render_template('deans/CTECdean/dashboard/maindashboardctecdean.html') 
+    return render_template('deans/CTECdean/dashboard/maindashboardctecdean.html', college_type='all') 
 
 # ctec dash
 @ctec_bp.route('/ctecdashboard')
@@ -54,7 +54,7 @@ def ctecdash_ctec(): # Renamed function to avoid confusion
     if 'user_id' not in session or session.get('role') != 'CTECdean':
         return redirect(url_for('home'))
     
-    return render_template('deans/CTECdean/dashboard/ctecdashboardctecdean.html') 
+    return render_template('deans/CTECdean/dashboard/ctecdashboardctecdean.html', college_type='CTEC') 
 
 
 # --- Common Routes (Password Update, Image Upload) ---
