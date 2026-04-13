@@ -10,61 +10,74 @@ DATA_PATH = "processed_datasets/Final_Merged_Student_Data.csv"
 MODEL_DIR = "Machine_Learning_Model"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-print(" TRAINING DROPOUT SPIKE MODEL ")
+print(" TRAINING DROPOUT SPIKE MODEL (Aggregated Rates) ")
 
 if not os.path.exists(DATA_PATH):
-    print("Error: Dataset not found.")
+    print(f"Error: Dataset not found at {DATA_PATH}")
     exit()
 
 df = pd.read_csv(DATA_PATH)
 
-# PREPROCESSING
+# 1. DATA CLEANING
+# Fix Year
 df['Year_Numeric'] = df['Year'].astype(str).str.extract(r'^(\d{4})').astype(int)
 
-# IDENTIFY DROPPED STUDENTS
-# We look for "DROP", "DROPPED", "FAILED", or "UD" (Unofficially Dropped) in Status/Remarks
-target_cols = ['Status', 'Remarks', 'Student_Status']
-found_col = None
-
-for col in target_cols:
-    if col in df.columns:
-        found_col = col
-        break
-
-if found_col:
-    print(f" > Using '{found_col}' to identify dropouts.")
-    # Create binary target: 1 if Dropped, 0 if Active
-    df['is_dropped'] = df[found_col].astype(str).str.upper().apply(
-        lambda x: 1 if any(s in x for s in ['DROP', 'FAIL', 'UD', 'INACTIVE']) else 0
-    )
+# Fix Status (Standardize to Uppercase)
+if 'Status' in df.columns:
+    df['Status'] = df['Status'].astype(str).str.strip().str.upper()
 else:
-    print(" > Warning: No Status column found. Generating dummy dropout data for testing.")
-    np.random.seed(42)
-    df['is_dropped'] = np.random.choice([0, 1], size=len(df), p=[0.9, 0.1]) # 10% drop rate
+    print("Error: 'Status' column missing.")
+    exit()
 
-# AGGREGATE DATA (Rate per Year per College)
-grouped = df.groupby(['Year_Numeric', 'College']).agg(
-    total=('Student_ID', 'nunique'),
-    dropped=('is_dropped', 'sum')
+# 2. STUDENT-LEVEL AGGREGATION
+# We need to know if a student dropped *any* subject in a specific Year/College context.
+print(" > Aggregating by Student...")
+
+# Group by Student + Year + College to handle students who shift colleges or counting per year
+student_df = df.groupby(['Student_ID', 'Year_Numeric', 'College'])['Status'].apply(list).reset_index()
+
+# Define Dropout: If "DROP" appears in ANY of their subject statuses for that year
+student_df['is_dropout'] = student_df['Status'].apply(
+    lambda statuses: 1 if any("DROP" in str(s) for s in statuses) else 0
+)
+
+# 3. COHORT AGGREGATION (Calculate Rates)
+# Now we group by Year and College to get the % rate
+cohort_stats = student_df.groupby(['Year_Numeric', 'College']).agg(
+    total_students=('Student_ID', 'count'),
+    dropout_count=('is_dropout', 'sum')
 ).reset_index()
 
-grouped['Drop_Rate'] = (grouped['dropped'] / grouped['total']) * 100
+# Calculate Percentage
+cohort_stats['Dropout_Rate'] = (cohort_stats['dropout_count'] / cohort_stats['total_students']) * 100
 
-# TRAIN MODEL
-X = pd.get_dummies(grouped[['College']], prefix='College')
-X['Year_Numeric'] = grouped['Year_Numeric']
-y = grouped['Drop_Rate']
+# Remove anomalies (e.g., years with 0 students)
+cohort_stats = cohort_stats[cohort_stats['total_students'] > 5]
 
+print(f" > Training Data Points: {len(cohort_stats)} (Years x Colleges)")
+
+# 4. FEATURE ENGINEERING
+# Inputs: College (One-Hot) + Year
+X = pd.get_dummies(cohort_stats[['College']], prefix='College')
+X['Year_Numeric'] = cohort_stats['Year_Numeric']
+
+y = cohort_stats['Dropout_Rate']
+
+# Save Feature List (Critical for API to match columns)
+joblib.dump(X.columns.tolist(), os.path.join(MODEL_DIR, "dropout_spike_features.pkl"))
+
+# 5. TRAINING
 model = LinearRegression()
 model.fit(X, y)
 
-# EVALUATE
+# 6. EVALUATION
 y_pred = model.predict(X)
 r2 = r2_score(y, y_pred)
+mse = mean_squared_error(y, y_pred)
+
 print(f" > R² Score: {r2:.4f}")
+print(f" > MSE:      {mse:.4f}")
 
-# SAVE
+# 7. SAVE
 joblib.dump(model, os.path.join(MODEL_DIR, "dropout_spike_model.pkl"))
-joblib.dump(X.columns.tolist(), os.path.join(MODEL_DIR, "dropout_spike_features.pkl"))
-
-print("Models saved successfully.")
+print(f"\nModel saved to {MODEL_DIR}/dropout_spike_model.pkl")

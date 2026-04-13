@@ -383,11 +383,12 @@ footer {
 
 /* Precise Sizing Classes */
 .card-mini { height: 65px; padding: 15px;}
-.card-wide { grid-column: span 2; height: 300px; padding: 20px; padding-bottom: 70px;}
-.card-wide1 { grid-column: span 3; height: 300px; padding: 20px; padding-bottom: 70px;}
+.card-wide { grid-column: span 2; height: 330px; padding: 20px; padding-bottom: 70px;}
+.card-wide1 { grid-column: span 3; height: 460px; padding: 20px; padding-bottom: 70px;}
 .card-square { grid-column: span 1; height: 350px; padding: 20px; }
-.card-full-width { grid-column: span 4; height: 500px; padding: 10px; }
-.third-square { grid-column: span 1; height: 500px; padding: 10px; }
+.card-full-width { grid-column: span 3; height: 500px; padding: 10px; }
+.third-square { grid-column: span 2; height: 500px; padding: 10px; }
+
 
 .card-ranking {
   border-radius: 10px;

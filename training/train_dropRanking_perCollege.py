@@ -3,45 +3,60 @@ import numpy as np
 import os
 import joblib
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression 
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
 
-# SETUP
+# CONFIG
 DATA_PATH = "processed_datasets/Final_Merged_Student_Data.csv"
 MODEL_DIR = "Machine_Learning_Model"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-df = pd.read_csv(DATA_PATH).dropna(subset=['College', 'Year', 'Semester'])
+print("\n--- TRAINING DROPOUT RANKING MODEL (Grade-Based) ---")
+# CSV NOTES:
+# - No DROP in Status. Dropout = any Grade == 0 for a student.
+# - Status values: "REGULAR", "INC"
 
-# TARGET & FEATURE ENGINEERING
-df['is_drop'] = (df['Status'] == 'Drop').astype(int)
+if not os.path.exists(DATA_PATH):
+    print(f"Error: {DATA_PATH} not found."); exit()
 
-# Extract 4-digit year (handles formats like "2024" or "2024-2025")
-df['Year_Numeric'] = df['Year'].str.extract('(\d{4})').astype(int)
+df = pd.read_csv(DATA_PATH)
 
-# One-hot encode College AND Semester to link them to your filters
-X_cats = pd.get_dummies(df[['College', 'Semester']], drop_first=False)
-X = pd.concat([X_cats, df[['Year_Numeric']]], axis=1)
-y = df['is_drop']
+# DATA CLEANING
+df["College"]      = df["College"].astype(str).str.strip().str.upper()
+df["Semester"]     = df["Semester"].astype(str).str.strip().str.upper()
+df["Year_Numeric"] = df["Year"].astype(str).str.extract(r"(\d{4})")[0].astype(float)
 
-# Save feature list so the API knows the column order
+# STUDENT-LEVEL AGGREGATION
+student_df = df.groupby("Student_ID").agg({
+    "College":      "first",
+    "Year_Numeric": "first",
+    "Semester":     "first",
+    "Grade":        list
+}).reset_index()
+
+# TARGET: dropped if any Grade == 0
+student_df["is_drop"] = student_df["Grade"].apply(
+    lambda grades: int(any(g == 0 for g in grades))
+)
+
+print(f" > Total Students:  {len(student_df)}")
+print(f" > Total Dropouts:  {student_df['is_drop'].sum()}")
+
+# FEATURES
+X = pd.get_dummies(student_df[["College", "Semester"]], drop_first=False)
+X["Year_Numeric"] = student_df["Year_Numeric"]
+y = student_df["is_drop"]
+
 joblib.dump(X.columns.tolist(), os.path.join(MODEL_DIR, "dropout_ranking_features_final.pkl"))
 
-# TRAINING
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Linear Regression is required to project values into 2026-2030
 model = LinearRegression()
 model.fit(X_train, y_train)
 
 y_pred = model.predict(X_test)
-mse = mean_squared_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
+print(f" > R2 Score: {r2_score(y_test, y_pred):.4f}")
+print(f" > MSE:      {mean_squared_error(y_test, y_pred):.4f}")
 
-print(f"--- Evaluation Results ---")
-print(f"Mean Squared Error (MSE): {mse:.4f}")
-print(f"R-Squared (R2) Score:    {r2:.4f}")
-
-# SAVE
 joblib.dump(model, os.path.join(MODEL_DIR, "college_dropout_model_final.pkl"))
-print(f"Model saved. Features identified: {X.columns.tolist()}")
+print(f"\nSaved to {MODEL_DIR}/college_dropout_model_final.pkl")

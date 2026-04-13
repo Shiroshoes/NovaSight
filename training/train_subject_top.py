@@ -3,54 +3,67 @@ import numpy as np
 import joblib
 import os
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import r2_score
 
 # --- CONFIGURATION ---
 DATA_PATH = "processed_datasets/Final_Merged_Student_Data.csv"
 MODEL_DIR = "Machine_Learning_Model"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-print("--- TRAINING SUBJECT FORECAST MODEL ---")
+print("--- TRAINING SUBJECT GRADE FORECAST MODEL ---")
 
-# 1. LOAD DATA
 if not os.path.exists(DATA_PATH):
-    print("Error: Dataset not found.")
+    print(f"Error: Dataset not found at {DATA_PATH}")
     exit()
 
 df = pd.read_csv(DATA_PATH)
 
-# 2. PREPROCESSING
-df['Year_Numeric'] = df['Year'].astype(str).str.extract(r'^(\d{4})').astype(int)
+# 1. PREPROCESSING
+df['Year_Numeric'] = df['Year'].astype(str).str.extract(r'^(\d{4})').astype(float)
 
-# --- FIX: USE CORRECT COLUMN NAME ---
-# We explicitly map your column 'Course_Subject_Name' to a standard 'Subject' variable
+# Map Subject Name
 if 'Course_Subject_Name' in df.columns:
-    df['Subject'] = df['Course_Subject_Name']
-elif 'Subject' not in df.columns:
-    print("CRITICAL ERROR: Neither 'Course_Subject_Name' nor 'Subject' column found.")
+    df['Subject'] = df['Course_Subject_Name'].str.upper().str.strip()
+elif 'Subject' in df.columns:
+    df['Subject'] = df['Subject'].str.upper().str.strip()
+else:
+    print("Error: Subject column not found.")
     exit()
 
-# 3. FILTER TO TOP 50 SUBJECTS
-# This keeps the model focused on major subjects
-top_subjects = df['Subject'].value_counts().nlargest(50).index.tolist()
+# Clean Grades (Remove INC, DROP, Convert to Float)
+df['Grade'] = pd.to_numeric(df['Grade'], errors='coerce')
+df = df.dropna(subset=['Grade', 'Year_Numeric', 'College', 'Subject'])
+df = df[(df['Grade'] >= 1.0) & (df['Grade'] <= 5.0)] # Valid range
+
+# 2. FILTER TO MAJOR SUBJECTS
+# Keep top 50 subjects by volume to ensure statistical significance
+top_subjects = df['Subject'].value_counts().nlargest(60).index.tolist()
 df = df[df['Subject'].isin(top_subjects)]
 
-print(f" > Training on top {len(top_subjects)} subjects (e.g., {top_subjects[:3]})...")
+print(f" > Aggregating trends for {len(top_subjects)} major subjects...")
 
-# 4. TRAIN MODEL
-target_col = 'Grade' if 'Grade' in df.columns else 'GWA'
-# We use One-Hot Encoding for College and Subject
-X = pd.get_dummies(df[['Year_Numeric', 'College', 'Subject']], columns=['College', 'Subject'])
-y = df[target_col]
+# 3. AGGREGATE TRENDS (Target: Average Grade per Year/College/Subject)
+# This creates a stable trend line rather than noisy individual points
+trend_df = df.groupby(['Year_Numeric', 'College', 'Subject'])['Grade'].mean().reset_index()
 
-model = RandomForestRegressor(n_estimators=50, random_state=42)
-model.fit(X, y)
+# 4. FEATURE ENGINEERING
+# One-Hot Encode Categorical Data
+X = pd.get_dummies(trend_df[['College', 'Subject']], prefix=['College', 'Subject'])
+X['Year_Numeric'] = trend_df['Year_Numeric']
+y = trend_df['Grade']
 
-# 5. EVALUATE & SAVE
-y_pred = model.predict(X)
-print(f" > R² Score: {r2_score(y, y_pred):.4f}")
-
-joblib.dump(model, os.path.join(MODEL_DIR, "subject_grade_model.pkl"))
+# Save Columns (Critical for API)
 joblib.dump(X.columns.tolist(), os.path.join(MODEL_DIR, "subject_grade_features.pkl"))
 
-print(f"Model saved successfully.")
+# 5. TRAINING
+model = RandomForestRegressor(n_estimators=100, random_state=42)
+model.fit(X, y)
+
+# 6. EVALUATE
+y_pred = model.predict(X)
+r2 = r2_score(y, y_pred)
+print(f" > Model R² Score: {r2:.4f}")
+
+# 7. SAVE
+joblib.dump(model, os.path.join(MODEL_DIR, "subject_grade_model.pkl"))
+print(f"\nModel saved to {MODEL_DIR}/subject_grade_model.pkl")

@@ -261,98 +261,208 @@
       </div>
 
       <div class="card card-wide">
-        <img id="dropoutBoxPlotImg_all" src="" alt="Loading Analysis..." style="border-radius: 20px; width: 100%; max-height: 360px; display: none;">
-        <div id="chart-loader">Loading ML Analysis...</div>
+          <div style="background-color: #fff; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
+
+              <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
+                  <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                      Retention & Risk Analysis: <span id="dp-college-name" style="color: #5a5c69;">Main Campus</span>
+                  </h6>
+                  <span id="drop-pie-badge" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>
+              </div>
+
+              <div style="padding: 1.25rem;">
+                  <div style="display: flex; flex-wrap: wrap; align-items: center; margin-right: -15px; margin-left: -15px;">
+                      
+                      <div style="flex: 0 0 66.66667%; max-width: 66.66667%; padding: 0 15px; box-sizing: border-box;">
+                          <div style="padding-top: 0.5rem; padding-bottom: 0.5rem;">
+                              <div style="height: 280px; position: relative;">
+                                  <canvas id="dropoutPieChart"></canvas>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div style="flex: 0 0 33.33333%; max-width: 33.33333%; padding: 0 15px; box-sizing: border-box;">
+                              
+                              <div style="margin-top: 1rem;">
+                                  <p style="font-weight: 700; margin-bottom: 0.25rem; font-size: 0.7rem; color: #858796; text-transform: uppercase;">RISK COMPOSITION:</p>
+                                  <div style="font-size: 0.7rem; font-weight: 700; color: #e74a3b; margin-bottom: 0.25rem;">
+                                      ● <span id="val-drop">0</span> Confirmed Drop
+                                  </div>
+                                  <div style="font-size: 0.7rem; font-weight: 700; color: #f6c23e; margin-bottom: 0.25rem;">
+                                      ● <span id="val-inc">0</span> Incomplete (INC)
+                                  </div>
+                                  <div style="font-size: 0.7rem; font-weight: 700; color: #858796;">
+                                      ● <span id="val-pred">0</span> Predicted Risk
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+
+                  </div>
+              </div>
+          </div>
       </div>
       
       <div class="card card-wide1">
-        <div class="card-ranking">
-            <canvas id="gwaTrendChart" style="height: 360px; width: 100%;"></canvas>
-        </div>
+          <div style="width: 100%;">
+              <div style="background-color: #fff; background-clip: border-box; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem;">
+
+                  <!-- Header with Dynamic Subtitle -->
+                  <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
+                      <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                          GWA Distribution (Student Scatter)
+                          <!-- THIS SPAN SHOWS THE FILTERS -->
+                          <span id="scatterSubtitle" style="font-weight: 400; color: #858796; margin-left: 10px; font-size: 0.85rem;">
+                              (Loading...)
+                          </span>
+                      </h6>
+                  </div>
+
+                  <div style=" padding: 1.25rem;">
+                      <div style="position: relative; height: 400px; width: 100%;">
+                          <canvas id="gwaScatterChart"></canvas>
+                      </div>
+                      
+                      <div style="margin-top: 1rem; text-align: center; font-size: 0.875rem; color: #858796;">
+                          <span style="margin-right: 1.5rem;">
+                              <i class="fas fa-circle" style="color: rgba(78, 115, 223, 0.6);"></i> Student GWA
+                          </span>
+                          <span>
+                              <i class="fas fa-info-circle"></i> 
+                              <strong>Vertical Position:</strong> Higher dots (Top) = Better Grades (1.0). 
+                              <strong>Horizontal:</strong> Randomized for readability (Swarm).
+                          </span>
+                      </div>
+                  </div>
+              </div>
+          </div>
       </div>
 
       <div class="card card-full-width">
-        <div class="card-ranking">
-          <div style="position: relative; display: flex; flex-direction: column; min-width: 0; word-wrap: break-word; background-color: #fff; background-clip: border-box; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem;">
-              
-              <!-- CARD HEADER -->
-              <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-radius: calc(0.35rem - 1px) calc(0.35rem - 1px) 0 0;">
-                  <h6 style="margin: 0; font-weight: 700; color: #4e73df; font-size: 1rem;">Top 10 Subjects: Grade Forecast (2022 - 2030)</h6>
-                  <div style="position: relative;">
-                      <span style="display: inline-block; padding: 0.25em 0.4em; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; color: #fff; background-color: #858796;">Multi-Line Analysis</span>
-                  </div>
+        <div style="background-color: white; border-radius: 10px;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Subject Difficulty Forecast (Top 5 Hardest)
+              </h6>
+          </div>
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+              <div style="position: relative; height: 350px; width: 100%;">
+                  <canvas id="subjectForecastChart"></canvas>
               </div>
-
-              <!-- CARD BODY -->
-              <div style="flex: 1 1 auto; padding: 1.25rem;">
-                  <div style="position: relative; height: 400px; width: 100%;">
-                      <canvas id="subjectForecastChart"></canvas>
+              
+              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
+              <div style="display: flex; justify-content: center; font-size: 0.875rem; color: #858796;">
+                  <div style="margin-right: 1.5rem;">
+                      <i class="fas fa-arrow-up" style="color: #e74a3b;"></i> Higher = Harder
                   </div>
-                  <div style="margin-top: 0.5rem; text-align: center; font-size: 0.875rem; color: #858796;">
-                      Comparing Average Grades of the Top 10 Most Enrolled Subjects.
+                  <div>
+                      <span style="border-bottom: 2px dashed #858796;">- - -</span> Forecast
                   </div>
               </div>
           </div>
         </div>
       </div>
 
-
       <div class="card third-square">
-        <div style="background-color: #fff; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem; padding: 10px; height: 480px;">
-            <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #fff; border-bottom: 1px solid #e3e6f0; display: flex; align-items: center; justify-content: space-between; border-radius: calc(0.35rem - 1px) calc(0.35rem - 1px) 0 0;">
-                <h6 style="font-weight: 700; color: #000000; font-size: 1rem;">Predicted Status Distribution</h6>
+        <div style="background-color: white; border-radius: 10px; margin-top: 10px;">
+          
 
-                <span id="status-year-badge" style="display: inline-block; padding: 0.25em 0.4em; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; color: #fff; background-color: #cc3636;">Loading...</span>
-            </div>
+          <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
 
-            <div style="flex: 1 1 auto; padding: 1.25rem;">
-                <div style="position: relative; height: 250px; width: 100%; padding-top: 1.5rem; padding-bottom: 0.5rem;">
-                    <canvas id="statusDoughnutChart"></canvas>
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Student Status Overview
+              </h6>
+              <h6 id="status-chart-title" style="margin: 0; color: #000000; font-size: 1rem;">
+                  Student Status Overview
+              </h6>
+              <span id="status-badge" style="display: inline-block; padding: 0.25rem 0.5rem; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.35rem; color: #fff; background-color: #858796;">Loading...</span>
+          </div>
 
-                <div style="margin-top: .5rem; text-align: center; font-size: 0.875rem; color: #5a5c69;">
-                    <span style="margin-right: 0.5rem;"><span style="color:#1cc88a; margin-right: 3px;">●</span> High</span>
-                    <span style="margin-right: 0.5rem;"><span style="color:#f6c23e; margin-right: 3px;">●</span> Avg</span>
-                    <span style="margin-right: 0.5rem;"><span style="color:#e74a3b; margin-right: 3px;">●</span> At-Risk</span>
-                </div>
-            </div>
+
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+
+              <div style="position: relative; height: 280px; width: 100%;">
+                  <canvas id="statusPieChart"></canvas>
+              </div>
+              
+              <div style="margin-top: 1.5rem; display: flex; justify-content: center; font-size: 0.875rem; text-align: center;">
+                  <div style="margin-right: 1.5rem;">
+                      <i class="fas fa-circle" style="color: #1cc88a;"></i> Regular
+                      <div id="val-regular" style="font-weight: 700; font-size: 1.25rem; margin-top: 0.25rem; color: #5a5c69;">0</div>
+                  </div>
+                  <div>
+                      <i class="fas fa-circle" style="color: #e74a3b;"></i> Irregular
+                      <div id="val-irregular" style="font-weight: 700; font-size: 1.25rem; margin-top: 0.25rem; color: #5a5c69;">0</div>
+                  </div>
+              </div>
+              
+              <div style="text-align: center; margin-top: 1rem;">
+                  <small style="color: #858796; font-style: italic;">
+                      *Irregular = Students with ≥1 Failed (5.0) or Dropped subject.
+                  </small>
+              </div>
           </div>
         </div>
       </div>
 
 
       <div class="card card-bottom-large">
-        <div class="card-ranking">
-          <div style="position: relative; display: flex; flex-direction: column; min-width: 0; word-wrap: break-word; background-color: #fff; background-clip: border-box; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem;">
+        <div style="background-color: #fff; background-clip: border-box; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem;">
 
-              <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; align-items: center; justify-content: space-between; border-radius: calc(0.35rem - 1px) calc(0.35rem - 1px) 0 0;">
-                  <h6 style="margin: 0; font-weight: 700; color: #e74a3b; font-size: 1rem;">Dropout Spike Detection (2022-2030)</h6>
-                  <span style="display: inline-block; padding: 0.25em 0.4em; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; color: #fff; background-color: #e74a3b;">Red Dot = Spike Detected</span>
-              </div>
+            <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
+                <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                    <i class="fas fa-chart-line" style="margin-right: 0.25rem;"></i> Dropout Trend & Spike Detection
+                </h6>
 
-              <div style="flex: 1 1 auto; padding: 1.25rem;">
-                  <div style="height: 350px; width: 100%; position: relative;">
-                      <canvas id="dropoutSpikeChart"></canvas>
-                  </div>
-                  <div style="margin-top: 0.5rem; text-align: center; font-size: 0.875rem; color: #858796;">
-                      A "Spike" is detected if the dropout rate increases by >10% from the previous year.
-                  </div>
-              </div>
-          </div>
+                <span style="display: inline-block; padding: 0.25rem 0.5rem; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.35rem; color: #fff; background-color: #e74a3b;">
+                    <i class="fas fa-circle" style="font-size: 8px;"></i> Red Dot = High Risk Spike
+                </span>
+            </div>
+
+            <div style="flex: 1 1 auto; padding: 1.25rem;">
+                <div style="position: relative; height: 350px; width: 100%;">
+                    <canvas id="dropoutSpikeChart"></canvas>
+                </div>
+                <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
+                <div style="display: flex; justify-content: center; font-size: 0.875rem; color: #858796;">
+                    <span style="margin-right: 1rem;"><span style="color:#4e73df; font-weight:bold;">—</span> Actual History</span>
+                    <span><span style="color:#4e73df; font-weight:bold;">- - -</span> AI Forecast (2025-2030)</span>
+                </div>
+            </div>
         </div>
       </div>
 
       <div class="card card-bottom-small">
-        <div class="card-ranking" style="height: 490px;">
-          <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; justify-content: space-between; align-items: center; border-radius: calc(0.35rem - 1px) calc(0.35rem - 1px) 0 0;">
-                <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">INC Rate Forecast (2022 - 2030)</h6>
+        <div style="border-radius: 10px; background-color: white;">
+          <div style="border-radius: 10px 10px 0px 0px; padding-top: 10px; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  <i class="fas fa-clock" style="margin-right: 0.25rem;"></i> INC Rate Forecast (Incomplete Grades)
+              </h6>
           </div>
-            
-            <!-- CARD BODY -->
-            <div style="flex: 1 1 auto; padding: 1.25rem;">
-                <div style="height: 350px; width: 100%; position: relative;">
-                    <canvas id="incForecastChart" style="height: 200px;"></canvas>
-                </div>
-            </div>
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+  
+              <div style="position: relative; height: 350px; width: 100%;">
+                  <canvas id="incForecastChart"></canvas>
+              </div>
+              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
+  
+              <div style="margin-top: 0.5rem; text-align: center; font-size: 0.875rem;">
+                  <span style="margin-right: 1rem;">
+                      <span style="display:inline-block; width:12px; height:12px; background-color:#3e6ff6; border-radius:50%;"></span>
+                      Actual History
+                  </span>
+                  <span>
+                      <span style="display:inline-block; width:12px; height:2px; background-color:#f6c23e; vertical-align:middle; margin-right:2px;"></span>
+                      <span style="display:inline-block; width:12px; height:2px; background-color:#f6c23e; vertical-align:middle;"></span>
+                      AI Prediction
+                  </span>
+              </div>
+              <div style="text-align: center; margin-top: 0.5rem;">
+                  <small style="color: #858796;">
+                      Predicts the percentage of students who will receive an 'INC' status based on college trends.
+                  </small>
+              </div>
+          </div>
         </div>
       </div>
     </section>

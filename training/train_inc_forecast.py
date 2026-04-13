@@ -10,50 +10,61 @@ DATA_PATH = "processed_datasets/Final_Merged_Student_Data.csv"
 MODEL_DIR = "Machine_Learning_Model"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-print("--- TRAINING INC RATE FORECAST MODEL ---")
+print("--- TRAINING INC RATE FORECAST MODEL (Status-Based) ---")
 
-# LOAD DATA
+# 1. LOAD DATA
 if not os.path.exists(DATA_PATH):
-    print("Error: Dataset not found.")
+    print(f"Error: Dataset not found at {DATA_PATH}")
     exit()
 
 df = pd.read_csv(DATA_PATH)
 
-# PREPROCESSING
+# 2. PREPROCESSING
 # Clean Year
 df['Year_Numeric'] = df['Year'].astype(str).str.extract(r'^(\d{4})').astype(int)
 
-# --- CRITICAL: IDENTIFY INC STUDENTS ---
-# Adjust 'Remarks' and 'INC' to match your actual CSV column/value
-# Example: df['is_inc'] = df['Grade'] == 'INC'
-if 'Remarks' in df.columns:
-    df['is_inc'] = df['Remarks'].apply(lambda x: 1 if str(x).upper().strip() == 'INC' else 0)
-else:
-    # Fallback: Random generation for testing if column missing (REMOVE IN PRODUCTION)
-    print("Warning: 'Remarks' column not found. Simulating INC data for training...")
-    np.random.seed(42)
-    df['is_inc'] = np.random.choice([0, 1], size=len(df), p=[0.95, 0.05]) # 5% INC rate
+# Clean Status
+if 'Status' not in df.columns:
+    print("Error: 'Status' column missing. Cannot train.")
+    exit()
 
-# AGGREGATE DATA (Calculate Rate per Year per College)
-# Group by Year and College
-grouped = df.groupby(['Year_Numeric', 'College']).agg(
-    total_students=('Student_ID', 'nunique'),
-    inc_count=('is_inc', 'sum')
+# Standardize Status
+df['Status'] = df['Status'].astype(str).str.strip().str.upper()
+
+# 3. IDENTIFY INC STUDENTS (Student-Level Aggregation)
+# We group by Student+Year+College to see if they had ANY 'INC' subject that year.
+print(" > Aggregating by Student...")
+
+# Helper: Check if 'INC' is in the list of statuses for a student
+student_df = df.groupby(['Student_ID', 'Year_Numeric', 'College'])['Status'].apply(
+    lambda statuses: 1 if any("INC" in s for s in statuses) else 0
+).reset_index(name='has_inc')
+
+# 4. CALCULATE RATE (College-Level Aggregation)
+# Now we count how many students had INC vs Total Students
+cohort_stats = student_df.groupby(['Year_Numeric', 'College']).agg(
+    total_students=('Student_ID', 'count'),
+    inc_student_count=('has_inc', 'sum')
 ).reset_index()
 
 # Calculate Percentage
-grouped['INC_Rate'] = (grouped['inc_count'] / grouped['total_students']) * 100
+cohort_stats['INC_Rate'] = (cohort_stats['inc_student_count'] / cohort_stats['total_students']) * 100
 
-# TRAIN MODEL
+# Filter out noise (years with very few students)
+cohort_stats = cohort_stats[cohort_stats['total_students'] > 5]
+
+print(f" > Training Data Points: {len(cohort_stats)}")
+
+# 5. TRAIN MODEL
 # Features: College (One-Hot), Year
-X = pd.get_dummies(grouped[['College']], prefix='College')
-X['Year_Numeric'] = grouped['Year_Numeric']
-y = grouped['INC_Rate']
+X = pd.get_dummies(cohort_stats[['College']], prefix='College')
+X['Year_Numeric'] = cohort_stats['Year_Numeric']
+y = cohort_stats['INC_Rate']
 
 model = LinearRegression()
 model.fit(X, y)
 
-# 5. EVALUATE
+# 6. EVALUATE
 y_pred = model.predict(X)
 r2 = r2_score(y, y_pred)
 mse = mean_squared_error(y, y_pred)
@@ -62,7 +73,7 @@ print(f"\nModel Performance:")
 print(f" > R² Score: {r2:.4f}")
 print(f" > MSE:      {mse:.4f}")
 
-# SAVE
+# 7. SAVE
 joblib.dump(model, os.path.join(MODEL_DIR, "inc_rate_model.pkl"))
 joblib.dump(X.columns.tolist(), os.path.join(MODEL_DIR, "inc_rate_features.pkl"))
 
