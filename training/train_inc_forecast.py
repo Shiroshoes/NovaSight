@@ -2,79 +2,65 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.ensemble import RandomForestRegressor # Non-linear is better for forecasting
+from sklearn.metrics import r2_score, root_mean_squared_error
 
-# --- CONFIGURATION ---
+# CONFIGURATION
 DATA_PATH = "processed_datasets/Final_Merged_Student_Data.csv"
 MODEL_DIR = "Machine_Learning_Model"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-print("--- TRAINING INC RATE FORECAST MODEL (Status-Based) ---")
+print("--- TRAINING SMART INC RATE FORECAST MODEL ---")
 
 # 1. LOAD DATA
-if not os.path.exists(DATA_PATH):
-    print(f"Error: Dataset not found at {DATA_PATH}")
-    exit()
-
 df = pd.read_csv(DATA_PATH)
 
 # 2. PREPROCESSING
-# Clean Year
 df['Year_Numeric'] = df['Year'].astype(str).str.extract(r'^(\d{4})').astype(int)
-
-# Clean Status
-if 'Status' not in df.columns:
-    print("Error: 'Status' column missing. Cannot train.")
-    exit()
-
-# Standardize Status
 df['Status'] = df['Status'].astype(str).str.strip().str.upper()
 
-# 3. IDENTIFY INC STUDENTS (Student-Level Aggregation)
-# We group by Student+Year+College to see if they had ANY 'INC' subject that year.
+# 3. STUDENT-LEVEL AGGREGATION (Adding GWA as a predictor)
 print(" > Aggregating by Student...")
+student_df = df.groupby(['Student_ID', 'Year_Numeric', 'College']).agg({
+    'Status': lambda s: 1 if any("INC" in str(x).upper() for x in s) else 0,
+    'GWA': 'mean' # Include performance context
+}).reset_index()
+student_df.rename(columns={'Status': 'has_inc'}, inplace=True)
 
-# Helper: Check if 'INC' is in the list of statuses for a student
-student_df = df.groupby(['Student_ID', 'Year_Numeric', 'College'])['Status'].apply(
-    lambda statuses: 1 if any("INC" in s for s in statuses) else 0
-).reset_index(name='has_inc')
-
-# 4. CALCULATE RATE (College-Level Aggregation)
-# Now we count how many students had INC vs Total Students
+# 4. COHORT AGGREGATION
 cohort_stats = student_df.groupby(['Year_Numeric', 'College']).agg(
     total_students=('Student_ID', 'count'),
-    inc_student_count=('has_inc', 'sum')
+    inc_student_count=('has_inc', 'sum'),
+    avg_gwa=('GWA', 'mean') # The model now "knows" if the cohort is doing better
 ).reset_index()
 
-# Calculate Percentage
 cohort_stats['INC_Rate'] = (cohort_stats['inc_student_count'] / cohort_stats['total_students']) * 100
-
-# Filter out noise (years with very few students)
 cohort_stats = cohort_stats[cohort_stats['total_students'] > 5]
 
-print(f" > Training Data Points: {len(cohort_stats)}")
+# 5. FEATURES + TARGET
+X_cats = pd.get_dummies(cohort_stats[['College']], prefix='College')
+X = pd.concat([X_cats, cohort_stats[['Year_Numeric', 'avg_gwa']]], axis=1)
+y = cohort_stats['INC_Rate'].values
 
-# 5. TRAIN MODEL
-# Features: College (One-Hot), Year
-X = pd.get_dummies(cohort_stats[['College']], prefix='College')
-X['Year_Numeric'] = cohort_stats['Year_Numeric']
-y = cohort_stats['INC_Rate']
-
-model = LinearRegression()
+# 6. TRAIN (Random Forest Regressor)
+# This model can predict a decrease if it sees GWA improving
+model = RandomForestRegressor(n_estimators=100, random_state=42)
 model.fit(X, y)
 
-# 6. EVALUATE
+# 7. EVALUATION (RMSE + R²)
 y_pred = model.predict(X)
+rmse = root_mean_squared_error(y, y_pred) # No need for sqrt if using this specific function
 r2 = r2_score(y, y_pred)
-mse = mean_squared_error(y, y_pred)
 
-print(f"\nModel Performance:")
-print(f" > R² Score: {r2:.4f}")
-print(f" > MSE:      {mse:.4f}")
+print("\n--- MODEL EVALUATION (Regression) ---")
+print(f" RMSE    = {rmse:.4f} (Avg % error)")
+print(f" R²      = {r2:.4f} (Fit quality)")
 
-# 7. SAVE
+# Note: For your classification model (Dropout), use:
+# Accuracy: Percentage of correct status guesses.
+# F1 Score: Reliability in catching at-risk students.
+
+# 8. SAVE
 joblib.dump(model, os.path.join(MODEL_DIR, "inc_rate_model.pkl"))
 joblib.dump(X.columns.tolist(), os.path.join(MODEL_DIR, "inc_rate_features.pkl"))
-
-print(f"\nSaved to {MODEL_DIR}/")
+print(f"\n[SUCCESS] Saved to {MODEL_DIR}/")

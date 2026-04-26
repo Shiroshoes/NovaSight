@@ -205,44 +205,72 @@
       </div>
 
       <div class="card card-wide">
-          <div style="background-color: #fff; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
-
-              <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
-                  <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                      Retention & Risk Analysis: <span id="dp-college-name" style="color: #5a5c69;">Main Campus</span>
+          <div class="card shadow" style="background: white; border-radius: 10px; overflow: hidden; font-family: sans-serif; height: 500px;">
+              <!-- Header -->
+              <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; align-items: center; justify-content: space-between;">
+                  <h6 style="margin: 0; font-weight: 700; color: #333; font-size: .8rem;">
+                      Retention & Risk Analysis: <span id="dp-college-name" style="color: #858796;">Loading...</span>
                   </h6>
-                  <span id="drop-pie-badge" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>
+                  <span id="drop-pie-badge" class="badge" style="color: white; padding: 5px; border-radius: 3px;">Loading...</span>
               </div>
-
-              <div style="padding: 1.25rem;">
-                  <div style="display: flex; flex-wrap: wrap; align-items: center; margin-right: -15px; margin-left: -15px;">
-                      
-                      <div style="flex: 0 0 66.66667%; max-width: 66.66667%; padding: 0 15px; box-sizing: border-box;">
-                          <div style="padding-top: 0.5rem; padding-bottom: 0.5rem;">
-                              <div style="height: 280px; position: relative;">
-                                  <canvas id="dropoutPieChart"></canvas>
-                              </div>
-                          </div>
+              
+              <div style="display: flex; padding: 1.25rem; flex-direction: column; align-items: center; justify-items: center;">
+                  <!-- Chart Area (60%) -->
+                  <div style="flex: 0 0 60%; max-width: 80%;">
+                      <div style="height: 280px; position: relative;">
+                          <canvas id="dropoutPieChart"></canvas>
                       </div>
-
-                      <div style="flex: 0 0 33.33333%; max-width: 33.33333%; padding: 0 15px; box-sizing: border-box;">
-                              
-                              <div style="margin-top: 1rem;">
-                                  <p style="font-weight: 700; margin-bottom: 0.25rem; font-size: 0.7rem; color: #858796; text-transform: uppercase;">RISK COMPOSITION:</p>
-                                  <div style="font-size: 0.7rem; font-weight: 700; color: #e74a3b; margin-bottom: 0.25rem;">
-                                      ● <span id="val-drop">0</span> Confirmed Drop
-                                  </div>
-                                  <div style="font-size: 0.7rem; font-weight: 700; color: #f6c23e; margin-bottom: 0.25rem;">
-                                      ● <span id="val-inc">0</span> Incomplete (INC)
-                                  </div>
-                                  <div style="font-size: 0.7rem; font-weight: 700; color: #858796;">
-                                      ● <span id="val-pred">0</span> Predicted Risk
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-
                   </div>
+
+                <!-- Metrics Row (Male 0 and Female 1) -->
+                <div style="width: 100%; display: flex; flex-direction: row; justify-content: space-around; padding-top: 3rem;">
+                    
+                    <!-- DROPPED Metric Group -->
+                    <div style="text-align: center;">
+                        <div style="font-size: .7rem; font-weight: 600; color: black; text-transform: uppercase; margin-bottom: 0.5rem;">Dropped Status</div>
+                        <div style="display: flex; gap: 15px; font-size: 0.85rem; justify-content: center;">
+                            <div style="display: flex; flex-direction: column;">
+                                <span style="font-size: 0.6rem; color: #e74a3b;">MALE</span>
+                                <b id="m-drop" style="color: #e74a3b;">0</b>
+                            </div>
+                            <div style="display: flex; flex-direction: column; border-left: 1px solid #ddd; padding-left: 10px;">
+                                <span style="font-size: 0.6rem; color: #858796;">FEMALE</span>
+                                <b id="f-drop" style="color: #858796;">0</b>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- INC Metric Group -->
+                    <div style="text-align: center;">
+                        <div style="font-size: .7rem; font-weight: 600; color: black; text-transform: uppercase; margin-bottom: 0.5rem;">Incomplete (INC)</div>
+                        <div style="display: flex; gap: 15px; font-size: 0.85rem; justify-content: center;">
+                            <div style="display: flex; flex-direction: column;">
+                                <span style="font-size: 0.6rem; color: #f6c23e;">MALE</span>
+                                <b id="m-inc" style="color: #f6c23e;">0</b>
+                            </div>
+                            <div style="display: flex; flex-direction: column; border-left: 1px solid #ddd; padding-left: 10px;">
+                                <span style="font-size: 0.6rem; color: #fd7e14;">FEMALE</span>
+                                <b id="f-inc" style="color: #fd7e14;">0</b>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- REGULAR Metric Group -->
+                    <div style="text-align: center;">
+                        <div style="font-size: .7rem; font-weight: 600; color: black; text-transform: uppercase; margin-bottom: 0.5rem;">Regular / Safe</div>
+                        <div style="display: flex; gap: 15px; font-size: 0.85rem; justify-content: center;">
+                            <div style="display: flex; flex-direction: column;">
+                                <span style="font-size: 0.6rem; color: #4e73df;">MALE</span>
+                                <b id="m-reg" style="color: #4e73df;">0</b>
+                            </div>
+                            <div style="display: flex; flex-direction: column; border-left: 1px solid #ddd; padding-left: 10px;">
+                                <span style="font-size: 0.6rem; color: #d84a85;">FEMALE</span>
+                                <b id="f-reg" style="color: #d84a85;">0</b>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
               </div>
           </div>
       </div>

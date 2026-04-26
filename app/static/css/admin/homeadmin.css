@@ -1,8 +1,8 @@
 :root {
     --font-sans: "Inter", sans-serif;
     --font-display: "Outfit", sans-serif;
-    --bg-dark: #1a0c0c;
-    --bg-col: #fd2a2a;
+    --bg-dark: #ffffff;
+    --bg-col: #ffffff;
     --bg-glow: #2A86FD;
     --grey-input: #D9D9D9;
     --danger: #FF4D4D;
@@ -26,7 +26,7 @@ body {
   width: 240px;
   height: 100%;
   background-color: #020F17;
-  background: radial-gradient(circle at 10% 80%, #fd2a2a -50%, transparent 45%);
+  background: #800000;
   padding: 20px;
   border-right: 1px solid #e29c9c;
 }
@@ -42,14 +42,14 @@ body {
     gap: 12px;
     padding: 12px;
     border-radius: 12px;
-    background: rgba(90, 95, 120, 0.5);
+    background: rgba(120, 115, 90, 0.5);
     color: #ffffff;
     font-size: 16px;
     text-decoration: none;
     width: 210px;
     font-weight: bold;
     border-width: 2px;
-    border: 1px solid #5A5F78;
+    border: 1px solid #785a5a;
 }
 
 .active-bordericon {
@@ -76,7 +76,7 @@ body {
     padding: 12px;
     gap: 12px;
     border-radius: 12px;
-    color: #94a3b8;
+    color: #ffffff;
     font-size: 16px;
     transition: 0.3s;
     text-decoration: none;
@@ -99,8 +99,8 @@ body {
 }
 
 .menu-btn:hover {
-    background: rgba(255,255,255,0.05);
-    color: #e2e8f0;
+    background: rgba(120, 115, 90, 0.5);
+    color: #f0e2e2;
     width: 210px;
     font-weight: bold;
 }
@@ -142,7 +142,7 @@ header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #3b2121;
+    background: #800000;
     backdrop-filter: blur(15px);
     padding: 20px 40px;
     margin-left: 24px;
@@ -221,7 +221,7 @@ header {
 
 /* --- Common Card Styling (Glassmorphism Effect) --- */
 .card {
-  background: rgba(5, 10, 20, 0.3); /* Translucent dark bg */
+  background: rgba(5, 10, 20, 0.534); /* Translucent dark bg */
   backdrop-filter: blur(15px);     /* Glass blur effect */
   border-radius: 20px;
   border: 1px solid rgba(148, 163, 184, 0.15); /* Soft border */
@@ -252,7 +252,7 @@ header {
 }
 
 .welcome-content p {
-  color: #94a3b8; /* Muted text color */
+  color: #ffffff; /* Muted text color */
   font-size: 1.1rem;
   line-height: 1.6;
   margin-bottom: 40px; /* Space before the button */
@@ -346,13 +346,14 @@ footer {
 }
 
 .page-label {
-    color: #94a3b8; /* Muted grey for "Page/" */
+    color: #000000; /* Muted grey for "Page/" */
     font-size: 1rem;
 }
 
 .page-name {
-    color: #ffffff; /* Bright white for "Home" */
+    color: #800000; /* Bright white for "Home" */
     font-weight: bold;
+    margin-left: 5px;
     font-size: 1rem;
 }
 
