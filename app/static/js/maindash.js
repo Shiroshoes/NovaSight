@@ -48,116 +48,82 @@ document.addEventListener("DOMContentLoaded", function() {
 
 // M/F piechart GWA
 function updateDropoutPie(year, college) {
-    // Get Semester from the dropdown
     const semDropdown = document.getElementById('filterSemester');
     const semester = semDropdown ? semDropdown.value : 'all';
-
+    
     const canvas = document.getElementById('dropoutPieChart');
-    if (!canvas) return;
+    const collegeLabel = document.getElementById('dp-college-name'); 
+    const badge = document.getElementById('drop-pie-badge');         
 
     fetch(`/api/get_dropout_pie?year=${year}&college=${college}&semester=${semester}`)
         .then(res => res.json())
         .then(data => {
-            // 1. Handle Empty Data
-            if (data.error || !data.data || data.total === 0) {
-                if(document.getElementById('dp-total')) document.getElementById('dp-total').innerText = "0";
-                if(document.getElementById('val-drop')) document.getElementById('val-drop').innerText = "0";
-                
-                // Optional: Clear chart if no data
-                if (dropoutPieChart) {
-                    dropoutPieChart.data.datasets[0].data = [];
-                    dropoutPieChart.update();
-                }
-                return;
-            }
-            
-            // 2. Update Badges & Text (DOM Manipulation)
-            const badge = document.getElementById('drop-pie-badge');
+            // 1. Update Badge and Title Header
             if(badge) {
                 badge.innerText = `${year} ${data.mode}`;
-                if (data.mode === "Forecast") {
-                    badge.className = "badge bg-warning text-dark";
-                    badge.style.backgroundColor = "#ffc107"; 
-                } else {
-                    badge.className = "badge bg-success text-white";
-                    badge.style.backgroundColor = "#1cc88a";
-                }
+                badge.style.backgroundColor = data.mode === "Forecast" ? "#ffc107" : "#858796";
+            }
+            if (collegeLabel) {
+                const cName = data.display_college === 'ALL' ? 'Main Campus' : data.display_college;
+                const sName = data.display_sem === 'ALL' ? 'All Semesters' : data.display_sem;
+                collegeLabel.innerText = `${cName} - ${sName}`;
             }
 
-            const titleSpan = document.getElementById('dp-college-name');
-            if(titleSpan) {
-                let displayCollege = (college === 'all' || college === 'Overall') ? 'Main Campus' : college;
-                let displaySem = (semester === 'all') ? '' : `(${semester})`;
-                titleSpan.innerText = `${displayCollege} ${displaySem}`;
-            }
+            // 3. Update Sidebar (Strict Index Mapping)
+            // Indices: 0:M-Reg, 1:M-INC, 2:M-Drop | 3:F-Reg, 4:F-INC, 5:F-Drop
+            // Inside your fetch .then block
+            const counts = data.data;
 
-            const b = data.breakdown;
-            if(document.getElementById('val-pred')) document.getElementById('val-pred').innerText = b.forecast_risk || 0;
-            if(document.getElementById('val-drop')) document.getElementById('val-drop').innerText = b.actual_drops || 0;
-            if(document.getElementById('val-inc')) document.getElementById('val-inc').innerText = b.actual_incs || 0;
+            // Update Female Sidebar Values
+            if(document.getElementById('f-reg'))  document.getElementById('f-reg').innerText  = counts[3];
+            if(document.getElementById('f-inc'))  document.getElementById('f-inc').innerText  = counts[4];
+            if(document.getElementById('f-drop')) document.getElementById('f-drop').innerText = counts[5];
+
+            // Update Male Sidebar Values
+            if(document.getElementById('m-reg'))  document.getElementById('m-reg').innerText  = counts[0];
+            if(document.getElementById('m-inc'))  document.getElementById('m-inc').innerText  = counts[1];
+            if(document.getElementById('m-drop')) document.getElementById('m-drop').innerText = counts[2];
 
 
-            // --- 3. RENDER CHART WITH ANIMATION ---
+            // 4. Update / Render Chart
             const ctx = canvas.getContext('2d');
+            if (dropoutPieChart) dropoutPieChart.destroy();
 
-            if (dropoutPieChart) {
-                // === MORPHING LOGIC ===
-                // Instead of destroying, we simply update the data arrays.
-                // Chart.js will automatically interpolate the transition.
-                
-                dropoutPieChart.data.labels = data.labels;
-                dropoutPieChart.data.datasets[0].data = data.data;
-                dropoutPieChart.data.datasets[0].backgroundColor = data.colors;
-                
-                dropoutPieChart.update(); // <--- Triggers the smooth animation
-                
-            } else {
-                // === INITIAL CREATION ===
-                dropoutPieChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.labels,
-                        datasets: [{
-                            data: data.data,
-                            backgroundColor: data.colors,
-                            hoverBorderColor: "rgba(255, 255, 255, 1)",
-                            borderWidth: 2,
-                            hoverOffset: 10 // Pops out on hover
-                        }],
+            dropoutPieChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        data: data.data,
+                        backgroundColor: data.colors,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    animation: {
+                        animateScale: true,
+                        animateRotate: true,
+                        duration: 800,
+                        easing: 'easeOutQuart'
                     },
-                    options: {
-                        maintainAspectRatio: false,
-                        cutout: '70%', // Thinner ring looks more modern
-                        responsive: true,
-                        animation: {
-                            animateScale: true,  // Zooms in from center
-                            animateRotate: true, // Spins in
-                            duration: 800,
-                            easing: 'easeOutQuart'
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: "rgba(255,255,255,0.9)",
-                                bodyColor: "#858796",
-                                borderColor: '#dddfeb',
-                                borderWidth: 1,
-                                callbacks: {
-                                    label: function(context) {
-                                        let value = context.raw;
-                                        let label = context.label;
-                                        let pct = Math.round((value / data.total) * 100) + '%';
-                                        return ` ${label}: ${value} (${pct})`;
-                                    }
-                                }
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.label}: ${ctx.raw} (${Math.round((ctx.raw/data.total)*100)}%)`
                             }
                         }
                     }
-                });
-            }
-        })
-        .catch(err => console.error("Dropout Pie Fatal Error:", err));
+                }
+            });
+        });
 }
+
+
+
+
 
 
 

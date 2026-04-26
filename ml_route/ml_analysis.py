@@ -23,6 +23,9 @@ if os.path.exists(DATA_PATH):
     try:
         df_full_loaded = pd.read_csv(DATA_PATH)
 
+        # gender
+        df_full_loaded['Gender'] = df_full_loaded['Gender'].astype(str).str.strip().str.title()
+
         #  FIX: DO NOT REMOVE GWA = 0 (important for INC)
         df_full_loaded = df_full_loaded[df_full_loaded['GWA'].notna()].copy()
 
@@ -100,179 +103,118 @@ dropout_spike_features = load_model("dropout_spike_features.pkl")
 @ml_bp.route('/api/get_dropout_pie')
 def get_dropout_pie():
     try:
-
-        #  INPUTS ─
+        # --- 1. INPUTS ---
         year = int(request.args.get('year', 2024))
         college_arg = request.args.get('college', 'all').strip()
-        semester = request.args.get('semester', 'all').strip()
+        semester_arg = request.args.get('semester', 'all').strip()
 
-        # normalize college filter
-        if college_arg.lower() in ['main campus', 'overall', 'all', '']:
-            target_college = 'all'
-        else:
-            target_college = college_arg
-
-        #  MODE ─
-        LATEST_REAL_YEAR = 2024
-        is_forecast = year > LATEST_REAL_YEAR
+        target_college = 'all' if college_arg.lower() in ['main campus', 'all', ''] else college_arg
+        target_sem = 'all' if semester_arg.lower() in ['all', 'overall'] else semester_arg
+        
+        is_forecast = year > 2024
         mode_label = "Forecast" if is_forecast else "Actual History"
 
-        #  YEAR COLUMN FIX 
-        if 'Year_Numeric' not in df_full_loaded.columns:
-            df_full_loaded['Year_Numeric'] = (
-                df_full_loaded['Year']
-                .astype(str)
-                .str.extract(r'^(\d{4})')[0]
-                .astype(float)
-            )
+        # --- 2. SELECT COHORT ---
+        cohort_year = 2024 if is_forecast else year
+        cohort = df_full_loaded[df_full_loaded['Year_Numeric'] == cohort_year].copy()
 
-        #  SELECT COHORT ─
-        if is_forecast:
-            cohort = df_full_loaded[
-                df_full_loaded['Year_Numeric'] == LATEST_REAL_YEAR
-            ].copy()
-        else:
-            cohort = df_full_loaded[
-                df_full_loaded['Year_Numeric'] == year
-            ].copy()
-
-        #  FILTERS 
         if target_college != 'all':
-            cohort = cohort[
-                cohort['College'].astype(str).str.strip().str.upper()
-                == target_college.upper()
-            ]
-
-        if semester.lower() not in ['all', 'overall']:
-            cohort = cohort[
-                cohort['Semester'].astype(str).str.strip().str.upper()
-                == semester.upper()
-            ]
+            cohort = cohort[cohort['College'].astype(str).str.upper() == target_college.upper()]
+        if target_sem != 'all':
+            cohort = cohort[cohort['Semester'].astype(str).str.upper() == target_sem.upper()]
 
         if cohort.empty:
-            return jsonify({
-                "labels": [],
-                "data": [],
-                "total": 0,
-                "mode": mode_label
-            })
+            return jsonify({"labels": [], "data": [], "total": 0, "mode": mode_label})
 
+        # --- 3. AGGREGATE & NORMALIZE ---
         student_cohort = cohort.groupby("Student_ID").agg({
-            "Gender": "first",
-            "College": "first",
-            "Semester": "first",
-            "Year": "first",
-            "Grade": list
+            "Gender": "first", "College": "first", "Semester": "first", "Grade": list
         }).reset_index()
 
-        student_cohort["Grade"] = student_cohort["Grade"].apply(
-            lambda x: x if isinstance(x, list) else []
-        )
+        def get_numeric_stats(grades):
+            clean_g = [float(g) for g in grades if str(g).replace('.','').isdigit()]
+            return pd.Series([np.mean(clean_g) if clean_g else 3.0, 
+                              np.min(clean_g) if clean_g else 3.0, 
+                              len(clean_g)])
 
-        #  STUDENT FLAGS ─
+        student_cohort[["Avg_Grade", "Min_Grade", "Subject_Count"]] = student_cohort["Grade"].apply(get_numeric_stats)
+        
+        # STRICT GENDER MAPPING (Male=0, Female=1)
+        # CSV stores gender as numeric 0.0/1.0, handle both numeric and string formats
+        def map_gender(val):
+            try:
+                return int(float(val))  # handles 0.0, 1.0, "0", "1"
+            except (ValueError, TypeError):
+                s = str(val).strip().title()
+                return 1 if s == "Female" else 0
+        student_cohort["Gender_Code"] = student_cohort["Gender"].apply(map_gender)
 
-        student_cohort["is_drop"] = student_cohort["Grade"].apply(
-            lambda grades: 0 in grades
-        )
-
-        student_cohort["is_inc"] = student_cohort["Grade"].apply(
-            lambda grades: 5 in grades
-        )
-
-        student_cohort["Risk_Status"] = (
-            student_cohort["is_drop"] | student_cohort["is_inc"]
-        ).astype(int)
-
-        actual_drops = int(student_cohort["is_drop"].sum())
-        actual_incs = int(student_cohort["is_inc"].sum())
-
-
-        forecast_risk = 0
-
+        # --- 4. PREDICT OR LABEL ---
         if is_forecast:
+            # Apply a realistic grade drift for future years so predictions
+            # are not identical to the present-year data.
+            # Each year beyond 2024 nudges avg/min grades slightly upward
+            # (worse performance trend), which shifts at-risk classification.
+            years_ahead = year - 2024
+            grade_drift = years_ahead * 0.08   # e.g. +0.08 per year
+            drifted_avg = (student_cohort["Avg_Grade"] + grade_drift).clip(upper=5.0)
+            drifted_min = (student_cohort["Min_Grade"] + grade_drift * 1.5).clip(upper=5.0)
 
-            # SAFE: student-level prediction base
-            student_features = student_cohort.copy()
-
-            X_pred = pd.DataFrame(
-                0,
-                index=np.arange(len(student_features)),
-                columns=drop_pie_features
-            )
-
+            X_pred = pd.DataFrame(0, index=np.arange(len(student_cohort)), columns=drop_pie_features)
             X_pred["Year_Numeric"] = year
+            X_pred["Gender_Code"] = student_cohort["Gender_Code"].values
+            X_pred["Avg_Grade"] = drifted_avg.values
+            X_pred["Min_Grade"] = drifted_min.values
+            X_pred["Subject_Count"] = student_cohort["Subject_Count"].values
 
-            # Gender
-            if "Gender" in drop_pie_features:
-                if student_features["Gender"].dtype == "object":
-                    X_pred["Gender"] = student_features["Gender"].map(
-                        {"Male": 0, "Female": 1}
-                    ).fillna(0).values
-                else:
-                    X_pred["Gender"] = student_features["Gender"].fillna(0).values
-
-            # College encoding
             for col in drop_pie_features:
                 if col.startswith("College_"):
-                    c_name = col.replace("College_", "").strip()
-                    mask = student_features["College"].astype(str).str.strip() == c_name
-                    X_pred.loc[mask.values, col] = 1
-
+                    c_name = col.replace("College_", "")
+                    X_pred[col] = (student_cohort["College"] == c_name).astype(int).values
                 if col.startswith("Semester_"):
-                    s_name = col.replace("Semester_", "").strip()
-                    mask = student_features["Semester"].astype(str).str.strip() == s_name
-                    X_pred.loc[mask.values, col] = 1
+                    s_name = col.replace("Semester_", "")
+                    X_pred[col] = (student_cohort["Semester"] == s_name).astype(int).values
 
-            # PREDICT (STUDENT LEVEL ONLY)
-            preds = drop_pie_model.predict(X_pred)
-            preds = np.clip(np.round(preds), 0, 1)
-
-            student_features["Risk_Status"] = preds
-
-            forecast_risk = int(np.sum(preds))
-
-            # overwrite for pie chart consistency
-            student_cohort = student_features
-
-        # PIE CHART COMPUTATION (STUDENT LEVEL ONLY)
-
-        df_final = student_cohort.copy()
-
-        if df_final["Gender"].dtype == "object":
-            df_final["Gender_Num"] = df_final["Gender"].map(
-                {"Male": 0, "Female": 1}
-            ).fillna(0)
+            student_cohort["Status_Label"] = drop_pie_model.predict(X_pred)
         else:
-            df_final["Gender_Num"] = df_final["Gender"].fillna(0)
+            def get_history_label(grades):
+                g = [float(x) for x in grades if str(x).replace('.','').isdigit()]
+                if not g: return 0
+                if any(v in [0.0, 9.0] for v in g): return 2 # Drop
+                if any(v in [5.0, 8.0] for v in g): return 1 # INC
+                return 0
+            student_cohort["Status_Label"] = student_cohort["Grade"].apply(get_history_label)
 
-        m_stay = len(df_final[(df_final["Risk_Status"] == 0) & (df_final["Gender_Num"] == 0)])
-        f_stay = len(df_final[(df_final["Risk_Status"] == 0) & (df_final["Gender_Num"] == 1)])
-        m_risk = len(df_final[(df_final["Risk_Status"] == 1) & (df_final["Gender_Num"] == 0)])
-        f_risk = len(df_final[(df_final["Risk_Status"] == 1) & (df_final["Gender_Num"] == 1)])
-
-        total = len(df_final)
-
-        risk_pct = round(((m_risk + f_risk) / total * 100), 1) if total > 0 else 0
-
-        #  RESPONSE 
+        # --- 5. THE 6-WAY COUNT ---
+        # Map values locally to ensure Female is visible
+        df_f = student_cohort
+        
+        df_f["Gender_Int"] = pd.to_numeric(df_f["Gender"], errors='coerce').fillna(0).astype(int)
+        
+        counts = [
+            len(df_f[(df_f.Gender_Code == 0) & (df_f.Status_Label == 0)]), # [0] M-Regular
+            len(df_f[(df_f.Gender_Code == 0) & (df_f.Status_Label == 1)]), # [1] M-INC
+            len(df_f[(df_f.Gender_Code == 0) & (df_f.Status_Label == 2)]), # [2] M-Drop
+            len(df_f[(df_f.Gender_Code == 1) & (df_f.Status_Label == 0)]), # [3] F-Regular
+            len(df_f[(df_f.Gender_Code == 1) & (df_f.Status_Label == 1)]), # [4] F-INC
+            len(df_f[(df_f.Gender_Code == 1) & (df_f.Status_Label == 2)])  # [5] F-Drop
+        ]
 
         return jsonify({
-            "labels": ["Male (Safe)", "Female (Safe)", "Male (Risk)", "Female (Risk)"],
-            "data": [m_stay, f_stay, m_risk, f_risk],
-            "colors": ["#4e73df", "#36b9cc", "#e74a3b", "#f6c23e"],
-            "total": total,
-            "risk_pct": risk_pct,
+            "labels": ["Male Regular", "Male INC", "Male Drop", "Female Regular", "Female INC", "Female Drop"],
+            "data": counts,
+            "colors": ["#4e73df", "#f6c23e", "#e74a3b", "#d84a85", "#fd7e14", "#858796"],
+            "total": int(len(df_f)),
             "mode": mode_label,
-            "breakdown": {
-                "actual_drops": actual_drops,
-                "actual_incs": actual_incs,
-                "forecast_risk": forecast_risk
-            }
+            "display_college": target_college.upper(),
+            "display_sem": target_sem.upper()
         })
-
     except Exception as e:
-        print(f"Dropout Pie Error: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+
+
     
 
 
@@ -934,6 +876,7 @@ def get_subject_forecast():
 
 
 
+
 #drop spike
 @ml_bp.route('/api/get_dropout_spike')
 def get_dropout_spike():
@@ -1034,6 +977,7 @@ def get_dropout_spike():
         print(f"Dropout Spike Error: {e}")
         return jsonify({"error": str(e)}), 500
     
+
 
 
 # Irreg multiline
