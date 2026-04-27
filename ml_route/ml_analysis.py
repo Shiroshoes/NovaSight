@@ -7,6 +7,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import io
 import base64
+import traceback
+from sklearn.metrics import (
+    accuracy_score, f1_score,
+    r2_score, root_mean_squared_error
+)
+from sklearn.model_selection import train_test_split
 from flask import Blueprint, jsonify, request
 
 ml_bp = Blueprint('ml_analysis', __name__)
@@ -1086,4 +1092,333 @@ def get_status_pie():
 
     except Exception as e:
         print(f"Status Pie Error: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+
+
+
+
+
+
+
+
+
+
+# metrics evaluation
+@ml_bp.route('/api/get_model_metrics')
+def get_model_metrics():
+    try:
+        if df_full_loaded.empty:
+            return jsonify({"error": "Dataset not loaded"}), 500
+ 
+        results = []
+ 
+        # ── Helper ──────────────────────────────────────────────
+        def reg_metrics(model, feats, X, y, name, description):
+            """Evaluate a regression model and append to results."""
+            try:
+                if model is None or feats is None:
+                    raise ValueError("Model or features not loaded")
+                X_aligned = X.reindex(columns=feats, fill_value=0)
+                y_pred = model.predict(X_aligned)
+                rmse = float(np.sqrt(root_mean_squared_error(y, y_pred)))
+                r2   = float(r2_score(y, y_pred))
+                results.append({
+                    "name": name,
+                    "description": description,
+                    "type": "regression",
+                    "metrics": {"RMSE": round(rmse, 4), "R²": round(r2, 4)},
+                    "status": "ok"
+                })
+            except Exception as e:
+                results.append({"name": name, "description": description,
+                                "type": "regression", "metrics": {},
+                                "status": "error", "error": str(e)})
+ 
+        def clf_metrics(model, feats, X, y, name, description):
+            """Evaluate a classification model and append to results."""
+            try:
+                if model is None or feats is None:
+                    raise ValueError("Model or features not loaded")
+                X_aligned = X.reindex(columns=feats, fill_value=0)
+                y_pred = model.predict(X_aligned)
+                acc = float(accuracy_score(y, y_pred))
+                f1  = float(f1_score(y, y_pred, average='macro', zero_division=0))
+                results.append({
+                    "name": name,
+                    "description": description,
+                    "type": "classification",
+                    "metrics": {
+                        "Accuracy": round(acc, 4),
+                        "F1 (Macro)": round(f1, 4)
+                    },
+                    "status": "ok"
+                })
+            except Exception as e:
+                results.append({"name": name, "description": description,
+                                "type": "classification", "metrics": {},
+                                "status": "error", "error": str(e)})
+ 
+        df = df_full_loaded.copy()
+ 
+        # ── 1. Dropout Risk Classifier (Random Forest) ──────────
+        try:
+            def classify_status(row):
+                try:
+                    g = float(str(row['Grade']).strip())
+                    status = str(row['Status']).upper()
+                    if g in [0.0, 9.0] or any(x in status for x in ['DROP', 'WITHDRAW', 'LOA']):
+                        return 2
+                    if g in [5.0, 8.0] or 'INC' in status:
+                        return 1
+                except:
+                    pass
+                return 0
+ 
+            df['status_signal'] = df.apply(classify_status, axis=1)
+            s_df = df.groupby("Student_ID").agg({
+                "Gender": "first", "College": "first",
+                "Semester": "first", "Year": "first",
+                "Grade": ["mean", "min", "count"],
+                "status_signal": "max"
+            }).reset_index()
+            s_df.columns = ["Student_ID", "Gender", "College", "Semester",
+                            "Year", "Avg_Grade", "Min_Grade", "Subject_Count", "Status_Label"]
+            s_df["Gender_Code"] = pd.to_numeric(s_df["Gender"], errors="coerce").fillna(0).astype(int)
+            s_df["Year_Numeric"] = s_df["Year"].astype(str).str.extract(r"(\d{4})")[0]
+            s_df["Year_Numeric"] = pd.to_numeric(s_df["Year_Numeric"], errors="coerce").fillna(2024)
+            X1 = pd.get_dummies(s_df[["Gender_Code", "College", "Semester", "Year_Numeric",
+                                      "Avg_Grade", "Min_Grade", "Subject_Count"]],
+                                columns=["College", "Semester"], drop_first=False)
+            y1 = s_df["Status_Label"]
+            clf_metrics(drop_pie_model, drop_pie_features, X1, y1,
+                        "Dropout Risk Classifier",
+                        "Predicts student status: Regular / INC / Drop using Random Forest")
+        except Exception as e:
+            results.append({"name": "Dropout Risk Classifier", "type": "classification",
+                            "description": "Random Forest — student status prediction",
+                            "metrics": {}, "status": "error", "error": str(e)})
+ 
+        # ── 2. Dropout Spike Model (Linear Regression) ──────────
+        try:
+            df2 = df.copy()
+            df2['Year_Numeric'] = df2['Year'].astype(str).str.extract(r'^(\d{4})').astype(float)
+            df2['Status'] = df2['Status'].astype(str).str.strip().str.upper()
+            s2 = df2.groupby(['Student_ID', 'Year_Numeric', 'College'])['Status'].apply(list).reset_index()
+            s2['is_dropout'] = s2['Status'].apply(
+                lambda ss: 1 if any("DROP" in str(x) for x in ss) else 0)
+            coh = s2.groupby(['Year_Numeric', 'College']).agg(
+                total_students=('Student_ID', 'count'),
+                dropout_count=('is_dropout', 'sum')).reset_index()
+            coh['Dropout_Rate'] = (coh['dropout_count'] / coh['total_students']) * 100
+            coh = coh[coh['total_students'] > 5]
+            X2 = pd.get_dummies(coh[['College']], prefix='College')
+            X2['Year_Numeric'] = coh['Year_Numeric'].values
+            y2 = coh['Dropout_Rate'].values
+            reg_metrics(dropout_spike_model, dropout_spike_features, X2, y2,
+                        "Dropout Spike Forecast",
+                        "Predicts dropout rate spikes by year & college using Linear Regression")
+        except Exception as e:
+            results.append({"name": "Dropout Spike Forecast", "type": "regression",
+                            "description": "Linear Regression — dropout rate over time",
+                            "metrics": {}, "status": "error", "error": str(e)})
+ 
+        # ── 3. Dropout Ranking per College (Linear Regression) ──
+        try:
+            df3 = df.copy()
+            df3["Year_Numeric"] = df3["Year"].astype(str).str.extract(r"(\d{4})")[0].astype(float)
+            df3["Status"] = df3["Status"].astype(str).str.strip().str.upper()
+            s3 = df3.groupby("Student_ID").agg({
+                "College": "first", "Year_Numeric": "first",
+                "Semester": "first", "Status": list}).reset_index()
+            s3["is_drop"] = s3["Status"].apply(
+                lambda ss: int(any("DROP" in str(x) for x in ss)))
+            X3 = pd.get_dummies(s3[["College", "Semester"]], drop_first=False)
+            X3["Year_Numeric"] = s3["Year_Numeric"].values
+            y3 = s3["is_drop"].values
+            reg_metrics(dropout_ranking_model, dropout_ranking_features, X3, y3,
+                        "Dropout Ranking per College",
+                        "Ranks colleges by predicted dropout likelihood using Linear Regression")
+        except Exception as e:
+            results.append({"name": "Dropout Ranking per College", "type": "regression",
+                            "description": "Linear Regression — per-college dropout ranking",
+                            "metrics": {}, "status": "error", "error": str(e)})
+ 
+        # ── 4. GWA Ranking per College (Linear Regression) ──────
+        try:
+            df4 = df.copy()
+            df4['Year_Numeric'] = df4['Year'].astype(str).str.extract(r'(\d{4})')[0].astype(float)
+            sem_map4 = {'1': 1, '2': 2, 'SUMMER': 3}
+            df4['Sem_Numeric'] = df4['Semester'].astype(str).str.upper().apply(
+                lambda x: next((v for k, v in sem_map4.items() if k in x), 1))
+            df4['GWA'] = pd.to_numeric(df4['GWA'], errors='coerce')
+            df4 = df4.dropna(subset=['GWA', 'College', 'Year_Numeric'])
+            df4 = df4[(df4['GWA'] >= 1.0) & (df4['GWA'] <= 5.0)]
+            X4 = pd.get_dummies(df4[['College']], prefix='College', drop_first=False)
+            X4['Year_Numeric'] = df4['Year_Numeric'].values
+            X4['Sem_Numeric']  = df4['Sem_Numeric'].values
+            y4 = df4['GWA'].values
+            reg_metrics(gwa_ranking_model, gwa_ranking_features, X4, y4,
+                        "GWA Ranking per College",
+                        "Predicts average GWA per college using Linear Regression")
+        except Exception as e:
+            results.append({"name": "GWA Ranking per College", "type": "regression",
+                            "description": "Linear Regression — GWA per college",
+                            "metrics": {}, "status": "error", "error": str(e)})
+ 
+        # ── 5. GWA Trend Model (Linear Regression) ──────────────
+        try:
+            df5 = df.copy()
+            df5['GWA'] = pd.to_numeric(df5['GWA'], errors='coerce')
+            df5 = df5[(df5['GWA'] >= 1.0) & (df5['GWA'] <= 5.0)]
+            df5['Year_Numeric'] = df5['Year'].astype(str).str.extract(r'^(\d{4})').astype(int)
+            sem_map5 = {"1sem": 1, "1st": 1, "2sem": 2, "2nd": 2, "summer": 3}
+            df5['Sem_Numeric'] = df5['Semester'].astype(str).str.lower().apply(
+                lambda x: next((v for k, v in sem_map5.items() if k in x), 1))
+            X5 = pd.get_dummies(df5[['College']], drop_first=False, prefix='College')
+            X5['Year_Numeric'] = df5['Year_Numeric'].values
+            X5['Sem_Numeric']  = df5['Sem_Numeric'].values
+            y5 = df5['GWA'].values
+            reg_metrics(gwa_trend_model, gwa_trend_features, X5, y5,
+                        "GWA Trend Forecast",
+                        "Tracks GWA trends over semesters using Linear Regression")
+        except Exception as e:
+            results.append({"name": "GWA Trend Forecast", "type": "regression",
+                            "description": "Linear Regression — semester GWA trend",
+                            "metrics": {}, "status": "error", "error": str(e)})
+ 
+        # ── 6. INC Rate Forecast (Random Forest Regressor) ──────
+        try:
+            df6 = df.copy()
+            df6['Year_Numeric'] = df6['Year'].astype(str).str.extract(r'^(\d{4})').astype(int)
+            df6['Status'] = df6['Status'].astype(str).str.strip().str.upper()
+            s6 = df6.groupby(['Student_ID', 'Year_Numeric', 'College']).agg({
+                'Status': lambda s: 1 if any("INC" in str(x) for x in s) else 0,
+                'GWA': 'mean'}).reset_index()
+            s6.rename(columns={'Status': 'has_inc'}, inplace=True)
+            c6 = s6.groupby(['Year_Numeric', 'College']).agg(
+                total_students=('Student_ID', 'count'),
+                inc_student_count=('has_inc', 'sum'),
+                avg_gwa=('GWA', 'mean')).reset_index()
+            c6['INC_Rate'] = (c6['inc_student_count'] / c6['total_students']) * 100
+            c6 = c6[c6['total_students'] > 5]
+            X6_cats = pd.get_dummies(c6[['College']], prefix='College')
+            X6 = pd.concat([X6_cats, c6[['Year_Numeric', 'avg_gwa']]], axis=1)
+            y6 = c6['INC_Rate'].values
+            reg_metrics(inc_model, inc_features, X6, y6,
+                        "INC Rate Forecast",
+                        "Forecasts incomplete-grade rates per college using Random Forest")
+        except Exception as e:
+            results.append({"name": "INC Rate Forecast", "type": "regression",
+                            "description": "Random Forest Regressor — INC rate forecast",
+                            "metrics": {}, "status": "error", "error": str(e)})
+ 
+        # ── 7. Regular vs Irregular Rate (Linear Regression) ────
+        try:
+            df7 = df.copy()
+            df7['Year_Numeric'] = df7['Year'].astype(str).str.extract(r'^(\d{4})').astype(int)
+            df7['Status'] = df7['Status'].astype(str).str.strip().str.upper()
+            sem_map7 = {"1sem": 1, "1st": 1, "2sem": 2, "2nd": 2, "summer": 3}
+            df7['Sem_Numeric'] = df7['Semester'].astype(str).str.lower().apply(
+                lambda x: next((v for k, v in sem_map7.items() if k in x), 1))
+            s7 = df7.groupby(['Year_Numeric', 'College', 'Sem_Numeric', 'Student_ID']).agg(
+                {'Status': list}).reset_index()
+            s7['is_irregular'] = s7['Status'].apply(
+                lambda ss: 1 if any(x in " ".join(str(v).upper() for v in ss)
+                                    for x in ['DROP', 'INC']) else 0)
+            c7 = s7.groupby(['Year_Numeric', 'College', 'Sem_Numeric']).agg(
+                total_students=('Student_ID', 'count'),
+                irregular_count=('is_irregular', 'sum')).reset_index()
+            c7['Irregular_Rate'] = (c7['irregular_count'] / c7['total_students']) * 100
+            c7 = c7[c7['total_students'] > 10]
+            X7 = pd.get_dummies(c7[['College']], prefix='College')
+            X7['Year_Numeric'] = c7['Year_Numeric'].values
+            X7['Sem_Numeric']  = c7['Sem_Numeric'].values
+            y7 = c7['Irregular_Rate'].values
+            reg_metrics(status_model, status_features, X7, y7,
+                        "Regular vs Irregular Rate",
+                        "Forecasts irregular student rates per semester using Linear Regression")
+        except Exception as e:
+            results.append({"name": "Regular vs Irregular Rate", "type": "regression",
+                            "description": "Linear Regression — irregularity rate forecast",
+                            "metrics": {}, "status": "error", "error": str(e)})
+ 
+        # ── 8. KPI GWA Forecaster (Linear Regression) ───────────
+        try:
+            df8 = df.copy()
+            df8['Year_Numeric'] = df8['Year'].astype(str).str.extract(r'^(\d{4})').astype(float)
+            sem_map8 = {"1sem": 1, "1st": 1, "2sem": 2, "2nd": 2, "summer": 3}
+            df8['Sem_Numeric'] = df8['Semester'].astype(str).str.lower().apply(
+                lambda x: next((v for k, v in sem_map8.items() if k in x), 1))
+            df8['GWA'] = pd.to_numeric(df8['GWA'], errors='coerce')
+            df8 = df8.dropna(subset=['GWA', 'Year_Numeric', 'College'])
+            df8 = df8[(df8['GWA'] >= 1.0) & (df8['GWA'] <= 5.0)]
+            X8 = pd.get_dummies(df8[['College']], prefix='College')
+            X8['Year_Numeric'] = df8['Year_Numeric'].values
+            X8['Sem_Numeric']  = df8['Sem_Numeric'].values
+            y8 = df8['GWA'].values
+            reg_metrics(kpi_gwa_model, kpi_gwa_features, X8, y8,
+                        "KPI — GWA Forecaster",
+                        "Powers the GWA KPI card using Linear Regression")
+        except Exception as e:
+            results.append({"name": "KPI — GWA Forecaster", "type": "regression",
+                            "description": "Linear Regression — KPI GWA card",
+                            "metrics": {}, "status": "error", "error": str(e)})
+ 
+        # ── 9. KPI Enrollment Forecaster (Linear Regression) ────
+        try:
+            df9 = df.copy()
+            df9['Year_Numeric'] = df9['Year'].astype(str).str.extract(r'^(\d{4})').astype(float)
+            df9['GWA'] = pd.to_numeric(df9['GWA'], errors='coerce')
+            df9 = df9.dropna(subset=['GWA', 'Year_Numeric', 'College'])
+            df9 = df9[(df9['GWA'] >= 1.0) & (df9['GWA'] <= 5.0)]
+            e9 = df9.groupby(['Year_Numeric', 'College'])['Student_ID'].nunique().reset_index()
+            e9.rename(columns={'Student_ID': 'Count'}, inplace=True)
+            X9 = pd.get_dummies(e9[['College']], prefix='College')
+            X9['Year_Numeric'] = e9['Year_Numeric'].values
+            y9 = e9['Count'].values
+            reg_metrics(kpi_enroll_model, kpi_enroll_features, X9, y9,
+                        "KPI — Enrollment Forecaster",
+                        "Powers the Enrollment KPI card using Linear Regression")
+        except Exception as e:
+            results.append({"name": "KPI — Enrollment Forecaster", "type": "regression",
+                            "description": "Linear Regression — KPI enrollment card",
+                            "metrics": {}, "status": "error", "error": str(e)})
+ 
+        # ── 10. Subject Risk Classifier (Random Forest) ─────────
+        try:
+            df10 = df.copy()
+            df10['Year_Numeric'] = df10['Year'].astype(str).str.extract(r'^(\d{4})').astype(float)
+            df10['Status'] = df10['Status'].astype(str).str.strip().str.upper()
+            if 'Course_Subject_Name' in df10.columns:
+                df10['Subject'] = df10['Course_Subject_Name'].str.upper().str.strip()
+            elif 'Subject' in df10.columns:
+                df10['Subject'] = df10['Subject'].str.upper().str.strip()
+            else:
+                raise ValueError("Subject column not found")
+            df10['Grade'] = pd.to_numeric(df10['Grade'], errors='coerce')
+            df10 = df10.dropna(subset=['Grade', 'Year_Numeric', 'College', 'Subject', 'Status'])
+            def label_status(s):
+                if "DROP" in s: return 2
+                if "INC" in s:  return 1
+                return 0
+            df10['Status_Label'] = df10['Status'].apply(label_status)
+            top_subjects = df10['Subject'].value_counts().nlargest(60).index.tolist()
+            df10 = df10[df10['Subject'].isin(top_subjects)]
+            X10 = pd.get_dummies(df10[['College', 'Subject']], prefix=['College', 'Subject'])
+            X10['Year_Numeric'] = df10['Year_Numeric'].values
+            X10['Grade']        = df10['Grade'].values
+            y10 = df10['Status_Label'].values
+            clf_metrics(subj_model, subj_features, X10, y10,
+                        "Subject Risk Classifier",
+                        "Classifies subject-level risk (Pass / INC / Drop) using Random Forest")
+        except Exception as e:
+            results.append({"name": "Subject Risk Classifier", "type": "classification",
+                            "description": "Random Forest — per-subject risk classification",
+                            "metrics": {}, "status": "error", "error": str(e)})
+ 
+        return jsonify({"models": results, "total": len(results)})
+ 
+    except Exception as e:
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
