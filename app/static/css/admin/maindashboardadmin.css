@@ -554,3 +554,104 @@ select.form-select option {
 .hidden {
     display: none;
 }
+
+
+
+
+
+
+
+
+/* --- Eval design addition --- */
+.card-full-width1 { grid-column: span 5; height: 480px; padding: 10px; }
+
+.ml-skeleton {
+  height: 148px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: mlShimmer 1.4s infinite;
+}
+@keyframes mlShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Model metric card */
+.ml-model-card {
+  border-radius: 8px;
+  padding: 1rem 1.1rem 0.9rem;
+  border-left: 5px solid #4e73df;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07);
+  transition: transform .18s ease, box-shadow .18s ease;
+  animation: mlCardIn .35s ease both;
+}
+.ml-model-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+}
+.ml-model-card.clf  { border-left-color: #1cc88a; }
+.ml-model-card.err  { border-left-color: #e74a3b; }
+@keyframes mlCardIn {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.ml-card-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 0.25rem;
+  padding: 2px 7px;
+  border-radius: 20px;
+  display: inline-block;
+}
+.ml-card-label.reg { color:#4e73df; }
+.ml-card-label.clf { color:#1cc88a; }
+.ml-card-label.err { background:#fdecea; color:#e74a3b; }
+
+.ml-card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0.4rem 0 0.18rem;
+  line-height: 1.25;
+}
+.ml-card-desc {
+  font-size: 0.65rem;
+  color: #858796;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+.ml-metrics-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.ml-metric-box {
+  flex: 1;
+  min-width: 80px;
+  background: #f8f9fc;
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  text-align: center;
+}
+.ml-metric-key {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #858796;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.ml-metric-val {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-top: 2px;
+}
+/* Quality colour coding */
+.val-great  { color: #1cc88a; }
+.val-good   { color: #36b9cc; }
+.val-fair   { color: #f6c23e; }
+.val-poor   { color: #e74a3b; }
