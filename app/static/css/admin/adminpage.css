@@ -9,6 +9,7 @@
     --danger: #FF4D4D;
 }
 
+
 body {
     background-color: #020617;
     background-image: radial-gradient(circle at 80% 70%, var(--bg-col) -60%, var(--bg-dark) 45%);
