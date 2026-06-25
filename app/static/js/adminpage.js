@@ -25,18 +25,23 @@ document.addEventListener('DOMContentLoaded', function () {
                     const ep = document.getElementById('editPassword');
                     if (ep) { ep.value = ''; ep.type = 'password'; ep.style.borderColor = ''; ep.setCustomValidity(''); }
 
-                    const archiveBadge = document.getElementById('editArchivedBadge');
-                    if (archiveBadge) {
-                        archiveBadge.style.display = data.is_archived ? 'inline-block' : 'none';
-                        if (data.is_archived && data.date_archived) {
-                            archiveBadge.title = 'Deactivated on ' + data.date_archived;
-                        }
+                    const deactivatedText = document.getElementById('editDeactivatedText');
+                    const deactivateBtn   = document.getElementById('deactivateUserBtn');
+                    const activateBtn     = document.getElementById('activateUserBtn');
+
+                    if (data.is_archived) {
+                        // Inactive user: show red text + Activate only
+                        if (deactivatedText) deactivatedText.style.display = 'block';
+                        if (deactivateBtn)   deactivateBtn.style.display   = 'none';
+                        if (activateBtn)     activateBtn.style.display     = 'inline-block';
+                    } else {
+                        // Active user: hide red text + Activate; show Deactivate only
+                        if (deactivatedText) deactivatedText.style.display = 'none';
+                        if (deactivateBtn)   deactivateBtn.style.display   = 'inline-block';
+                        if (activateBtn)     activateBtn.style.display     = 'none';
                     }
 
                     editForm.action = `/NovaSight/admin/update_user/${userId}`;
-
-                    const deactivateBtn = document.getElementById('deactivateUserBtn');
-                    const activateBtn   = document.getElementById('activateUserBtn');
 
                     if (deactivateBtn) {
                         deactivateBtn.onclick = () => {
@@ -83,6 +88,25 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('editRole').value        = data.role;
                     document.getElementById('editDateCreated').value = data.date_created;
                     editForm.action = `/NovaSight/admin/update_user/${userId}`;
+
+                    // Always archived — show red text + Activate only
+                    const deactivatedText = document.getElementById('editDeactivatedText');
+                    const deactivateBtn   = document.getElementById('deactivateUserBtn');
+                    const activateBtn     = document.getElementById('activateUserBtn');
+                    if (deactivatedText) deactivatedText.style.display = 'block';
+                    if (deactivateBtn)   deactivateBtn.style.display   = 'none';
+                    if (activateBtn) {
+                        activateBtn.style.display = 'inline-block';
+                        activateBtn.onclick = () => {
+                            if (confirm("Restore / activate this user?")) {
+                                fetch(`/NovaSight/admin/restore_user/${userId}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                                }).then(() => location.reload())
+                                  .catch(err => console.error("Restore error:", err));
+                            }
+                        };
+                    }
                 })
                 .catch(err => console.error("Fetch error:", err));
         });
