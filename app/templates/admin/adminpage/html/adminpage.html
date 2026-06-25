@@ -185,109 +185,228 @@
 
     <section class="dashboard-grid">
         
-        <div class="card account-list-card">
-            <h3 class="blue-title">Account list</h3>
-            <hr class="card-hr">
+      <div class="dashboard-col-left">
+          
+          <div class="card account-list-card">
+              <h3 class="blue-title">Account list</h3>
+              <hr class="card-hr">
+              
+              {% for user in users %}
+                  <div class="account-item">
+                      <div class="user-info">
+                          <svg class="item-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:20px;"><path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" /></svg>
+                          <div>
+                              <span style="font-weight:600;">{{ user.last_name }}, {{ user.first_name }}{% if user.mi %} {{ user.mi }}.{% endif %}</span>
+                              <span style="font-size:0.75rem; color:#666; margin-left:8px;">{{ user.role }}</span>
+                              {% if user.date_created %}
+                              <span style="font-size:0.7rem; color:#999; display:block;">Added: {{ user.date_created.strftime('%b %d, %Y') }}</span>
+                              {% endif %}
+                          </div>
+                      </div>
+                      <div class="item-actions">
+                          <button class="play-btn edit-btn" data-user-id="{{ user.acaduser_id }}" title="Edit user">
+                              <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;"><path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" /></svg>
+                          </button>
+                      </div>
+                  </div>
+              {% else %}
+                  <div class="account-item">
+                      <div class="user-info">
+                          <span>No active accounts found.</span>
+                      </div>
+                  </div>
+              {% endfor %}
+          </div>
             
-            {% for user in users %}
-                <div class="account-item">
-                    <div class="user-info">
-                        <svg class="item-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:20px;"><path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" /></svg>
-                        <span>{{ user.username }}</span> 
-                    </div>
-                    <div class="item-actions">
-                        <button class="play-btn edit-btn" data-user-id="{{ user.acaduser_id }}">
-                            <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;"><path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" /></svg>
-                        </button>
-                        <button class="del-btn delete-btn" data-user-id="{{ user.acaduser_id }}">
-                            <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;"><path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 1-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5 0l.5 8.5a.75.75 0 0 0 1.5 0l-.5-8.5Zm4.33 0a.75.75 0 0 1 1.5 0l-.5 8.5a.75.75 0 0 1-1.5 0l.5-8.5Z" clip-rule="evenodd" /></svg>
-                        </button>
-                    </div>
-                </div>
-            {% else %}
-                {# Message if there are no accounts #}
-                <div class="account-item">
-                    <div class="user-info">
-                        <span>No accounts found.</span>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
 
-        <div class="card management-card">
-            
-            <div class="edit-header">
-                <h3 class="blue-title">Edit User</h3>
-            </div>
-            <div class="form-content slide-hidden" id="editUserSection">
-                <form id="editUserForm" method="POST"> 
-                    <input type="hidden" name="user_id" id="editUserId">
-                    <div class="form-group"><label>Username:</label><input type="text" name="username" id="editUsername" placeholder="Username" required></div>
-                    <div class="form-group"><label>Account:</label><input type="text" name="account" id="editAccount" placeholder="Account" required></div> 
-                    <div class="form-group"><label>Password:</label><input type="password" name="password" id="editPassword" placeholder="Password"></div>
-                    <div class="form-group">
-                        <label>Role:</label>
-                        <select name="role" id="editRole" class="role-selector" required>
-                          <option value="" style="color: #999;" disabled selected hidden>Select a Role</option>
-                            <option value="admin">Admin</option>
-                            <option value="Registrar">Registrar</option>
-                            <option value="SASO">SASO</option>
-                            <option value="Student_Affair">Student Affair</option>
-                            <option value="CAHSdean">CAHS Dean</option>
-                            <option value="CBAdean">CBA Dean</option>
-                            <option value="CCSTdean">CCST Dean</option>
-                            <option value="CEAdean">CEA Dean</option>
-                            <option value="CoASdean">CoAS Dean</option>
-                            <option value="CTECdean">CTEC Dean</option>
-                        </select>
-                    </div>
-                    <div class="btn-row">
-                        <button type="submit" class="btn blue">Save</button>
-                        <button type="button" class="btn grey" id="clearEditFormBtn">Clear</button>
-                        <button type="button" class="btn red" id="deleteUserBtn">Delete</button>
+          <div class="card account-list-card">
+              <h3 class="blue-title">Inactive Account List</h3>
+              <hr class="card-hr">
+              {% for user in archived_users %}
+                  <div class="account-item" style="opacity:0.7;">
+                      <div class="user-info">
+                          <svg class="item-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:20px; color:#999;"><path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" /></svg>
+                          <div>
+                              <span style="font-weight:600; text-decoration:line-through; color:#888;">{{ user.last_name }}, {{ user.first_name }}{% if user.mi %} {{ user.mi }}.{% endif %}</span>
+                              <span style="font-size:0.75rem; color:#999; margin-left:8px;">{{ user.role }}</span>
+                              {% if user.date_archived %}
+                              <span style="font-size:0.7rem; color:#bbb; display:block;">Deactivated: {{ user.date_archived.strftime('%b %d, %Y') }}</span>
+                              {% endif %}
+                          </div>
+                      </div>
+                      <div class="item-actions">
+                          <button class="play-btn edit-btn" data-user-id="{{ user.acaduser_id }}" title="Edit / Restore user">
+                              <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;"><path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" /></svg>
+                          </button>
+                      </div>
+                  </div>
+              {% else %}
+                  <div class="account-item">
+                      <div class="user-info">
+                          <span>No inactive accounts.</span>
+                      </div>
+                  </div>
+              {% endfor %}
+          </div>
 
-                        <div class="spacebtn">
-                          <Button type="button" class="btn grey" id="backuserbtn">Back</Button>
-                        </div>
-                    </div>
-                </form>
-            </div>
+      </div>
 
-            <hr class="card-hr">
+      <div class="dashboard-col-right">
 
-            <div class="add-header" id="plusToggle">
+
+          <div class="card management-card">
+              
+              <div class="edit-header">
+                  <h3 class="blue-title">Edit User</h3>
+
+                  <hr class="card-hr">
+              </div>
+              <div class="form-content slide-hidden" id="editUserSection">
+                  <form id="editUserForm" method="POST"> 
+                      <input type="hidden" name="user_id" id="editUserId">
+
+                      <div class="form-group" style="margin-bottom:6px;">
+                        <label style="font-size:0.75rem; color:#000000;">Added:</label>
+                        <input type="text" id="editDateCreated" readonly>
+                      </div>
+
+                      <div class="form-group">
+                        <label>First Name:</label>
+                        <input type="text" name="first_name" id="editFirstName" placeholder="First Name" required>
+                      </div>
+                      <div class="form-group">
+                        <label>Last Name:</label>
+                        <input type="text" name="last_name" id="editLastName" placeholder="Last Name" required>
+                      </div>
+                      <div class="form-group">
+                        <label>Middle Initial:</label>
+                        <input type="text" name="mi" id="editMI" class="mi-input" placeholder="MI" maxlength="2" style="max-width:80px;">
+                      </div>
+
+                      <div class="form-group"><label>Account:</label><input type="text" name="account" id="editAccount" placeholder="Account" readonly style="background:#f0f0f0; color:#555;"></div>
+                      <div class="form-group align-start">
+                          <label for="editPassword">Password:</label>
+                          <div class="password-field-container">
+                              <div class="password-wrapper">
+                                  <input
+                                    type="password"
+                                    id="editPassword"
+                                    name="password"
+                                    placeholder="Leave blank to keep current"
+                                    autocomplete="new-password"
+                                    minlength="8"
+                                    maxlength="16"
+                                    title="Must be 8–16 characters with at least one uppercase letter, one number, and one special character."
+                                  >
+                              </div>
+                              <span class="password-hint">Password must be 8-16 characters long, containing at least one uppercase letter, one number, and one special character.</span>
+                          </div>
+                      </div>
+                      <div class="form-group">
+                          <label>Role:</label>
+                          <select name="role" id="editRole" class="role-selector" required>
+                            <option value="" style="color: #999;" disabled selected hidden>Select a Role</option>
+                              <option value="admin">Admin</option>
+                              <option value="Registrar">Registrar</option>
+                              <option value="SASO">SASO</option>
+                              <option value="Student_Affair">Student Affair</option>
+                              <option value="CAHSdean">CAHS Dean</option>
+                              <option value="CBAdean">CBA Dean</option>
+                              <option value="CCSTdean">CCST Dean</option>
+                              <option value="CEAdean">CEA Dean</option>
+                              <option value="CoASdean">CoAS Dean</option>
+                              <option value="CTECdean">CTEC Dean</option>
+                          </select>
+                      </div>
+                      <span id="editArchivedBadge" style="display:none; background:#ff4d4d; color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:20px; margin-bottom:8px; display:inline-block;">DEACTIVATED</span>
+                      <div class="btn-row">
+                          <button type="submit" class="btn blue">Save</button>
+                          <button type="button" class="btn grey" id="clearEditFormBtn">Clear</button>
+                          <button type="button" class="btn red" id="deactivateUserBtn">Deactivate</button>
+                          <button type="button" class="btn green" id="activateUserBtn">Activate</button>
+                          <div class="spacebtn">
+                            <button type="button" class="btn grey" id="backuserbtn">Back</button>
+                          </div>
+                      </div>
+                  </form>
+              </div>
+
+              
+              <div class="add-header" id="plusToggle">
                 <h3 class="blue-title">Add User</h3>
                 <span class="plus-box">+</span>
-            </div>
-            <div class="form-content slide-hidden" id="addUserSection">
-                <form action="{{ url_for('admin_bp.add_user') }}" method="POST">
-                    <div class="form-group"><label>Username:</label><input type="text" name="username" placeholder="Username" required></div>
-                    <div class="form-group"><label>Account:</label><input type="text" name="account" placeholder="Account" required></div>
-                    <div class="form-group"><label>Password:</label><input type="password" name="password" placeholder="Password" required></div>
-                    <div class="form-group">
-                        <label>Role:</label>
-                        <select name="role" class="role-selector" required>
-                          <option value="" style="color: #999;" disabled selected hidden>Select a Role</option>
-                            <option value="admin">Admin</option>
-                            <option value="Registrar">Registrar</option>
-                            <option value="SASO">SASO</option>
-                            <option value="Student_Affair">Student Affair</option>
-                            <option value="CAHSdean">CAHS Dean</option>
-                            <option value="CBAdean">CBA Dean</option>
-                            <option value="CCSTdean">CCST Dean</option>
-                            <option value="CEAdean">CEA Dean</option>
-                            <option value="CoASdean">CoAS Dean</option>
-                            <option value="CTECdean">CTEC Dean</option>
-                        </select>
-                    </div>
-                    <div class="btn-row">
-                        <button type="submit" class="btn blue">Add</button>
-                        <button type="button" class="btn grey">Clear</button>
-                    </div>
-                </form>
-            </div>
-        
-        </div>
+                
+              </div>
+
+              <hr class="card-hr">
+
+              <div class="form-content slide-hidden" id="addUserSection">
+                  <form action="{{ url_for('admin_bp.add_user') }}" method="POST">
+                      <div class="form-group">
+                        <label>First Name:</label>
+                        <input type="text" name="first_name" placeholder="First Name" required>
+                      </div>
+                      <div class="form-group">
+                        <label>Last Name:</label>
+                        <input type="text" name="last_name" placeholder="Last Name" required>
+                      </div>
+                      <div class="form-group">
+                        <label>Middle Initial:</label>
+                        <input type="text" name="mi" class="mi-input" placeholder="MI" maxlength="2" style="max-width:80px;">
+                      </div>
+
+                      <div class="form-group"><label>Account:</label><input type="text" name="account" placeholder="Account" required></div>
+                    
+                      <div class="form-group align-start">
+                          <label for="password_input">Password:</label>
+                          <div class="password-field-container">
+                              <div class="password-wrapper">
+                                  <input 
+                                    type="password" 
+                                    id="password_input"
+                                    name="password" 
+                                    placeholder="Password" 
+                                    autocomplete="new-password"
+                                    minlength="8"
+                                    maxlength="16"
+                                    pattern="^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&amp;*()_+\-={}|:;&quot;&#39;&lt;&gt;?,./]).{8,16}$"
+                                    title="Must be 8–16 characters with at least one uppercase letter, one number, and one special character."
+                                    oninvalid="this.setCustomValidity('Password must be 8–16 characters and include at least one uppercase letter, one number, and one special character.')"
+                                    oninput="this.setCustomValidity('')"
+                                    required
+                                  >
+                                  <button type="button" id="generatePasswordBtn" class="generateBtn" title="Generate Random Password">Generate Password</button>
+                              </div>
+                              <span class="password-hint">Password must be 8-16 characters long, containing at least one uppercase letter, one number, and one special character.</span>
+                          </div>
+                      </div>
+
+                      <div class="form-group">
+                          <label>Role:</label>
+                          <select name="role" class="role-selector" required>
+                            <option value="" style="color: #999;" disabled selected hidden>Select a Role</option>
+                              <option value="admin">Admin</option>
+                              <option value="Registrar">Registrar</option>
+                              <option value="SASO">SASO</option>
+                              <option value="Student_Affair">Student Affair</option>
+                              <option value="CAHSdean">CAHS Dean</option>
+                              <option value="CBAdean">CBA Dean</option>
+                              <option value="CCSTdean">CCST Dean</option>
+                              <option value="CEAdean">CEA Dean</option>
+                              <option value="CoASdean">CoAS Dean</option>
+                              <option value="CTECdean">CTEC Dean</option>
+                          </select>
+                      </div>
+                      <div class="btn-row">
+                          <button type="submit" class="btn blue">Add</button>
+                          <button type="button" class="btn grey">Clear</button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+
+      </div>
+
         <script src="{{ url_for('static', filename='js/adminpage.js') }}"></script>
     </section>
 
@@ -297,8 +416,8 @@
       <h1 class="brand-name">NovaSight</h1>
       <p class="confirmation-text">Are you sure you want to logout?</p>
       <div class="button-group">
-        <button id="confirmLogoutBtn" class="btn btn-primary">Logout</button>
-        <button id="cancelLogoutBtn" class="btn btn-primary">Back</button>
+        <button id="confirmLogoutBtn" class="btn-new btn-primary">Logout</button>
+        <button id="cancelLogoutBtn" class="btn-new btn-primary">Back</button>
       </div>
     </div>
   </div>

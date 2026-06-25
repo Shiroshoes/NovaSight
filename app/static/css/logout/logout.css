@@ -57,6 +57,16 @@
   transition: transform 0.2s, background-color 0.2s;
 }
 
+.btn-new {
+  padding: 15px;
+  border-radius: 50px; /* Pill shape */
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
 .btn-primary {
   background-color: #800000 ; /* Modern Blue */
   color: white;

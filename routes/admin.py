@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, session, redirect, flash,
 from database.models import AcadUser, db
 from util.utils import allowed_file, save_file
 from configs.config import ALLOWED_ROLES
+from datetime import datetime
 
 # ---------------- Blueprint Setup ----------------
 admin_bp = Blueprint('admin_bp', __name__, url_prefix='/NovaSight/admin')
@@ -10,9 +11,9 @@ admin_bp = Blueprint('admin_bp', __name__, url_prefix='/NovaSight/admin')
 @admin_bp.route('/')
 def dashboard():
     if 'user_id' not in session or session.get('role') != 'admin':
-        return redirect(url_for('home'))  # redirect to public home
+        return redirect(url_for('home'))
 
-    users = AcadUser.query.all()
+    users = AcadUser.query.filter_by(is_archived=False).all()
     return render_template('admin/homeadmin/html/homeadmin.html', users=users)
 
 # ---------------- Admin Management Page (Adminpage) ----------------
@@ -21,8 +22,13 @@ def admin_page():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
 
-    all_users = AcadUser.query.all()
-    return render_template('admin/adminpage/html/adminpage.html', users=all_users)
+    active_users   = AcadUser.query.filter_by(is_archived=False).all()
+    archived_users = AcadUser.query.filter_by(is_archived=True).all()
+    return render_template(
+        'admin/adminpage/html/adminpage.html',
+        users=active_users,
+        archived_users=archived_users
+    )
 
 # ---------------- Profile Page (Profileadmin) ----------------
 @admin_bp.route('/profile')
@@ -39,78 +45,55 @@ def profile():
         user_image_url=user.profile_image_url
     )
 
-
 # ------------ Help admin ------------
 @admin_bp.route('/help')
 def help_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    
     return render_template('admin/helpadmin/html/helpadmin.html')
 
-
-# --------- dasshboard naaa --------
-#main dashboard
+# --------- Dashboards --------
 @admin_bp.route('/maindashboard')
 def maindash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    
     return render_template('admin/dashboard/maindashboardadmin/html/maindashboardadmin.html', college_type='all')
 
-#cahs dashboard
 @admin_bp.route('/cahsdashboard')
 def cahsdash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    
     return render_template('admin/dashboard/cahsdashboardadmin/html/cahsdashboardadmin.html', college_type='CAHS')
 
-#cba dashboard
 @admin_bp.route('/cbadashboard')
 def cbadash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    
     return render_template('admin/dashboard/cbadashboardadmin/html/cbadashboardadmin.html', college_type='CBA')
 
-
-#ccst dash
 @admin_bp.route('/ccstdashboard')
 def ccstdash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    
     return render_template('admin/dashboard/ccstdashboardadmin/html/ccstdashboardadmin.html', college_type='CCST')
-
-
-#cea dash
 
 @admin_bp.route('/ceadashboard')
 def ceadash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    
     return render_template('admin/dashboard/ceadashboardadmin/html/ceadashboardadmin.html', college_type='CEA')
 
-
-#coas dash
 @admin_bp.route('/coasdashboard')
 def coasdash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    
     return render_template('admin/dashboard/coasdashboardadmin/html/coasdashboardadmin.html', college_type='COAS')
 
-
-#ctec dash
 @admin_bp.route('/ctecdashboard')
 def ctecdash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    
     return render_template('admin/dashboard/ctecdashboardadmin/html/ctecdashboardadmin.html', college_type='CTEC')
-
 
 # ---------------- Add User ----------------
 @admin_bp.route('/add_user', methods=['POST'])
@@ -119,27 +102,32 @@ def add_user():
         flash("Unauthorized", "error")
         return redirect(url_for('admin_bp.admin_page'))
 
-    username = request.form.get('username')
-    account = request.form.get('account')
-    password = request.form.get('password')
-    role = request.form.get('role')
+    first_name  = request.form.get('first_name', '').strip()
+    last_name   = request.form.get('last_name', '').strip()
+    mi          = request.form.get('mi', '').strip() or None
+    account     = request.form.get('account', '').strip()
+    password    = request.form.get('password', '').strip()
+    role        = request.form.get('role', '').strip()
 
-    if not all([username, account, password, role]):
-        flash("All fields required", "error")
+    if not all([first_name, last_name, account, password, role]):
+        flash("First name, last name, account, password, and role are required.", "error")
         return redirect(url_for('admin_bp.admin_page'))
 
     if role not in ALLOWED_ROLES:
         flash("Invalid role", "error")
         return redirect(url_for('admin_bp.admin_page'))
 
-    if AcadUser.query.filter_by(username=username).first():
-        flash("Username already exists", "error")
-        return redirect(url_for('admin_bp.admin_page'))
     if AcadUser.query.filter_by(account=account).first():
         flash("Account already exists", "error")
         return redirect(url_for('admin_bp.admin_page'))
 
-    user = AcadUser(username=username, account=account, role=role)
+    user = AcadUser(
+        first_name=first_name,
+        last_name=last_name,
+        mi=mi,
+        account=account,
+        role=role
+    )
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
@@ -156,21 +144,20 @@ def update_user(user_id):
     if not user:
         return "User not found", 404
 
-    username = request.form.get('username')
-    password = request.form.get('password')
-    role = request.form.get('role')
+    first_name  = request.form.get('first_name', '').strip()
+    last_name   = request.form.get('last_name', '').strip()
+    mi          = request.form.get('mi', '').strip() or None
+    password    = request.form.get('password', '').strip()
+    role        = request.form.get('role', '').strip()
 
-    if not username or not role:
-        return "Username and role required", 400
+    if not first_name or not last_name or not role:
+        return "First name, last name, and role are required.", 400
     if role not in ALLOWED_ROLES:
         return "Invalid role", 400
 
-    # Collision check
-    existing_user = AcadUser.query.filter(AcadUser.username == username, AcadUser.acaduser_id != user_id).first()
-    if existing_user:
-        return "Username already exists", 400
-
-    user.username = username
+    user.first_name = first_name
+    user.last_name  = last_name
+    user.mi         = mi
     if password:
         user.set_password(password)
     user.role = role
@@ -179,7 +166,42 @@ def update_user(user_id):
     flash("User updated successfully!", "success")
     return redirect(url_for('admin_bp.admin_page'))
 
-# ---------------- Delete User ----------------
+# ---------------- Archive (Deactivate) User ----------------
+@admin_bp.route('/archive_user/<int:user_id>', methods=['POST'])
+def archive_user(user_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return "Unauthorized", 403
+
+    user = AcadUser.query.get(user_id)
+    if not user:
+        return "User not found", 404
+
+    if user.acaduser_id == session['user_id']:
+        return "Cannot deactivate yourself", 403
+
+    user.is_archived   = True
+    user.date_archived = datetime.utcnow()
+    db.session.commit()
+    flash("User deactivated successfully!", "success")
+    return redirect(url_for('admin_bp.admin_page'))
+
+# ---------------- Restore (Activate) User ----------------
+@admin_bp.route('/restore_user/<int:user_id>', methods=['POST'])
+def restore_user(user_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return "Unauthorized", 403
+
+    user = AcadUser.query.get(user_id)
+    if not user:
+        return "User not found", 404
+
+    user.is_archived   = False
+    user.date_archived = None
+    db.session.commit()
+    flash("User activated successfully!", "success")
+    return redirect(url_for('admin_bp.admin_page'))
+
+# ---------------- Delete User (permanent) ----------------
 @admin_bp.route('/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
     if 'user_id' not in session or session.get('role') != 'admin':
@@ -213,17 +235,12 @@ def upload_image():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    # Save file collision-safe
     filepath = save_file(file, user.acaduser_id)
-
-    # Update user
     user.profile_image_url = filepath
     db.session.commit()
-
     return jsonify({"image_url": filepath})
 
-
-# fetch
+# ---------------- Get User (JSON) ----------------
 @admin_bp.route('/get_user/<int:user_id>')
 def get_user(user_id):
     if 'user_id' not in session or session.get('role') != 'admin':
@@ -233,18 +250,23 @@ def get_user(user_id):
         return jsonify({"error": "User not found"}), 404
     return jsonify({
         "acaduser_id": user.acaduser_id,
-        "username": user.username,
-        "account": user.account,
-        "role": user.role
+        "first_name":  user.first_name,
+        "last_name":   user.last_name,
+        "mi":          user.mi or "",
+        "account":     user.account,
+        "role":        user.role,
+        "is_archived": user.is_archived,
+        "date_created": user.date_created.strftime('%Y-%m-%d %H:%M') if user.date_created else "",
+        "date_archived": user.date_archived.strftime('%Y-%m-%d %H:%M') if user.date_archived else ""
     })
 
-# updating password
+# ---------------- Update Password ----------------
 @admin_bp.route('/update_password', methods=['POST'])
 def update_password():
     if 'user_id' not in session:
         return jsonify({"error": "Unauthorized"}), 403
 
-    data = request.get_json()
+    data     = request.get_json()
     password = data.get('password')
 
     if not password:
@@ -256,5 +278,4 @@ def update_password():
 
     user.set_password(password)
     db.session.commit()
-
     return jsonify({"success": True})
