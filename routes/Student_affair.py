@@ -26,6 +26,13 @@ def profile_studentaffair():
         user_image_url=user.profile_image_url
     )
 
+#file upload
+@studentaffair_bp.route('/fileupload')
+def fileupload_studentaffair():
+    if 'user_id' not in session or session.get('role') != 'Student_Affair':
+        return redirect(url_for('home'))
+    return render_template('studentaffair/fileupload/fileupload.html')
+
 # help
 @studentaffair_bp.route('/help')
 def help_studentaffair():

@@ -1,0 +1,446 @@
+:root {
+    --font-sans: "Inter", sans-serif;
+    --font-display: "Outfit", sans-serif;
+    --bg-dark: #ffffff;
+    --bg-col: #ffffff;
+    --bg-glow: #2A86FD;
+    --grey-input: #D9D9D9;
+    --danger: #000000;
+}
+
+body {
+    background-color: #ffffff;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    font-family: var(--font-sans);
+    display: flex; 
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+}
+
+
+.sidebar {
+  position: fixed;
+  width: 240px;
+  height: 100%;
+  background-color: #ffffff;
+  padding: 20px;
+  border-right: 1px solid #000000;
+}
+
+.pad {
+  margin-top: 10%;
+  gap: 10px
+}
+
+.menu-active {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(120, 90, 90, 0.5);
+    color: #000000;
+    font-size: 16px;
+    text-decoration: none;
+    width: 210px;
+    font-weight: bold;
+    border-width: 2px;
+    border: 1px solid #785a5a;
+}
+
+.active-bordericon {
+  width: 35px;
+  height: 33px;
+  border-radius: 10px;
+  background-color: #800000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.active-icon {
+  width: 24px;
+  height: 24px;
+  color: #ffff;
+}
+
+.menu-btn {
+    width: 210px;
+    align-items: center;
+    display: flex;
+    margin-top: 10px;
+    padding: 12px;
+    gap: 12px;
+    border-radius: 12px;
+    color: #000000;
+    font-size: 16px;
+    transition: 0.3s;
+    text-decoration: none;
+}
+
+.non-active-icon {
+  width: 24px;
+  height: 24px;
+  color: #ffffff;
+}
+
+.non-active-bordericon {
+  width: 35px;
+  height: 33px;
+  border-radius: 10px;
+  background-color: #785a5a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-btn:hover {
+    background: rgba(255,255,255,0.05);
+    color: #000000;
+    width: 210px;
+    font-weight: bold;
+}
+
+.sidebar-divider {
+  border: none;
+  height: 1px;
+  background-color: #000000, transparent 80%;
+  width: 100%;
+}
+
+
+/* header  */
+ /* --- FIX: Main Content Container --- */
+main {
+    flex: 1;                     /* Take up remaining width */
+    margin-left: 270px;          /* Sidebar width (230px) + its padding (40px) */
+    height: 100vh;
+    overflow-y: auto;            /* Allow scrolling inside the main area */
+    padding-right: 40px;         /* Right side spacing */
+}
+
+/* --- FIX: Sticky Header --- */
+header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(5, 10, 20, 0.6); /* Translucent */
+    backdrop-filter: blur(15px);     /* Glass effect */
+    padding: 20px 0;                 /* Vertical padding */
+    margin-bottom: 20px;
+}
+
+/* Header Brand Layout */
+.topmenu {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #800000;
+    backdrop-filter: blur(15px);
+    padding: 20px 40px;
+    margin-left: 24px;
+    width: 1490px;
+    border-radius: 20px;
+    margin-top: 15px;
+}
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.logo-sq {
+    background: #fd2a2a;
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden; /* Ensures the image stays inside the rounded corners */
+    box-shadow: 0 8px 15px rgba(253, 42, 42, 0.3);
+   
+}
+
+.brand-logo {
+    width: 90px;       /* Adjust this % to make the logo bigger or smaller inside the square */
+    height: 90px;      /* Keep this the same as width */
+    object-fit: contain; /* Ensures the logo isn't stretched */
+}
+
+.brand-text h1 {
+    color: white;
+    font-size: 1.2rem;
+    margin: 0;
+    letter-spacing: 1px;
+}
+
+.brand-text span {
+    color: #ffffff;
+    font-size: 0.65rem;
+    display: block;
+}
+
+/* Profile Section */
+.user-profile .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover; 
+  margin-left: 8px; 
+  color: #ffff;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #ffff;
+}
+
+.user-profile span {
+    margin-right: 8px; 
+}
+
+
+/* content */
+/* --- Dashboard Grid Layout --- */
+.dashboard-grid {
+  display: grid;
+  grid-template-rows: auto auto; 
+  gap: 10px; 
+  padding-bottom: 60px; 
+  align-items: flex-start;
+}
+
+/* --- Common Card Styling (Glassmorphism Effect) --- */
+.card {
+  background: rgba(20, 5, 5, 0.3); /* Translucent dark bg */
+  backdrop-filter: blur(15px);     /* Glass blur effect */
+  border-radius: 20px;
+  border: 1px solid rgba(184, 148, 148, 0.15); /* Soft border */
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); /* Depth shadow */
+}
+
+/* --- uploader css --- */
+.titleUpload {
+  padding: 20px;
+  display: column;
+  width: calc(100% - 48px);
+  margin-left: 24px;
+  width:auto;
+  height: 80px;
+}
+
+.titleUpload h2 {
+  color: rgb(0, 0, 0);
+  font-size: 1.8rem;
+  margin-bottom: 0;
+  margin-top: 0;
+  font-family: var(--font-sans);
+}
+
+.titleUpload p {
+  color: rgb(0, 0, 0);
+  font-size: 1rem;
+  line-height: 1.4rem;
+  margin-top: 4px;
+  margin-bottom: 5px;
+  font-family: var(--font-sans);
+}
+
+.divider {
+    border: none;
+    height: 1px;
+    background-color: #000000;
+    margin: 20px 0;
+    width: auto;
+    display: block;
+}
+
+
+.help-card {
+  padding: 20px;
+  display: column;
+  width: calc(100% - 48px);
+  margin-left: 24px;
+  width: 1530px;
+  height: 600px;
+}
+
+.help-content {
+  max-width: 1500px;
+  width: 100%;
+}
+
+.help-content h2 {
+  color: rgb(0, 0, 0);
+  font-size: 1.8rem;
+  margin-bottom: 0;
+  margin-top: 0;
+  font-family: var(--font-sans);
+}
+
+
+/* --- Responsive Layout (Phones/Tablets) --- */
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr; /* Stack cards vertically on smaller screens */
+        gap: 20px;
+    }
+}
+
+/*drop down 
+dashboard*/
+/* Initially hide the submenu */
+/* --- Dropdown Animation --- */
+.submenu-container {
+    max-height: 0;          /* Start at zero height */
+    overflow: hidden;       /* Hide the content inside */
+    opacity: 0;             /* Start invisible */
+    display: flex;          /* Keep it flex, but height 0 hides it */
+    flex-direction: column;
+    transition: max-height 0.5s ease-in-out, opacity 0.3s ease; 
+}
+
+/* When the 'open' class is added via JS */
+.submenu-container.open {
+    max-height: 500px;      /* Set to a value larger than your content */
+    opacity: 1;             /* Fade in */
+    margin-bottom: 15px;    /* Add some spacing when open */
+}
+
+.submenu-item {
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 14px;
+    padding: 10px 0;        /* Slightly more padding for easier clicking */
+    transition: color 0.2s ease;
+}
+
+.submenu-item:hover {
+    color: #2A86FD;
+}
+
+/* paa ni rod --- */
+
+footer {
+    position: sticky;
+    bottom: 0;
+    width: 100%;
+    /* Same glass effect as your header */
+
+    backdrop-filter: blur(10px);
+    padding: 20px 0;
+    margin-top: auto; /* Pushes it to the bottom if content is short */
+    z-index: 100;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: flex-end; /* Moves text to the right */
+}
+
+.page-label {
+    color: #000000; /* Muted grey for "Page/" */
+    font-size: 1rem;
+}
+
+.page-name {
+    color: #000000; /* Bright white for "Home" */
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+/* Ensure the main container allows the footer to sit at the bottom */
+.footer {
+  background-color: none;
+  margin-left: 24px;
+  width: 1550px;
+}
+
+
+
+/* Logout oe;bgoeg */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6); /* Dims the background */
+  backdrop-filter: blur(4px);           /* Optional: blurs background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;                        /* Ensures it stays on top */
+}
+
+/* The Modal Card */
+.logout-card {
+  background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+  width: 90%;
+  max-width: 450px;
+  padding: 40px;
+  border-radius: 25px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.brand-name {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  font-weight: 700;
+  color: #000000;
+}
+
+.confirmation-text {
+  font-size: 1.1rem;
+  margin-bottom: 35px;
+  opacity: 0.9;
+  color: #000000;
+}
+
+/* Button Styles */
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.btn {
+  padding: 15px;
+  border-radius: 50px; /* Pill shape */
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.btn-primary {
+  background-color: #800000 ; /* Modern Blue */
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #f63b3b;
+  transform: translateY(-2px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+
+.hidden {
+    display: none;
+}
