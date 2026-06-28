@@ -394,6 +394,7 @@ footer {
 /* Bottom Row Proportions */
 .card-bottom-large { grid-column: span 3; height: 490px; padding: 10px;}
 .card-bottom-small { grid-column: span 5; height: 490px; padding: 10px;}
+.card-bottom-small-1 { grid-column: span 5; height: 400px; padding: 10px;}
 
 /* --- Custom Select Styling --- */
 select.form-select {

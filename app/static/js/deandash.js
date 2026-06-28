@@ -787,3 +787,113 @@ function updateDropoutSpike(college) {
         })
         .catch(err => console.error("Dropout Chart Fatal:", err));
 }
+
+
+
+
+
+// --- eval
+      (function () {
+        const STATUS_COLORS = {
+          ok:      { bg: '#eaf7ef', border: '#1cc88a', text: '#1cc88a', label: 'Trained' },
+          skipped: { bg: '#fff8e6', border: '#f6c23e', text: '#b88a00', label: 'Skipped' },
+          error:   { bg: '#fdeeee', border: '#e74a3b', text: '#e74a3b', label: 'Error' },
+        };
+
+        function fmtPct(v) {
+          if (v === null || v === undefined) return '—';
+          return (v * 100 <= 100 && v <= 1) ? (v * 100).toFixed(1) + '%' : v.toFixed(2);
+        }
+
+        function fmtMetricValue(key, val) {
+          if (val === null || val === undefined) return '—';
+          if (typeof val !== 'number') return String(val);
+          if (key.toLowerCase().includes('accuracy') || key.toLowerCase().includes('f1')) {
+            return (val <= 1 ? (val * 100).toFixed(1) + '%' : val.toFixed(2));
+          }
+          return val.toFixed(4);
+        }
+
+        function renderModelCard(model) {
+          const palette = STATUS_COLORS[model.status] || STATUS_COLORS.skipped;
+          const headline = (model.headline_value !== null && model.headline_value !== undefined)
+            ? fmtMetricValue(model.headline_label || '', model.headline_value)
+            : '—';
+
+          const metricRows = Object.entries(model.metrics || {})
+            .filter(([k]) => k !== (model.headline_label || '').toLowerCase())
+            .map(([k, v]) => `
+              <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#5a5c69; padding:2px 0; gap: 0.5rem;">
+                <span style="text-transform:uppercase; letter-spacing:0.02em; white-space:nowrap;">${k.replace(/_/g, ' ')}</span>
+                <span style="font-weight:700; white-space:nowrap;">${fmtMetricValue(k, v)}</span>
+              </div>
+            `).join('');
+
+          const reasonRow = model.reason
+            ? `<div style="font-size:0.68rem; color:#858796; margin-top:0.35rem;">${model.reason}</div>`
+            : '';
+
+          return `
+            <div style="border:1px solid ${palette.border}33; background:${palette.bg}; border-radius:0.5rem; padding:0.75rem 0.6rem; min-width: 150px;">
+              <div style="display:flex; flex-direction: column; gap: 0.35rem;">
+                <span style="font-weight:700; font-size:0.75rem; color:#3a3b45; line-height:1.2;">${model.label}</span>
+                <span style="font-size:0.62rem; font-weight:700; color:${palette.text}; background:#fff; border:1px solid ${palette.border}55; border-radius:1rem; padding:0.1rem 0.5rem; align-self:flex-start;">
+                  ${palette.label}
+                </span>
+              </div>
+              <div style="margin-top:0.5rem; font-size:1.3rem; font-weight:800; color:${palette.text}; line-height:1.1;">
+                ${headline}
+              </div>
+              ${model.headline_label ? `<div style="font-size:0.62rem; font-weight:600; color:#858796;">${model.headline_label}</div>` : ''}
+              <div style="margin-top:0.5rem;">${metricRows}</div>
+              ${reasonRow}
+            </div>
+          `;
+        }
+
+        function renderErrors(errors) {
+          const wrap = document.getElementById('mp-errors');
+          const list = document.getElementById('mp-errors-list');
+          if (!errors || !errors.length) {
+            wrap.style.display = 'none';
+            return;
+          }
+          wrap.style.display = 'block';
+          list.innerHTML = errors.map(e => `<li><strong>${e.step}:</strong> ${e.error}</li>`).join('');
+        }
+
+        function loadModelPerformance() {
+          fetch('/api/model-performance')
+            .then(res => res.json())
+            .then(data => {
+              const grid = document.getElementById('mp-grid');
+              const empty = document.getElementById('mp-empty-state');
+              const trainedAtEl = document.getElementById('mp-trained-at');
+
+              if (data.status === 'no_training_yet' || !data.models || !data.models.length) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                trainedAtEl.textContent = '';
+                return;
+              }
+
+              grid.style.display = 'grid';
+              empty.style.display = 'none';
+              grid.innerHTML = data.models.map(renderModelCard).join('');
+              renderErrors(data.errors);
+
+              if (data.trained_at) {
+                const d = new Date(data.trained_at);
+                trainedAtEl.textContent = 'Last trained: ' + d.toLocaleString() +
+                  (data.rows_in_master ? ` · ${data.rows_in_master.toLocaleString()} rows` : '');
+              }
+            })
+            .catch(err => {
+              console.error('Model performance fetch failed:', err);
+              const trainedAtEl = document.getElementById('mp-trained-at');
+              trainedAtEl.textContent = 'Unable to load model performance.';
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', loadModelPerformance);
+      })();

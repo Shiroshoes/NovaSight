@@ -467,6 +467,36 @@
         </div>
       </div>
 
+      <!-- ───────────────── Model Performance / Evaluation ───────────────── -->
+      <div class="card card-bottom-small-1">
+        <div style="background-color: #fff; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
+
+          <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
+            <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+              <i class="fas fa-flask" style="margin-right: 0.25rem;"></i> Model Performance & Accuracy
+            </h6>
+            <span id="mp-trained-at" style="font-size: 0.75rem; color: #858796;">Loading…</span>
+          </div>
+
+          <div style="padding: 1.25rem;">
+            <div id="mp-empty-state" style="display:none; text-align:center; color:#858796; padding: 1.5rem 0;">
+              No model has been trained yet. Upload a dataset to begin.
+            </div>
+
+            <div id="mp-grid" style="display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 0.75rem;">
+              <!-- model cards injected by JS -->
+            </div>
+
+            <div id="mp-errors" style="margin-top: 1rem; display:none;">
+              <hr style="border: 0; border-top: 1px solid rgba(0,0,0,.1);">
+              <p style="font-weight: 700; font-size: 0.7rem; color: #e74a3b; text-transform: uppercase; margin-bottom: 0.5rem;">
+                Training Errors
+              </p>
+              <ul id="mp-errors-list" style="font-size: 0.8rem; color: #e74a3b; margin: 0; padding-left: 1.1rem;"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <script src="{{url_for('static', filename='js/maindash.js')}}"></script>
