@@ -193,19 +193,14 @@
       <div class="card card-mini">
         <label>Year</label>
         <select id="globalYearFilter" class="form-select form-select-sm">
-            <option value="2022">2022 (Actual)</option>
-            <option value="2023">2023 (Actual)</option>
-            <option value="2024" selected>2024 (Current)</option>
-            <option value="2026">2026 (Predicted)</option>
-            <option value="2028">2028 (Predicted)</option>
-            <option value="2030">2030 (Predicted)</option>
+            <option value="2024" selected>Loading...</option>
         </select>
       </div>
 
       <div class="card card-mini">
         <label>Semester</label>
         <select id="filterSemester" class="form-select">
-            <option value="all">Overall</option>
+            <option value="all">All Semesters</option>
             <option value="1sem">1st Sem</option>
             <option value="2sem">2nd Sem</option>
         </select>
@@ -470,6 +465,7 @@
     </section>
 
     <script src="{{url_for('static', filename='js/deandash.js')}}"></script>
+    <script src="{{url_for('static', filename='js/yearUpdate.js')}}"></script>
   </section>
 
   <!-- Logout Modal Structure -->

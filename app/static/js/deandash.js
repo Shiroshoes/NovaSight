@@ -1,4 +1,3 @@
-
 let statusPieChart;
 let incForecastChart;
 let subjectForecastChart;
@@ -40,10 +39,21 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // 3. INITIAL LOAD
-    triggerUpdate();
+    // populateYearFilter() (injected in HTML) fetches /api/training-state,
+    // builds the correct year options, then fires a 'change' event on the
+    // select — which triggers triggerUpdate() below. If training-state is
+    // unavailable (first run, no upload yet) we fire manually after 800 ms.
+    let _initFired = false;
+    function _safeInit() {
+        if (!_initFired) { _initFired = true; triggerUpdate(); }
+    }
+    setTimeout(_safeInit, 800);   // fallback if training-state fetch is slow
 
     // 4. LISTENERS
-    if (yearSelector) yearSelector.addEventListener('change', triggerUpdate);
+    if (yearSelector) yearSelector.addEventListener('change', function() {
+        _initFired = true;        // cancel the timeout fallback
+        triggerUpdate();
+    });
     if (semSelector) semSelector.addEventListener('change', triggerUpdate);
 });
 

@@ -9,26 +9,77 @@ import io
 import base64
 from flask import Blueprint, jsonify, request
 
+# Pull paths from the single source of truth (configs/config.py) instead of
+# hardcoding a second, mismatched copy here. Previously this file used
+# "processed_datasets/..." (lowercase) while every other module used
+# "Processed_Datasets/..." (capital P) — on a case-sensitive filesystem
+# (Linux) that silently failed to find the file and the dashboard fell back
+# to an empty DataFrame.
+#
+# MODEL_DIR is sourced the same way: auto_train.py WRITES the .pkl files to
+# configs.config's ML_MODEL_DIR (an absolute, BASE_DIR-anchored path), so
+# this module must READ from that exact same absolute path — not a bare
+# relative "Machine_Learning_Model" string, which resolves against whatever
+# the current working directory happens to be when Flask is launched and
+# can silently point at an empty/different folder.
+from configs.config import FINAL_MERGED_CSV, ML_MODEL_DIR, MODEL_DATASETS_DIR
+
 ml_bp = Blueprint('ml_analysis', __name__)
 
-#  GLOBAL DATA LOADING & CLEANING (Run once at startup) 
+# ── College short-code → full CSV names ──────────────────────────────────────
+# The dashboard sends short codes (e.g. "CAHS") but the CSV stores full names
+# (e.g. "CAHS-SOM", "CAHS-SON").  Every endpoint must expand the code before
+# filtering so df[df['College'] == 'CAHS'] doesn't silently return 0 rows.
+COLLEGE_MAP = {
+    "CEA":  ["CEA"],    # COLLEGE OF ENGINEERING AND ARCHITECTURE (was CEA + COEA)
+    "CTEC": ["CTEC"],   # COLLEGE OF TECHNOLOGY
+    "CCST": ["CCST"],   # COLLEGE OF COMPUTER STUDIES
+    "COAS": ["COAS"],   # COLLEGE OF ARTS AND SCIENCES (was COAS + DOAS)
+    "CAHS": ["CAHS"],   # COLLEGE OF ALLIED HEALTH SCIENCES (was CNM + CAHS-SOM + CAHS-SON + CAHS-SPHCD)
+    "CBA":  ["CBA"],    # COLLEGE OF BUSINESS AND ACCOUNTANCY (was COBA + CBA)
+}
+
+def expand_college(college_arg: str):
+    """
+    Return the list of full CSV college names that match the given short code.
+    If the argument is already a full name (or 'all'), return it unchanged
+    so historical filters still work when a full name is passed directly.
+    """
+    key = college_arg.strip().upper()
+    return COLLEGE_MAP.get(key, [college_arg.strip()])
+
+#  GLOBAL DATA LOADING & CLEANING (Run once at startup, reusable after) 
 # This fixes the "No Data" issue by creating the Year_Numeric column right here.
-DATA_PATH = "processed_datasets/Final_Merged_Student_Data.csv"
-MODEL_DIR = "Machine_Learning_Model"
+DATA_PATH = FINAL_MERGED_CSV
+MODEL_DIR = ML_MODEL_DIR
 
 print(" Loading ML Data & Models ")
 
-# Load Data
-if os.path.exists(DATA_PATH):
+def _load_data() -> pd.DataFrame:
+    """
+    Read + clean the master CSV from disk. Pulled out of the old one-shot
+    module-level script so it can also be called by reload_data() after an
+    upload — previously this logic only ever ran once at import time, so
+    df_full_loaded stayed frozen at whatever the CSV looked like when Flask
+    started. reload_models() (below) only ever re-loaded the .pkl model
+    files, never this dataframe, which is why every historical-mode chart
+    (KPI counts, GWA averages, status/dropout pies' "Actual" branch) kept
+    showing stale numbers after an upload even though forecast-mode charts
+    (which call .predict() on the freshly-reloaded models) updated fine.
+    """
+    if not os.path.exists(DATA_PATH):
+        print(" CSV not found")
+        return pd.DataFrame()
+
     try:
-        df_full_loaded = pd.read_csv(DATA_PATH)
+        df = pd.read_csv(DATA_PATH)
 
         #  FIX: DO NOT REMOVE GWA = 0 (important for INC)
-        df_full_loaded = df_full_loaded[df_full_loaded['GWA'].notna()].copy()
+        df = df[df['GWA'].notna()].copy()
 
         # Year extraction
-        df_full_loaded['Year_Numeric'] = (
-            df_full_loaded['Year']
+        df['Year_Numeric'] = (
+            df['Year']
             .astype(str)
             .str.extract(r'^(\d{4})')[0]
             .astype(float)
@@ -41,25 +92,55 @@ if os.path.exists(DATA_PATH):
             "summer": 3
         }
 
-        df_full_loaded['Sem_Numeric'] = (
-            df_full_loaded['Semester']
+        df['Sem_Numeric'] = (
+            df['Semester']
             .astype(str)
             .str.lower()
             .map(sem_map)
             .fillna(1)
         )
 
-        df_full_loaded = df_full_loaded.dropna(subset=['Year_Numeric'])
+        df = df.dropna(subset=['Year_Numeric'])
 
-        print(f" Data Loaded: {len(df_full_loaded)} rows")
-        print(f" Unique Students: {df_full_loaded['Student_ID'].nunique()}")
+        print(f" Data Loaded: {len(df)} rows")
+        print(f" Unique Students: {df['Student_ID'].nunique()}")
+        return df
 
     except Exception as e:
         print(f" Data Load Error: {e}")
-        df_full_loaded = pd.DataFrame()
-else:
-    print(" CSV not found")
-    df_full_loaded = pd.DataFrame()
+        return pd.DataFrame()
+
+
+df_full_loaded = _load_data()
+
+
+def reload_data():
+    """
+    Re-read the master CSV from disk into df_full_loaded.
+    Called alongside reload_models() so historical-mode charts pick up a
+    newly-uploaded dataset immediately, the same way forecast-mode charts
+    already do via the freshly-reloaded .pkl models.
+    """
+    global df_full_loaded
+    df_full_loaded = _load_data()
+    print("[reload_data] df_full_loaded refreshed from", DATA_PATH)
+
+
+
+def get_latest_real_year() -> int:
+    """
+    Returns the most recent school year actually present in the merged
+    dataset. Previously this was hardcoded as `LATEST_REAL_YEAR = 2024` in
+    five separate endpoints, so every upload of 2025+ data would still be
+    treated as "the future" and forecast instead of shown as history.
+    Falls back to 2024 only if the dataset is empty/unloaded.
+    """
+    if not df_full_loaded.empty and 'Year_Numeric' in df_full_loaded.columns:
+        valid_years = df_full_loaded['Year_Numeric'].dropna()
+        if len(valid_years):
+            return int(valid_years.max())
+    return 2024
+
 
 # Load Models
 def load_model(filename):
@@ -74,8 +155,8 @@ gwa_ranking_features = load_model("gwa_ranking_features_final.pkl")
 dropout_ranking_model = load_model("college_dropout_model_final.pkl")
 dropout_ranking_features = load_model("dropout_ranking_features_final.pkl")
 
-gwa_trend_model = joblib.load(os.path.join("Machine_Learning_Model", "gwa_trend_model_final.pkl"))
-gwa_trend_features = joblib.load(os.path.join("Machine_Learning_Model", "gwa_trend_features.pkl"))
+gwa_trend_model = load_model("gwa_trend_model_final.pkl")
+gwa_trend_features = load_model("gwa_trend_features.pkl")
 
 kpi_gwa_model = load_model("kpi_gwa_model.pkl")
 kpi_gwa_features = load_model("kpi_gwa_features.pkl")
@@ -96,6 +177,69 @@ dropout_spike_model = load_model("dropout_spike_model.pkl")
 dropout_spike_features = load_model("dropout_spike_features.pkl")
 
 
+# ── reload_models() ──────────────────────────────────────────────────────────
+# Called by /api/reload-models so the dashboard picks up freshly trained PKLs
+# without restarting Flask.
+def reload_models():
+    """Re-load every .pkl from MODEL_DIR into the module-level globals."""
+    global drop_pie_model, drop_pie_features
+    global gwa_ranking_model, gwa_ranking_features
+    global dropout_ranking_model, dropout_ranking_features
+    global gwa_trend_model, gwa_trend_features
+    global kpi_gwa_model, kpi_gwa_features
+    global kpi_enroll_model, kpi_enroll_features
+    global status_model, status_features
+    global inc_model, inc_features
+    global subj_model, subj_features
+    global dropout_spike_model, dropout_spike_features
+
+    drop_pie_model          = load_model("dropout_model.pkl")
+    drop_pie_features       = load_model("dropout_features.pkl")
+    gwa_ranking_model       = load_model("gwa_ranking_model_final.pkl")
+    gwa_ranking_features    = load_model("gwa_ranking_features_final.pkl")
+    dropout_ranking_model   = load_model("college_dropout_model_final.pkl")
+    dropout_ranking_features= load_model("dropout_ranking_features_final.pkl")
+    gwa_trend_model         = load_model("gwa_trend_model_final.pkl")
+    gwa_trend_features      = load_model("gwa_trend_features.pkl")
+    kpi_gwa_model           = load_model("kpi_gwa_model.pkl")
+    kpi_gwa_features        = load_model("kpi_gwa_features.pkl")
+    kpi_enroll_model        = load_model("kpi_enrollment_model.pkl")
+    kpi_enroll_features     = load_model("kpi_enrollment_features.pkl")
+    status_model            = load_model("status_forest_model.pkl")
+    status_features         = load_model("status_forest_features.pkl")
+    inc_model               = load_model("inc_rate_model.pkl")
+    inc_features            = load_model("inc_rate_features.pkl")
+    subj_model              = load_model("subject_grade_model.pkl")
+    subj_features           = load_model("subject_grade_features.pkl")
+    dropout_spike_model     = load_model("dropout_spike_model.pkl")
+    dropout_spike_features  = load_model("dropout_spike_features.pkl")
+    print("[reload_models] All models reloaded from", MODEL_DIR)
+    reload_data()
+
+
+@ml_bp.route('/api/reload-models', methods=['POST'])
+def api_reload_models():
+    """
+    POST /api/reload-models
+    Hot-reload all .pkl files after auto_train finishes.
+    Called by upload_routes._background_train() on status='done'.
+    """
+    try:
+        reload_models()
+        loaded = {name: os.path.exists(os.path.join(MODEL_DIR, name))
+                  for name in [
+                      "dropout_model.pkl", "gwa_ranking_model_final.pkl",
+                      "college_dropout_model_final.pkl", "gwa_trend_model_final.pkl",
+                      "kpi_gwa_model.pkl", "kpi_enrollment_model.pkl",
+                      "status_forest_model.pkl", "inc_rate_model.pkl",
+                      "subject_grade_model.pkl", "dropout_spike_model.pkl",
+                  ]}
+        return jsonify({"status": "ok", "models_found": loaded})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
+
 # ML piechart (Gender Analysis) 
 @ml_bp.route('/api/get_dropout_pie')
 def get_dropout_pie():
@@ -113,7 +257,7 @@ def get_dropout_pie():
             target_college = college_arg
 
         #  MODE ─
-        LATEST_REAL_YEAR = 2024
+        LATEST_REAL_YEAR = get_latest_real_year()
         is_forecast = year > LATEST_REAL_YEAR
         mode_label = "Forecast" if is_forecast else "Actual History"
 
@@ -136,11 +280,16 @@ def get_dropout_pie():
                 df_full_loaded['Year_Numeric'] == year
             ].copy()
 
-        #  FILTERS 
+        #  FILTERS
+        # Expand short code (e.g. "CAHS") to full CSV college names
         if target_college != 'all':
+            full_names = expand_college(target_college)
             cohort = cohort[
-                cohort['College'].astype(str).str.strip().str.upper()
-                == target_college.upper()
+                cohort['College'].astype(str).str.strip().isin(
+                    [n.upper() for n in full_names]
+                ) | cohort['College'].astype(str).str.strip().str.upper().isin(
+                    [n.upper() for n in full_names]
+                )
             ]
 
         if semester.lower() not in ['all', 'overall']:
@@ -157,34 +306,31 @@ def get_dropout_pie():
                 "mode": mode_label
             })
 
-        student_cohort = cohort.groupby("Student_ID").agg({
-            "Gender": "first",
-            "College": "first",
-            "Semester": "first",
-            "Year": "first",
-            "Grade": list
-        }).reset_index()
+        # ── STUDENT FLAGS ─────────────────────────────────────────────────────
+        # The master CSV does NOT have a raw "Grade" column.
+        # It already has pre-computed per-student flags: is_drop, is_inc.
+        # Group to one row per student and carry those flags forward.
+        agg_cols = {"Gender": "first", "College": "first",
+                    "Semester": "first", "Year": "first"}
+        if "is_drop" in cohort.columns:
+            agg_cols["is_drop"] = "max"   # 1 if the student dropped in any row
+        if "is_inc" in cohort.columns:
+            agg_cols["is_inc"] = "max"
 
-        student_cohort["Grade"] = student_cohort["Grade"].apply(
-            lambda x: x if isinstance(x, list) else []
-        )
+        student_cohort = cohort.groupby("Student_ID").agg(agg_cols).reset_index()
 
-        #  STUDENT FLAGS ─
-
-        student_cohort["is_drop"] = student_cohort["Grade"].apply(
-            lambda grades: 0 in grades
-        )
-
-        student_cohort["is_inc"] = student_cohort["Grade"].apply(
-            lambda grades: 5 in grades
-        )
+        # Ensure flags exist even if columns were absent
+        if "is_drop" not in student_cohort.columns:
+            student_cohort["is_drop"] = 0
+        if "is_inc" not in student_cohort.columns:
+            student_cohort["is_inc"] = 0
 
         student_cohort["Risk_Status"] = (
-            student_cohort["is_drop"] | student_cohort["is_inc"]
+            (student_cohort["is_drop"] == 1) | (student_cohort["is_inc"] == 1)
         ).astype(int)
 
         actual_drops = int(student_cohort["is_drop"].sum())
-        actual_incs = int(student_cohort["is_inc"].sum())
+        actual_incs  = int(student_cohort["is_inc"].sum())
 
 
         forecast_risk = 0
@@ -289,7 +435,7 @@ def get_gwa_ranking_data(selected_year):
         # but we parse it just in case specific highlighting is needed later.
         
         # Mode Logic
-        LATEST_REAL_YEAR = 2024
+        LATEST_REAL_YEAR = get_latest_real_year()
         is_forecast = selected_year > LATEST_REAL_YEAR
 
         results = []
@@ -376,7 +522,7 @@ def get_dropout_ranking():
         semester_arg = request.args.get('semester', 'all').strip()
 
         # 2. MODE
-        LATEST_REAL_YEAR = 2024
+        LATEST_REAL_YEAR = get_latest_real_year()
         is_forecast = year > LATEST_REAL_YEAR
 
         # 3. GET COLLEGES
@@ -439,12 +585,16 @@ def get_dropout_ranking():
                 total_students = c_data['Student_ID'].nunique()
                 
                 if total_students > 0:
-                    # === FIX: VECTORIZED STATUS SEARCH ===
-                    # 1. Find rows with "DROP" in status
-                    drop_rows = c_data[c_data['Status'].str.contains("DROP", na=False)]
-                    
-                    # 2. Count Unique Student IDs (People)
-                    drop_count = drop_rows['Student_ID'].nunique()
+                    # Use pre-computed is_drop flag (master CSV has no raw Status column)
+                    if 'is_drop' in c_data.columns:
+                        drop_count = int(c_data.groupby('Student_ID')['is_drop'].max().sum())
+                    elif 'Status' in c_data.columns:
+                        c_data = c_data.copy()
+                        c_data['Status'] = c_data['Status'].astype(str).str.strip().str.upper()
+                        drop_rows = c_data[c_data['Status'].str.contains("DROP", na=False)]
+                        drop_count = drop_rows['Student_ID'].nunique()
+                    else:
+                        drop_count = 0
                     
                     rate = round((drop_count / total_students) * 100, 2)
                 else:
@@ -485,7 +635,7 @@ def get_gwa_scatter():
             target_college = college_arg
 
         # 2. DETERMINE MODE (History vs Future)
-        LATEST_REAL_YEAR = 2024
+        LATEST_REAL_YEAR = get_latest_real_year()
         is_forecast = year > LATEST_REAL_YEAR
         
         # 3. DATA LOADING (The Dots)
@@ -590,7 +740,10 @@ def get_kpi_metrics():
         college = request.args.get('college', 'all')
         
         # Define "Future" Boundary
-        CURRENT_YEAR = 2024 
+        # Was hardcoded as CURRENT_YEAR = 2024, separate from every other
+        # endpoint's LATEST_REAL_YEAR — meant this one wouldn't update
+        # even after the others started recognizing new years.
+        CURRENT_YEAR = get_latest_real_year()
         is_prediction = year > CURRENT_YEAR
 
         # SCENARIO A: ACTUAL DATA (Historical)
@@ -600,7 +753,8 @@ def get_kpi_metrics():
             
             # Filter by College
             if college != 'all':
-                df_scope = df_scope[df_scope['College'] == college]
+                full_names = expand_college(college)
+                df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
             
             # Filter by Year
             df_scope = df_scope[df_scope['Year_Numeric'] == year]
@@ -695,14 +849,14 @@ def get_status_distribution():
         if 'Year_Numeric' not in df_full_loaded.columns:
             df_full_loaded['Year_Numeric'] = df_full_loaded['Year'].astype(str).str.extract(r'^(\d{4})').astype(int)
         
-        # Use 2024 as the base population
-        base_df = df_full_loaded[df_full_loaded['Year_Numeric'] == 2024].copy()
+        # Use the latest available year as the base population
+        LATEST_REAL_YEAR = get_latest_real_year()
+        base_df = df_full_loaded[df_full_loaded['Year_Numeric'] == LATEST_REAL_YEAR].copy()
         
-        # Filter by College
+        # Filter by College — expand short code to full CSV names
         if college != 'all':
-            # FILTER LOGIC: Normalize strings to ensure match
-            # This handles "CAHS" vs "cahs" vs " CAHS "
-            base_df = base_df[base_df['College'].str.strip().str.upper() == college.strip().upper()]
+            full_names = expand_college(college)
+            base_df = base_df[base_df['College'].astype(str).str.strip().isin(full_names)]
 
         print(f" > Students Found: {len(base_df)}")
         
@@ -773,7 +927,8 @@ def get_inc_forecast():
         df_scope = df_full_loaded.copy()
         
         if college.lower() not in ['all', 'main campus']:
-            df_scope = df_scope[df_scope['College'].str.upper() == college.upper()]
+            full_names = expand_college(college)
+            df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
         
         # Calculate Rate per Year
         years = sorted(df_scope['Year_Numeric'].unique())
@@ -784,15 +939,29 @@ def get_inc_forecast():
             total = yr_df['Student_ID'].nunique()
             
             if total > 0:
-                # Count students with ANY 'INC' status
-                inc_students = yr_df[yr_df['Status'].astype(str).str.contains('INC', case=False, na=False)]['Student_ID'].nunique()
+                # Use pre-computed is_inc flag (master CSV has no raw Status column)
+                if 'is_inc' in yr_df.columns:
+                    inc_students = yr_df.groupby('Student_ID')['is_inc'].max().sum()
+                elif 'Status' in yr_df.columns:
+                    inc_students = yr_df[yr_df['Status'].astype(str).str.contains('INC', case=False, na=False)]['Student_ID'].nunique()
+                else:
+                    inc_students = 0
                 rate = (inc_students / total) * 100
                 history_data.append(round(rate, 2))
             else:
                 history_data.append(0)
 
-        # 3. FORECAST (Using Model)
-        forecast_years = [2025, 2026, 2027, 2028]
+        # 3. FORECAST (Using Model) — years driven by training_state.json horizon
+        try:
+            from training.auto_train import load_state as _load_state
+            _hs = _load_state().get('horizon', {})
+            forecast_years = [int(y.split('-')[0]) for y in _hs.get('prediction_years', [])]
+        except Exception:
+            forecast_years = []
+        # Fallback: build 5 years beyond latest data if horizon missing
+        if not forecast_years:
+            _latest = int(max(years)) if years else 2024
+            forecast_years = list(range(_latest + 1, _latest + 6))
         forecast_data = []
         
         if inc_model:
@@ -831,88 +1000,111 @@ def get_inc_forecast():
 def get_subject_forecast():
     try:
         college = request.args.get('college', 'all').strip()
-        
-        # 1. PREPARE DATA
-        df_scope = df_full_loaded.copy()
-        
-        # Normalize Subject Names to avoid "Calculus 1" vs "calculus 1" duplicates
-        if 'Course_Subject_Name' in df_scope.columns:
-            df_scope['Subject'] = df_scope['Course_Subject_Name'].astype(str).str.upper().str.strip()
-        else:
+
+        # Use the dedicated per-subject dataset built by preprocess.py
+        # (model_datasets/10_subject_grade_forecast.csv) instead of
+        # re-deriving 'Subject' from the master CSV on every request.
+        # That file already has exactly the columns this endpoint needs:
+        # Year_Numeric, College, Course, Subject, Avg_Grade, Std_Grade,
+        # Student_Cnt, Fail_Count, Fail_Rate — pre-aggregated per
+        # year x college x subject. This also fixes "Subject column
+        # missing", which happened whenever df_full_loaded came back
+        # empty (e.g. wrong/missing master CSV) since that endpoint had
+        # no other source for subject-level data.
+        subject_csv_path = os.path.join(MODEL_DATASETS_DIR, "10_subject_grade_forecast.csv")
+
+        if not os.path.exists(subject_csv_path):
+            return jsonify({"error": "Subject dataset not found. Upload a dataset to generate it."}), 200
+
+        df_scope = pd.read_csv(subject_csv_path)
+
+        if 'Subject' not in df_scope.columns:
             return jsonify({"error": "Subject column missing"})
 
         # Filter by College
         if college.lower() not in ['all', 'main campus']:
-            df_scope = df_scope[df_scope['College'].astype(str).str.upper() == college.upper()]
+            full_names = expand_college(college)
+            df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
 
-        # 2. IDENTIFY TOP 5 HARDEST SUBJECTS
-        # Convert Grades
-        df_scope['Grade'] = pd.to_numeric(df_scope['Grade'], errors='coerce')
-        valid = df_scope[(df_scope['Grade'] >= 1.0) & (df_scope['Grade'] <= 5.0)]
-        
-        if valid.empty:
+        if df_scope.empty:
             return jsonify({"labels": [], "datasets": [], "error": "No valid grade data found"})
 
-        # Sort by Average Grade (Descending = Hardest)
-        difficulty = valid.groupby('Subject')['Grade'].mean().sort_values(ascending=False)
+        # 2. IDENTIFY TOP 5 HARDEST SUBJECTS
+        # Avg_Grade is already the per-subject average — weight by
+        # Student_Cnt so subjects with more students count more.
+        difficulty = (
+            df_scope.groupby('Subject')
+            .apply(lambda g: np.average(g['Avg_Grade'], weights=g['Student_Cnt'])
+                   if g['Student_Cnt'].sum() > 0 else g['Avg_Grade'].mean())
+            .sort_values(ascending=False)
+        )
         top_subjects = difficulty.head(5).index.tolist()
 
-        # 3. BUILD TIMELINE (2022-2028)
-        years_hist = [2022, 2023, 2024]
-        years_pred = [2025, 2026, 2027, 2028, 2029, 2030]
+        # 3. BUILD TIMELINE — driven by training_state.json horizon
+        try:
+            from training.auto_train import load_state as _load_state2
+            _hs2 = _load_state2().get('horizon', {})
+            _latest2 = _hs2.get('latest_year_start', 2024)
+            _pred_labels = _hs2.get('prediction_years', [])
+            years_pred = [int(y.split('-')[0]) for y in _pred_labels]
+        except Exception:
+            _latest2 = 2024
+            years_pred = [2025, 2026, 2027, 2028, 2029, 2030]
+        years_hist = sorted([
+            int(y) for y in df_scope['Year_Numeric'].dropna().unique()
+            if int(y) <= _latest2
+        ])
+        if not years_hist:
+            years_hist = [2022, 2023, 2024]
         all_years = years_hist + years_pred
-        
+
         datasets = []
-        
+
         for subj in top_subjects:
             data_points = []
-            # Get overall average for this subject (Fallback for gaps)
+            subj_rows = df_scope[df_scope['Subject'] == subj]
             overall_avg = difficulty[subj]
-            
+
             # --- A. HISTORY (2022-2024) ---
             for y in years_hist:
-                # Strict filter for Year + Subject
-                mask = (df_scope['Year_Numeric'] == y) & (df_scope['Subject'] == subj)
-                val = df_scope[mask]['Grade'].mean()
-                
+                mask = subj_rows['Year_Numeric'] == y
+                vals = subj_rows.loc[mask, 'Avg_Grade']
+                val = vals.mean() if not vals.empty else np.nan
+
                 if pd.notna(val):
-                    data_points.append(round(val, 2))
+                    data_points.append(round(float(val), 2))
                 else:
                     # GAP FILLER: Use overall average so the line doesn't break
-                    data_points.append(round(overall_avg, 2))
+                    data_points.append(round(float(overall_avg), 2))
 
             # --- B. FORECAST (2025-2028) ---
             if subj_model:
-                # Get last known value for continuity
                 last_val = data_points[-1]
-                
+
                 for y in years_pred:
                     X_in = pd.DataFrame(0, index=[0], columns=subj_features)
                     X_in['Year_Numeric'] = y
-                    
+
                     # College Feature
                     if college.lower() != 'all':
                         col_feat = f"College_{college.upper()}"
                         if col_feat in subj_features: X_in[col_feat] = 1
-                    
+
                     # Subject Feature
                     subj_feat = f"Subject_{subj}"
                     if subj_feat in subj_features:
                         X_in[subj_feat] = 1
                         try:
                             pred = subj_model.predict(X_in)[0]
-                            # Smoothing: Average prediction with last value to prevent erratic jumps
                             smooth_pred = (pred + last_val) / 2
                             final_val = round(max(1.0, min(5.0, smooth_pred)), 2)
                             data_points.append(final_val)
                             last_val = final_val
                         except:
-                            data_points.append(last_val) # Carry forward
+                            data_points.append(last_val)
                     else:
-                        # If model doesn't know subject, flatline forecast
                         data_points.append(last_val)
             else:
-                # No model? Just flatline
                 last = data_points[-1] if data_points else 0
                 data_points.extend([last] * 4)
 
@@ -945,16 +1137,20 @@ def get_dropout_spike():
         # 2. LOAD DATA
         local_df = df_full_loaded.copy()
         
-        # Ensure Status Column
-        if 'Status' not in local_df.columns:
-             return jsonify({"error": "Status column missing"}), 500
-        local_df['Status'] = local_df['Status'].astype(str).str.strip().str.upper()
+        # The master CSV has never had a raw 'Status' column — every other
+        # endpoint in this file (get_status_pie, get_dropout_pie, etc.) already
+        # uses the pre-computed 'is_drop' flag instead. This check was looking
+        # for a column that doesn't exist, so it failed unconditionally on
+        # every request regardless of data quality. Use is_drop here too.
+        if 'is_drop' not in local_df.columns:
+             return jsonify({"error": "is_drop column missing"}), 500
 
-        # Filter College
+        # Filter College — expand short code to full CSV names
         if college.lower() not in ['all', 'main campus']:
-            local_df = local_df[local_df['College'].astype(str).str.strip().str.upper() == college.upper()]
+            full_names = expand_college(college)
+            local_df = local_df[local_df['College'].astype(str).str.strip().isin(full_names)]
 
-        # 3. HISTORY (2020 - 2024)
+        # 3. HISTORY
         if 'Year_Numeric' not in local_df.columns:
              local_df['Year_Numeric'] = local_df['Year'].astype(str).str.extract(r'^(\d{4})').astype(int)
         
@@ -966,17 +1162,29 @@ def get_dropout_spike():
             total = yr_df['Student_ID'].nunique()
             
             if total > 0:
-                # Vectorized Student-Level Count
-                drop_rows = yr_df[yr_df['Status'].str.contains("DROP", na=False)]
-                drop_count = drop_rows['Student_ID'].nunique()
+                # Use pre-computed is_drop flag (master CSV has no raw Status column)
+                if 'is_drop' in yr_df.columns:
+                    drop_count = yr_df.groupby('Student_ID')['is_drop'].max().sum()
+                elif 'Status' in yr_df.columns:
+                    drop_rows = yr_df[yr_df['Status'].str.contains("DROP", na=False)]
+                    drop_count = drop_rows['Student_ID'].nunique()
+                else:
+                    drop_count = 0
                 rate = (drop_count / total) * 100
                 data_points.append(round(rate, 2))
             else:
                 data_points.append(0)
 
-        # 4. PREDICTION (2025 - 2030)
-        # Added 2025 to ensure continuity from 2024
-        years_pred = [2025, 2026, 2027, 2028, 2029, 2030]
+        # 4. PREDICTION — years driven by training_state.json horizon
+        try:
+            from training.auto_train import load_state as _load_state3
+            _hs3 = _load_state3().get('horizon', {})
+            years_pred = [int(y.split('-')[0]) for y in _hs3.get('prediction_years', [])]
+        except Exception:
+            years_pred = []
+        if not years_pred:
+            _base = int(max(years_hist)) if years_hist else 2024
+            years_pred = list(range(_base + 1, _base + 6))
         
         # Filter out years we already have in history to avoid overlap
         last_hist_year = years_hist[-1] if years_hist else 2024
@@ -1046,7 +1254,7 @@ def get_status_pie():
         semester_arg = request.args.get('semester', 'all').strip()
 
         # 2. MODE
-        LATEST_REAL_YEAR = 2024
+        LATEST_REAL_YEAR = get_latest_real_year()
         is_forecast = year > LATEST_REAL_YEAR
 
         regular_count = 0
@@ -1059,7 +1267,8 @@ def get_status_pie():
                 df = df[df['Year_Numeric'] == target_year]
             
             if college_arg.lower() not in ['all', 'main campus']:
-                df = df[df['College'].str.upper() == college_arg.upper()]
+                full_names = expand_college(college_arg)
+                df = df[df['College'].astype(str).str.strip().isin(full_names)]
             
             if semester_arg.lower() not in ['all', 'overall']:
                 df = df[df['Semester'].astype(str).str.contains(semester_arg, case=False, na=False)]
@@ -1111,15 +1320,15 @@ def get_status_pie():
             cohort = get_filtered_data(year)
             
             if not cohort.empty:
-                # Check for Irregularity (Grade 5.0, 0.0, or Status DROP/FAIL)
+                # The master CSV has no raw "Grade" or "Status" column.
+                # Use pre-computed flags: is_irregular, is_drop, is_inc.
                 def check_status(group):
-                    grades = pd.to_numeric(group['Grade'], errors='coerce').fillna(-1).tolist()
-                    if 5.0 in grades or 0.0 in grades or 0 in grades:
+                    if 'is_irregular' in group.columns and group['is_irregular'].max() == 1:
                         return 1
-                    if 'Status' in group.columns:
-                        statuses = " ".join(group['Status'].astype(str).str.upper().tolist())
-                        if any(x in statuses for x in ['DROP', 'FAIL', 'INC', 'IRREG']):
-                            return 1
+                    if 'is_drop' in group.columns and group['is_drop'].max() == 1:
+                        return 1
+                    if 'is_inc' in group.columns and group['is_inc'].max() == 1:
+                        return 1
                     return 0
 
                 irreg_flags = cohort.groupby('Student_ID').apply(check_status)

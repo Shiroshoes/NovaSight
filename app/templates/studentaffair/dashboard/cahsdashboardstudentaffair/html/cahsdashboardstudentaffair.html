@@ -191,19 +191,14 @@
       <div class="card card-mini">
         <label>Year</label>
         <select id="globalYearFilter" class="form-select form-select-sm">
-            <option value="2022">2022 (Actual)</option>
-            <option value="2023">2023 (Actual)</option>
-            <option value="2024" selected>2024 (Current)</option>
-            <option value="2026">2026 (Predicted)</option>
-            <option value="2028">2028 (Predicted)</option>
-            <option value="2030">2030 (Predicted)</option>
+            <option value="2024" selected>Loading...</option>
         </select>
       </div>
 
       <div class="card card-mini">
         <label>Semester</label>
         <select id="filterSemester" class="form-select">
-            <option value="all">Overall</option>
+            <option value="all">All Semesters</option>
             <option value="1sem">1st Sem</option>
             <option value="2sem">2nd Sem</option>
         </select>
@@ -469,9 +464,148 @@
           </div>
         </div>
       </div>
+
+      <!-- ───────────────── Model Performance / Evaluation ───────────────── -->
+      <div class="card card-wide">
+        <div style="background-color: #fff; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
+
+          <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
+            <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+              <i class="fas fa-flask" style="margin-right: 0.25rem;"></i> Model Performance & Accuracy
+            </h6>
+            <span id="mp-trained-at" style="font-size: 0.75rem; color: #858796;">Loading…</span>
+          </div>
+
+          <div style="padding: 1.25rem;">
+            <div id="mp-empty-state" style="display:none; text-align:center; color:#858796; padding: 1.5rem 0;">
+              No model has been trained yet. Upload a dataset to begin.
+            </div>
+
+            <div id="mp-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+              <!-- model cards injected by JS -->
+            </div>
+
+            <div id="mp-errors" style="margin-top: 1rem; display:none;">
+              <hr style="border: 0; border-top: 1px solid rgba(0,0,0,.1);">
+              <p style="font-weight: 700; font-size: 0.7rem; color: #e74a3b; text-transform: uppercase; margin-bottom: 0.5rem;">
+                Training Errors
+              </p>
+              <ul id="mp-errors-list" style="font-size: 0.8rem; color: #e74a3b; margin: 0; padding-left: 1.1rem;"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <script src="{{url_for('static', filename='js/deandash.js')}}"></script>
+
+    <!-- Model Performance card: self-contained, no dependency on deandash.js -->
+    <script>
+      (function () {
+        const STATUS_COLORS = {
+          ok:      { bg: '#eaf7ef', border: '#1cc88a', text: '#1cc88a', label: 'Trained' },
+          skipped: { bg: '#fff8e6', border: '#f6c23e', text: '#b88a00', label: 'Skipped' },
+          error:   { bg: '#fdeeee', border: '#e74a3b', text: '#e74a3b', label: 'Error' },
+        };
+
+        function fmtPct(v) {
+          if (v === null || v === undefined) return '—';
+          return (v * 100 <= 100 && v <= 1) ? (v * 100).toFixed(1) + '%' : v.toFixed(2);
+        }
+
+        function fmtMetricValue(key, val) {
+          if (val === null || val === undefined) return '—';
+          if (typeof val !== 'number') return String(val);
+          if (key.toLowerCase().includes('accuracy') || key.toLowerCase().includes('f1')) {
+            return (val <= 1 ? (val * 100).toFixed(1) + '%' : val.toFixed(2));
+          }
+          return val.toFixed(4);
+        }
+
+        function renderModelCard(model) {
+          const palette = STATUS_COLORS[model.status] || STATUS_COLORS.skipped;
+          const headline = (model.headline_value !== null && model.headline_value !== undefined)
+            ? fmtMetricValue(model.headline_label || '', model.headline_value)
+            : '—';
+
+          const metricRows = Object.entries(model.metrics || {})
+            .filter(([k]) => k !== (model.headline_label || '').toLowerCase())
+            .map(([k, v]) => `
+              <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:#5a5c69; padding:2px 0;">
+                <span style="text-transform:uppercase; letter-spacing:0.02em;">${k.replace(/_/g, ' ')}</span>
+                <span style="font-weight:700;">${fmtMetricValue(k, v)}</span>
+              </div>
+            `).join('');
+
+          const reasonRow = model.reason
+            ? `<div style="font-size:0.7rem; color:#858796; margin-top:0.35rem;">${model.reason}</div>`
+            : '';
+
+          return `
+            <div style="border:1px solid ${palette.border}33; background:${palette.bg}; border-radius:0.5rem; padding:0.9rem;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <span style="font-weight:700; font-size:0.8rem; color:#3a3b45;">${model.label}</span>
+                <span style="font-size:0.65rem; font-weight:700; color:${palette.text}; background:#fff; border:1px solid ${palette.border}55; border-radius:1rem; padding:0.1rem 0.5rem;">
+                  ${palette.label}
+                </span>
+              </div>
+              <div style="margin-top:0.5rem; font-size:1.6rem; font-weight:800; color:${palette.text};">
+                ${headline}
+                ${model.headline_label ? `<span style="font-size:0.7rem; font-weight:600; color:#858796; margin-left:0.35rem;">${model.headline_label}</span>` : ''}
+              </div>
+              <div style="margin-top:0.5rem;">${metricRows}</div>
+              ${reasonRow}
+            </div>
+          `;
+        }
+
+        function renderErrors(errors) {
+          const wrap = document.getElementById('mp-errors');
+          const list = document.getElementById('mp-errors-list');
+          if (!errors || !errors.length) {
+            wrap.style.display = 'none';
+            return;
+          }
+          wrap.style.display = 'block';
+          list.innerHTML = errors.map(e => `<li><strong>${e.step}:</strong> ${e.error}</li>`).join('');
+        }
+
+        function loadModelPerformance() {
+          fetch('/api/model-performance')
+            .then(res => res.json())
+            .then(data => {
+              const grid = document.getElementById('mp-grid');
+              const empty = document.getElementById('mp-empty-state');
+              const trainedAtEl = document.getElementById('mp-trained-at');
+
+              if (data.status === 'no_training_yet' || !data.models || !data.models.length) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                trainedAtEl.textContent = '';
+                return;
+              }
+
+              grid.style.display = 'grid';
+              empty.style.display = 'none';
+              grid.innerHTML = data.models.map(renderModelCard).join('');
+              renderErrors(data.errors);
+
+              if (data.trained_at) {
+                const d = new Date(data.trained_at);
+                trainedAtEl.textContent = 'Last trained: ' + d.toLocaleString() +
+                  (data.rows_in_master ? ` · ${data.rows_in_master.toLocaleString()} rows` : '');
+              }
+            })
+            .catch(err => {
+              console.error('Model performance fetch failed:', err);
+              const trainedAtEl = document.getElementById('mp-trained-at');
+              trainedAtEl.textContent = 'Unable to load model performance.';
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', loadModelPerformance);
+      })();
+    </script>
   </section>
 
       <!-- Logout Modal Structure -->
@@ -486,6 +620,7 @@
     </div>
   </div>
   <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+  <script src="{{url_for('static', filename='js/yearUpdate.js')}}"></script>
   
 
   <footer class="footer">

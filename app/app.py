@@ -14,6 +14,7 @@ from routes.cea import cea_bp
 from routes.coas import coas_bp
 from routes.ctec import ctec_bp
 from ml_route.ml_analysis import ml_bp
+from ml_route.upload_rotues import upload_bp
 import os
 
 
@@ -36,6 +37,7 @@ app.register_blueprint(cea_bp)
 app.register_blueprint(coas_bp)
 app.register_blueprint(ctec_bp)
 app.register_blueprint(ml_bp)
+app.register_blueprint(upload_bp, url_prefix='')
 
 # ---------------- Default Admin Creation ----------------
 with app.app_context():
