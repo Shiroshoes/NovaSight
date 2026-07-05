@@ -113,13 +113,6 @@ body {
 }
 
 /* --- MAIN LAYOUT --- */
-main {
-    flex: 1;
-    margin-left: 270px;
-    height: 100vh;
-    overflow-y: auto;
-    padding-right: 40px;
-}
 
 /* header  */
  /* --- FIX: Main Content Container --- */
@@ -154,7 +147,7 @@ header {
     backdrop-filter: blur(15px);
     padding: 20px 40px;
     margin-left: 24px;
-    width: 1490px;
+    width: 1320px;
     border-radius: 20px;
     margin-top: 15px;
 }

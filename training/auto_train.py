@@ -1,31 +1,3 @@
-"""
-auto_train.py — Model Training Orchestrator
-============================================
-Called automatically after a successful file upload.
-Does four things:
-  1. Runs the preprocessor to update Processed_Datasets/
-  2. Trains all 8 ML models from the updated datasets
-  3. Computes the new prediction horizon (latest year + N years forward)
-  4. Saves a training_state.json that the Flask API reads for predictions
-
-Prediction horizon rule
------------------------
-Base years in data        → most recent school year in the merged CSV
-Steps forward             → 5 years by default, +1 each time BOTH semesters
-                            of a new school year are uploaded
-                            (i.e. 2025-2026 becomes complete when both
-                            2025-1 and 2025-2 files are present)
-
-Example:
-  Data covers 2022-2025 (3 school years × 2 sems = 6 files)
-  → latest = 2024-2025
-  → horizon = 2024 + 5 + 3 = 2032 (base 5 + 1 per completed year beyond first)
-
-Usage:
-    python auto_train.py                  # full retrain
-    python auto_train.py --new-file path  # preprocess one new file then retrain
-"""
-
 import os
 import re
 import json
@@ -46,20 +18,13 @@ from sklearn.metrics         import (
     f1_score,
 )
 
-# ── Import our preprocessor ───────────────────────────────────
+# Import our preprocessor
 from preprocessing.preprocess import (
     process_file, export_model_datasets,
     FINAL_COLUMNS, PROCESSED_DIR, MODEL_DATA_DIR, FINAL_OUTPUT,
 )
 
-# ─────────────────────────────────────────────────────────────
 # PATHS
-# ─────────────────────────────────────────────────────────────
-
-# Same reasoning as preprocess.py: source from configs/config.py so the
-# .pkl model files this script WRITES land in the exact same absolute
-# folder that ml_analysis.py READS from at Flask startup, regardless of
-# the working directory the process happens to be launched from.
 try:
     from configs.config import ML_MODEL_DIR as MODEL_DIR
 except ImportError:
@@ -71,9 +36,9 @@ HORIZON_DEFAULT_STEPS = 5   # predict this many years beyond latest data year
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 
-# ─────────────────────────────────────────────────────────────
+
 # HELPERS
-# ─────────────────────────────────────────────────────────────
+
 
 def _log(msg: str):
     ts = datetime.now().strftime("%H:%M:%S")
@@ -114,9 +79,9 @@ def _f1(y_true, y_pred_class) -> float:
         return 0.0
 
 
-# ─────────────────────────────────────────────────────────────
+
 # PREDICTION HORIZON CALCULATOR
-# ─────────────────────────────────────────────────────────────
+
 
 def compute_horizon(df: pd.DataFrame,
                     unprocessed_dir: str = "Unprocessed_Datasets") -> dict:
@@ -178,9 +143,9 @@ def compute_horizon(df: pd.DataFrame,
     }
 
 
-# ─────────────────────────────────────────────────────────────
+
 # INDIVIDUAL MODEL TRAINERS
-# ─────────────────────────────────────────────────────────────
+
 
 def train_dropout_risk(df_path: str) -> dict:
     """RandomForest — student-level dropout probability."""
@@ -413,9 +378,9 @@ def train_subject_top(df_path: str) -> dict:
     return {"status":"ok", "r2": _r2(y, y_pred)}
 
 
-# ─────────────────────────────────────────────────────────────
+
 # ORCHESTRATOR
-# ─────────────────────────────────────────────────────────────
+
 
 def run_full_pipeline(new_file: str = None) -> dict:
     """
@@ -547,9 +512,9 @@ def load_state() -> dict:
     return {}
 
 
-# ─────────────────────────────────────────────────────────────
+
 # CLI
-# ─────────────────────────────────────────────────────────────
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train all AI models after upload")

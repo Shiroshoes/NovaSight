@@ -51,13 +51,13 @@ DATASET_FILENAME_REGEX = re.compile(
 
 # ── Roles ─────────────────────────────────────────────────────
 ALLOWED_ROLES = [
-    'admin', 'Registrar', 'SASO', 'Student_Affair',
+    'admin', 'Registrar', 'SASO', 'Academic_Affair',
     'CAHSdean', 'CBAdean', 'CCSTdean', 'CEAdean',
     'CoASdean', 'CTECdean',
 ]
 
 # Roles that are allowed to upload grade-sheet datasets
-UPLOAD_ALLOWED_ROLES = {'Student_Affair'}
+UPLOAD_ALLOWED_ROLES = {'Academic_Affair'}
 
 # ── Auto-create folders on import ─────────────────────────────
 for _d in (UNPROCESSED_DATASETS_DIR, PROCESSED_DATASETS_DIR, MODEL_DATASETS_DIR, ML_MODEL_DIR):

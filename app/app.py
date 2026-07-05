@@ -6,7 +6,7 @@ from flask import jsonify
 from routes.admin import admin_bp
 from routes.registrar import registrar_bp
 from routes.saso import saso_bp
-from routes.Student_affair import studentaffair_bp
+from routes.Academic_affair import academicaffair_bp
 from routes.cahs import cahs_bp
 from routes.cba import cba_bp
 from routes.ccst import ccst_bp
@@ -29,7 +29,7 @@ db.init_app(app)
 app.register_blueprint(admin_bp)
 app.register_blueprint(registrar_bp)
 app.register_blueprint(saso_bp)
-app.register_blueprint(studentaffair_bp)
+app.register_blueprint(academicaffair_bp)
 app.register_blueprint(cahs_bp)
 app.register_blueprint(cba_bp)
 app.register_blueprint(ccst_bp)
@@ -100,7 +100,7 @@ def _redirect_by_role(role):
         'admin':          '/NovaSight/admin',
         'Registrar':      '/NovaSight/registrar/home',
         'SASO':           '/NovaSight/saso/home',
-        'Student_Affair': '/NovaSight/studentaffair/home',
+        'Academic_Affair': '/NovaSight/academicaffair/home',
         'CAHSdean':       '/NovaSight/cahs/home',
         'CBAdean':        '/NovaSight/cba/home',
         'CCSTdean':       '/NovaSight/ccst/home',

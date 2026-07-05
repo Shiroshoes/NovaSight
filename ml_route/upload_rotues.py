@@ -1,28 +1,3 @@
-"""
-upload_routes.py
-================
-Flask blueprint: grade-sheet upload → validate → save → auto-train all models.
-
-Accepted filename formats (spaces OR underscores):
-    2022-1 Student-Performance Dataset.xlsx
-    2022-1_Student-Performance_Dataset.xlsx
-
-After a file is accepted:
-  1. Saved to Unprocessed_Datasets/
-  2. DB record created  (status='pending')
-  3. Background thread runs auto_train.run_full_pipeline(new_file=path)
-     → preprocess, merge into master CSV, retrain ALL 9 models, update horizon
-  4. DB record updated  (status='done' / 'failed')
-
-Endpoints
----------
-  POST /api/upload-dataset          upload a new .xlsx file
-  GET  /api/upload-status/<id>      poll processing status
-  GET  /api/training-state          current model metrics + prediction horizon
-  GET  /api/unprocessed-list        Unprocessed Datasets card data
-  GET  /api/processed-list          Processed Datasets card + model files + horizon
-"""
-
 import os
 import re
 import time

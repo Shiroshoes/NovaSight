@@ -9,34 +9,18 @@ import io
 import base64
 from flask import Blueprint, jsonify, request
 
-# Pull paths from the single source of truth (configs/config.py) instead of
-# hardcoding a second, mismatched copy here. Previously this file used
-# "processed_datasets/..." (lowercase) while every other module used
-# "Processed_Datasets/..." (capital P) — on a case-sensitive filesystem
-# (Linux) that silently failed to find the file and the dashboard fell back
-# to an empty DataFrame.
-#
-# MODEL_DIR is sourced the same way: auto_train.py WRITES the .pkl files to
-# configs.config's ML_MODEL_DIR (an absolute, BASE_DIR-anchored path), so
-# this module must READ from that exact same absolute path — not a bare
-# relative "Machine_Learning_Model" string, which resolves against whatever
-# the current working directory happens to be when Flask is launched and
-# can silently point at an empty/different folder.
+
 from configs.config import FINAL_MERGED_CSV, ML_MODEL_DIR, MODEL_DATASETS_DIR
 
 ml_bp = Blueprint('ml_analysis', __name__)
 
-# ── College short-code → full CSV names ──────────────────────────────────────
-# The dashboard sends short codes (e.g. "CAHS") but the CSV stores full names
-# (e.g. "CAHS-SOM", "CAHS-SON").  Every endpoint must expand the code before
-# filtering so df[df['College'] == 'CAHS'] doesn't silently return 0 rows.
 COLLEGE_MAP = {
-    "CEA":  ["CEA"],    # COLLEGE OF ENGINEERING AND ARCHITECTURE (was CEA + COEA)
-    "CTEC": ["CTEC"],   # COLLEGE OF TECHNOLOGY
-    "CCST": ["CCST"],   # COLLEGE OF COMPUTER STUDIES
-    "COAS": ["COAS"],   # COLLEGE OF ARTS AND SCIENCES (was COAS + DOAS)
-    "CAHS": ["CAHS"],   # COLLEGE OF ALLIED HEALTH SCIENCES (was CNM + CAHS-SOM + CAHS-SON + CAHS-SPHCD)
-    "CBA":  ["CBA"],    # COLLEGE OF BUSINESS AND ACCOUNTANCY (was COBA + CBA)
+    "CEA":  ["CEA"],
+    "CTEC": ["CTEC"],
+    "CCST": ["CCST"],
+    "COAS": ["COAS"],
+    "CAHS": ["CAHS"],
+    "CBA":  ["CBA"],
 }
 
 def expand_college(college_arg: str):
@@ -48,8 +32,7 @@ def expand_college(college_arg: str):
     key = college_arg.strip().upper()
     return COLLEGE_MAP.get(key, [college_arg.strip()])
 
-#  GLOBAL DATA LOADING & CLEANING (Run once at startup, reusable after) 
-# This fixes the "No Data" issue by creating the Year_Numeric column right here.
+#  GLOBAL DATA LOADING & CLEANING
 DATA_PATH = FINAL_MERGED_CSV
 MODEL_DIR = ML_MODEL_DIR
 
@@ -178,8 +161,6 @@ dropout_spike_features = load_model("dropout_spike_features.pkl")
 
 
 # ── reload_models() ──────────────────────────────────────────────────────────
-# Called by /api/reload-models so the dashboard picks up freshly trained PKLs
-# without restarting Flask.
 def reload_models():
     """Re-load every .pkl from MODEL_DIR into the module-level globals."""
     global drop_pie_model, drop_pie_features
@@ -307,9 +288,6 @@ def get_dropout_pie():
             })
 
         # ── STUDENT FLAGS ─────────────────────────────────────────────────────
-        # The master CSV does NOT have a raw "Grade" column.
-        # It already has pre-computed per-student flags: is_drop, is_inc.
-        # Group to one row per student and carry those flags forward.
         agg_cols = {"Gender": "first", "College": "first",
                     "Semester": "first", "Year": "first"}
         if "is_drop" in cohort.columns:

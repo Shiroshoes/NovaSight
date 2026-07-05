@@ -1,10 +1,10 @@
 {
-  "trained_at": "2026-06-28T17:45:33.020142Z",
-  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1782668732_2024-2_Student-Performance_Dataset.xlsx",
+  "trained_at": "2026-07-05T10:05:08.807033Z",
+  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\3_1783245908_2024-1_Student-Performance_Dataset.xlsx",
   "models": {
     "dropout_risk": {
       "status": "ok",
-      "f1_score": 0.9898,
+      "f1_score": 0.9924,
       "accuracy": 0.9997
     },
     "dropout_spike": {
@@ -14,13 +14,13 @@
     },
     "dropout_ranking": {
       "status": "ok",
-      "r2": 0.0036,
-      "rmse": 0.1352
+      "r2": 0.0032,
+      "rmse": 0.1325
     },
     "gwa_ranking": {
       "status": "ok",
-      "r2": 0.0545,
-      "rmse": 0.641
+      "r2": 0.056,
+      "rmse": 0.6345
     },
     "gwa_trend": {
       "status": "ok",
@@ -48,7 +48,7 @@
     },
     "subject_grade": {
       "status": "ok",
-      "r2": 0.7807
+      "r2": 0.7799
     }
   },
   "horizon": {
@@ -71,5 +71,5 @@
   },
   "errors": [],
   "rows_in_master": 57745,
-  "elapsed_seconds": 62.5
+  "elapsed_seconds": 61.5
 }

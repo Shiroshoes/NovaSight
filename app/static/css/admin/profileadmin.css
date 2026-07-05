@@ -145,7 +145,7 @@ header {
     backdrop-filter: blur(15px);
     padding: 20px 40px;
     margin-left: 24px;
-    width: 1490px;
+    width: 1320px;
     border-radius: 20px;
     margin-top: 15px;
 }
@@ -234,7 +234,7 @@ header {
   padding: 20px;
   display: flex;
   margin-left: 24px;
-  width: 1500px;
+  width: 1320px;
   height: 600px;
   margin-bottom: 30px;
 }
@@ -325,7 +325,7 @@ footer {
 .footer {
   background-color: none;
   margin-left: 24px;
-  width: 1550px;
+  width: 1320px;
 }
 
 

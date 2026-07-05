@@ -1,21 +1,3 @@
-"""
-preprocess.py  –  NovaSight Grade-Sheet Preprocessor (v2)
-==========================================================
-Fixes vs the original:
-  1. Parses EVERY sheet in every workbook (previously missed CCST, CNM, etc.)
-  2. Detects ALL course blocks per sheet (previously only grabbed the first)
-  3. Generates one long-form row per student × subject (~460k rows total)
-  4. Correctly maps sheet codes → full college names
-  5. Handles all special grade values: INC, INC/x.xx, DRP, NGA, NGA/x.xx, 0, 5
-  6. Extracts semester & academic year from the sheet header text
-  7. Builds all 12 model-dataset CSVs from the long-form master
-  8. Can be called standalone OR imported by upload_routes.py
-
-Usage (standalone):
-    python preprocess.py  --input_dir Unprocessed_Datasets \
-                          --output_dir Processed_Datasets
-"""
-
 import os
 import re
 import sys
@@ -34,14 +16,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# ── Sheet code → unified college label ───────────────────────────────────────
-# Grouping rules (from institution):
-#   CEA  / COEA                              → CEA
-#   CTEC                                     → CTEC
-#   CCST                                     → CCST
-#   COAS / DOAS                              → COAS
-#   CNM  / CAHS-SOM / CAHS-SON / CAHS-SPHCD → CAHS
-#   COBA / CBA                               → CBA
+# Sheet code unified college label
 SHEET_COLLEGE_MAP = {
     # Engineering & Architecture (CEA and COEA are the same college)
     "CEA":        "CEA",
