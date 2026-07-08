@@ -209,11 +209,11 @@
       </div> 
       
       <div class="card card-mini">
-        <div class="card" id="kpi-card-students" style="border-left: 5px solid #df4e4e; border-radius: 10px; background: white; padding: 10px; height: 50px;">
+        <div id="kpi-card-students" style="border-radius: 10px; background: white; padding: 10px; height: 50px;">
             <div style="align-items: center; display: flex; justify-content: space-between;" >
                 <div>
                     <div style="font-size: small; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #000000;" id="kpi-title-students">
-                        Total Enrollment (Actual)
+                        Total Enrollment
                     </div>
                     <div style="font-weight: 800;" id="kpi-val-students">
                         ---
@@ -230,11 +230,11 @@
 
 
       <div class="card card-mini">
-        <div class= id="kpi-card-gwa" style="border-left: 5px solid #c81c1c; border-radius: 10px; background: white; padding: 10px; height: 50px;">
+        <div class= id="kpi-card-gwa" style="border-radius: 10px; background: white; padding: 10px; height: 50px;">
             <div style="align-items: center; display: flex; justify-content: space-between;">
                 <div>
                     <div style="font-size: small; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #000000;" id="kpi-title-gwa">
-                        Average GWA (Actual)
+                        Average GWA
                     </div>
                     <div style="font-weight: 800;" id="kpi-val-gwa">
                         ---
@@ -256,44 +256,149 @@
 
               <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
                   <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                      Retention & Risk Analysis: <span id="dp-college-name" style="color: #5a5c69;">Main Campus</span>
+                      <span id="dp-dot-m" style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:#4e73df; margin-right:6px;"></span>
+                      Male Retention & Risk: <span id="dp-college-name-m" style="color: #5a5c69;">Main Campus</span>
                   </h6>
-                  <span id="drop-pie-badge" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>
+                  <span id="drop-pie-badge-m" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>
               </div>
 
               <div style="padding: 1.25rem;">
-                  <div style="display: flex; flex-wrap: wrap; align-items: center; margin-right: -15px; margin-left: -15px;">
-                      
-                      <div style="flex: 0 0 66.66667%; max-width: 66.66667%; padding: 0 15px; box-sizing: border-box;">
-                          <div style="padding-top: 0.5rem; padding-bottom: 0.5rem;">
-                              <div style="height: 280px; position: relative;">
-                                  <canvas id="dropoutPieChart"></canvas>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div style="flex: 0 0 33.33333%; max-width: 33.33333%; padding: 0 15px; box-sizing: border-box;">
-                              
-                              <div style="margin-top: 1rem;">
-                                  <p style="font-weight: 700; margin-bottom: 0.25rem; font-size: 0.7rem; color: #858796; text-transform: uppercase;">RISK COMPOSITION:</p>
-                                  <div style="font-size: 0.7rem; font-weight: 700; color: #e74a3b; margin-bottom: 0.25rem;">
-                                      ● <span id="val-drop">0</span> Confirmed Drop
-                                  </div>
-                                  <div style="font-size: 0.7rem; font-weight: 700; color: #f6c23e; margin-bottom: 0.25rem;">
-                                      ● <span id="val-inc">0</span> Incomplete (INC)
-                                  </div>
-                                  <div style="font-size: 0.7rem; font-weight: 700; color: #858796;">
-                                      ● <span id="val-pred">0</span> Predicted Risk
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-
+                  <p style="margin: 0 0 0.75rem 0; font-size: 0.8rem; color: #858796;">
+                      One donut for the whole campus, grouped by college — each college broken into Regular / INC / Dropped slices, colored using that college's own color family. Total shown is Male students only.
+                  </p>
+                  <div id="maleStatusGridContainer" style="display:flex; flex-wrap:wrap; justify-content:center;">
+                      <p style="color:#858796; text-align:center; width:100%;">Loading male status breakdown…</p>
                   </div>
               </div>
           </div>
       </div>
 
+      <div class="card card-wide">
+          <div style="background-color: #fff; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
+
+              <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
+                  <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                      <span id="dp-dot-f" style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:#e83e8c; margin-right:6px;"></span>
+                      Female Retention & Risk: <span id="dp-college-name-f" style="color: #5a5c69;">Main Campus</span>
+                  </h6>
+                  <span id="drop-pie-badge-f" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>
+              </div>
+
+              <div style="padding: 1.25rem;">
+                  <p style="margin: 0 0 0.75rem 0; font-size: 0.8rem; color: #858796;">
+                      One donut for the whole campus, grouped by college — each college broken into Regular / INC / Dropped slices, colored using that college's own color family. Total shown is Female students only.
+                  </p>
+                  <div id="femaleStatusGridContainer" style="display:flex; flex-wrap:wrap; justify-content:center;">
+                      <p style="color:#858796; text-align:center; width:100%;">Loading female status breakdown…</p>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      <div class="card card-full-width-bar">
+        <div style="border-radius: 10px; background-color: white;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Academic Performance Ranking (GWA)
+              </h6>
+          </div>
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+              <div style="position: relative; height: 350px; width: 100%;">
+                  <canvas id="gwaRankingChart"></canvas>
+              </div>
+              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
+              <div style="text-align: center; font-size: 0.875rem; color: #858796;">
+                  <i class="fas fa-info-circle"></i>
+                  Note: <strong>Lower Bar Height</strong> = <strong>Better Grade</strong> (GWA closer to 1.0 is best; closer to 5.0 is failing).
+                  Each college always uses the same bar color across this whole dashboard.
+              </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student Regular -->
+      <div class="card third-square">
+        <div style="background-color: white; border-radius: 10px; margin-top: 10px;">
+          
+
+          <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
+
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Student Status Overview (Regular)
+              </h6>
+              <h6 id="status-chart-title" style="margin: 0; color: #000000; font-size: 1rem;">
+                  Student Status Overview
+              </h6>
+              <span id="status-badge" style="display: inline-block; padding: 0.25rem 0.5rem; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.35rem; color: #fff; background-color: #858796;">Loading...</span>
+          </div>
+
+
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+
+              <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+                  <div style="flex: 1 1 200px; text-align: center;">
+                      <div style="position: relative; height: 220px; width: 100%;">
+                          <canvas id="statusRegularChart"></canvas>
+                      </div>
+                      <div style="margin-top: 0.75rem;">
+                          <i id="status-dot-regular" class="fas fa-circle" style="color: #1cc88a;"></i>
+                          <span id="status-label-regular">Regular</span>
+                          <div id="val-regular" style="font-weight: 700; font-size: 1.25rem; margin-top: 0.25rem; color: #5a5c69;">0</div>
+                      </div>
+                  </div>
+             </div>
+            </div>
+        </div>
+      </div>
+
+      <!-- Student Irregular -->
+      <div class="card third-square1">
+        <div style="background-color: white; border-radius: 10px; margin-top: 10px;">
+          
+
+          <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
+
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Student Status Overview (Irregular)
+              </h6>
+              <h6 id="status-chart-title" style="margin: 0; color: #000000; font-size: 1rem;">
+                  Student Status Overview
+              </h6>
+              <span id="status-badge" style="display: inline-block; padding: 0.25rem 0.5rem; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.35rem; color: #fff; background-color: #858796;">Loading...</span>
+          </div>
+
+
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+
+              <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+
+                  <div style="flex: 1 1 200px; text-align: center;">
+                      <div style="position: relative; height: 220px; width: 100%;">
+                          <canvas id="statusIrregularChart"></canvas>
+                      </div>
+                      <div style="margin-top: 0.75rem;">
+                          <i id="status-dot-irregular" class="fas fa-circle" style="color: #e74a3b;"></i>
+                          <span id="status-label-irregular">Irregular</span>
+                          <div id="val-irregular" style="font-weight: 700; font-size: 1.25rem; margin-top: 0.25rem; color: #5a5c69;">0</div>
+                      </div>
+                  </div>
+              </div>
+
+              <!-- Plain-language takeaway, no chart-reading required -->
+              <div id="status-plain-summary" style="text-align: center; margin-top: 0.75rem; font-size: 0.85rem; color: #2e3a59; font-weight: 600;">
+                  Loading summary…
+              </div>
+
+              <div style="text-align: center; margin-top: 0.5rem;">
+                  <small style="color: #858796; font-style: italic;">
+                      *Irregular = Students with ≥1 Failed (5.0) or Dropped subject.
+                  </small>
+              </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student Scatter -->
       <div class="card card-wide1">
           <div style="width: 100%;">
               <div style="background-color: #fff; background-clip: border-box; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem;">
@@ -313,80 +418,132 @@
                       <div style="position: relative; height: 400px; width: 100%;">
                           <canvas id="gwaScatterChart"></canvas>
                       </div>
-                      
-                      <div style="margin-top: 1rem; text-align: center; font-size: 0.875rem; color: #858796;">
-                          <span style="margin-right: 1.5rem;">
-                              <i class="fas fa-circle" style="color: rgba(78, 115, 223, 0.6);"></i> Student GWA
-                          </span>
-                          <span>
-                              <i class="fas fa-info-circle"></i> 
-                              <strong>Vertical Position:</strong> Higher dots (Top) = Better Grades (1.0). 
-                              <strong>Horizontal:</strong> Randomized for readability (Swarm).
-                          </span>
+
+                      <!-- Dynamic color legend: one chip per college, colors match every other chart -->
+                      <div id="scatterColorLegend" style="margin-top: 0.75rem; text-align: center;"></div>
+
+                      <div style="margin-top: 0.5rem; text-align: center; font-size: 0.875rem; color: #858796;">
+                          <i class="fas fa-info-circle"></i>
+                          Each dot is one student. <strong>Dots near the top</strong> = better grades (closer to 1.0).
+                          <strong>Dot color</strong> shows which college the student belongs to (see legend above).
+                          The dashed line is the overall average.
                       </div>
                   </div>
               </div>
           </div>
       </div>
 
+      <!-- ── Top 5 hardest subjects, SEPARATE line chart per department ── -->
+
+      <!-- CAHS -->
       <div class="card card-full-width">
-        <div style="border-radius: 10px; background-color: white;">
+        <div style="background-color: white; border-radius: 10px;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                  Academic Performance Ranking (GWA)
+                  Top 5 Hardest Subjects: CAHS
               </h6>
+              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
+                  Line chart of this department's 5 hardest subjects, pooled across every course inside CAHS. A higher point (closer to 5.0) means students tend to score worse in that subject.
+              </p>
           </div>
-          <div style="padding: 1.25rem; flex: 1 1 auto;">
-              <div style="position: relative; height: 350px; width: 100%;">
-                  <canvas id="gwaRankingChart"></canvas>
-              </div>
-              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
-              <div style="text-align: center; font-size: 0.875rem; color: #858796;">
-                  Note: <strong>Lower Bar Height</strong> indicates a <strong>Better Grade</strong> (closer to 1.0).
+          <div style="padding: 1rem;">
+              <div id="hardestSubjectsCard_CAHS" style="display:flex; flex-wrap:wrap; justify-content:center;">
+                  <p style="color:#858796; text-align:center; width:100%;">Loading CAHS subject difficulty…</p>
               </div>
           </div>
         </div>
       </div>
 
-
-      <div class="card third-square">
-        <div style="background-color: white; border-radius: 10px; margin-top: 10px;">
-          
-
-          <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
-
+      <!-- CBA -->
+      <div class="card card-full-width">
+        <div style="background-color: white; border-radius: 10px;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                  Student Status Overview
+                  Top 5 Hardest Subjects: CBA
               </h6>
-              <h6 id="status-chart-title" style="margin: 0; color: #000000; font-size: 1rem;">
-                  Student Status Overview
-              </h6>
-              <span id="status-badge" style="display: inline-block; padding: 0.25rem 0.5rem; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.35rem; color: #fff; background-color: #858796;">Loading...</span>
+              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
+                  Line chart of this department's 5 hardest subjects, pooled across every course inside CBA. A higher point (closer to 5.0) means students tend to score worse in that subject.
+              </p>
           </div>
-
-
-          <div style="padding: 1.25rem; flex: 1 1 auto;">
-
-              <div style="position: relative; height: 280px; width: 100%;">
-                  <canvas id="statusPieChart"></canvas>
+          <div style="padding: 1rem;">
+              <div id="hardestSubjectsCard_CBA" style="display:flex; flex-wrap:wrap; justify-content:center;">
+                  <p style="color:#858796; text-align:center; width:100%;">Loading CBA subject difficulty…</p>
               </div>
-              
-              <!-- Legend -->
-              <div style="margin-top: 1.5rem; display: flex; justify-content: center; font-size: 0.875rem; text-align: center;">
-                  <div style="margin-right: 1.5rem;">
-                      <i class="fas fa-circle" style="color: #1cc88a;"></i> Regular
-                      <div id="val-regular" style="font-weight: 700; font-size: 1.25rem; margin-top: 0.25rem; color: #5a5c69;">0</div>
-                  </div>
-                  <div>
-                      <i class="fas fa-circle" style="color: #e74a3b;"></i> Irregular
-                      <div id="val-irregular" style="font-weight: 700; font-size: 1.25rem; margin-top: 0.25rem; color: #5a5c69;">0</div>
-                  </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CCST -->
+      <div class="card card-full-width">
+        <div style="background-color: white; border-radius: 10px;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Top 5 Hardest Subjects: CCST
+              </h6>
+              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
+                  Line chart of this department's 5 hardest subjects, pooled across every course inside CCST. A higher point (closer to 5.0) means students tend to score worse in that subject.
+              </p>
+          </div>
+          <div style="padding: 1rem;">
+              <div id="hardestSubjectsCard_CCST" style="display:flex; flex-wrap:wrap; justify-content:center;">
+                  <p style="color:#858796; text-align:center; width:100%;">Loading CCST subject difficulty…</p>
               </div>
-              
-              <div style="text-align: center; margin-top: 1rem;">
-                  <small style="color: #858796; font-style: italic;">
-                      *Irregular = Students with ≥1 Failed (5.0) or Dropped subject.
-                  </small>
+          </div>
+        </div>
+      </div>
+
+      <!-- CEA -->
+      <div class="card card-full-width">
+        <div style="background-color: white; border-radius: 10px;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Top 5 Hardest Subjects: CEA
+              </h6>
+              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
+                  Line chart of this department's 5 hardest subjects, pooled across every course inside CEA. A higher point (closer to 5.0) means students tend to score worse in that subject.
+              </p>
+          </div>
+          <div style="padding: 1rem;">
+              <div id="hardestSubjectsCard_CEA" style="display:flex; flex-wrap:wrap; justify-content:center;">
+                  <p style="color:#858796; text-align:center; width:100%;">Loading CEA subject difficulty…</p>
+              </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COAS -->
+      <div class="card card-full-width">
+        <div style="background-color: white; border-radius: 10px;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Top 5 Hardest Subjects: COAS
+              </h6>
+              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
+                  Line chart of this department's 5 hardest subjects, pooled across every course inside COAS. A higher point (closer to 5.0) means students tend to score worse in that subject.
+              </p>
+          </div>
+          <div style="padding: 1rem;">
+              <div id="hardestSubjectsCard_COAS" style="display:flex; flex-wrap:wrap; justify-content:center;">
+                  <p style="color:#858796; text-align:center; width:100%;">Loading COAS subject difficulty…</p>
+              </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTEC -->
+      <div class="card card-full-width">
+        <div style="background-color: white; border-radius: 10px;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Top 5 Hardest Subjects: CTEC
+              </h6>
+              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
+                  Line chart of this department's 5 hardest subjects, pooled across every course inside CTEC. A higher point (closer to 5.0) means students tend to score worse in that subject.
+              </p>
+          </div>
+          <div style="padding: 1rem;">
+              <div id="hardestSubjectsCard_CTEC" style="display:flex; flex-wrap:wrap; justify-content:center;">
+                  <p style="color:#858796; text-align:center; width:100%;">Loading CTEC subject difficulty…</p>
               </div>
           </div>
         </div>
@@ -413,11 +570,9 @@
                         <canvas id="dropoutRankingChart"></canvas>
                     </div>
                     <div style="margin-top: 1rem; text-align: center; font-size: 0.875rem; color: #858796;">
-                        <span>
-                            <i class="fas fa-info-circle"></i> 
-                            Comparing dropout rates across colleges.
-                            <span style="color: #e74a3b; font-weight: 700;">Red</span> indicates selected focus or high risk.
-                        </span>
+                        <i class="fas fa-info-circle"></i>
+                        Comparing dropout rates across colleges. Each bar uses that college's own color (same as every other chart on this page).
+                        If you've selected a specific college above, the others are dimmed so it stands out.
                     </div>
                 </div>
             </div>
@@ -437,22 +592,14 @@
                   <canvas id="incForecastChart"></canvas>
               </div>
               <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
-  
-              <div style="margin-top: 0.5rem; text-align: center; font-size: 0.875rem;">
-                  <span style="margin-right: 1rem;">
-                      <span style="display:inline-block; width:12px; height:12px; background-color:#3e6ff6; border-radius:50%;"></span>
-                      Actual History
-                  </span>
-                  <span>
-                      <span style="display:inline-block; width:12px; height:2px; background-color:#f6c23e; vertical-align:middle; margin-right:2px;"></span>
-                      <span style="display:inline-block; width:12px; height:2px; background-color:#f6c23e; vertical-align:middle;"></span>
-                      AI Prediction
-                  </span>
-              </div>
-              <div style="text-align: center; margin-top: 0.5rem;">
-                  <small style="color: #858796;">
-                      Predicts the percentage of students who will receive an 'INC' status based on college trends.
-                  </small>
+
+              <!-- One colored chip per college; solid = history, dashed = forecast -->
+              <div id="incForecastLegend" style="margin-top: 0.5rem; text-align: center;"></div>
+              <div style="text-align: center; margin-top: 0.75rem; font-size: 0.8rem; color: #858796;">
+                  <i class="fas fa-info-circle"></i>
+                  Each line is one college, always shown in that college's own color.
+                  A <strong>solid line</strong> is real historical data; a <strong>dashed line</strong> is the AI's future prediction.
+                  Higher on the chart = more students with an Incomplete (INC) grade.
               </div>
           </div>
         </div>
@@ -490,8 +637,18 @@
       </div>
     </section>
 
+    <script>
+      window.HARDEST_SUBJECTS_COURSE_CARDS = {
+          'cahs': 'hardestSubjectsCard_CAHS',
+          'cba':  'hardestSubjectsCard_CBA',
+          'ccst': 'hardestSubjectsCard_CCST',
+          'cea':  'hardestSubjectsCard_CEA',
+          'coas': 'hardestSubjectsCard_COAS',
+          'ctec': 'hardestSubjectsCard_CTEC'
+      };
+    </script>
+    <script src="{{url_for('static', filename='js/chart-helpers.js')}}"></script>
     <script src="{{url_for('static', filename='js/maindash.js')}}"></script>
-    <script src="{{url_for('static', filename='js/yearUpdate.js')}}"></script>
   </section>
 
       <!-- Logout Modal Structure -->

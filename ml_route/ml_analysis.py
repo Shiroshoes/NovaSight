@@ -110,6 +110,31 @@ def reload_data():
 
 
 
+def gender_masks(series: pd.Series):
+    """
+    Returns (is_male, is_female) boolean masks for a Gender column that may
+    be EITHER string values ("Male"/"Female") OR the numeric codes used in
+    the master CSV (0 = Male, 1 = Female, -1 = Unknown) -- see
+    Gender/Gender_Label in the gender-performance export.
+
+    Endpoints that did `series.astype(str).str.startswith('M'/'F')`
+    unconditionally silently matched ZERO students whenever Gender was
+    numeric, because `str(0)` / `str(1)` never start with "M"/"F". That
+    produced all-zero Male/Female buckets (looked like "no data") even
+    though get_dropout_pie's gender split -- which DOES branch on dtype --
+    was showing real numbers from the same rows.
+    """
+    if series.dtype == object:
+        norm = series.astype(str).str.strip().str.upper()
+        is_male = norm.str.startswith('M')
+        is_female = norm.str.startswith('F')
+    else:
+        numeric = pd.to_numeric(series, errors='coerce')
+        is_male = numeric == 0
+        is_female = numeric == 1
+    return is_male, is_female
+
+
 def get_latest_real_year() -> int:
     """
     Returns the most recent school year actually present in the merged
@@ -491,6 +516,81 @@ def get_gwa_ranking_data(selected_year):
 
 
 # DROPOUT RANKING (Bar Chart) 
+@ml_bp.route('/api/get_year_semester_options')
+def get_year_semester_options():
+    """
+    Tells the frontend which years/semesters actually have data, so the
+    Year dropdown is never stuck on a hardcoded '2024' and instead grows
+    automatically as new datasets get uploaded and trained.
+
+    Behavior the frontend uses this for:
+      - Default YEAR = the most recent year that has any real data.
+      - Default SEMESTER for that year:
+          * Only 1st Sem uploaded so far  -> default to "1st Sem"
+          * Only 2nd Sem uploaded so far  -> default to "2nd Sem"
+          * BOTH semesters uploaded       -> default to "All Semesters"
+        This way, right after a single semester is uploaded the dashboard
+        shows exactly that fresh partial data, and once the second
+        semester for the same year comes in it automatically switches to
+        showing the full year.
+    """
+    try:
+        df = df_full_loaded.copy()
+        if 'Year_Numeric' not in df.columns:
+            df['Year_Numeric'] = (
+                df['Year'].astype(str).str.extract(r'^(\d{4})')[0].astype(float)
+            )
+
+        years = sorted({int(y) for y in df['Year_Numeric'].dropna().unique()})
+
+        if not years:
+            return jsonify({
+                "years": [], "latest_year": None,
+                "latest_year_semesters": [], "default_semester": "all",
+                "forecast_years": []
+            })
+
+        latest_year = max(years)
+
+        sem_raw = (
+            df.loc[df['Year_Numeric'] == latest_year, 'Semester']
+            .astype(str).str.strip().str.upper().unique().tolist()
+            if 'Semester' in df.columns else []
+        )
+        has_1st = any('1' in s for s in sem_raw)
+        has_2nd = any('2' in s for s in sem_raw)
+
+        if has_1st and has_2nd:
+            default_semester = 'all'
+        elif has_1st:
+            default_semester = '1sem'
+        elif has_2nd:
+            default_semester = '2sem'
+        else:
+            default_semester = 'all'
+
+        # Forecast years come from the same horizon used everywhere else,
+        # so the dropdown's "future" options always match what the models
+        # can actually predict.
+        try:
+            from training.auto_train import load_state as _load_state
+            horizon = _load_state().get('horizon', {})
+            forecast_years = [int(y.split('-')[0]) for y in horizon.get('prediction_years', [])]
+        except Exception:
+            forecast_years = list(range(latest_year + 1, latest_year + 7))
+
+        return jsonify({
+            "years": years,
+            "latest_year": latest_year,
+            "latest_year_semesters": sem_raw,
+            "default_semester": default_semester,
+            "forecast_years": forecast_years
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @ml_bp.route('/api/get_dropout_ranking')
 def get_dropout_ranking():
     try:
@@ -691,7 +791,12 @@ def get_gwa_scatter():
             scatter_points.append({
                 "x": round(row['jitter_x'], 2),
                 "y": round(row['GWA'], 2),
-                "student_id": str(row['Student_ID'])[:4] + "-***" 
+                "student_id": str(row['Student_ID'])[:4] + "-***",
+                # Included so the frontend can color-code each dot:
+                # Main dashboard groups by College, CAHS/dean dashboards
+                # group by Course.
+                "college": str(row.get('College', '')).strip(),
+                "course": str(row.get('Course', '')).strip()
             })
 
         return jsonify({
@@ -893,75 +998,136 @@ def get_status_distribution():
 
 
 # inc forecast
+def _inc_rate_series(df_scope, feature_col_name, global_forecast_years):
+    """Shared helper: computes (years, history%, forecast_years, forecast%)
+    for a single slice of the dataframe (one college OR one course).
+    feature_col_name is the exact one-hot column to flip on for the model
+    (e.g. 'College_CAHS' or 'Course_BSN'). Pass None to leave it at baseline.
+    """
+    years = sorted(df_scope['Year_Numeric'].unique())
+    history_data = []
+
+    for yr in years:
+        yr_df = df_scope[df_scope['Year_Numeric'] == yr]
+        total = yr_df['Student_ID'].nunique()
+        if total > 0:
+            if 'is_inc' in yr_df.columns:
+                inc_students = yr_df.groupby('Student_ID')['is_inc'].max().sum()
+            elif 'Status' in yr_df.columns:
+                inc_students = yr_df[yr_df['Status'].astype(str).str.contains('INC', case=False, na=False)]['Student_ID'].nunique()
+            else:
+                inc_students = 0
+            history_data.append(round((inc_students / total) * 100, 2))
+        else:
+            history_data.append(0)
+
+    forecast_years = global_forecast_years or (
+        list(range(int(max(years)) + 1, int(max(years)) + 6)) if years else [2025, 2026, 2027, 2028, 2029]
+    )
+
+    forecast_data = []
+    if inc_model:
+        for yr in forecast_years:
+            X_in = pd.DataFrame(0, index=[0], columns=inc_features)
+            X_in['Year_Numeric'] = yr
+            if feature_col_name and feature_col_name in inc_features:
+                X_in[feature_col_name] = 1
+            try:
+                pred = float(inc_model.predict(X_in)[0])
+                forecast_data.append(round(max(0, pred), 2))
+            except Exception:
+                forecast_data.append(0)
+    else:
+        forecast_data = [0] * len(forecast_years)
+
+    return [int(y) for y in years], history_data, forecast_years, forecast_data
+
+
 @ml_bp.route('/api/get_inc_forecast')
 def get_inc_forecast():
     try:
         import pandas as pd
-        
+
         # 1. INPUTS
         college = request.args.get('college', 'all').strip()
-        
-        # 2. HISTORY (Actual Calculation using Status)
-        df_scope = df_full_loaded.copy()
-        
-        if college.lower() not in ['all', 'main campus']:
-            full_names = expand_college(college)
-            df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
-        
-        # Calculate Rate per Year
-        years = sorted(df_scope['Year_Numeric'].unique())
-        history_data = []
-        
-        for yr in years:
-            yr_df = df_scope[df_scope['Year_Numeric'] == yr]
-            total = yr_df['Student_ID'].nunique()
-            
-            if total > 0:
-                # Use pre-computed is_inc flag (master CSV has no raw Status column)
-                if 'is_inc' in yr_df.columns:
-                    inc_students = yr_df.groupby('Student_ID')['is_inc'].max().sum()
-                elif 'Status' in yr_df.columns:
-                    inc_students = yr_df[yr_df['Status'].astype(str).str.contains('INC', case=False, na=False)]['Student_ID'].nunique()
-                else:
-                    inc_students = 0
-                rate = (inc_students / total) * 100
-                history_data.append(round(rate, 2))
-            else:
-                history_data.append(0)
+        # 'by' = '' (single line, original behavior), 'college', or 'course'
+        breakdown = request.args.get('by', '').strip().lower()
 
-        # 3. FORECAST (Using Model) — years driven by training_state.json horizon
+        # Shared forecast horizon (years driven by training_state.json)
         try:
             from training.auto_train import load_state as _load_state
             _hs = _load_state().get('horizon', {})
-            forecast_years = [int(y.split('-')[0]) for y in _hs.get('prediction_years', [])]
+            global_forecast_years = [int(y.split('-')[0]) for y in _hs.get('prediction_years', [])]
         except Exception:
-            forecast_years = []
-        # Fallback: build 5 years beyond latest data if horizon missing
-        if not forecast_years:
-            _latest = int(max(years)) if years else 2024
-            forecast_years = list(range(_latest + 1, _latest + 6))
-        forecast_data = []
-        
-        if inc_model:
-            # Identify College Feature
-            col_feat = f"College_{college.upper()}" if college.lower() != 'all' else None
-            
-            for yr in forecast_years:
-                X_in = pd.DataFrame(0, index=[0], columns=inc_features)
-                X_in['Year_Numeric'] = yr
-                if col_feat and col_feat in inc_features:
-                    X_in[col_feat] = 1
-                
-                try:
-                    pred = float(inc_model.predict(X_in)[0])
-                    forecast_data.append(round(max(0, pred), 2))
-                except:
-                    forecast_data.append(0)
-        else:
-            forecast_data = [0] * len(forecast_years)
+            global_forecast_years = []
+
+        df_base = df_full_loaded.copy()
+
+        # ── MULTI-LINE MODE ────────────────────────────────────────────
+        # Used by the Main dashboard (one line per college) and by the
+        # CAHS/dean dashboards (one line per course), so every line can
+        # be colored consistently with the rest of the dashboard.
+        if breakdown in ('college', 'course'):
+            if breakdown == 'college':
+                groups = sorted(df_base['College'].dropna().astype(str).str.strip().unique())
+            else:
+                # Course breakdown is always scoped to the selected college
+                # (e.g. CAHS dean dashboard only wants CAHS's own courses).
+                if college.lower() not in ['all', 'main campus', '']:
+                    full_names = expand_college(college)
+                    scope_df = df_base[df_base['College'].astype(str).str.strip().isin(full_names)]
+                else:
+                    scope_df = df_base
+                df_base = scope_df
+                groups = sorted(df_base['Course'].dropna().astype(str).str.strip().unique()) if 'Course' in df_base.columns else []
+
+            per_group = []
+            all_years_set = set()
+
+            for g in groups:
+                if breakdown == 'college':
+                    g_df = df_full_loaded[df_full_loaded['College'].astype(str).str.strip().str.upper() == g.upper()]
+                    feat_col = f"College_{g.upper()}"
+                else:
+                    g_df = df_base[df_base['Course'].astype(str).str.strip() == g]
+                    feat_col = f"Course_{g}"
+
+                if g_df.empty:
+                    continue
+
+                yrs, hist, fyrs, fc = _inc_rate_series(g_df, feat_col, global_forecast_years)
+                all_years_set.update(yrs)
+                all_years_set.update(fyrs)
+                per_group.append({"label": g, "years": yrs, "history": hist, "forecast_years": fyrs, "forecast": fc})
+
+            all_years = sorted(all_years_set)
+
+            series = []
+            for pg in per_group:
+                hist_map = dict(zip(pg["years"], pg["history"]))
+                fc_map = dict(zip(pg["forecast_years"], pg["forecast"]))
+                history_line = [hist_map.get(y) for y in all_years]
+                forecast_line = [fc_map.get(y) for y in all_years]
+                # Bridge the last real point into the forecast line so the
+                # dashed line visually connects to the solid line.
+                last_idx = max([i for i, v in enumerate(history_line) if v is not None], default=None)
+                if last_idx is not None and last_idx + 1 < len(forecast_line):
+                    forecast_line[last_idx] = history_line[last_idx]
+                series.append({"label": pg["label"], "history": history_line, "forecast": forecast_line})
+
+            return jsonify({"years": all_years, "series": series, "breakdown": breakdown})
+
+        # ── ORIGINAL SINGLE-LINE MODE (unchanged, backward compatible) ──
+        df_scope = df_base
+        if college.lower() not in ['all', 'main campus']:
+            full_names = expand_college(college)
+            df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
+
+        feat_col = f"College_{college.upper()}" if college.lower() != 'all' else None
+        years, history_data, forecast_years, forecast_data = _inc_rate_series(df_scope, feat_col, global_forecast_years)
 
         return jsonify({
-            "years": [int(y) for y in years] + forecast_years,
+            "years": years + forecast_years,
             "history": history_data,
             "forecast": forecast_data
         })
@@ -1102,6 +1268,194 @@ def get_subject_forecast():
         return jsonify({"error": str(e)}), 500
 
 
+
+
+#subject top - per course breakdown
+@ml_bp.route('/api/get_hardest_subjects_by_course')
+def get_hardest_subjects_by_course():
+    """Same idea as get_subject_forecast, but instead of one Top-5 list
+    for the whole college, it returns a SEPARATE Top-5 hardest-subject
+    ranking for each GROUP — where "group" depends on the 'college'
+    filter, same convention as get_gender_status_breakdown:
+
+      - college='all' / 'Main Campus' -> one Top-5 ranking PER COLLEGE
+        (department) — e.g. CAHS gets one ranking pooling every course
+        inside CAHS together, instead of one ranking per individual
+        course. This is what the Main Dashboard shows.
+      - college='CAHS' (etc.)         -> one Top-5 ranking PER COURSE
+        inside that college (e.g. CAHS -> BSN, BSPT, BSMT... each gets
+        its own ranking). This is what the dean dashboards show.
+
+    Each of those 5 subjects is returned as its OWN year-by-year series
+    (Avg_Grade per Year_Numeric) so the frontend can draw 5 lines on one
+    chart per group — one line per subject, tracking that subject's
+    average grade over time.
+
+    Like every other forecast chart on the dashboard, the timeline isn't
+    fixed to "history only": it follows the SAME shared horizon as
+    /api/training-state (training_state.json's 'horizon' block) — so as
+    more years get trained, this chart's prediction years automatically
+    grow too, exactly like the global year filter (yearUpdate.js) does.
+    The forecast values themselves reuse subj_model (Subject + College
+    level — there's no Course-level model). In per-course mode, each
+    course's line still starts its forecast from THAT course's own last
+    real data point (but uses its parent college for the College_
+    feature) so the projected trend stays anchored to what that course
+    actually looks like instead of collapsing every course onto one
+    shared line. In per-college mode, the college IS the group, so the
+    College_ feature is just that college's own code directly.
+    """
+    try:
+        college = request.args.get('college', 'all').strip()
+
+        subject_csv_path = os.path.join(MODEL_DATASETS_DIR, "10_subject_grade_forecast.csv")
+        if not os.path.exists(subject_csv_path):
+            return jsonify({"error": "Subject dataset not found. Upload a dataset to generate it."}), 200
+
+        df_scope = pd.read_csv(subject_csv_path)
+
+        required_cols = {'Subject', 'Course', 'Year_Numeric'}
+        if not required_cols.issubset(df_scope.columns):
+            return jsonify({"error": "Subject/Course/Year column missing"})
+
+        is_main = college.lower() in ['all', 'main campus', 'overall', '']
+
+        if not is_main:
+            full_names = expand_college(college)
+            df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
+
+        if df_scope.empty:
+            return jsonify({"group_by": "college" if is_main else "course", "courses": []})
+
+        # Shared forecast horizon (years driven by training_state.json) —
+        # same source yearUpdate.js reads via /api/training-state, so the
+        # (Predicted) years shown there and the dashed years drawn here
+        # always agree, and both grow together as training re-runs.
+        try:
+            from training.auto_train import load_state as _load_state_hsc
+            _hs = _load_state_hsc().get('horizon', {})
+            latest_year_start = _hs.get('latest_year_start', 2024)
+            years_pred = [int(y.split('-')[0]) for y in _hs.get('prediction_years', [])]
+        except Exception:
+            latest_year_start = 2024
+            years_pred = [2025, 2026, 2027, 2028, 2029, 2030]
+
+        result = []
+
+        # ── Build the list of (group_label, group_df, feature_college)
+        # tuples to rank. Per-college mode pools every course inside that
+        # college into ONE group; per-course mode keeps each course
+        # separate, same as before. ──
+        if is_main:
+            groups = []
+            for code in ['CAHS', 'CBA', 'CCST', 'CEA', 'COAS', 'CTEC']:
+                full_names = expand_college(code)
+                g_df = df_scope[df_scope['College'].astype(str).str.strip().str.upper().isin(
+                    [n.upper() for n in full_names]
+                )]
+                if g_df.empty:
+                    continue
+                groups.append((code, g_df, code))
+        else:
+            course_names = sorted(df_scope['Course'].dropna().astype(str).str.strip().unique())
+            groups = []
+            for course in course_names:
+                g_df = df_scope[df_scope['Course'].astype(str).str.strip() == course]
+                if g_df.empty:
+                    continue
+                # That course's own college, for the model's College_ feature.
+                course_college = str(g_df['College'].dropna().astype(str).str.strip().iloc[0]) if 'College' in g_df.columns and not g_df['College'].dropna().empty else college
+                groups.append((course, g_df, course_college))
+
+        for group_label, g_df, feature_college in groups:
+            # Overall (all-years) difficulty ranking, same weighting logic
+            # as before, just used to pick WHICH 5 subjects, not the values.
+            difficulty = (
+                g_df.groupby('Subject')
+                .apply(lambda g: np.average(g['Avg_Grade'], weights=g['Student_Cnt'])
+                       if g['Student_Cnt'].sum() > 0 else g['Avg_Grade'].mean())
+                .sort_values(ascending=False)
+            )
+            top5_subjects = difficulty.head(5).index.tolist()
+
+            years_hist = sorted(
+                int(y) for y in g_df['Year_Numeric'].dropna().unique()
+                if int(y) <= latest_year_start
+            )
+            if not years_hist:
+                continue
+
+            all_years = years_hist + years_pred
+
+            subject_series = []
+            for subj in top5_subjects:
+                subj_rows = g_df[g_df['Subject'] == subj]
+                overall_avg = float(difficulty[subj])
+
+                # --- A. HISTORY (real, uploaded years) ---
+                data_points = []
+                last_val = overall_avg
+                for y in years_hist:
+                    yr_rows = subj_rows[subj_rows['Year_Numeric'] == y]
+                    if not yr_rows.empty:
+                        if yr_rows['Student_Cnt'].sum() > 0:
+                            val = np.average(yr_rows['Avg_Grade'], weights=yr_rows['Student_Cnt'])
+                        else:
+                            val = yr_rows['Avg_Grade'].mean()
+                        val = round(float(val), 2)
+                        last_val = val
+                    else:
+                        # GAP FILLER: no data for this subject in this year
+                        # yet — reuse the last known value so the line
+                        # doesn't break/drop to zero.
+                        val = round(float(last_val), 2)
+                    data_points.append(val)
+
+                # --- B. FORECAST (years_pred, from training_state horizon) ---
+                if subj_model and years_pred:
+                    for y in years_pred:
+                        X_in = pd.DataFrame(0, index=[0], columns=subj_features)
+                        X_in['Year_Numeric'] = y
+
+                        col_feat = f"College_{feature_college.upper()}"
+                        if col_feat in subj_features:
+                            X_in[col_feat] = 1
+
+                        subj_feat = f"Subject_{subj}"
+                        if subj_feat in subj_features:
+                            X_in[subj_feat] = 1
+                            try:
+                                pred = subj_model.predict(X_in)[0]
+                                smooth_pred = (pred + last_val) / 2
+                                final_val = round(max(1.0, min(5.0, smooth_pred)), 2)
+                            except Exception:
+                                final_val = last_val
+                        else:
+                            final_val = last_val
+
+                        data_points.append(final_val)
+                        last_val = final_val
+                else:
+                    data_points.extend([last_val] * len(years_pred))
+
+                subject_series.append({
+                    "subject": subj,
+                    "avg_grade": round(overall_avg, 2),
+                    "data": data_points
+                })
+
+            result.append({
+                "course": group_label,
+                "years": all_years,
+                "history_count": len(years_hist),
+                "subjects": subject_series
+            })
+
+        return jsonify({"group_by": "college" if is_main else "course", "courses": result})
+
+    except Exception as e:
+        print(f"Hardest Subjects By Course Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 #drop spike
@@ -1329,4 +1683,223 @@ def get_status_pie():
 
     except Exception as e:
         print(f"Status Pie Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+#  STATUS + GENDER, BROKEN DOWN PER COURSE 
+@ml_bp.route('/api/get_status_by_course')
+def get_status_by_course():
+    """Per-COURSE breakdown of Regular vs Irregular, PLUS a Male/Female
+    Safe-vs-Risk split for that same course. This is the course-level
+    companion to get_status_pie (which only goes down to the college
+    level) and get_dropout_pie (which only returns one combined gender
+    split for the whole selection).
+
+    - college='CAHS' (etc.)  -> every course INSIDE that one college.
+    - college='all'          -> every course across EVERY college, each
+      row tagged with its own "college" field, so the Main dashboard can
+      group/label them (e.g. for small-multiple donut grids).
+
+    Historical (real, uploaded) data only — same student-level flags
+    (is_irregular / is_drop / is_inc) the Status and Dropout donuts
+    already trust — so this works even for courses with no trained
+    per-course forecast model.
+    """
+    try:
+        year = int(request.args.get('year', get_latest_real_year()))
+        college_arg = request.args.get('college', 'all').strip()
+        semester_arg = request.args.get('semester', 'all').strip()
+
+        if 'Year_Numeric' not in df_full_loaded.columns:
+            df_full_loaded['Year_Numeric'] = df_full_loaded['Year'].astype(str).str.extract(r'^(\d{4})').astype(int)
+
+        df = df_full_loaded[df_full_loaded['Year_Numeric'] == year].copy()
+
+        if college_arg.lower() not in ['all', 'main campus']:
+            full_names = expand_college(college_arg)
+            df = df[df['College'].astype(str).str.strip().isin(full_names)]
+
+        if semester_arg.lower() not in ['all', 'overall']:
+            df = df[df['Semester'].astype(str).str.contains(semester_arg, case=False, na=False)]
+
+        if df.empty or 'Course' not in df.columns:
+            return jsonify({"year": year, "courses": []})
+
+        def check_status(group):
+            if 'is_irregular' in group.columns and group['is_irregular'].max() == 1:
+                return 1
+            if 'is_drop' in group.columns and group['is_drop'].max() == 1:
+                return 1
+            if 'is_inc' in group.columns and group['is_inc'].max() == 1:
+                return 1
+            return 0
+
+        courses = sorted(df['Course'].dropna().astype(str).str.strip().unique())
+        results = []
+
+        for course in courses:
+            c_df = df[df['Course'].astype(str).str.strip() == course]
+            if c_df.empty:
+                continue
+
+            # One row per student: Gender/College (first seen) + Irregular flag.
+            student_rows = c_df.groupby('Student_ID').agg({'Gender': 'first', 'College': 'first'})
+            student_rows['Irregular'] = c_df.groupby('Student_ID').apply(check_status)  # aligns by Student_ID index
+
+            if student_rows.empty:
+                continue
+
+            regular = int((student_rows['Irregular'] == 0).sum())
+            irregular = int((student_rows['Irregular'] == 1).sum())
+
+            is_male, is_female = gender_masks(student_rows['Gender'])
+
+            male_safe = int(((student_rows['Irregular'] == 0) & is_male).sum())
+            male_risk = int(((student_rows['Irregular'] == 1) & is_male).sum())
+            female_safe = int(((student_rows['Irregular'] == 0) & is_female).sum())
+            female_risk = int(((student_rows['Irregular'] == 1) & is_female).sum())
+
+            parent_college = str(student_rows['College'].iloc[0]).strip() if not student_rows.empty else college_arg
+
+            results.append({
+                "course": course,
+                "college": parent_college,
+                "regular": regular,
+                "irregular": irregular,
+                "male_safe": male_safe,
+                "male_risk": male_risk,
+                "female_safe": female_safe,
+                "female_risk": female_risk,
+                "total": regular + irregular
+            })
+
+        return jsonify({"year": year, "mode": "Actual", "courses": results})
+
+    except Exception as e:
+        print(f"Status By Course Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+#  GENDER x PRECISE STATUS (Regular / INC / Dropped), grouped by COLLEGE or COURSE 
+@ml_bp.route('/api/get_gender_status_breakdown')
+def get_gender_status_breakdown():
+    """
+    Powers the Male/Female Retention & Risk grids.
+
+    Unlike get_dropout_pie (one aggregate Safe-vs-Risk split for the whole
+    selection), this returns ONE ROW PER GROUP with three PRECISE,
+    mutually-exclusive status buckets per gender — Regular, INC, Dropped —
+    instead of collapsing INC + Dropped together into a single "risk" slice.
+
+    Grouping depends on the 'college' filter, same convention as
+    get_status_by_course:
+      - college='all' / 'Main Campus' -> one row PER COLLEGE (the 6 known
+        college codes), for the Main dashboard's college-colored grid.
+      - college='CAHS' (etc.)         -> one row PER COURSE inside that
+        college, for the dean dashboards' course-colored grid.
+
+    A student is "Dropped" if is_drop==1 (checked first), else "INC" if
+    is_inc==1, else "Regular" — so the three buckets always sum to that
+    group's total instead of double-counting a student who is both.
+
+    Historical (real, uploaded) data only — same student-level flags the
+    Status/Dropout donuts already trust — so it works even without a
+    trained per-course/per-college forecast model.
+    """
+    try:
+        year = int(request.args.get('year', get_latest_real_year()))
+        college_arg = request.args.get('college', 'all').strip()
+        semester_arg = request.args.get('semester', 'all').strip()
+
+        if 'Year_Numeric' not in df_full_loaded.columns:
+            df_full_loaded['Year_Numeric'] = (
+                df_full_loaded['Year'].astype(str).str.extract(r'^(\d{4})')[0].astype(float)
+            )
+
+        LATEST_REAL_YEAR = get_latest_real_year()
+        is_forecast = year > LATEST_REAL_YEAR
+        cohort_year = LATEST_REAL_YEAR if is_forecast else year
+        mode_label = "Forecast" if is_forecast else "Actual History"
+
+        df = df_full_loaded[df_full_loaded['Year_Numeric'] == cohort_year].copy()
+
+        if semester_arg.lower() not in ['all', 'overall']:
+            df = df[df['Semester'].astype(str).str.contains(semester_arg, case=False, na=False)]
+
+        is_main = college_arg.lower() in ['all', 'main campus', 'overall', '']
+
+        def bucket_group(sub_df):
+            """Collapse rows to one per Student_ID, then split into
+            Regular / INC / Dropped x Male / Female, mutually exclusive
+            (Dropped takes priority over INC)."""
+            agg = {'Gender': 'first'}
+            if 'is_drop' in sub_df.columns:
+                agg['is_drop'] = 'max'
+            if 'is_inc' in sub_df.columns:
+                agg['is_inc'] = 'max'
+            students = sub_df.groupby('Student_ID').agg(agg).reset_index()
+            if 'is_drop' not in students.columns:
+                students['is_drop'] = 0
+            if 'is_inc' not in students.columns:
+                students['is_inc'] = 0
+
+            is_male, is_female = gender_masks(students['Gender'])
+
+            dropped = students['is_drop'] == 1
+            inc = (~dropped) & (students['is_inc'] == 1)
+            regular = (~dropped) & (~inc)
+
+            return {
+                "male_regular": int((regular & is_male).sum()),
+                "male_inc": int((inc & is_male).sum()),
+                "male_drop": int((dropped & is_male).sum()),
+                "female_regular": int((regular & is_female).sum()),
+                "female_inc": int((inc & is_female).sum()),
+                "female_drop": int((dropped & is_female).sum()),
+            }
+
+        results = []
+
+        if is_main:
+            # ── PER-COLLEGE MODE (Main dashboard) ──
+            for code in ['CAHS', 'CBA', 'CCST', 'CEA', 'COAS', 'CTEC']:
+                full_names = expand_college(code)
+                c_df = df[df['College'].astype(str).str.strip().str.upper().isin(
+                    [n.upper() for n in full_names]
+                )]
+                if c_df.empty:
+                    continue
+                row = bucket_group(c_df)
+                row['group'] = code
+                row['college'] = code
+                results.append(row)
+        else:
+            # ── PER-COURSE MODE (dean dashboards, e.g. CAHS) ──
+            full_names = expand_college(college_arg)
+            col_df = df[df['College'].astype(str).str.strip().str.upper().isin(
+                [n.upper() for n in full_names]
+            )]
+
+            if col_df.empty or 'Course' not in col_df.columns:
+                return jsonify({"year": year, "mode": mode_label, "group_by": "course", "rows": []})
+
+            courses = sorted(col_df['Course'].dropna().astype(str).str.strip().unique())
+            for course in courses:
+                c_df = col_df[col_df['Course'].astype(str).str.strip() == course]
+                if c_df.empty:
+                    continue
+                row = bucket_group(c_df)
+                row['group'] = course
+                row['college'] = college_arg.upper()
+                results.append(row)
+
+        return jsonify({
+            "year": year,
+            "mode": mode_label,
+            "group_by": "college" if is_main else "course",
+            "rows": results
+        })
+
+    except Exception as e:
+        print(f"Gender Status Breakdown Error: {e}")
         return jsonify({"error": str(e)}), 500
