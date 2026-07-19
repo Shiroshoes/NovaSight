@@ -1391,6 +1391,12 @@ function updateHardestSubjectsByCourse(college) {
     const sharedContainer = document.getElementById('hardestSubjectsByCourseContainer');
     if (!dedicatedMode && !sharedContainer) return;
 
+    // Show/hide each department's whole card the moment the global
+    // college filter changes — don't wait on the fetch below, so
+    // switching departments feels instant instead of flashing every
+    // card before narrowing back down.
+    if (dedicatedMode) applyDepartmentCardVisibility(cardMap, college);
+
     // This section is always the campus-wide PER-DEPARTMENT overview
     // (that's the whole point of the dedicated CAHS/CBA/CCST/CEA/COAS/
     // CTEC cards below), so it always requests college=all — regardless
@@ -1435,6 +1441,35 @@ function updateHardestSubjectsByCourse(college) {
             }
         })
         .catch(err => console.error("Hardest Subjects By Course Error:", err));
+}
+
+/**
+ * Shows every "Top 5 Hardest Subjects: <DEPT>" card when the global
+ * college filter is set to "all"/"Main Campus", or hides all but the
+ * one matching card when a specific department is selected — instead
+ * of always showing all 6 side by side.
+ */
+function applyDepartmentCardVisibility(cardMap, college) {
+    const raw = String(college || 'all').trim();
+    const showAll = raw === '' || raw.toLowerCase() === 'all' || raw.toLowerCase() === 'main campus';
+    const selected = raw.toUpperCase();
+
+    Object.entries(cardMap).forEach(([keyword, containerId]) => {
+        const inner = document.getElementById(containerId);
+        if (!inner) return;
+        // The container div is nested inside the full card wrapper
+        // (header + body); hide/show that whole wrapper, not just the
+        // inner chart area, so no empty card shell is left behind.
+        const cardEl = inner.closest('.card') || inner;
+        const isMatch = showAll || keyword.toUpperCase() === selected;
+        cardEl.style.display = isMatch ? '' : 'none';
+        // When exactly one department is isolated, stretch its card to
+        // the full grid width (see .dept-card-focused in the CSS)
+        // instead of leaving it at half width with an empty gap next
+        // to it. Goes back to the normal half-width span once "all"/
+        // Main Campus is selected again.
+        cardEl.classList.toggle('dept-card-focused', isMatch && !showAll);
+    });
 }
 
 /** Draws one group's (department or course) 5-subject line chart + legend into a canvas/legend pair. */

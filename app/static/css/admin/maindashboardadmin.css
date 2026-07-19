@@ -429,6 +429,12 @@ footer{
 .card-square { grid-column: span 2; height: 350px; padding: 20px; }
 .card-full-width-bar { grid-column: span 6; height: 500px; padding: 10px; }
 .card-full-width { grid-column: span 5; height: 490px; padding: 10px; }
+
+/* Applied via JS when a single department is selected in the filter,
+   so that department's "Top 5 Hardest Subjects" card stretches across
+   the full 10-column grid instead of sitting at half width with an
+   empty gap next to it. */
+.card-full-width.dept-card-focused { grid-column: span 10; }
 .third-square { grid-column: span 4; height: 500px; padding: 10px; }
 .third-square1 { grid-column: span 4; height: 570px; padding: 10px; }
 

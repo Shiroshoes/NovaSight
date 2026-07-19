@@ -1017,12 +1017,21 @@ function renderHardestSubjectsDedicated(courses, cardMap) {
         const el = document.getElementById(containerId);
         if (!el) return;
 
+        // The card wrapping this container (title + description + the
+        // container itself) — hidden entirely when this course isn't part
+        // of the current selection, instead of showing an empty/placeholder
+        // card. Falls back to just the container itself if no wrapping
+        // ".card" is found, so this still degrades gracefully on markup
+        // that doesn't use that class.
+        const card = el.closest('.card') || el;
+
         const match = courses.find(c => c.course && c.course.toLowerCase().includes(keyword.toLowerCase()));
         if (!match) {
-            el.innerHTML = `<p style="color:#858796; text-align:center; width:100%;">No subject data available yet for this course.</p>`;
+            card.style.display = 'none';
             return;
         }
 
+        card.style.display = '';
         const safeId = match.course.replace(/[^a-zA-Z0-9]/g, '_');
         el.innerHTML = `
             <div style="width:100%;">
