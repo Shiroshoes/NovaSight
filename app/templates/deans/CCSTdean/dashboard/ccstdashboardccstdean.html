@@ -132,12 +132,71 @@
           const COLLEGE_NAME = "{{ college_type }}";
       </script>
 
+      <!-- Recent Data / Prediction Mode — pill-style toggle switch -->
       <div class="card card-mini">
-        <label>Year</label>
-        <select id="globalYearFilter" class="form-select form-select-sm">
-            <option value="2024" selected>Loading...</option>
-        </select>
+        <label>View Mode</label>
+        <div class="mode-switch" id="modeSwitchWrap"
+             onclick="ModeAwareCharts.toggle(document.getElementById('filterCollege').value, document.getElementById('filterSemester').value)">
+            <div class="mode-switch-thumb"></div>
+            <span class="mode-switch-option" data-value="recent">Recent</span>
+            <span class="mode-switch-option" data-value="prediction">Prediction</span>
+        </div>
       </div>
+
+      <style>
+          .mode-switch {
+              position: relative;
+              display: flex;
+              width: 220px;
+              height: 34px;
+              background: rgba(120, 90, 90, 0.5);
+              border-radius: 999px;
+              cursor: pointer;
+              user-select: none;
+              padding: 3px;
+              box-sizing: border-box;
+          }
+          .mode-switch-thumb {
+              position: absolute;
+              top: 3px;
+              left: 3px;
+              width: calc(50% - 3px);
+              height: calc(100% - 6px);
+              background: #800000;
+              border-radius: 999px;
+              transition: transform 0.25s ease;
+              box-shadow: 0 2px 6px rgba(223, 78, 78, 0.35);
+          }
+          .mode-switch.is-prediction .mode-switch-thumb {
+              transform: translateX(100%);
+          }
+          .mode-switch-option {
+              position: relative;
+              z-index: 1;
+              flex: 1;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 0.75rem;
+              font-weight: 600;
+              color: #000000;
+              transition: color 0.25s ease;
+          }
+          .mode-switch:not(.is-prediction) .mode-switch-option[data-value="recent"],
+          .mode-switch.is-prediction .mode-switch-option[data-value="prediction"] {
+              color: #fff;
+          }
+      </style>
+
+      <script>
+          document.addEventListener('DOMContentLoaded', () => {
+              if (typeof triggerUpdate === 'function') triggerUpdate();
+
+              const college = document.getElementById('filterCollege').value;
+              const semester = document.getElementById('filterSemester').value;
+              ModeAwareCharts.init(college, semester);
+          });
+      </script>
 
       <div class="card card-mini">
         <label>Semester</label>
@@ -149,9 +208,13 @@
       </div>
 
       <div class="card card-mini">
-        <label>Department</label>
+        <label>Department - Course</label>
         <select id="filterCollege" class="form-select">
             <option value="CCST">CCST</option>
+            <option value="Bachelor of Science in Information Technology">BS in Information Technology</option>
+            <option value="Bachelor of Science in Data Science">BS in Data Science</option>
+            <option value="Bachelor of Science in Computer Science">BS in Computer Science</option>
+            <option value="Bachelor of Science in Entertainment and Multimedia Computing">BS in Entertainment and Multimedia Computing</option>
         </select>
       </div> 
 
@@ -449,9 +512,11 @@
                     <canvas id="dropoutSpikeChart"></canvas>
                 </div>
                 <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
-                <div style="display: flex; justify-content: center; font-size: 0.875rem; color: #858796;">
+                <!-- One colored chip per course; solid = history, dashed = forecast -->
+                <div id="dropoutSpikeLegend" style="margin-top: 0.5rem; text-align: center;"></div>
+                <div style="display: flex; justify-content: center; font-size: 0.875rem; color: #858796; margin-top: 0.5rem;">
                     <span style="margin-right: 1rem;"><span style="color:#e74a3b; font-weight:bold;">●</span> Red dot = High-Risk Spike</span>
-                    <span>Solid line = Actual History &nbsp;|&nbsp; Dashed line = AI Forecast (line color = this college's color)</span>
+                    <span>Solid line = Actual History &nbsp;|&nbsp; Dashed line = AI Forecast (each line is one course, in that course's own color)</span>
                 </div>
             </div>
         </div>
@@ -534,7 +599,9 @@
       };
     </script>
     <script src="{{url_for('static', filename='js/chart-helpers.js')}}"></script>
+    <script src="{{url_for('static', filename='js/prediction-mode-visuals.js')}}"></script>
     <script src="{{url_for('static', filename='js/deandash.js')}}"></script>
+    <script src="{{url_for('static', filename='js/mode-toggle.js')}}"></script>
   </section>
 
       <!-- Logout Modal Structure -->

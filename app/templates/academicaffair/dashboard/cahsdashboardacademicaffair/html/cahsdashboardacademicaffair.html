@@ -273,9 +273,9 @@
         <label>Department - Course</label>
         <select id="filterCollege" class="form-select">
             <option value="CAHS">CAHS</option>
-            <option value="BS in Nursing">BS in Nursing</option>
-            <option value="BS in Midwifery">BS in Midwifery</option>
-            <option value="BS in Public Health">BS in Public Health</option>
+            <option value="Bachelor of Science in Nursing">BS in Nursing</option>
+            <option value="Bachelor of Science in Midwifery">BS in Midwifery</option>
+            <option value="Bachelor of Science in Public Health">BS in Public Health</option>
         </select>
       </div> 
 
@@ -554,9 +554,11 @@
                     <canvas id="dropoutSpikeChart"></canvas>
                 </div>
                 <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
-                <div style="display: flex; justify-content: center; font-size: 0.875rem; color: #858796;">
+                <!-- One colored chip per course; solid = history, dashed = forecast -->
+                <div id="dropoutSpikeLegend" style="margin-top: 0.5rem; text-align: center;"></div>
+                <div style="display: flex; justify-content: center; font-size: 0.875rem; color: #858796; margin-top: 0.5rem;">
                     <span style="margin-right: 1rem;"><span style="color:#e74a3b; font-weight:bold;">●</span> Red dot = High-Risk Spike</span>
-                    <span>Solid line = Actual History &nbsp;|&nbsp; Dashed line = AI Forecast (line color = this college's color)</span>
+                    <span>Solid line = Actual History &nbsp;|&nbsp; Dashed line = AI Forecast (each line is one course, in that course's own color)</span>
                 </div>
             </div>
         </div>

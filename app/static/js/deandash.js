@@ -14,6 +14,12 @@ document.addEventListener("DOMContentLoaded", function() {
     // GET FILTERS
     const yearSelector = document.getElementById('globalYearFilter');
     const semSelector = document.getElementById('filterSemester');
+    // FIX: this dropdown (Department - Course) was never wired up in here.
+    // It was only ever read once on page load by the inline HTML script
+    // (for ModeAwareCharts.init) and on mode-toggle clicks — every chart
+    // driven by THIS file always used the fixed COLLEGE_NAME Python
+    // variable and completely ignored whatever course the user picked.
+    const courseSelector = document.getElementById('filterCollege');
 
     // FIX: the old fallback here was a hardcoded `2024`, so once the
     // #globalYearFilter dropdown was removed from the page, every chart
@@ -29,9 +35,14 @@ document.addEventListener("DOMContentLoaded", function() {
         // hardcoded one, if elements are missing)
         const year = yearSelector ? yearSelector.value : LATEST_REAL_YEAR_FALLBACK;
         const semester = semSelector ? semSelector.value : 'all';
-        
-        // CRITICAL: Uses the Python variable injected into HTML
-        const college = (typeof COLLEGE_NAME !== 'undefined') ? COLLEGE_NAME : 'all';
+
+        // CRITICAL: Uses the Python variable injected into HTML as the
+        // baseline (whole college), but if the user picked a specific
+        // course from the "Department - Course" dropdown, that course
+        // takes priority over the whole-college default.
+        const wholeCollege = (typeof COLLEGE_NAME !== 'undefined') ? COLLEGE_NAME : 'all';
+        const courseValue = courseSelector ? courseSelector.value : null;
+        const college = (courseValue && courseValue !== wholeCollege) ? courseValue : wholeCollege;
 
         if (college === 'all') {
             console.warn(" Warning: COLLEGE_NAME is 'all'. Is the Python variable set correctly?");
@@ -82,6 +93,10 @@ document.addEventListener("DOMContentLoaded", function() {
         triggerUpdate();
     });
     if (semSelector) semSelector.addEventListener('change', triggerUpdate);
+    if (courseSelector) courseSelector.addEventListener('change', function() {
+        _initFired = true;        // cancel the timeout fallback
+        triggerUpdate();
+    });
 });
 
 
@@ -1201,120 +1216,183 @@ function updateStatusByCourse(year, semester, college) {
 
 
 // spike drop
+// by=course -> one colored line per COURSE inside this college (e.g. CAHS's
+// BSN, BSPT, BSMT...), same multi-line pattern as the INC forecast chart,
+// instead of one flat line for the whole college. Falls back gracefully to
+// a single-college line if the backend hasn't been updated to support
+// `by=course` yet (old {labels, data, spikes} shape).
 function updateDropoutSpike(college) {
     const canvas = document.getElementById('dropoutSpikeChart');
     if (!canvas) return;
 
     const safeCollege = (college === 'Main Campus' || !college) ? 'all' : college;
 
-    fetch(`/api/get_dropout_spike?college=${safeCollege}`)
+    fetch(`/api/get_dropout_spike?college=${safeCollege}&by=course`)
         .then(res => res.json())
         .then(data => {
-            if (data.error || !data.data) {
+            if (data.error) {
                 console.warn("Dropout Spike: No Data");
                 return;
             }
 
             const ctx = canvas.getContext('2d');
-            const predictionStartIndex = data.pred_start_index || (data.labels.length - 5);
-
-            // Use this college's own fixed color for the line (same color it
-            // has everywhere else on this dashboard); red dots still mark spikes.
-            const lineColor = getGroupColor(safeCollege === 'all' ? (typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : 'CAHS') : safeCollege);
-            const pointColors = data.spikes.map(s => s ? '#e74a3b' : lineColor);
-            const pointRadii = data.spikes.map(s => s ? 6 : 3);
-            const pointStyles = data.spikes.map(s => s ? 'circle' : 'circle');
 
             if (dropoutSpikeChart) {
                 dropoutSpikeChart.destroy();
             }
 
+            // --- Legacy shape support: {labels, data, spikes} (single line) ---
+            // Keeps the chart working even before the backend adds `by=course`.
+            if (!data.series && data.labels && data.data) {
+                const predictionStartIndex = data.pred_start_index || (data.labels.length - 5);
+                const lineColor = getGroupColor(safeCollege === 'all' ? (typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : 'CAHS') : safeCollege);
+                const pointColors = data.spikes.map(s => s ? '#e74a3b' : lineColor);
+                const pointRadii = data.spikes.map(s => s ? 6 : 3);
+
+                dropoutSpikeChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Dropout Rate',
+                            data: data.data,
+                            borderColor: lineColor,
+                            backgroundColor: hexToRgba(lineColor, 0.06),
+                            borderWidth: 2,
+                            pointBackgroundColor: pointColors,
+                            pointBorderColor: "#fff",
+                            pointRadius: pointRadii,
+                            pointHoverRadius: 8,
+                            tension: 0.3,
+                            fill: true,
+                            segment: {
+                                borderDash: ctx => (ctx.p0DataIndex >= predictionStartIndex) ? [6, 6] : undefined
+                            }
+                        }]
+                    },
+                    options: dropoutSpikeBaseOptions(data.labels, [data.spikes])
+                });
+
+                if (typeof renderColorLegend === 'function') {
+                    const legendEl = document.getElementById('dropoutSpikeLegend');
+                    if (legendEl) legendEl.innerHTML = '';
+                }
+                return;
+            }
+
+            // --- New shape: {labels, series: [{label, history, forecast, spikes}] } ---
+            if (!data.series || !data.series.length) {
+                console.warn("Dropout Spike: No Data");
+                return;
+            }
+
+            const labels = data.labels || [];
+            const predictionStartIndex = data.pred_start_index != null
+                ? data.pred_start_index
+                : Math.max(0, labels.length - 5);
+
+            const datasets = [];
+            const allSpikes = [];
+            (data.series || []).forEach(s => {
+                const color = getGroupColor(s.label);
+                const combined = (s.history || []).map((v, i) => (v != null ? v : (s.forecast || [])[i]));
+                const spikes = s.spikes || [];
+                allSpikes.push(spikes);
+
+                const pointColors = combined.map((_, i) => (spikes[i] ? '#e74a3b' : color));
+                const pointRadii = combined.map((_, i) => (spikes[i] ? 6 : 3));
+
+                datasets.push({
+                    label: s.label,
+                    data: combined,
+                    borderColor: color,
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointBackgroundColor: pointColors,
+                    pointBorderColor: "#fff",
+                    pointRadius: pointRadii,
+                    pointHoverRadius: 8,
+                    spanGaps: false,
+                    tension: 0.3,
+                    fill: false,
+                    segment: {
+                        borderDash: ctx => (ctx.p0DataIndex >= predictionStartIndex) ? [6, 6] : undefined
+                    }
+                });
+            });
+
             dropoutSpikeChart = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: data.labels,
-                    datasets: [{
-                        label: 'Dropout Rate',
-                        data: data.data,
-                        borderColor: lineColor,
-                        backgroundColor: hexToRgba(lineColor, 0.06),
-                        borderWidth: 2,
-                        pointBackgroundColor: pointColors,
-                        pointBorderColor: "#fff",
-                        pointRadius: pointRadii,
-                        pointStyle: pointStyles,
-                        pointHoverRadius: 8,
-                        tension: 0.3, // Smooth curve
-                        fill: true,
-                        // --- CRITICAL: DASHED LINE FOR PREDICTION ---
-                        segment: {
-                            borderDash: ctx => {
-                                // If the segment starts after history, make it dashed
-                                if (ctx.p0DataIndex >= predictionStartIndex) {
-                                    return [6, 6]; 
-                                }
-                                return undefined;
-                            }
-                        }
-                    }]
-                },
-                options: {
-                    maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false,
-                    },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: "rgba(255,255,255,0.95)",
-                            bodyColor: "#858796",
-                            titleColor: "#6e707e",
-                            borderColor: '#dddfeb',
-                            borderWidth: 1,
-                            callbacks: {
-                                label: function(context) {
-                                    let val = context.parsed.y;
-                                    let spikeMsg = data.spikes[context.dataIndex] ? " — Spike" : "";
-                                    return ` ${data.labels[context.dataIndex]}: ${val}%${spikeMsg}`;
-                                }
-                            }
-                        },
-                        annotation: {
-                            // Optional: Vertical line separator
-                            annotations: {
-                                line1: {
-                                    type: 'line',
-                                    xMin: predictionStartIndex,
-                                    xMax: predictionStartIndex,
-                                    borderColor: 'rgba(0,0,0,0.2)',
-                                    borderWidth: 1,
-                                    borderDash: [2, 2],
-                                    label: {
-                                        content: 'Forecast Start',
-                                        enabled: true,
-                                        position: 'top'
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: { display: false },
-                            ticks: { color: "#858796" }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            title: { display: true, text: 'Dropout Rate (%)' },
-                            grid: { color: "rgb(234, 236, 244)", borderDash: [2] },
-                            ticks: { color: "#858796", padding: 10 }
+                data: { labels: labels, datasets: datasets },
+                options: dropoutSpikeBaseOptions(labels, allSpikes)
+            });
+
+            if (typeof renderColorLegend === 'function') {
+                renderColorLegend('dropoutSpikeLegend', (data.series || []).map(s => ({
+                    label: s.label, color: getGroupColor(s.label)
+                })));
+            }
+        })
+        .catch(err => console.error("Dropout Chart Fatal:", err));
+}
+
+/** Shared Chart.js options for the (single- or multi-course) dropout spike chart. */
+function dropoutSpikeBaseOptions(labels, allSpikesPerDataset) {
+    return {
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        plugins: {
+            legend: { display: false }, // using color-chip legend below instead
+            tooltip: {
+                backgroundColor: "rgba(255,255,255,0.95)",
+                bodyColor: "#858796",
+                titleColor: "#6e707e",
+                borderColor: '#dddfeb',
+                borderWidth: 1,
+                callbacks: {
+                    label: function(context) {
+                        const val = context.parsed.y;
+                        if (val === null || val === undefined) return undefined;
+                        const spikes = allSpikesPerDataset[context.datasetIndex] || [];
+                        const spikeMsg = spikes[context.dataIndex] ? " — Spike" : "";
+                        return ` ${context.dataset.label}: ${val}%${spikeMsg}`;
+                    }
+                }
+            },
+            annotation: {
+                annotations: {
+                    line1: {
+                        type: 'line',
+                        xMin: Math.max(0, (labels || []).length - 5),
+                        xMax: Math.max(0, (labels || []).length - 5),
+                        borderColor: 'rgba(0,0,0,0.2)',
+                        borderWidth: 1,
+                        borderDash: [2, 2],
+                        label: {
+                            content: 'Forecast Start',
+                            enabled: true,
+                            position: 'top'
                         }
                     }
                 }
-            });
-        })
-        .catch(err => console.error("Dropout Chart Fatal:", err));
+            }
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: { color: "#858796" }
+            },
+            y: {
+                beginAtZero: true,
+                title: { display: true, text: 'Dropout Rate (%)' },
+                grid: { color: "rgb(234, 236, 244)", borderDash: [2] },
+                ticks: { color: "#858796", padding: 10 }
+            }
+        }
+    };
 }
 
 

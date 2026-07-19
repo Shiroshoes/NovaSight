@@ -263,9 +263,13 @@
       </div>
 
       <div class="card card-mini">
-        <label>Department</label>
+        <label>Department - Course</label>
         <select id="filterCollege" class="form-select">
             <option value="CCST">CCST</option>
+            <option value="Bachelor of Science in Information Technology">BS in Information Technology</option>
+            <option value="Bachelor of Science in Data Science">BS in Data Science</option>
+            <option value="Bachelor of Science in Computer Science">BS in Computer Science</option>
+            <option value="Bachelor of Science in Entertainment and Multimedia Computing">BS in Entertainment and Multimedia Computing</option>
         </select>
       </div> 
 
@@ -563,9 +567,11 @@
                     <canvas id="dropoutSpikeChart"></canvas>
                 </div>
                 <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
-                <div style="display: flex; justify-content: center; font-size: 0.875rem; color: #858796;">
+                <!-- One colored chip per course; solid = history, dashed = forecast -->
+                <div id="dropoutSpikeLegend" style="margin-top: 0.5rem; text-align: center;"></div>
+                <div style="display: flex; justify-content: center; font-size: 0.875rem; color: #858796; margin-top: 0.5rem;">
                     <span style="margin-right: 1rem;"><span style="color:#e74a3b; font-weight:bold;">●</span> Red dot = High-Risk Spike</span>
-                    <span>Solid line = Actual History &nbsp;|&nbsp; Dashed line = AI Forecast (line color = this college's color)</span>
+                    <span>Solid line = Actual History &nbsp;|&nbsp; Dashed line = AI Forecast (each line is one course, in that course's own color)</span>
                 </div>
             </div>
         </div>
@@ -649,7 +655,7 @@
     </script>
     <script src="{{url_for('static', filename='js/chart-helpers.js')}}"></script>
     <script src="{{url_for('static', filename='js/prediction-mode-visuals.js')}}"></script>
-    <script src="{{url_for('static', filename='js/maindash.js')}}"></script>
+    <script src="{{url_for('static', filename='js/deandash.js')}}"></script>
     <script src="{{url_for('static', filename='js/mode-toggle.js')}}"></script>
   </section>
 

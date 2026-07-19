@@ -159,15 +159,12 @@ header {
     gap: 15px;
 }
 .logo-sq {
-    background: #fd2a2a;
     width: 80px;
     height: 80px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden; /* Ensures the image stays inside the rounded corners */
-    box-shadow: 0 8px 15px rgba(253, 42, 42, 0.3);
    
 }
 
@@ -225,7 +222,9 @@ header {
 
 /* --- Common Card Styling (Glassmorphism Effect) --- */
 .card {
+  background: rgb(255, 255, 255); /* Translucent dark bg */
   border-radius: 20px;
+  border: 1px solid #DCD6C9; /* Soft border */
   overflow: hidden;
 }
 
@@ -252,6 +251,7 @@ header {
   box-sizing: border-box;
 }
 
+
 .help-content {
   width: 100%; /* was max-width: 500px, leaving most of the card empty */
 }
@@ -262,6 +262,61 @@ header {
   margin-bottom: 20px;
   margin-top: 0;
   font-family: var(--font-sans);
+  display: inline-block;
+  padding-bottom: 6px;
+  border-bottom: 3px solid #B8901F;
+}
+
+.role-badge {
+  display: inline-block;
+  margin: 0 0 20px 14px;
+  padding: 5px 14px;
+  background: #800000;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.help-topic {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 10px;
+}
+
+.help-col > .help-topic:first-child {
+  margin-top: 0;
+}
+
+.help-topic h3,
+.help-topic h4 {
+  margin: 0;
+}
+
+.help-icon-badge {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #800000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-icon-badge svg {
+  width: 18px;
+  height: 18px;
+  color: #ffffff;
+}
+
+/* Subtle hover affordance on the FAQ accordion */
+.help-content summary:hover {
+  background: #EFECE4;
 }
 
 .help-intro {
@@ -273,11 +328,32 @@ header {
   margin: 20px 0 28px;
 }
 
+.help-content > hr {
+  border: none;
+  border-top: 3px solid #800000;
+  margin: 24px 0 0 0;
+}
+
 .help-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0 50px;
   align-items: start;
+  position: relative;
+  margin-top: 24px;
+}
+
+/* Vertical line down the middle, touching the hr above it (top: -24px
+   cancels help-columns' margin-top so there's no visible gap) */
+.help-columns::before {
+  content: "";
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  width: 3px;
+  height: calc(100% + 24px);
+  background: #800000;
+  transform: translateX(-50%);
 }
 
 .help-col h3:first-child,
@@ -386,6 +462,10 @@ header {
 
     .help-columns {
         grid-template-columns: 1fr;
+    }
+
+    .help-columns::before {
+        display: none;
     }
 
     .help-card {

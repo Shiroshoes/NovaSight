@@ -104,6 +104,71 @@ def expand_college(college_arg: str):
     key = college_arg.strip().upper()
     return COLLEGE_MAP.get(key, [college_arg.strip()])
 
+
+def resolve_scope(value: str):
+    """
+    The single "Department - Course" dropdown on every dean dashboard sends
+    ONE value that can be EITHER a college code ("CAHS") OR a specific
+    course name ("Bachelor of Science in Nursing") through the same
+    `college=` query param. Every endpoint used to assume it was always a
+    college code and filter the 'College' column with expand_college() —
+    so picking an actual course matched zero rows everywhere (the course
+    name never appears in the College column), silently breaking every
+    chart, in both Recent and Prediction mode.
+
+    This resolves that value once, correctly:
+      - 'all' / 'main campus' / '' / None -> no filter at all
+      - a known college code (CAHS, CBA, ...) -> college-column filter
+      - anything else -> treated as a COURSE name, filtered on the
+        'Course' column instead, with its parent college looked up from
+        the data (needed by prediction models, which only have
+        per-college features, never per-course ones).
+
+    Returns a dict:
+      {
+        "type": "all" | "college" | "course",
+        "college_names": [...],   # full College-column values to filter/match on (type all/college)
+        "course_name": str|None,  # exact Course-column value to filter on (type course)
+        "feature_college": str,   # best college code to use for model one-hot features
+      }
+    """
+    raw = (value or 'all').strip()
+    if raw.lower() in ('all', 'main campus', 'overall', ''):
+        return {"type": "all", "college_names": [], "course_name": None, "feature_college": None}
+
+    key = raw.upper()
+    if key in COLLEGE_MAP:
+        return {"type": "college", "college_names": COLLEGE_MAP[key], "course_name": None, "feature_college": key}
+
+    # Not a recognized college code -> treat as a course name.
+    feature_college = None
+    try:
+        if 'Course' in df_full_loaded.columns and 'College' in df_full_loaded.columns:
+            match = df_full_loaded[df_full_loaded['Course'].astype(str).str.strip().str.upper() == key]
+            if not match.empty:
+                feature_college = str(match['College'].dropna().astype(str).str.strip().iloc[0]).upper()
+    except Exception:
+        feature_college = None
+
+    return {"type": "course", "college_names": [], "course_name": raw, "feature_college": feature_college}
+
+
+def apply_scope_filter(df, scope, college_col='College', course_col='Course'):
+    """
+    Apply a resolve_scope() result to a dataframe: filters by college code
+    (scope['type'] == 'college') or by the exact course row (scope['type']
+    == 'course'). No-ops for scope['type'] == 'all'.
+    """
+    if scope["type"] == "college":
+        return df[df[college_col].astype(str).str.strip().str.upper().isin(
+            [n.upper() for n in scope["college_names"]]
+        )]
+    if scope["type"] == "course":
+        if course_col not in df.columns:
+            return df.iloc[0:0]
+        return df[df[course_col].astype(str).str.strip().str.upper() == scope["course_name"].upper()]
+    return df
+
 #  GLOBAL DATA LOADING & CLEANING
 DATA_PATH = FINAL_MERGED_CSV
 MODEL_DIR = ML_MODEL_DIR
@@ -380,16 +445,11 @@ def get_dropout_pie():
             ].copy()
 
         #  FILTERS
-        # Expand short code (e.g. "CAHS") to full CSV college names
-        if target_college != 'all':
-            full_names = expand_college(target_college)
-            cohort = cohort[
-                cohort['College'].astype(str).str.strip().isin(
-                    [n.upper() for n in full_names]
-                ) | cohort['College'].astype(str).str.strip().str.upper().isin(
-                    [n.upper() for n in full_names]
-                )
-            ]
+        # `target_college` can be a college code OR a course name (dean
+        # dashboards' combined dropdown) — resolve_scope tells them apart
+        # and filters the College or Course column accordingly.
+        scope = resolve_scope(target_college)
+        cohort = apply_scope_filter(cohort, scope)
 
         if semester.lower() not in ['all', 'overall']:
             cohort = cohort[
@@ -830,11 +890,11 @@ def get_gwa_scatter():
         forecast_years = get_forecast_years(LATEST_REAL_YEAR)[:4]
 
         # 2. FILTERING (college/semester only — every real year included)
+        # `target_college` can be a college code OR a course name (dean
+        # dashboards' combined dropdown) — resolve which one it is.
+        scope = resolve_scope(target_college)
         cohort = df_full_loaded.copy()
-        if target_college != 'all':
-            cohort = cohort[
-                cohort['College'].astype(str).str.strip().str.upper() == target_college.upper()
-            ]
+        cohort = apply_scope_filter(cohort, scope)
         if semester.lower() not in ['all', 'overall']:
             cohort = cohort[
                 cohort['Semester'].astype(str).str.strip().str.upper() == semester.upper()
@@ -911,9 +971,16 @@ def get_gwa_scatter():
                 else: sem_val = 1.5
                 X_pred['Sem_Numeric'] = sem_val
 
-                if target_college != 'all':
+                # Model only has per-college features — for a course
+                # selection, use that course's own parent college so the
+                # forecast line still reflects the right department
+                # (there's no per-course GWA trend model).
+                feature_match = scope["feature_college"] if scope["type"] == "course" else (
+                    target_college if scope["type"] == "college" else None
+                )
+                if feature_match:
                     for col in gwa_trend_features:
-                        if target_college.upper() in col.upper():
+                        if feature_match.upper() in col.upper():
                             X_pred[col] = 1
                             break
 
@@ -954,16 +1021,19 @@ def get_kpi_metrics():
         CURRENT_YEAR = get_latest_real_year()
         is_prediction = year > CURRENT_YEAR
 
+        # `college` can be a college code OR a specific course name from the
+        # dean dashboards' "Department - Course" dropdown — resolve which
+        # one it actually is instead of assuming it's always a college.
+        scope = resolve_scope(college)
+
         # SCENARIO A: ACTUAL DATA (Historical)
         if not is_prediction:
             # Filter Global Data
             df_scope = df_full_loaded.copy()
-            
-            # Filter by College
-            if college != 'all':
-                full_names = expand_college(college)
-                df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
-            
+
+            # Filter by College OR Course (see resolve_scope)
+            df_scope = apply_scope_filter(df_scope, scope)
+
             # Filter by Year
             df_scope = df_scope[df_scope['Year_Numeric'] == year]
             
@@ -986,11 +1056,37 @@ def get_kpi_metrics():
             
             # 1. Identify which colleges to predict for
             colleges_to_process = []
-            if college != 'all':
-                colleges_to_process = [college]
+            if scope["type"] == "college":
+                colleges_to_process = [scope["feature_college"]]
+            elif scope["type"] == "course":
+                # There is no per-course enrollment/GWA model — only
+                # per-college ones. Use the course's parent college for
+                # the model's College_ feature, and scale the college-wide
+                # enrollment prediction down by that course's historical
+                # share of its college's headcount, so a course selection
+                # doesn't just silently show its WHOLE college's numbers.
+                colleges_to_process = [scope["feature_college"] or college]
             else:
                 # Extract college names from the One-Hot features (e.g., 'College_CCST')
                 colleges_to_process = [feat.replace('College_', '') for feat in kpi_enroll_features if feat.startswith('College_')]
+
+            course_share = 1.0
+            if scope["type"] == "course" and scope["feature_college"]:
+                try:
+                    base_year = get_latest_real_year()
+                    college_rows = df_full_loaded[
+                        (df_full_loaded['Year_Numeric'] == base_year)
+                        & (df_full_loaded['College'].astype(str).str.strip().str.upper() == scope["feature_college"])
+                    ]
+                    course_rows = college_rows[
+                        college_rows['Course'].astype(str).str.strip().str.upper() == scope["course_name"].upper()
+                    ]
+                    college_count = college_rows['Student_ID'].nunique()
+                    course_count = course_rows['Student_ID'].nunique()
+                    if college_count > 0:
+                        course_share = course_count / college_count
+                except Exception:
+                    course_share = 1.0
 
             total_students_accum = 0
             gwa_accum = []
@@ -1007,6 +1103,8 @@ def get_kpi_metrics():
                     X_enroll[col_feat] = 1
                 
                 pred_count = int(kpi_enroll_model.predict(X_enroll)[0])
+                if scope["type"] == "course":
+                    pred_count = int(round(pred_count * course_share))
                 total_students_accum += max(0, pred_count) # Add to total
 
                 # B. Predict GWA
@@ -1061,10 +1159,10 @@ def get_status_distribution():
         LATEST_REAL_YEAR = get_latest_real_year()
         base_df = df_full_loaded[df_full_loaded['Year_Numeric'] == LATEST_REAL_YEAR].copy()
         
-        # Filter by College — expand short code to full CSV names
-        if college != 'all':
-            full_names = expand_college(college)
-            base_df = base_df[base_df['College'].astype(str).str.strip().isin(full_names)]
+        # Filter by College OR Course — `college` can be either, coming
+        # from the dean dashboards' combined dropdown (see resolve_scope).
+        scope = resolve_scope(college)
+        base_df = apply_scope_filter(base_df, scope)
 
         print(f" > Students Found: {len(base_df)}")
         
@@ -1190,15 +1288,24 @@ def get_inc_forecast():
             if breakdown == 'college':
                 groups = sorted(df_base['College'].dropna().astype(str).str.strip().unique())
             else:
-                # Course breakdown is always scoped to the selected college
-                # (e.g. CAHS dean dashboard only wants CAHS's own courses).
-                if college.lower() not in ['all', 'main campus', '']:
-                    full_names = expand_college(college)
-                    scope_df = df_base[df_base['College'].astype(str).str.strip().isin(full_names)]
+                # Course breakdown is scoped to the selected college by
+                # default (e.g. CAHS dean dashboard shows all of CAHS's
+                # courses). But if the dropdown itself has a SPECIFIC
+                # course selected, narrow down to just that one course's
+                # line instead of showing every sibling course.
+                inc_scope = resolve_scope(college)
+                if inc_scope["type"] == "college":
+                    scope_df = df_base[df_base['College'].astype(str).str.strip().str.upper().isin(
+                        [n.upper() for n in inc_scope["college_names"]]
+                    )]
+                elif inc_scope["type"] == "course" and inc_scope["feature_college"]:
+                    scope_df = df_base[df_base['College'].astype(str).str.strip().str.upper() == inc_scope["feature_college"]]
                 else:
                     scope_df = df_base
                 df_base = scope_df
                 groups = sorted(df_base['Course'].dropna().astype(str).str.strip().unique()) if 'Course' in df_base.columns else []
+                if inc_scope["type"] == "course":
+                    groups = [g for g in groups if g.strip().upper() == inc_scope["course_name"].upper()]
 
             per_group = []
             all_years_set = set()
@@ -1237,12 +1344,10 @@ def get_inc_forecast():
             return jsonify({"years": all_years, "series": series, "breakdown": breakdown})
 
         # ── ORIGINAL SINGLE-LINE MODE (unchanged, backward compatible) ──
-        df_scope = df_base
-        if college.lower() not in ['all', 'main campus']:
-            full_names = expand_college(college)
-            df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
+        single_scope = resolve_scope(college)
+        df_scope = apply_scope_filter(df_base, single_scope)
 
-        feat_col = f"College_{college.upper()}" if college.lower() != 'all' else None
+        feat_col = f"College_{college.upper()}" if single_scope["type"] != "all" else None
         years, history_data, forecast_years, forecast_data = _inc_rate_series(df_scope, feat_col, global_forecast_years)
 
         return jsonify({
@@ -1284,10 +1389,10 @@ def get_subject_forecast():
         if 'Subject' not in df_scope.columns:
             return jsonify({"error": "Subject column missing"})
 
-        # Filter by College
-        if college.lower() not in ['all', 'main campus']:
-            full_names = expand_college(college)
-            df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
+        # Filter by College OR Course — `college` may be a specific course
+        # from the dean dashboards' combined dropdown.
+        subj_scope = resolve_scope(college)
+        df_scope = apply_scope_filter(df_scope, subj_scope)
 
         if df_scope.empty:
             return jsonify({"labels": [], "datasets": [], "error": "No valid grade data found"})
@@ -1421,8 +1526,17 @@ def get_hardest_subjects_by_course():
         is_main = college.lower() in ['all', 'main campus', 'overall', '']
 
         if not is_main:
-            full_names = expand_college(college)
-            df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
+            # `college` may itself be a specific COURSE (dean dashboards'
+            # combined dropdown) rather than a college code — this chart
+            # always breaks a COLLEGE down into its courses, so a course
+            # selection scopes to THAT course's own parent college (still
+            # showing every sibling course) instead of matching nothing.
+            hsc_scope = resolve_scope(college)
+            if hsc_scope["type"] == "course" and hsc_scope["feature_college"]:
+                df_scope = df_scope[df_scope['College'].astype(str).str.strip().str.upper() == hsc_scope["feature_college"]]
+            else:
+                full_names = expand_college(college)
+                df_scope = df_scope[df_scope['College'].astype(str).str.strip().isin(full_names)]
 
         if df_scope.empty:
             return jsonify({"group_by": "college" if is_main else "course", "courses": []})
@@ -1458,6 +1572,8 @@ def get_hardest_subjects_by_course():
                 groups.append((code, g_df, code))
         else:
             course_names = sorted(df_scope['Course'].dropna().astype(str).str.strip().unique())
+            if hsc_scope["type"] == "course":
+                course_names = [c for c in course_names if c.strip().upper() == hsc_scope["course_name"].upper()]
             groups = []
             for course in course_names:
                 g_df = df_scope[df_scope['Course'].astype(str).str.strip() == course]
@@ -1561,10 +1677,10 @@ def get_dropout_spike():
         if 'is_drop' not in local_df.columns:
              return jsonify({"error": "is_drop column missing"}), 500
 
-        # Filter College — expand short code to full CSV names
-        if college.lower() not in ['all', 'main campus']:
-            full_names = expand_college(college)
-            local_df = local_df[local_df['College'].astype(str).str.strip().isin(full_names)]
+        # Filter by College OR Course — `college` may be a specific course
+        # from the dean dashboards' combined dropdown.
+        spike_scope = resolve_scope(college)
+        local_df = apply_scope_filter(local_df, spike_scope)
 
         # 3. HISTORY
         if 'Year_Numeric' not in local_df.columns:
@@ -1665,16 +1781,18 @@ def get_status_pie():
         regular_count = 0
         irregular_count = 0
 
+        # `college_arg` can be a college code OR a specific course name
+        # (dean dashboards' combined dropdown) — resolve once, use everywhere below.
+        pie_scope = resolve_scope(college_arg)
+
         # --- HELPER: Filter Data ---
         def get_filtered_data(target_year):
             df = df_full_loaded.copy()
             if 'Year_Numeric' in df.columns:
                 df = df[df['Year_Numeric'] == target_year]
-            
-            if college_arg.lower() not in ['all', 'main campus']:
-                full_names = expand_college(college_arg)
-                df = df[df['College'].astype(str).str.strip().isin(full_names)]
-            
+
+            df = apply_scope_filter(df, pie_scope)
+
             if semester_arg.lower() not in ['all', 'overall']:
                 df = df[df['Semester'].astype(str).str.contains(semester_arg, case=False, na=False)]
             return df
@@ -1697,9 +1815,13 @@ def get_status_pie():
                 if 'Sem_Numeric' in status_features:
                     X_in['Sem_Numeric'] = sem_val
                 
-                # Map College
-                if college_arg.lower() not in ['all', 'main campus']:
-                    col_feat = f"College_{college_arg.upper()}"
+                # Map College — no per-course model, so a course selection
+                # uses its own parent college's feature bit.
+                feat_college = pie_scope["feature_college"] or (
+                    college_arg if pie_scope["type"] == "college" else None
+                )
+                if feat_college:
+                    col_feat = f"College_{feat_college.upper()}"
                     if col_feat in status_features:
                         X_in[col_feat] = 1
                 
@@ -1845,20 +1967,31 @@ def get_status_trend():
         if breakdown in ('college', 'course'):
             scope_df = df_base
             if college_arg.lower() not in ('all', 'main campus', ''):
-                full_names = expand_college(college_arg)
-                scope_df = scope_df[scope_df['College'].astype(str).str.strip().isin(full_names)]
+                # `college_arg` may itself be a specific COURSE (dean
+                # dashboards' combined dropdown), not a college code — in
+                # that case scope to ITS parent college so the by-course
+                # trend still shows every sibling course of that college.
+                trend_scope = resolve_scope(college_arg)
+                if trend_scope["type"] == "course" and trend_scope["feature_college"]:
+                    scope_df = scope_df[scope_df['College'].astype(str).str.strip().str.upper() == trend_scope["feature_college"]]
+                else:
+                    full_names = expand_college(college_arg)
+                    scope_df = scope_df[scope_df['College'].astype(str).str.strip().isin(full_names)]
 
             if breakdown == 'college':
                 group_col = 'College'
                 groups = sorted(scope_df['College'].dropna().astype(str).str.strip().unique())
             else:
-                # Course breakdown is always scoped to the selected college
-                # (e.g. the CAHS dean dashboard only wants CAHS's own courses).
+                # Course breakdown defaults to every course in the scoped
+                # college — but if a SPECIFIC course is selected, narrow
+                # down to just that one course's line.
                 group_col = 'Course'
                 groups = (
                     sorted(scope_df['Course'].dropna().astype(str).str.strip().unique())
                     if 'Course' in scope_df.columns else []
                 )
+                if college_arg.lower() not in ('all', 'main campus', '') and trend_scope["type"] == "course":
+                    groups = [g for g in groups if g.strip().upper() == trend_scope["course_name"].upper()]
 
             per_group = []
             all_years_set = set()
@@ -1917,10 +2050,7 @@ def get_status_trend():
             })
 
         # ── ORIGINAL SINGLE-LINE AGGREGATE MODE (unchanged) ────────────
-        df = df_base
-        if college_arg.lower() not in ['all', 'main campus']:
-            full_names = expand_college(college_arg)
-            df = df[df['College'].astype(str).str.strip().isin(full_names)]
+        df = apply_scope_filter(df_base, resolve_scope(college_arg))
 
         if df.empty:
             return jsonify({"error": "No data available for this filter."}), 200
@@ -1984,8 +2114,16 @@ def get_status_by_course():
         df = df_full_loaded[df_full_loaded['Year_Numeric'] == year].copy()
 
         if college_arg.lower() not in ['all', 'main campus']:
-            full_names = expand_college(college_arg)
-            df = df[df['College'].astype(str).str.strip().isin(full_names)]
+            # This chart always breaks a COLLEGE down into its courses.
+            # `college_arg` may itself be a specific COURSE — scope to
+            # ITS parent college so every sibling course still shows,
+            # instead of matching nothing.
+            sbc_scope = resolve_scope(college_arg)
+            if sbc_scope["type"] == "course" and sbc_scope["feature_college"]:
+                df = df[df['College'].astype(str).str.strip().str.upper() == sbc_scope["feature_college"]]
+            else:
+                full_names = expand_college(college_arg)
+                df = df[df['College'].astype(str).str.strip().isin(full_names)]
 
         if semester_arg.lower() not in ['all', 'overall']:
             df = df[df['Semester'].astype(str).str.contains(semester_arg, case=False, na=False)]
@@ -2003,6 +2141,8 @@ def get_status_by_course():
             return 0
 
         courses = sorted(df['Course'].dropna().astype(str).str.strip().unique())
+        if college_arg.lower() not in ['all', 'main campus'] and sbc_scope["type"] == "course":
+            courses = [c for c in courses if c.strip().upper() == sbc_scope["course_name"].upper()]
         results = []
 
         for course in courses:
@@ -2143,15 +2283,23 @@ def get_gender_status_breakdown():
                 results.append(row)
         else:
             # ── PER-COURSE MODE (dean dashboards, e.g. CAHS) ──
-            full_names = expand_college(college_arg)
-            col_df = df[df['College'].astype(str).str.strip().str.upper().isin(
-                [n.upper() for n in full_names]
-            )]
+            # `college_arg` may itself be a specific COURSE — scope to
+            # ITS parent college so every sibling course still shows.
+            gsb_scope = resolve_scope(college_arg)
+            if gsb_scope["type"] == "course" and gsb_scope["feature_college"]:
+                col_df = df[df['College'].astype(str).str.strip().str.upper() == gsb_scope["feature_college"]]
+            else:
+                full_names = expand_college(college_arg)
+                col_df = df[df['College'].astype(str).str.strip().str.upper().isin(
+                    [n.upper() for n in full_names]
+                )]
 
             if col_df.empty or 'Course' not in col_df.columns:
                 return jsonify({"year": year, "mode": mode_label, "group_by": "course", "rows": []})
 
             courses = sorted(col_df['Course'].dropna().astype(str).str.strip().unique())
+            if gsb_scope["type"] == "course":
+                courses = [c for c in courses if c.strip().upper() == gsb_scope["course_name"].upper()]
             for course in courses:
                 c_df = col_df[col_df['Course'].astype(str).str.strip() == course]
                 if c_df.empty:
