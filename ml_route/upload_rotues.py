@@ -280,15 +280,17 @@ def api_training_state():
 
 # ── Human-readable labels for each trained model ────────────────
 _MODEL_LABELS = {
-    'dropout_risk':    'Dropout Risk (per Student)',
-    'dropout_spike':   'Dropout Spike (Cohort Trend)',
-    'dropout_ranking': 'Dropout Ranking (per College)',
-    'gwa_ranking':     'GWA Ranking (per College)',
-    'gwa_trend':       'GWA Trend (Time-Series)',
-    'inc_forecast':    'INC Rate Forecast',
-    'irreg_reg':       'Irregular vs Regular Rate',
-    'kpi':             'KPI — GWA & Enrollment',
-    'subject_grade':   'Subject Grade Forecast',
+    'dropout_risk':       'Dropout Risk (per Student)',
+    'dropout_spike':      'Dropout Spike (Cohort Trend)',
+    'dropout_ranking':    'Dropout Ranking (per College)',
+    'gwa_ranking':        'GWA Ranking (per College)',
+    'gwa_trend':          'GWA Trend (Time-Series)',
+    'inc_forecast':       'INC Rate Forecast',
+    'irreg_reg':          'Irregular vs Regular Rate',
+    'kpi':                'KPI — GWA & Enrollment',
+    'subject_grade':      'Subject Grade Forecast',
+    'performance_band':   'Performance Band Distribution',
+    'gender_performance': 'Gender Performance (Dropout & GWA)',
 }
 
 
@@ -296,24 +298,47 @@ def _flatten_metric_block(result: dict) -> dict:
     """
     Normalise the differently-shaped result dicts each trainer returns into
     one consistent set of display fields: status, a primary headline metric
-    (accuracy if classification, R² if regression), and the rest as
+    (accuracy if classification, R^2 if regression), and the rest as
     secondary metrics.
+
+    Some trainers return a NESTED dict — one sub-result per sub-model —
+    instead of a flat set of metrics (train_kpi's 'gwa'/'enrollment',
+    train_gender_performance's 'dropout_rate'/'avg_gwa'). Detected
+    generically here: if any top-level value is itself a dict, every such
+    value is treated as a named sub-model result and flattened under
+    `{sub_name}_{metric}` keys — so this covers any future multi-submodel
+    trainer too, not just today's two, without hardcoding key names.
     """
     if not isinstance(result, dict):
         return {'status': 'unknown', 'headline_label': None, 'headline_value': None, 'metrics': {}}
 
     status = result.get('status', 'ok' if 'error' not in result else 'error')
 
-    # kpi trainer nests two sub-models (gwa / enrollment) instead of flat keys
-    if 'gwa' in result or 'enrollment' in result:
+    has_nested_submodels = any(isinstance(v, dict) for v in result.values())
+
+    if has_nested_submodels:
         sub_metrics = {}
         for sub_name, sub_result in result.items():
             if isinstance(sub_result, dict):
                 for k, v in sub_result.items():
                     sub_metrics[f"{sub_name}_{k}"] = v
+
+        # Headline = first R^2 found, in insertion order (matches the old
+        # hardcoded 'gwa_r2' behavior for train_kpi); falls back to the
+        # first accuracy if a nested block is ever classification-based.
         headline_label, headline_value = None, None
-        if 'gwa_r2' in sub_metrics:
-            headline_label, headline_value = 'R² (GWA)', sub_metrics['gwa_r2']
+        for k, v in sub_metrics.items():
+            if k.endswith('_r2'):
+                pretty = k[:-3].replace('_', ' ').title()
+                headline_label, headline_value = f'R² ({pretty})', v
+                break
+        if headline_label is None:
+            for k, v in sub_metrics.items():
+                if k.endswith('_accuracy'):
+                    pretty = k[:-9].replace('_', ' ').title()
+                    headline_label, headline_value = f'Accuracy ({pretty})', v
+                    break
+
         return {
             'status': 'ok' if sub_metrics else 'skipped',
             'headline_label': headline_label,
@@ -323,7 +348,7 @@ def _flatten_metric_block(result: dict) -> dict:
 
     metrics = {k: v for k, v in result.items() if k not in ('status', 'reason', 'error')}
 
-    # Prefer accuracy/F1 for classifiers, R² for regressors
+    # Prefer accuracy/F1 for classifiers, R^2 for regressors
     if 'accuracy' in metrics:
         headline_label, headline_value = 'Accuracy', metrics['accuracy']
     elif 'r2' in metrics:

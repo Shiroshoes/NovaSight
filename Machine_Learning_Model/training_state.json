@@ -1,54 +1,95 @@
 {
-  "trained_at": "2026-07-05T10:05:08.807033Z",
-  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\3_1783245908_2024-1_Student-Performance_Dataset.xlsx",
+  "trained_at": "2026-07-14T17:42:15.482271Z",
+  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1784050935_2024-2_Student-Performance_Dataset.xlsx",
   "models": {
     "dropout_risk": {
       "status": "ok",
-      "f1_score": 0.9924,
-      "accuracy": 0.9997
+      "r2": 0.0346,
+      "rmse": 0.1279
     },
     "dropout_spike": {
       "status": "ok",
-      "r2": 0.5904,
-      "rmse": 0.6857
+      "r2": 0.8868,
+      "rmse": 0.3605,
+      "mse": 0.13,
+      "mae": 0.293
     },
     "dropout_ranking": {
       "status": "ok",
-      "r2": 0.0032,
-      "rmse": 0.1325
+      "r2": 0.0122,
+      "rmse": 0.1346,
+      "mse": 0.0181,
+      "mae": 0.0345
     },
     "gwa_ranking": {
       "status": "ok",
-      "r2": 0.056,
-      "rmse": 0.6345
+      "r2": 0.0545,
+      "rmse": 0.641,
+      "mse": 0.4109,
+      "mae": 0.4296
     },
     "gwa_trend": {
       "status": "ok",
       "r2": 0.8875,
-      "rmse": 0.055
+      "rmse": 0.055,
+      "mse": 0.003,
+      "mae": 0.0459
     },
     "inc_forecast": {
       "status": "ok",
-      "r2": 0.817,
-      "rmse": 3.7068
+      "r2": 0.891,
+      "rmse": 2.8604,
+      "mse": 8.1818,
+      "mae": 2.4334
     },
     "irreg_reg": {
       "status": "ok",
-      "r2": 0.7315,
-      "rmse": 3.8958
+      "r2": 0.8584,
+      "rmse": 2.8289,
+      "mse": 8.0029,
+      "mae": 2.3515
     },
     "kpi": {
       "gwa": {
         "r2": 0.0591,
-        "rmse": 0.6351
+        "rmse": 0.6351,
+        "mse": 0.4033,
+        "mae": 0.426
       },
       "enrollment": {
-        "r2": 0.9868
+        "r2": 0.9868,
+        "rmse": 105.9315,
+        "mse": 11221.4815,
+        "mae": 87.1204
       }
     },
     "subject_grade": {
       "status": "ok",
-      "r2": 0.7799
+      "r2": 0.5754,
+      "rmse": 0.4248,
+      "mse": 0.1804,
+      "mae": 0.2574
+    },
+    "performance_band": {
+      "status": "ok",
+      "r2": 0.9774,
+      "rmse": 2.6001,
+      "mse": 6.7605,
+      "mae": 1.7706
+    },
+    "gender_performance": {
+      "dropout_rate": {
+        "r2": 0.8841,
+        "rmse": 0.382,
+        "mse": 0.1459,
+        "mae": 0.3028
+      },
+      "avg_gwa": {
+        "r2": 0.5703,
+        "rmse": 0.1372,
+        "mse": 0.0188,
+        "mae": 0.0863
+      }
     }
   },
   "horizon": {
@@ -71,5 +112,5 @@
   },
   "errors": [],
   "rows_in_master": 57745,
-  "elapsed_seconds": 61.5
+  "elapsed_seconds": 23.5
 }

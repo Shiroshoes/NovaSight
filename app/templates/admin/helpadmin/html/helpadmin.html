@@ -154,7 +154,7 @@
                 <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="NovaSight Logo" class="brand-logo">
               </div>
                 <div class="brand-text">
-                    <h1>NOVASIGHT</h1>
+                    <h1>Bataan Peninsula State University</h1>
                     <span>ACADEMIC PREDICTION</span>
                 </div>
             </div>
@@ -188,6 +188,183 @@
   <div class="card help-card">
     <div class="help-content">
       <h2>Help</h2>
+      <span class="role-badge">Admin</span>
+      <p class="help-intro">
+          This Help Center covers the Admin tools: creating and managing
+          user accounts for NovaSight. Admin accounts do not upload grade
+          data — that's handled by Academic Affairs.
+      </p>
+
+      <hr>
+
+      <div class="help-columns">
+        <div class="help-col">
+
+            <div class="help-topic">
+              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M3.5 20c0-3.3 2.5-5.8 5.5-5.8s5.5 2.5 5.5 5.8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M18 9v6M15 12h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+              <h3>Adding a User</h3>
+            </div>
+            <p>
+                From the Admin page, use the <strong>+</strong> button to
+                open the Add User form. Fill in the user's name, account,
+                and role, then set a password.
+            </p>
+
+            <h4>Password Requirements</h4>
+            <ul>
+                <li>8–16 characters</li>
+                <li>At least one uppercase letter</li>
+                <li>At least one number</li>
+                <li>At least one special character (e.g. <code>!@#$%^&amp;*</code>)</li>
+            </ul>
+            <p>
+                Use the <strong>Generate</strong> button next to the
+                password field to create a password that already meets
+                all requirements — it's revealed on screen so you can
+                copy it before saving.
+            </p>
+
+            <div class="help-topic">
+              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16.5 4.5l3 3L9 18l-4 1 1-4Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <h3>Editing a User</h3>
+            </div>
+            <p>
+                Click <strong>Edit</strong> on any user row to open their
+                details. You can update their name, account, or role, and
+                optionally set a new password — leave the password field
+                blank to keep their current one.
+            </p>
+
+            <div class="help-topic">
+              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 4v7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 6.5a7 7 0 1 0 10 0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span>
+              <h3>Deactivating / Activating a User</h3>
+            </div>
+            <p>
+                Open a user's Edit form to <strong>Deactivate</strong>
+                their account — they won't be able to log in until an
+                admin <strong>Activates</strong> it again. Deactivated
+                users are listed separately and can be restored the same
+                way.
+            </p>
+
+            <div class="help-topic">
+              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+              <h3>Dataset Format Reference</h3>
+            </div>
+            <p>
+                Admin accounts don't upload grade data themselves, but
+                can view and download the required format below — useful
+                for verifying a file before it goes to Academic Affairs,
+                or helping troubleshoot a failed upload.
+            </p>
+
+            <h4>Required File Name Format</h4>
+            <p class="help-code">YYYY-N Student-Performance Dataset.xlsx</p>
+            <ul>
+                <li><strong>YYYY</strong> — the year the semester starts (e.g. 2024)</li>
+                <li><strong>N</strong> — <code>1</code> for 1st semester, <code>2</code> for 2nd semester</li>
+            </ul>
+            <p>
+                Only <code>.xlsx</code> files are accepted — .xls, .csv,
+                and .xlsm are not. Each sheet tab is one college, laid
+                out as a program name, a semester/year header, and a
+                repeating block per student: a row of subject codes
+                followed by that student's row of grades.
+            </p>
+
+            <p class="help-download">
+                <a href="{{ url_for('static', filename='templates/NovaSight_Student-Performance_Dataset_TEMPLATE.xlsx') }}"
+                   download class="help-download-btn">
+                    ⬇ Download the Dataset Template (.xlsx)
+                </a>
+                <br>
+                <span class="help-download-note">
+                    A worked reference showing the exact layout, with a
+                    step-by-step "READ ME FIRST" sheet and one sample
+                    college sheet already filled in — not real student
+                    data.
+                </span>
+            </p>
+
+        </div>
+        <div class="help-col">
+
+            <div class="help-topic">
+              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="13" y="4" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="4" y="13" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="13" y="13" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
+              <h3>Dashboards</h3>
+            </div>
+            <p>
+                Admin accounts can also view the Main Dashboard and each
+                college dashboard. Every dashboard has a mode toggle:
+                <strong>Historical mode</strong> shows real, already-
+                recorded data, while <strong>Prediction mode</strong>
+                switches the same charts to NovaSight's forecast for
+                future years.
+            </p>
+
+            <div class="help-topic">
+              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span>
+              <h3>Profile</h3>
+            </div>
+            <p>
+                Manage your own account information, update your profile
+                picture, and change your password from the Profile page.
+            </p>
+
+            <div class="help-topic">
+              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" fill="currentColor"/></svg></span>
+              <h3>Common Issues</h3>
+            </div>
+
+            <details>
+                <summary>The password field won't accept my input.</summary>
+                <p>
+                    Passwords must be 8–16 characters and include at
+                    least one uppercase letter, one number, and one
+                    special character. The field border turns red when a
+                    requirement isn't met yet, and green once it is.
+                </p>
+            </details>
+
+            <details>
+                <summary>I can't find a user I deactivated.</summary>
+                <p>
+                    Deactivated accounts move to the archived/inactive
+                    list rather than staying in the main user list. Open
+                    that list to find and reactivate them.
+                </p>
+            </details>
+
+            <details>
+                <summary>My changes to a user didn't save.</summary>
+                <p>
+                    Check that every required field is filled in and, if
+                    you entered a new password, that it meets all
+                    password requirements above.
+                </p>
+            </details>
+
+            <details>
+                <summary>I can't log in.</summary>
+                <p>
+                    Double-check your email and password, and confirm
+                    Caps Lock is off.
+                </p>
+            </details>
+
+            <div class="help-topic">
+              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2.25c-2.429 0-4.817.178-7.152.521C2.87 3.061 1.5 4.795 1.5 6.741v6.018c0 1.946 1.37 3.68 3.348 3.97.877.129 1.761.234 2.652.316V21a.75.75 0 0 0 1.28.53l4.184-4.183a.39.39 0 0 1 .266-.112c2.006-.05 3.982-.22 5.922-.506 1.978-.29 3.348-2.023 3.348-3.97V6.741c0-1.947-1.37-3.68-3.348-3.97A49.145 49.145 0 0 0 12 2.25ZM8.25 8.625a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Zm2.625 1.125a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875-1.125a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd" fill="currentColor"/></svg></span>
+              <h3>Need Assistance?</h3>
+            </div>
+            
+            <p>
+                If the problem persists, please contact the NovaSight
+                development team for further assistance.
+            </p>
+
+        </div>
+      </div>
+
     </div>
   </div>
   </section>
@@ -206,6 +383,21 @@
   </div>
   <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
 
+  <div class="footer-brand">
+      <hr class="footer-divider">
+
+      <div class="footer-brand-content">
+          <img src="{{ url_for('static', filename='image/logo.png') }}"
+              alt="NovaSight Logo"
+              class="footer-logo">
+
+          <div class="footer-brand-text">
+              <h3>NovaSight</h3>
+              <p>Machine Learning-Based Student Performance Prediction System</p>
+              <small>© 2026 Bataan Peninsula State University</small>
+          </div>
+      </div>
+  </div>
 
   <footer class="footer">
     <div class="footer-content">

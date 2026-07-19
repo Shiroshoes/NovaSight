@@ -9,7 +9,7 @@
 }
 
 body {
-    background-color: #ffffff;
+    background-color: #F6F4F0;
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -22,11 +22,11 @@ body {
 
 .sidebar {
   position: fixed;
-  width: 240px;
+  width: 235px;
   height: 100%;
   background-color: #ffffff ;
   padding: 20px;
-  border-right: 1px solid #000000;
+  border-right: 1px solid #DCD6C9;
 }
 
 .pad {
@@ -97,10 +97,14 @@ body {
 }
 
 .menu-btn:hover {
-    background: rgba(255,255,255,0.05);
-    color: #000000;
-    width: 210px;
-    font-weight: bold;
+  background: #785a5a64;
+  color: #000000;
+  width: 210px;
+  font-weight: bold;
+}
+
+.menu-btn:hover .non-active-bordericon {
+  background-color: #c72828;
 }
 
 .sidebar-divider {
@@ -115,10 +119,9 @@ body {
  /* --- FIX: Main Content Container --- */
 main {
     flex: 1;                     /* Take up remaining width */
-    margin-left: 270px;          /* Sidebar width (230px) + its padding (40px) */
+    margin-left: 265px;          /* Sidebar width (235px) + its padding (30px) */
     height: 100vh;
     overflow-y: auto;            /* Allow scrolling inside the main area */
-    padding-right: 40px;         /* Right side spacing */
 }
 
 /* --- FIX: Sticky Header --- */
@@ -154,15 +157,12 @@ header {
     gap: 15px;
 }
 .logo-sq {
-    background: #fd2a2a;
     width: 80px;
     height: 80px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden; /* Ensures the image stays inside the rounded corners */
-    box-shadow: 0 8px 15px rgba(253, 42, 42, 0.3);
    
 }
 
@@ -217,25 +217,35 @@ header {
 
 /* --- Common Card Styling (Glassmorphism Effect) --- */
 .card {
-  background: rgba(20, 5, 5, 0.3); /* Translucent dark bg */
-  backdrop-filter: blur(15px);     /* Glass blur effect */
   border-radius: 20px;
-  border: 1px solid rgba(184, 148, 148, 0.15); /* Soft border */
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); /* Depth shadow */
 }
 
 /* --- Welcome Card Specifics (Centering) --- */
 .help-card {
+  /* Overrides .card's dark translucent glass background/blur for this
+     card only — text was black-on-dark-glass, which is why it was hard
+     to read. Every other .card on registrar/SASO/academic-affairs pages
+     is untouched. */
+  background: #ffffff;
+  backdrop-filter: none;
+  border: 1px solid #DCD6C9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   padding: 20px;
   display: flex;
   margin-left: 24px;
-  width: 1340px;
-  height: 600px;
+  width: 1390px;
+  
+  /* FIXED: Changed from 80vh and overflow-y auto to prevent internal scrollbars */
+  height: auto;
+  min-height: 80vh; 
+  overflow: visible;
+  
+  box-sizing: border-box;
 }
 
 .help-content {
-  max-width: 500px; /* Keeps text paragraphs readable */
+  width: 100%; /* Fill the full card instead of a narrow left column */
 }
 
 .help-content h2 {
@@ -244,7 +254,197 @@ header {
   margin-bottom: 20px;
   margin-top: 0;
   font-family: var(--font-sans);
+  display: inline-block;
 }
+
+.role-badge {
+  display: inline-block;
+  margin: 0 0 20px 14px;
+  padding: 5px 14px;
+  background: #800000;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.help-topic {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 10px;
+}
+
+.help-col > .help-topic:first-child {
+  margin-top: 0;
+}
+
+.help-topic h3,
+.help-topic h4 {
+  margin: 0;
+}
+
+.help-icon-badge {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #800000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-icon-badge svg {
+  width: 18px;
+  height: 18px;
+  color: #ffffff;
+}
+
+/* Subtle hover affordance on the FAQ accordion */
+.help-content summary:hover {
+  background: #EFECE4;
+}
+
+.help-intro {
+  max-width: 900px;
+  font-size: 1.05rem;
+  color: #4B4B4B;
+  border-left: 4px solid #800000;
+  padding: 4px 0 4px 18px;
+  margin: 20px 0 28px;
+}
+
+.help-content > hr {
+  border: none;
+  border-top: 3px solid #800000;
+  margin: 24px 0 0 0;
+}
+
+.help-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 50px;
+  align-items: start;
+  position: relative;
+  margin-top: 24px;
+}
+
+/* Vertical line down the middle, touching the hr above it (top: -24px
+   cancels help-columns' margin-top so there's no visible gap) */
+.help-columns::before {
+  content: "";
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  width: 3px;
+  height: calc(100% + 24px);
+  background: #800000;
+  transform: translateX(-50%);
+}
+
+.help-col h3:first-child,
+.help-col h4:first-child {
+  margin-top: 0;
+}
+
+.help-code {
+  font-family: "Consolas", "Courier New", monospace;
+  background: #F6F4F0;
+  border: 1px solid #E4DFD6;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: inline-block;
+  font-size: 0.9rem;
+  color: #4A0000;
+}
+
+.help-content code {
+  font-family: "Consolas", "Courier New", monospace;
+  background: #F6F4F0;
+  border: 1px solid #E4DFD6;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.9em;
+  color: #4A0000;
+}
+
+.help-download {
+  margin: 16px 0 24px;
+}
+
+.help-download-btn {
+  display: inline-block;
+  background: #800000;
+  color: #ffffff;
+  font-weight: bold;
+  text-decoration: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  transition: 0.2s;
+}
+
+.help-download-btn:hover {
+  background: #a30000;
+}
+
+.help-download-note {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.65);
+  max-width: 480px;
+}
+
+/* FAQ accordion — visible borders + explicit +/- indicator instead of
+   relying on the hard-to-see native disclosure triangle. This page's
+   CSS never had this, so the FAQ list was rendering with the plain,
+   easy-to-miss default browser marker. */
+.help-content details {
+  border: 1px solid #E4DFD6;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.help-content details[open] {
+  border-color: #800000;
+}
+
+.help-content summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F6F4F0;
+}
+
+.help-content summary::-webkit-details-marker { display: none; }
+
+.help-content summary::after {
+  content: "+";
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #800000;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.help-content details[open] summary::after { content: "\2212"; }
+
+.help-content details p {
+  padding: 4px 16px 14px;
+  margin: 0;
+  color: #4B4B4B;
+}
+
 
 /* --- Responsive Layout (Phones/Tablets) --- */
 @media (max-width: 1024px) {
@@ -252,41 +452,96 @@ header {
         grid-template-columns: 1fr; /* Stack cards vertically on smaller screens */
         gap: 20px;
     }
+
+    .help-columns {
+        grid-template-columns: 1fr; /* Stack help columns on smaller screens too */
+    }
+
+    .help-columns::before {
+        display: none;
+    }
 }
 
 /* paa ni rod --- */
 
-footer {
+footer{
     position: sticky;
-    bottom: 0;
-    width: 100%;
-    /* Same glass effect as your header */
+    bottom:0;
+    z-index:100;
 
-    backdrop-filter: blur(10px);
-    padding: 20px 0;
-    margin-top: auto; /* Pushes it to the bottom if content is short */
-    z-index: 100;
+    background:#F6F4F0;
+
+    border-top:1px solid #DCD6C9;
+    border-left:1px solid #DCD6C9;
+    box-shadow:0 -4px 15px rgba(0,0,0,.06);
+
+    padding:25px 0;
 }
 
 .footer-content {
     display: flex;
     justify-content: flex-end; /* Moves text to the right */
+    padding-right: 40px; /* Adds some space from the edge */
 }
 
-.page-label {
-    color: #000000; /* Muted grey for "Page/" */
-    font-size: 1rem;
+.page-label{
+    color:#6B7280;
 }
 
-.page-name {
-    color: #000000; /* Bright white for "Home" */
-    font-weight: bold;
-    font-size: 1rem;
+.page-name{
+    color:#800000;
+    font-weight:700;
 }
 
 /* Ensure the main container allows the footer to sit at the bottom */
 .footer {
   background-color: none;
-  margin-left: 24px;
-  width: 1320px;
+  margin-left: 10px;
+  width: 1416px;
+}
+
+
+.footer-brand{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 25px 0;
+}
+
+.footer-divider{
+    width: 500px;      /* adjust length */
+    border: none;
+    border-top: 1px solid #4B4B4B;
+    margin: 0 0 12px 0; /* only 12px gap below */
+}
+
+.footer-brand-content{
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.footer-logo{
+    width:60px;
+    height:60px;
+    object-fit:contain;
+    border-radius:12px;
+}
+
+.footer-brand-text h3{
+    margin:0;
+    font-size:22px;
+    font-weight:700;
+    color:#800000;
+}
+
+.footer-brand-text p{
+    margin:4px 0;
+    font-size:14px;
+    color:#000000;
+}
+
+.footer-brand-text small{
+    color:#6B7280;
+    font-size:12px;
 }

@@ -1,9 +1,12 @@
-
 const QUALITY = {
   r2:   [{ t: 0.85, cls: 'val-great' }, { t: 0.65, cls: 'val-good' },
          { t: 0.40, cls: 'val-fair'  }, { t: -Infinity, cls: 'val-poor' }],
   rmse: [{ t: 0.5,  cls: 'val-great' }, { t: 2,    cls: 'val-good' },
          { t: 5,    cls: 'val-fair'  }, { t: Infinity, cls: 'val-poor' }], // lower is better → reversed
+  mae:  [{ t: 0.5,  cls: 'val-great' }, { t: 2,    cls: 'val-good' },
+         { t: 5,    cls: 'val-fair'  }, { t: Infinity, cls: 'val-poor' }], // lower is better → reversed
+  mse:  [{ t: 0.25, cls: 'val-great' }, { t: 4,    cls: 'val-good' },
+         { t: 25,   cls: 'val-fair'  }, { t: Infinity, cls: 'val-poor' }], // lower is better → reversed (squared-error scale)
   acc:  [{ t: 0.85, cls: 'val-great' }, { t: 0.70, cls: 'val-good' },
          { t: 0.55, cls: 'val-fair'  }, { t: -Infinity, cls: 'val-poor' }],
   f1:   [{ t: 0.80, cls: 'val-great' }, { t: 0.65, cls: 'val-good' },
@@ -12,17 +15,98 @@ const QUALITY = {
 
 function qualityClass(key, value) {
   const map = QUALITY[key] || [];
-  if (key === 'rmse') {
-    // For RMSE: lower is better — reverse thresholds
+  if (key === 'rmse' || key === 'mae') {
+    // For RMSE/MAE: lower is better — reverse thresholds (same error-unit scale)
     if (value <= 0.5)  return 'val-great';
     if (value <= 2.0)  return 'val-good';
     if (value <= 5.0)  return 'val-fair';
+    return 'val-poor';
+  }
+  if (key === 'mse') {
+    // For MSE: lower is better — reverse thresholds (squared-error scale)
+    if (value <= 0.25) return 'val-great';
+    if (value <= 4.0)  return 'val-good';
+    if (value <= 25.0) return 'val-fair';
     return 'val-poor';
   }
   for (const { t, cls } of map) {
     if (value >= t) return cls;
   }
   return 'val-poor';
+}
+
+// ── Metric classification helpers ───────────────────────────────
+function classifyMetric(key) {
+  // Check 'rmse' and 'mae' before the generic 'mse' substring match,
+  // since "rmse".includes('mse') is true.
+  const lowKey = key.toLowerCase();
+  if (lowKey.includes('rmse'))     return 'rmse';
+  if (lowKey.includes('mae'))      return 'mae';
+  if (lowKey.includes('mse'))      return 'mse';
+  if (lowKey.includes('r²') || lowKey.includes('r2')) return 'r2';
+  if (lowKey.includes('accuracy')) return 'acc';
+  if (lowKey.includes('f1'))       return 'f1';
+  return 'acc';
+}
+
+// Strip a known metric suffix to find which sub-model a key belongs to,
+// e.g. "dropout_rate_rmse" -> "dropout_rate"; "r2" -> "" (flat/top-level).
+function familyOf(key) {
+  const suffixes = ['_rmse', '_mae', '_mse', '_r2', '_accuracy', '_f1'];
+  const lowKey = key.toLowerCase();
+  for (const s of suffixes) {
+    if (lowKey.endsWith(s)) return key.slice(0, key.length - s.length);
+  }
+  return '';
+}
+
+function metricBoxHTML(key, val) {
+  const qKey = classifyMetric(key);
+  const qCls = qualityClass(qKey, val);
+  // RMSE/MSE/MAE are raw error values, not ratios — show as plain numbers.
+  const isErrorMetric = qKey === 'rmse' || qKey === 'mse' || qKey === 'mae';
+  const displayVal = isErrorMetric ? val.toFixed(4) : (val * 100).toFixed(1) + '%';
+  return `
+    <div class="ml-metric-box">
+      <div class="ml-metric-key">${key}</div>
+      <div class="ml-metric-val ${qCls}">${displayVal}</div>
+    </div>`;
+}
+
+// Pick the 2 most informative metrics per sub-model for the visible row
+// (R² + RMSE for regressors, Accuracy + F1 for classifiers), and return
+// the rest so they can be tucked into an expandable "show more" section.
+// This guarantees all 4 metrics (R², RMSE, MSE, MAE) stay reachable even
+// though only 2 show by default.
+function splitMetrics(metrics) {
+  const families = {};
+  for (const [key, val] of Object.entries(metrics)) {
+    const fam = familyOf(key);
+    (families[fam] = families[fam] || []).push([key, val]);
+  }
+
+  const primary = [];
+  const secondary = [];
+
+  for (const items of Object.values(families)) {
+    const byType = {};
+    for (const [key, val] of items) byType[classifyMetric(key)] = [key, val];
+
+    const isClfFamily = byType.acc || byType.f1;
+    const primaryTypes = isClfFamily ? ['acc', 'f1'] : ['r2', 'rmse'];
+    const secondaryTypes = isClfFamily ? [] : ['mse', 'mae'];
+    const handled = new Set([...primaryTypes, ...secondaryTypes]);
+
+    for (const t of primaryTypes) if (byType[t]) primary.push(byType[t]);
+    for (const t of secondaryTypes) if (byType[t]) secondary.push(byType[t]);
+    // Any metric type we don't explicitly plan for still gets shown, just
+    // deferred to the expandable section rather than dropped.
+    for (const [type, pair] of Object.entries(byType)) {
+      if (!handled.has(type)) secondary.push(pair);
+    }
+  }
+
+  return { primary, secondary };
 }
 
 // ── Render a single model card ──────────────────────────────────
@@ -36,37 +120,32 @@ function buildCard(model, index) {
   const typeCls   = isErr ? 'err' : isClf ? 'clf' : 'reg';
 
   // Build metric boxes
-  let metricsHTML = '';
+  let metricsHTML;
   if (isErr) {
     metricsHTML = `
-      <div class="ml-metric-box" style="flex:1;">
-        <div class="ml-metric-key">Error</div>
-        <div class="ml-metric-val val-poor" style="font-size:0.7rem; font-weight:600; word-break:break-word;">
-          ${model.error || 'Unknown error'}
+      <div class="ml-metrics-row">
+        <div class="ml-metric-box" style="flex:1;">
+          <div class="ml-metric-key">Error</div>
+          <div class="ml-metric-val val-poor" style="font-size:0.7rem; font-weight:600; word-break:break-word;">
+            ${model.error || 'Unknown error'}
+          </div>
         </div>
       </div>`;
   } else {
-    for (const [key, val] of Object.entries(model.metrics)) {
-      // Map display key to quality-key
-      const qKey = key.toLowerCase().includes('rmse') ? 'rmse'
-                 : key.toLowerCase().includes('r²') || key.toLowerCase().includes('r2') ? 'r2'
-                 : key.toLowerCase().includes('accuracy') ? 'acc'
-                 : key.toLowerCase().includes('f1') ? 'f1'
-                 : 'acc';
+    const { primary, secondary } = splitMetrics(model.metrics);
 
-      const qCls  = qualityClass(qKey, val);
-      const pct   = (qKey === 'rmse') ? '' : '%';  // Show % for ratio metrics
-      const display = (qKey === 'rmse') ? val.toFixed(4)
-                    : (val * (qKey === 'rmse' ? 1 : 100)).toFixed(2);
+    const primaryHTML = primary.map(([k, v]) => metricBoxHTML(k, v)).join('');
+    metricsHTML = `<div class="ml-metrics-row">${primaryHTML}</div>`;
 
-      // For r2 / accuracy / f1 we want 0→1 displayed as percentage
-      const displayVal = (qKey === 'rmse') ? val.toFixed(4) : (val * 100).toFixed(1) + '%';
-
+    if (secondary.length > 0) {
+      const secondaryHTML = secondary.map(([k, v]) => metricBoxHTML(k, v)).join('');
       metricsHTML += `
-        <div class="ml-metric-box">
-          <div class="ml-metric-key">${key}</div>
-          <div class="ml-metric-val ${qCls}">${displayVal}</div>
-        </div>`;
+        <details class="ml-metrics-more">
+          <summary style="cursor:pointer; font-size:0.72rem; opacity:0.7; margin-top:0.4rem;">
+            Show ${secondary.length} more metric${secondary.length > 1 ? 's' : ''}
+          </summary>
+          <div class="ml-metrics-row ml-metrics-row-secondary" style="margin-top:0.4rem;">${secondaryHTML}</div>
+        </details>`;
     }
   }
 
@@ -78,7 +157,7 @@ function buildCard(model, index) {
       <span class="ml-card-label ${typeCls}">${typeLabel}</span>
       <div class="ml-card-title">${model.name}</div>
       <div class="ml-card-desc">${model.description}</div>
-      <div class="ml-metrics-row">${metricsHTML}</div>
+      ${metricsHTML}
     </div>`;
 }
 

@@ -9,7 +9,7 @@
 }
 
 body {
-    background-color: #ffffff;
+    background-color: #F6F4F0;
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -23,11 +23,11 @@ body {
 
 .sidebar {
   position: fixed;
-  width: 240px;
+  width: 235px;
   height: 100%;
   background-color: #ffffff;
   padding: 20px;
-  border-right: 1px solid #000000;
+  border-right: 1px solid #DCD6C9;
 }
 
 .pad {
@@ -98,10 +98,15 @@ body {
 }
 
 .menu-btn:hover {
-    background: rgba(255,255,255,0.05);
-    color: #000000;
-    width: 210px;
-    font-weight: bold;
+  background: #785a5a64;
+  margin-bottom: 10px;
+  color: #000000;
+  width: 210px;
+  font-weight: bold;
+}
+
+.menu-btn:hover .non-active-bordericon {
+  background-color: #c72828;
 }
 
 .sidebar-divider {
@@ -116,10 +121,9 @@ body {
  /* --- FIX: Main Content Container --- */
 main {
     flex: 1;                     /* Take up remaining width */
-    margin-left: 270px;          /* Sidebar width (230px) + its padding (40px) */
+    margin-left: 265px;          /* Sidebar width (230px) + its padding (40px) */
     height: 100vh;
     overflow-y: auto;            /* Allow scrolling inside the main area */
-    padding-right: 40px;         /* Right side spacing */
 }
 
 /* --- FIX: Sticky Header --- */
@@ -155,15 +159,12 @@ header {
     gap: 15px;
 }
 .logo-sq {
-    background: #fd2a2a;
     width: 80px;
     height: 80px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden; /* Ensures the image stays inside the rounded corners */
-    box-shadow: 0 8px 15px rgba(253, 42, 42, 0.3);
    
 }
 
@@ -221,12 +222,10 @@ header {
 
 /* --- Common Card Styling (Glassmorphism Effect) --- */
 .card {
-  background: rgba(20, 5, 5, 0.3); /* Translucent dark bg */
-  backdrop-filter: blur(15px);     /* Glass blur effect */
+  background: rgb(255, 255, 255); /* Translucent dark bg */
   border-radius: 20px;
-  border: 1px solid rgba(184, 148, 148, 0.15); /* Soft border */
+  border: 1px solid #DCD6C9; /* Soft border */
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); /* Depth shadow */
 }
 
 /* --- Welcome Card Specifics (Centering) --- */
@@ -234,8 +233,9 @@ header {
   padding: 20px;
   display: flex;
   margin-left: 24px;
-  width: 1320px;
+  width: 1335px;
   height: 600px;
+  margin-bottom: 30px;
 }
 
 .profile-content {
@@ -292,51 +292,96 @@ dashboard*/
 
 /* paa ni rod --- */
 
-footer {
+footer{
     position: sticky;
-    bottom: 0;
-    width: 100%;
-    /* Same glass effect as your header */
+    bottom:0;
+    z-index:100;
 
-    backdrop-filter: blur(10px);
-    padding: 20px 0;
-    margin-top: auto; /* Pushes it to the bottom if content is short */
-    z-index: 100;
+    background:#F6F4F0;
+
+    border-top:1px solid #DCD6C9;
+    border-left:1px solid #DCD6C9;
+    box-shadow:0 -4px 15px rgba(0,0,0,.06);
+
+    padding:25px 0;
 }
 
 .footer-content {
     display: flex;
     justify-content: flex-end; /* Moves text to the right */
+    padding-right: 40px; /* Adds some space from the edge */
 }
 
-.page-label {
-    color: #000000; /* Muted grey for "Page/" */
-    font-size: 1rem;
+.page-label{
+    color:#6B7280;
 }
 
-.page-name {
-    color: #000000; /* Bright white for "Home" */
-    font-weight: bold;
-    font-size: 1rem;
+.page-name{
+    color:#800000;
+    font-weight:700;
 }
 
 /* Ensure the main container allows the footer to sit at the bottom */
 .footer {
   background-color: none;
-  margin-left: 24px;
-  width: 1320px;
+  margin-left: 10px;
+  width: 1416px;
+}
+
+
+.footer-brand{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 25px 0;
+}
+
+.footer-divider{
+    width: 500px;      /* adjust length */
+    border: none;
+    border-top: 1px solid #4B4B4B;
+    margin: 0 0 12px 0; /* only 12px gap below */
+}
+
+.footer-brand-content{
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.footer-logo{
+    width:60px;
+    height:60px;
+    object-fit:contain;
+    border-radius:12px;
+}
+
+.footer-brand-text h3{
+    margin:0;
+    font-size:22px;
+    font-weight:700;
+    color:#800000;
+}
+
+.footer-brand-text p{
+    margin:4px 0;
+    font-size:14px;
+    color:#000000;
+}
+
+.footer-brand-text small{
+    color:#6B7280;
+    font-size:12px;
 }
 
 
 /* Container for the profile card */
 .profile-card {
-    background: rgba(20, 5, 5, 0.3); /* Translucent dark bg */
-    backdrop-filter: blur(15px);     /* Glass blur effect */
+    background: rgb(255, 255, 255); /* Translucent dark bg */
     border-radius: 20px;
     padding: 30px;
-    border: 1px solid rgba(184, 148, 148, 0.15); /* Soft border */
+    border: 1px solid #DCD6C9; /* Soft border */
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
     font-family: 'Inter', sans-serif;
 }
 
@@ -351,12 +396,13 @@ footer {
 .circle {
     width: 180px;
     height: 180px;
-    background: rgba(255, 255, 255, 0.200);
+    background: rgba(230, 230, 230, 0.6);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    border: 2px solid #800000;
 }
 
 .circle svg { width: 70%; height: 70%; fill: #94a3b8; }
@@ -366,8 +412,8 @@ footer {
     position: absolute;
     bottom: 10px;
     right: 20px;
-    background: white;
-    color: #2b384e;
+    background: #800000;
+    color: #ffffff;
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -377,6 +423,11 @@ footer {
     font-weight: bold;
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.plus-btn:hover {
+    background: #c72828;
+    color: white;
 }
 
 /* Text and Links */
@@ -414,8 +465,10 @@ footer {
 
 .button-group { display: flex; gap: 12px; }
 .btn { padding: 10px 45px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer; }
-.blue { background: #f63b3b; color: white; }
+.blue { background: #800000; color: white; }
+.blue:hover { background: #c72828; }
 .grey { background: #64748b; color: white; }
+.grey:hover { background: #89a1c6; }
 
 
 
@@ -484,7 +537,7 @@ footer {
 }
 
 .btn-primary:hover {
-  background-color: #f63b3b;
+  background-color: #c72828;
   transform: translateY(-2px);
 }
 

@@ -42,8 +42,16 @@ document.addEventListener("DOMContentLoaded", function() {
     const semSelector = document.getElementById('filterSemester');
     const collegeSelector = document.getElementById('filterCollege'); // or 'selectCollege'
 
+    // FIX: the old fallback here was a hardcoded `2024`, so once the
+    // #globalYearFilter dropdown was removed from the page, every chart
+    // silently requested year=2024 forever — never advancing even after
+    // new school years were uploaded and retrained. Fetched once below
+    // from /api/get_year_semester_options (same source the mode-toggle
+    // pills use) and kept current for the life of the page.
+    let LATEST_REAL_YEAR_FALLBACK = null;
+
     function triggerUpdate() {
-        const year = yearSelector ? yearSelector.value : 2024;
+        const year = yearSelector ? yearSelector.value : LATEST_REAL_YEAR_FALLBACK;
         const semester = semSelector ? semSelector.value : 'all';
         
         //  FIX: HANDLE 'Main' LOGIC 
@@ -63,18 +71,30 @@ document.addEventListener("DOMContentLoaded", function() {
         if (typeof updateKPIMetrics === 'function') updateKPIMetrics(year, semester, college);
         if (typeof updateIncForecast === 'function') updateIncForecast(college);
         if (typeof updateDropoutPie === 'function') updateDropoutPie(year, college);
-        if (typeof updateGwaScatter === 'function') updateGwaScatter(year, college, semester);
+        // Scatter no longer needs `year` — it always shows every real
+        // year plus the forecast horizon as its own columns.
+        if (typeof updateGwaScatter === 'function') updateGwaScatter(college, semester);
         if (typeof updateRiskByCollege === 'function') updateRiskByCollege(year, semester);
         if (typeof updateHardestSubjectsByCourse === 'function') updateHardestSubjectsByCourse(college);
     }
 
-    // Initial load — populate Year/Semester from real uploaded data first
-    // (instead of assuming "2024"), THEN run the first chart refresh.
-    if (typeof initYearSemesterFilters === 'function') {
-        initYearSemesterFilters(triggerUpdate);
-    } else {
-        triggerUpdate();
-    }
+    // Initial load: fetch the real latest uploaded year FIRST (so the
+    // LATEST_REAL_YEAR_FALLBACK above is correct before anything renders),
+    // then populate Year/Semester filters from real uploaded data if that
+    // helper exists, THEN run the first chart refresh.
+    fetch('/api/get_year_semester_options')
+        .then(res => res.json())
+        .then(info => {
+            if (info && info.latest_year) LATEST_REAL_YEAR_FALLBACK = info.latest_year;
+        })
+        .catch(err => console.error('Failed to fetch latest uploaded year:', err))
+        .finally(() => {
+            if (typeof initYearSemesterFilters === 'function') {
+                initYearSemesterFilters(triggerUpdate);
+            } else {
+                triggerUpdate();
+            }
+        });
 
     // Listen for changes
     if (yearSelector) yearSelector.addEventListener('change', triggerUpdate);
@@ -340,7 +360,16 @@ function updateGWARanking(year, semester, college) {
             const ctx = canvas.getContext('2d');
 
             //  3. ANIMATION LOGIC (Update vs Create) 
-            if (gwaRankingChart) {
+            // Only take the in-place "update" path if the tracked chart
+            // is BOTH still alive AND still a bar chart — Prediction
+            // mode swaps this same canvas to a line chart via its own
+            // untracked instance, so `gwaRankingChart` can be stale/null
+            // even though something is still drawn on the canvas. Check
+            // Chart.js's own registry (keyed by canvas, not by our JS
+            // variable) so any leftover chart — tracked or not — gets
+            // torn down before we draw the replacement.
+            const existingOnCanvas = Chart.getChart(canvas);
+            if (gwaRankingChart && gwaRankingChart.canvas === canvas && existingOnCanvas === gwaRankingChart) {
                 // IF CHART EXISTS: Update data and animate the transition
                 gwaRankingChart.data.labels = labels;
                 gwaRankingChart.data.datasets[0].data = values;
@@ -353,6 +382,7 @@ function updateGWARanking(year, semester, college) {
                 
                 gwaRankingChart.update(); // < THIS TRIGGERS THE ANIMATION
             } else {
+                if (existingOnCanvas) existingOnCanvas.destroy();
                 // IF CHART IS NEW: Create it from scratch
                 gwaRankingChart = new Chart(ctx, {
                     type: 'bar',
@@ -419,7 +449,7 @@ function updateGWARanking(year, semester, college) {
 
 
 // DROPOUT RANKING CHART (Bar)
-function updateDropoutRanking(year, semester, college = 'all') {
+function updateDropoutRanking(year, semester, college = 'all', isPrediction = false) {
     const canvas = document.getElementById('dropoutRankingChart');
     const subtitle = document.getElementById('dropoutRankSubtitle');
     
@@ -478,6 +508,16 @@ function updateDropoutRanking(year, semester, college = 'all') {
                 dropoutRankingChart.destroy();
             }
 
+            // Prediction Mode: swap the solid fill for the shared
+            // "this is a forecast" bar treatment (50% opacity / dashed
+            // border / diagonal hatch) instead of a bespoke look here.
+            let finalBackground = backgroundColors;
+            let borderDash = [];
+            if (isPrediction && typeof PredictionStyle !== 'undefined') {
+                finalBackground = chartData.map(d => PredictionStyle.createHatchPattern(getGroupColor(d.college)));
+                borderDash = [5, 4];
+            }
+
             // 6. Calculate Axis Scale (Prevents -Infinity Crash)
             const maxVal = values.length > 0 ? Math.max(...values) : 0;
             // Add 20% padding so the longest bar doesn't hit the edge
@@ -488,11 +528,12 @@ function updateDropoutRanking(year, semester, college = 'all') {
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Dropout Rate (%)',
+                        label: isPrediction ? 'Predicted Dropout Rate (%)' : 'Dropout Rate (%)',
                         data: values,
-                        backgroundColor: backgroundColors,
+                        backgroundColor: finalBackground,
                         borderColor: borderColors,
-                        borderWidth: 1,
+                        borderWidth: isPrediction ? 2 : 1,
+                        borderDash: borderDash,
                         barPercentage: 0.7,
                     }]
                 },
@@ -536,30 +577,30 @@ function updateDropoutRanking(year, semester, college = 'all') {
 
 
 // scatter plot
-function updateGwaScatter(year, college, semester) {
+function updateGwaScatter(college, semester) {
     const canvas = document.getElementById('gwaScatterChart');
     const titleEl = document.getElementById('scatterSubtitle'); // Get the new span
     if (!canvas) return;
 
-    // 1. Update the Header Text Immediately
-    if (titleEl) {
-        // Format College
-        let colText = (college === 'all' || college === '') ? 'Main Campus' : college;
-        
-        // Format Semester
-        let semText = 'All Semesters';
-        if (semester.includes('1')) semText = '1st Sem';
-        if (semester.includes('2')) semText = '2nd Sem';
-        if (semester.toLowerCase().includes('summer')) semText = 'Summer';
-
-        // Set Text: "( 2024 | 1st Sem | CAHS )"
-        titleEl.textContent = `( ${year} | ${semText} | ${colText} )`;
-    }
-
+    const safeCollege = college || 'all';
     const safeSemester = semester || 'all';
 
-    // 2. Fetch Data
-    fetch(`/api/get_gwa_scatter?year=${year}&college=${college}&semester=${safeSemester}`)
+    // 1. Update the Header Text Immediately
+    if (titleEl) {
+        let colText = (safeCollege === 'all' || safeCollege === '') ? 'Main Campus' : safeCollege;
+        let semText = 'All Semesters';
+        if (safeSemester.includes('1')) semText = '1st Sem';
+        if (safeSemester.includes('2')) semText = '2nd Sem';
+        if (safeSemester.toLowerCase().includes('summer')) semText = 'Summer';
+
+        // "( All Years | 1st Sem | CAHS )" — no single year anymore, the
+        // chart itself now shows every year as its own column.
+        titleEl.textContent = `( All Years | ${semText} | ${colText} )`;
+    }
+
+    // 2. Fetch Data — no `year` param anymore, the endpoint always
+    // returns every real year plus the forecast horizon.
+    fetch(`/api/get_gwa_scatter?college=${safeCollege}&semester=${safeSemester}`)
         .then(res => res.json())
         .then(data => {
             if (data.error) return console.error("Scatter API Fail:", data.error);
@@ -569,6 +610,11 @@ function updateGwaScatter(year, college, semester) {
             if (gwaScatterChart) {
                 gwaScatterChart.destroy();
             }
+
+            const allYears = [...(data.real_years || []), ...(data.forecast_years || [])];
+            const minYear = allYears.length ? Math.min(...allYears) : 2024;
+            const maxYear = allYears.length ? Math.max(...allYears) : 2024;
+            const lastRealYear = data.latest_real_year;
 
             // Group dots by College and color each group with the SHARED
             // palette (same colors used in the ranking bars / forecast
@@ -596,17 +642,39 @@ function updateGwaScatter(year, college, semester) {
                 };
             });
 
+            // Average/prediction line spans every column, real AND
+            // forecast — segment styling switches it to dashed the moment
+            // it crosses into forecast years, so the trend visibly keeps
+            // climbing (or dropping) past the real data instead of
+            // stopping dead at the last upload.
             scatterDatasets.push({
                 type: 'line',
-                label: data.line_label, // "Batch Avg" or "Predicted Avg"
-                data: [
-                    { x: 0, y: data.average },
-                    { x: 4, y: data.average }
-                ],
+                label: 'Avg GWA (dashed = predicted)',
+                data: (data.line || []).map(p => ({ x: p.x, y: p.y, is_forecast: p.is_forecast })),
                 borderColor: "#212529",
                 borderWidth: 2,
-                borderDash: [6, 4],
-                pointRadius: 0,
+                segment: {
+                    // NOTE: segment context's p0/p1 are Point ELEMENTS, not
+                    // raw data — they don't have a `.raw` property. Must
+                    // look the original data up by index instead, per
+                    // Chart.js's documented segment-styling pattern.
+                    borderDash: (segCtx) => {
+                        const pts = segCtx.chart.data.datasets[segCtx.datasetIndex].data;
+                        const p0 = pts[segCtx.p0DataIndex];
+                        const p1 = pts[segCtx.p1DataIndex];
+                        return (p0 && p0.is_forecast) || (p1 && p1.is_forecast) ? [6, 4] : undefined;
+                    }
+                },
+                // Forecast points render as hollow crosshairs (visually
+                // "not real data yet"); real-year points stay invisible
+                // dots (radius 0) since the individual student dots
+                // already carry the real data — this line is purely the
+                // average/trend, so only its forecast tail needs a marker.
+                pointRadius: (ctx) => ctx.raw && ctx.raw.is_forecast ? 5 : 0,
+                pointStyle: (ctx) => ctx.raw && ctx.raw.is_forecast ? 'crossRot' : 'circle',
+                pointBorderColor: "#6366f1",
+                pointBackgroundColor: "#212529",
+                pointBorderWidth: 2,
                 fill: false,
                 order: 1
             });
@@ -619,7 +687,23 @@ function updateGwaScatter(year, college, semester) {
                     responsive: true,
                     layout: { padding: { left: 10, right: 10, top: 20, bottom: 10 } },
                     scales: {
-                        x: { display: false, min: 0, max: 4 },
+                        x: {
+                            display: true,
+                            type: 'linear',
+                            min: minYear - 0.6,
+                            max: maxYear + 0.6,
+                            grid: {
+                                // A vertical line marks where real data ends
+                                // and the forecast columns begin.
+                                color: (c) => (lastRealYear && Math.round(c.tick.value) === lastRealYear)
+                                    ? "rgba(78, 115, 223, 0.35)" : "rgb(234, 236, 244)"
+                            },
+                            ticks: {
+                                stepSize: 1,
+                                callback: (v) => Math.round(v) === v ? Math.round(v) : ''
+                            },
+                            title: { display: true, text: 'School Year (dashed columns to the right are forecast)' }
+                        },
                         y: {
                             reverse: true, // 1.0 Top
                             min: 1.0,
@@ -644,9 +728,10 @@ function updateGwaScatter(year, college, semester) {
                                 label: function(context) {
                                     const pt = context.raw;
                                     if (context.dataset.type === 'line') {
-                                        return ` ${data.line_label}: ${pt.y}`;
+                                        const tag = pt.is_forecast ? 'Predicted Avg' : 'Batch Avg';
+                                        return ` ${pt.year} — ${tag}: ${pt.y}`;
                                     }
-                                    return ` ${context.dataset.label} student ${pt.student_id} — GWA ${pt.y}`;
+                                    return ` ${pt.year} — ${context.dataset.label} student ${pt.student_id}: GWA ${pt.y}`;
                                 }
                             }
                         }
@@ -672,11 +757,20 @@ function updateGwaScatter(year, college, semester) {
 
 // KPI
 function updateKPIMetrics(year, semester, college) {
-    const url = `/api/get_kpi_metrics?year=${year}&semester=${semester}&college=${college}`;
+    // Defensive: the #filterCollege "All Colleges" option's value is
+    // literally "Main Campus", not "all" — sanitize here too in case
+    // this is ever called directly with the raw dropdown value.
+    const safeCollege = (college === 'Main Campus' || !college) ? 'all' : college;
+    const url = `/api/get_kpi_metrics?year=${year}&semester=${semester}&college=${safeCollege}`;
 
     fetch(url)
         .then(res => res.json())
         .then(data => {
+            if (data.error || data.students === undefined || data.gwa === undefined) {
+                console.error("KPI Error:", data.error || "malformed response, leaving cards as-is", data);
+                return;
+            }
+
             // 1. Get Elements
             const elStudents = document.getElementById('kpi-val-students');
             const elGWA = document.getElementById('kpi-val-gwa');
@@ -688,19 +782,34 @@ function updateKPIMetrics(year, semester, college) {
             if (!elStudents || !elGWA) return;
 
             // 2. Update Numbers
-            elStudents.innerText = data.students.toLocaleString(); // 1,200
-            elGWA.innerText = data.gwa.toFixed(2); // 1.25
+            const isPred = data.is_prediction;
+            if (isPred && typeof PredictionStyle !== 'undefined') {
+                PredictionStyle.applyKpiPredictionStyle(cardStudents, elStudents, {
+                    rawValue: data.students.toLocaleString(),
+                });
+                PredictionStyle.applyKpiPredictionStyle(cardGWA, elGWA, {
+                    rawValue: data.gwa.toFixed(2),
+                });
+            } else {
+                if (typeof PredictionStyle !== 'undefined') {
+                    PredictionStyle.clearKpiPredictionStyle(cardStudents, elStudents);
+                    PredictionStyle.clearKpiPredictionStyle(cardGWA, elGWA);
+                }
+                elStudents.innerText = data.students.toLocaleString(); // 1,200
+                elGWA.innerText = data.gwa.toFixed(2); // 1.25
+            }
 
             // 3. Dynamic Styling (Blue = History, Orange = AI Prediction)
-            const isPred = data.is_prediction;
             const color = isPred ? '#f6ad55' : '#4e73df'; // Orange vs Blue
             const gwaColor = isPred ? '#f6ad55' : '#1cc88a'; // Orange vs Green
-            const suffix = isPred ? '(AI Predicted)' : '';
+            const suffix = isPred ? `(Predicted Data — ${year})` : '(Current Data)';
 
-            // Apply Colors
+            const studentsLabel = isPred ? 'Enrollment Increase' : 'Total Enrollment';
+
+
             cardStudents.style.borderLeftColor = color;
             titleStudents.style.color = color;
-            titleStudents.innerText = `Total Enrollment ${suffix}`;
+            titleStudents.innerText = `${studentsLabel} ${suffix}`;
 
             cardGWA.style.borderLeftColor = gwaColor;
             titleGWA.style.color = gwaColor;
@@ -858,7 +967,20 @@ function updateStatusChart(year, semester, college) {
     const irrLegendEl = document.getElementById('status-irregular-legend');
 
     function renderDonut(existingChart, ctx, labels, chartData, chartColors, tooltipFn) {
-        if (existingChart) {
+        // Only trust `existingChart` if it's ACTUALLY the chart Chart.js
+        // currently has registered on this canvas. The tracked JS
+        // variable (statusRegularChart/statusIrregularChart) can go
+        // stale — e.g. destroyed by mode-toggle.js's cleanup, or
+        // superseded by an untracked Prediction-mode chart — and
+        // blindly calling .update() on an already-destroyed Chart.js
+        // instance throws deep inside Chart.js's resize/event-binding
+        // logic ("Cannot read properties of null (reading
+        // 'ownerDocument')"). Checking against Chart.getChart (Chart.js's
+        // own source of truth for "what's on this canvas right now")
+        // avoids that regardless of what the JS variable claims.
+        const liveChart = Chart.getChart(ctx.canvas);
+
+        if (existingChart && existingChart === liveChart) {
             existingChart.data.labels = labels;
             existingChart.data.datasets[0].data = chartData;
             existingChart.data.datasets[0].backgroundColor = chartColors;
@@ -866,6 +988,10 @@ function updateStatusChart(year, semester, college) {
             existingChart.update();
             return existingChart;
         }
+
+        // No existing chart, or it's stale/superseded — clear whatever
+        // is actually on the canvas (if anything) and start fresh.
+        if (liveChart) liveChart.destroy();
         return new Chart(ctx, {
             type: 'doughnut',
             data: { labels: labels, datasets: [{

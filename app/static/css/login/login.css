@@ -3,7 +3,7 @@
     --bg-dark: #ffffff;
     --card-bg: #800000 ;
     --input-bg: rgba(128, 128, 128, 0.200);
-    --text-muted: #000000;
+    --text-muted: #4B4B4B;
 }
 
 * {
@@ -65,7 +65,7 @@ body {
 }
 
 .nav-link:hover {
-    color: #ffff;
+    color: #CFB53B;
     opacity: 1;
 }
 
@@ -85,7 +85,6 @@ body {
 }
 
 .logo-box-large {
-    background-color: var(--primary-blue);
     width: 180px;
     height: 180px;
     border-radius: 35px;
@@ -93,7 +92,6 @@ body {
     align-items: center;
     justify-content: center;
     margin: 0 auto 25px;
-    box-shadow: 0 20px 40px rgba(253, 42, 42, 0.3);
 }
 
 .brand-img { width: 80%; height: auto; }
@@ -152,7 +150,7 @@ body {
 
 .login-btn {
     width: 100%;
-    background: var(--primary-blue);
+    background: #800000;
     color: white;
     border: none;
     padding: 14px;
@@ -164,7 +162,7 @@ body {
     transition: 0.3s;
 }
 
-.login-btn:hover { background-color: #fd2a2a; transform: translateY(-2px); }
+.login-btn:hover { background-color: #c72828; transform: translateY(-2px); }
 
 .footer-link { text-align: center; margin-top: 25px; font-size: 0.9rem; color: var(--text-muted); }
 .footer-link a { color: rgb(0, 0, 0); text-decoration: none; font-weight: 600; }
@@ -177,8 +175,8 @@ body {
     padding: 0 60px;
 }
 
-.page-indicator { text-align: right; margin-bottom: 10px; color: var(--text-muted); font-size: 0.95rem; }
-.page-indicator strong { color: rgb(0, 0, 0); }
+.page-indicator { text-align: right; margin-bottom: 10px; color:#6B7280; font-size: 0.95rem; }
+.page-indicator strong { color: #800000; }
 
 .group-credits {
     text-align: center;

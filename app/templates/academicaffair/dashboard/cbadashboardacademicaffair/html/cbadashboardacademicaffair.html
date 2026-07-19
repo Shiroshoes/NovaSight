@@ -6,6 +6,7 @@
   <title>CBA Dashboard</title>
   <link rel="icon" href="{{url_for('static', filename='image/logo2.png')}}" type="image/x-icon">
   <link rel="stylesheet" href="{{url_for('static', filename='css/registrar&saso/cbadashboardregistrarsaso.css')}}">
+  <link rel="stylesheet" href="{{url_for('static', filename='css/chart/kpi-prediction.css')}}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -152,7 +153,7 @@
                 <img src="{{url_for('static', filename='image/logo2.png')}}" alt="NovaSight Logo" class="brand-logo">
               </div>
                 <div class="brand-text">
-                    <h1>NOVASIGHT</h1>
+                    <h1>Bataan Peninsula State University</h1>
                     <span>ACADEMIC PREDICTION</span>
                 </div>
             </div>
@@ -188,12 +189,71 @@
           const COLLEGE_NAME = "{{ college_type }}";
       </script>
 
+      <!-- Recent Data / Prediction Mode — pill-style toggle switch -->
       <div class="card card-mini">
-        <label>Year</label>
-        <select id="globalYearFilter" class="form-select form-select-sm">
-            <option value="2024" selected>Loading...</option>
-        </select>
+        <label>View Mode</label>
+        <div class="mode-switch" id="modeSwitchWrap"
+             onclick="ModeAwareCharts.toggle(document.getElementById('filterCollege').value, document.getElementById('filterSemester').value)">
+            <div class="mode-switch-thumb"></div>
+            <span class="mode-switch-option" data-value="recent">Recent</span>
+            <span class="mode-switch-option" data-value="prediction">Prediction</span>
+        </div>
       </div>
+
+      <style>
+          .mode-switch {
+              position: relative;
+              display: flex;
+              width: 220px;
+              height: 34px;
+              background: rgba(120, 90, 90, 0.5);
+              border-radius: 999px;
+              cursor: pointer;
+              user-select: none;
+              padding: 3px;
+              box-sizing: border-box;
+          }
+          .mode-switch-thumb {
+              position: absolute;
+              top: 3px;
+              left: 3px;
+              width: calc(50% - 3px);
+              height: calc(100% - 6px);
+              background: #800000;
+              border-radius: 999px;
+              transition: transform 0.25s ease;
+              box-shadow: 0 2px 6px rgba(223, 78, 78, 0.35);
+          }
+          .mode-switch.is-prediction .mode-switch-thumb {
+              transform: translateX(100%);
+          }
+          .mode-switch-option {
+              position: relative;
+              z-index: 1;
+              flex: 1;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 0.75rem;
+              font-weight: 600;
+              color: #000000;
+              transition: color 0.25s ease;
+          }
+          .mode-switch:not(.is-prediction) .mode-switch-option[data-value="recent"],
+          .mode-switch.is-prediction .mode-switch-option[data-value="prediction"] {
+              color: #fff;
+          }
+      </style>
+
+      <script>
+          document.addEventListener('DOMContentLoaded', () => {
+              if (typeof triggerUpdate === 'function') triggerUpdate();
+
+              const college = document.getElementById('filterCollege').value;
+              const semester = document.getElementById('filterSemester').value;
+              ModeAwareCharts.init(college, semester);
+          });
+      </script>
 
       <div class="card card-mini">
         <label>Semester</label>
@@ -213,11 +273,11 @@
 
 
       <div class="card card-mini">
-        <div class="card" id="kpi-card-students" style="border-left: 5px solid #df4e4e; border-radius: 10px; background: white; padding: 10px; height: 50px;">
+        <div id="kpi-card-students" style="border-radius: 10px; background: white; padding: 10px; height: 50px;">
             <div style="align-items: center; display: flex; justify-content: space-between;" >
                 <div>
                     <div style="font-size: small; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #000000;" id="kpi-title-students">
-                        Total Enrollment (Actual)
+                        Total Enrollment
                     </div>
                     <div style="font-weight: 800;" id="kpi-val-students">
                         ---
@@ -234,11 +294,11 @@
 
 
       <div class="card card-mini">
-        <div class= id="kpi-card-gwa" style="border-left: 5px solid #c81c1c; border-radius: 10px; background: white; padding: 10px; height: 50px;">
+        <div id="kpi-card-gwa" style="border-radius: 10px; background: white; padding: 10px; height: 50px;">
             <div style="align-items: center; display: flex; justify-content: space-between;">
                 <div>
                     <div style="font-size: small; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #000000;" id="kpi-title-gwa">
-                        Average GWA (Actual)
+                        Average GWA
                     </div>
                     <div style="font-weight: 800;" id="kpi-val-gwa">
                         ---
@@ -550,7 +610,9 @@
       };
     </script>
     <script src="{{url_for('static', filename='js/chart-helpers.js')}}"></script>
-    <script src="{{url_for('static', filename='js/deandash.js')}}"></script>
+    <script src="{{url_for('static', filename='js/prediction-mode-visuals.js')}}"></script>
+    <script src="{{url_for('static', filename='js/maindash.js')}}"></script>
+    <script src="{{url_for('static', filename='js/mode-toggle.js')}}"></script>
   </section>
 
       <!-- Logout Modal Structure -->
@@ -566,7 +628,22 @@
   </div>
   <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
   
+  <div class="footer-brand">
+      <hr class="footer-divider">
 
+      <div class="footer-brand-content">
+          <img src="{{ url_for('static', filename='image/logo.png') }}"
+              alt="NovaSight Logo"
+              class="footer-logo">
+
+          <div class="footer-brand-text">
+              <h3>NovaSight</h3>
+              <p>Machine Learning-Based Student Performance Prediction System</p>
+              <small>© 2026 Bataan Peninsula State University</small>
+          </div>
+      </div>
+  </div>
+  
   <footer class="footer">
     <div class="footer-content">
         <span class="page-label">Page/</span><span class="page-name">CBA Dashboard</span>

@@ -62,7 +62,7 @@
   transition: background 0.2s, transform 0.15s;
 }
 .btn-upload-browse:hover {
-  background: #a00000;
+  background: #c72828;
   transform: translateY(-1px);
 }
 

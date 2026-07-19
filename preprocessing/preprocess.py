@@ -68,6 +68,23 @@ GRADE_ENCODING = {
     "W":    0.0,   # Withdrawn
 }
 
+# ── OFFICIAL COLLEGE GRADING SCALE ──────────────────────────────────────────
+# The registrar only issues these 11 discrete values — note 3.25/3.50/3.75
+# don't exist (3.00 is the last passing grade, 4.00 = conditional, 5.00 =
+# failed). Anything that isn't one of these (or the 0.0 drop sentinel) is
+# NOT a real grade.
+VALID_GRADES = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50,
+                2.75, 3.00, 4.00, 5.00]
+
+# How far a raw value is allowed to drift from the nearest official grade
+# before we treat it as a rounding/entry artifact vs. genuinely corrupted
+# data (e.g. a leaked GWA/average cell, or a misaligned column). Real
+# rounding noise from Excel float storage is usually < 0.01; this is
+# deliberately generous enough to catch "someone typed 1.26 instead of
+# 1.25" while still rejecting values like 1.0227 or 0.0714 that are
+# nowhere near any real grade point.
+MAX_SNAP_DISTANCE = 0.15
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  PARSING HELPERS
@@ -78,8 +95,15 @@ def parse_grade(raw) -> float | None:
     Convert any raw cell value to a float grade or None (skip).
 
     Handles:
-      - Standard numeric grades: 1.0, 1.25 … 3.0, 5.0
-      - Dropped / no-grade: 0, DRP, NGA  → 0.0
+      - Standard numeric grades: 1.0, 1.25 … 3.0, 5.0 — snapped to the
+        nearest official grade point (see VALID_GRADES / MAX_SNAP_DISTANCE
+        above). Values too far from any real grade point (e.g. 1.0227,
+        0.0714 — almost always a leaked GWA/average cell or a misaligned
+        column, not a real subject grade) are rejected as None instead of
+        being silently accepted, which is what let noisy decimal values
+        contaminate Avg_Grade/GWA/Std_Grade for years.
+      - Dropped / no-grade: 0, DRP, NGA  → 0.0 (not on the official scale —
+        this is a status sentinel, not a real grade point)
       - Incomplete: INC                  → 5.0
       - Combined: INC/2.75, NGA/5.00     → 5.0 / 0.0 (prefix wins)
       - GWA summary cells (large floats or int > 5) → None
@@ -107,7 +131,21 @@ def parse_grade(raw) -> float | None:
         # Filter out summary/GWA cells: valid subject grades are 0–5
         if f < 0 or f > 5.0:
             return None
-        return round(f, 4)
+
+        # 0.0 is the drop/no-grade sentinel, not on the official scale —
+        # pass it through unchanged.
+        if f == 0.0:
+            return 0.0
+
+        # Snap to the nearest official grade point, but only if it's
+        # close enough to plausibly BE that grade (rounding/entry noise).
+        # Anything farther than MAX_SNAP_DISTANCE from every valid grade
+        # gets rejected rather than forced onto the scale — that distance
+        # is a signal the cell wasn't a real grade in the first place.
+        nearest = min(VALID_GRADES, key=lambda g: abs(g - f))
+        if abs(nearest - f) <= MAX_SNAP_DISTANCE:
+            return nearest
+        return None
     except ValueError:
         return None
 
@@ -331,8 +369,18 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         df.groupby(key)["Grade"]
         .agg(
             GWA       = lambda g: g[g > 0].mean() if (g > 0).any() else np.nan,
-            Avg_Grade = "mean",
-            Std_Grade = "std",
+            # Was: Avg_Grade = "mean" — included 0.0 (dropped subjects) as
+            # if it were a real grade. On this 1=best/5=worst scale, a
+            # dropped subject encoded as 0.0 looks like a BETTER-than-best
+            # grade to a naive mean, so every student with a dropped
+            # subject had their Avg_Grade artificially pulled down
+            # (optimistic) instead of reflecting their actual course
+            # performance. GWA already excluded these correctly (g > 0
+            # filter below) — Avg_Grade/Std_Grade didn't match that until
+            # now, so the two columns disagreed with each other on the
+            # exact same underlying grades.
+            Avg_Grade = lambda g: g[g > 0].mean() if (g > 0).any() else np.nan,
+            Std_Grade = lambda g: g[g > 0].std()  if (g > 0).sum() > 1 else np.nan,
             Sub_Count = "count",
             Min_Grade = "min",
             Max_Grade = "max",

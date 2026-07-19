@@ -9,7 +9,7 @@
 }
 
 body {
-    background-color: #ffffff;
+    background-color: #F6F4F0;
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -23,11 +23,11 @@ body {
 
 .sidebar {
   position: fixed;
-  width: 240px;
+  width: 235px;
   height: 100%;
   background-color: #ffffff;
   padding: 20px;
-  border-right: 1px solid #000000;
+  border-right: 1px solid #DCD6C9;
 }
 
 .pad {
@@ -75,7 +75,7 @@ body {
     padding: 12px;
     gap: 12px;
     border-radius: 12px;
-    color: #b89494;
+    color: #000000;
     font-size: 16px;
     transition: 0.3s;
     text-decoration: none;
@@ -98,10 +98,15 @@ body {
 }
 
 .menu-btn:hover {
-    background: rgba(255,255,255,0.05);
-    color: #000000;
-    width: 210px;
-    font-weight: bold;
+  margin-bottom: 10px;
+  background: #785a5a64;
+  color: #000000;
+  width: 210px;
+  font-weight: bold;
+}
+
+.menu-btn:hover .non-active-bordericon {
+  background-color: #c72828;
 }
 
 .sidebar-divider {
@@ -116,10 +121,9 @@ body {
  /* --- FIX: Main Content Container --- */
 main {
     flex: 1;                     /* Take up remaining width */
-    margin-left: 270px;          /* Sidebar width (230px) + its padding (40px) */
+    margin-left: 265px;          /* Sidebar width (230px) + its padding (40px) */
     height: 100vh;
     overflow-y: auto;            /* Allow scrolling inside the main area */
-    padding-right: 40px;         /* Right side spacing */
 }
 
 /* --- FIX: Sticky Header --- */
@@ -155,16 +159,11 @@ header {
     gap: 15px;
 }
 .logo-sq {
-    background: #fd2a2a;
     width: 80px;
     height: 80px;
     border-radius: 12px;
-    display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden; /* Ensures the image stays inside the rounded corners */
-    box-shadow: 0 8px 15px rgba(253, 42, 42, 0.3);
-   
 }
 
 .brand-logo {
@@ -215,17 +214,16 @@ header {
   grid-template-columns: repeat(2, 1fr); 
   gap: 30px; /* Space between the cards */
   padding-bottom: 60px; /* Space for the breadcrumb at the bottom */
+  padding-right: 10px;
   align-items: flex-start; /* Prevents cards from stretching vertically */
 }
 
 /* --- Common Card Styling (Glassmorphism Effect) --- */
 .card {
-  background: rgba(5, 10, 20, 0.3); /* Translucent dark bg */
-  backdrop-filter: blur(15px);     /* Glass blur effect */
+  background: rgb(255, 255, 255); /* Translucent dark bg */
   border-radius: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.15); /* Soft border */
+  border: 1px solid #DCD6C9; /* Soft border */
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); /* Depth shadow */
 }
 
 /* --- Welcome Card Specifics (Centering) --- */
@@ -327,39 +325,86 @@ dashboard*/
 
 /* paa ni rod --- */
 
-footer {
+footer{
     position: sticky;
-    bottom: 0;
-    width: 100%;
-    /* Same glass effect as your header */
+    bottom:0;
+    z-index:100;
 
-    backdrop-filter: blur(10px);
-    padding: 20px 0;
-    margin-top: auto; /* Pushes it to the bottom if content is short */
-    z-index: 100;
+    background:#F6F4F0;
+
+    border-top:1px solid #DCD6C9;
+    border-left:1px solid #DCD6C9;
+    box-shadow:0 -4px 15px rgba(0,0,0,.06);
+
+    padding:25px 0;
 }
 
 .footer-content {
     display: flex;
     justify-content: flex-end; /* Moves text to the right */
+    padding-right: 40px; /* Adds some space from the edge */
 }
 
-.page-label {
-    color: #000000; /* Muted grey for "Page/" */
-    font-size: 1rem;
+.page-label{
+    color:#6B7280;
 }
 
-.page-name {
-    color: #000000; /* Bright white for "Home" */
-    font-weight: bold;
-    font-size: 1rem;
+.page-name{
+    color:#800000;
+    font-weight:700;
 }
 
 /* Ensure the main container allows the footer to sit at the bottom */
 .footer {
   background-color: none;
-  margin-left: 24px;
-  width: 1320px;
+  margin-left: 10px;
+  width: 1416px;
+}
+
+
+.footer-brand{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 25px 0;
+}
+
+.footer-divider{
+    width: 500px;      /* adjust length */
+    border: none;
+    border-top: 1px solid #4B4B4B;
+    margin: 0 0 12px 0; /* only 12px gap below */
+}
+
+.footer-brand-content{
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.footer-logo{
+    width:60px;
+    height:60px;
+    object-fit:contain;
+    border-radius:12px;
+}
+
+.footer-brand-text h3{
+    margin:0;
+    font-size:22px;
+    font-weight:700;
+    color:#800000;
+}
+
+.footer-brand-text p{
+    margin:4px 0;
+    font-size:14px;
+    color:#000000;
+}
+
+.footer-brand-text small{
+    color:#6B7280;
+    font-size:12px;
 }
 
 /* Grid Proportions based */
@@ -373,10 +418,9 @@ footer {
 }
 
 .card {
-    background: var(--card-bg);
-    backdrop-filter: blur(15px);
+    background: #ffffff;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid #DCD6C9;
 }
 
 /* Precise Sizing Classes */
@@ -395,7 +439,7 @@ footer {
 /* Bottom Row Proportions */
 .card-bottom-large { grid-column: span 6; height: 510px; padding: 10px;}
 .card-bottom-small { grid-column: span 4; height: 510px; padding: 10px;}
-.card-bottom-small-1 { grid-column: span 10; height: 400px; padding: 10px;}
+.card-bottom-small-1 { grid-column: span 10; height: 770px; padding: 10px;}
 
 /* --- Custom Select Styling --- */
 select.form-select {
@@ -609,7 +653,7 @@ select.form-select option {
 }
 
 .btn-primary:hover {
-  background-color: #f63b3b;
+  background-color: #c72828;
   transform: translateY(-2px);
 }
 

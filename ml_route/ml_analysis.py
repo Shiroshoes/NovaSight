@@ -14,6 +14,78 @@ from configs.config import FINAL_MERGED_CSV, ML_MODEL_DIR, MODEL_DATASETS_DIR
 
 ml_bp = Blueprint('ml_analysis', __name__)
 
+
+# ── forecast_series() ────────────────────────────────────────────────────────
+def forecast_series(history_values, steps: int, y_min: float = None, y_max: float = None, phi: float = 0.85):
+    """
+    Shared per-series forecaster — pure numpy, no statsmodels dependency.
+
+    Fits a plain degree-1 line (numpy.polyfit) directly on THIS ONE
+    series' own history, then extrapolates forward with a DAMPED slope
+    instead of a straight one. This replaced two earlier approaches:
+      1. subj_model.predict() + `(pred + last_val) / 2` smoothing —
+         RandomForestRegressor can't extrapolate past its training
+         years, so predictions came back flat; the averaging then
+         compounded that into a plateau (the original bug).
+      2. A statsmodels Holt's-smoothing version — worked, but added an
+         extra dependency the project didn't want.
+      3. A plain (undamped) linear extrapolation — this is what shipped
+         right after (2), and it introduced a NEW bug: a straight line
+         has no way to bend, so it kept adding the exact same slope
+         every year all the way out to the forecast horizon (5-9 years
+         out). A modest upward trend in the real history turned into an
+         implausible straight-line climb by the final forecast year —
+         the "sudden inaccurate result... goes straight upward" issue.
+         Swapping to RandomForestRegressor or LogisticRegression would
+         NOT have fixed this: RF can't extrapolate at all (flatlines —
+         bug #1 again), and LogisticRegression is a classifier, not a
+         fit for a continuous rate. The fix has to be in how the trend
+         is extrapolated, not which regression algorithm computes it.
+
+    DAMPED TREND (this version): each future step's slope contribution
+    shrinks geometrically by `phi` (classic Holt damped-trend idea,
+    reimplemented here in plain numpy). The near-term forecast still
+    reflects the real trend, but the curve bends toward a plateau
+    instead of climbing (or falling) in a straight line forever.
+    phi=0.85 means step 1 gets the full slope, step 2 gets slope*0.85,
+    step 3 gets slope*0.85^2, and so on — lower phi = faster taper,
+    phi=1.0 reproduces the old undamped straight-line behavior exactly.
+
+    history_values : list[float] — the real, historical points only
+    steps           : how many future points to generate
+    y_min / y_max   : optional clip range (e.g. 1.0-5.0 for grades)
+    phi             : damping factor in (0, 1]. Default 0.85.
+
+    Returns: list[float] of length `steps`.
+    """
+    clean = [float(v) for v in history_values if v is not None and not pd.isna(v)]
+
+    if len(clean) < 3:
+        # Too few points to fit a trend line reliably — carry the last
+        # real value forward instead of inventing a slope from 2 points.
+        base = clean[-1] if clean else 0.0
+        out = [base] * steps
+    else:
+        x = np.arange(len(clean))
+        slope, intercept = np.polyfit(x, clean, deg=1)
+        last_fitted = slope * (len(clean) - 1) + intercept
+
+        # Damped multi-step trend: cumulative sum of slope * phi^i,
+        # added on top of the last real (fitted) value — NOT a straight
+        # line through future_x like before. See docstring above.
+        out = []
+        cum = 0.0
+        for i in range(1, steps + 1):
+            cum += slope * (phi ** i)
+            out.append(last_fitted + cum)
+
+    if y_min is not None or y_max is not None:
+        lo = y_min if y_min is not None else float("-inf")
+        hi = y_max if y_max is not None else float("inf")
+        out = [max(lo, min(hi, v)) for v in out]
+
+    return [round(v, 2) for v in out]
+
 COLLEGE_MAP = {
     "CEA":  ["CEA"],
     "CTEC": ["CTEC"],
@@ -148,6 +220,27 @@ def get_latest_real_year() -> int:
         if len(valid_years):
             return int(valid_years.max())
     return 2024
+
+
+def get_forecast_years(latest_year: int) -> list:
+    """
+    Shared with get_year_semester_options(): pulls the SAME horizon used
+    for every other forecast on the dashboard (auto_train.py's
+    compute_horizon(), which grows automatically as new school years get
+    uploaded and retrained) rather than a separate hardcoded range, so
+    every chart's "how far into the future" always agrees with each other
+    and with whatever the models were actually trained to predict.
+    """
+    try:
+        from training.auto_train import load_state as _load_state
+        horizon = _load_state().get('horizon', {})
+        years = [int(y.split('-')[0]) for y in horizon.get('prediction_years', [])]
+        years = sorted({y for y in years if y > latest_year})
+        if years:
+            return years
+    except Exception:
+        pass
+    return list(range(latest_year + 1, latest_year + 7))
 
 
 # Load Models
@@ -572,12 +665,7 @@ def get_year_semester_options():
         # Forecast years come from the same horizon used everywhere else,
         # so the dropdown's "future" options always match what the models
         # can actually predict.
-        try:
-            from training.auto_train import load_state as _load_state
-            horizon = _load_state().get('horizon', {})
-            forecast_years = [int(y.split('-')[0]) for y in horizon.get('prediction_years', [])]
-        except Exception:
-            forecast_years = list(range(latest_year + 1, latest_year + 7))
+        forecast_years = get_forecast_years(latest_year)
 
         return jsonify({
             "years": years,
@@ -700,27 +788,32 @@ def get_dropout_ranking():
 # GWA TREND (Scatter Plot) 
 @ml_bp.route('/api/get_gwa_scatter')
 def get_gwa_scatter():
+    """
+    GWA Distribution scatter — ONE COLUMN PER SCHOOL YEAR.
+
+    Every real year in the uploaded data gets its own column of actual
+    student dots (x = year, jittered slightly left/right so dots don't
+    overlap). Every forecast year gets a column too, but with NO dots —
+    there's no real cohort yet — just a predicted-average point from
+    gwa_trend_model. The average/prediction line connects ALL of these
+    points across every column, real and forecast, so it visibly keeps
+    climbing (or dropping) into the future.
+
+    Which years count as "real" and how far the forecast columns extend
+    both come from get_latest_real_year() / get_forecast_years() — the
+    same horizon every other chart uses — so BOTH grow automatically the
+    moment a new school year is uploaded and retrained. No year filter
+    needed anymore: this endpoint no longer takes a `year` param at all.
+    """
     try:
-        # 1. INPUTS
-        year = int(request.args.get('year', 2024))
+        # 1. INPUTS — college/semester still filter which students show up
+        # in the dot columns; year selection is gone, this always shows
+        # every real year plus the forecast horizon.
         college_arg = request.args.get('college', 'all').strip()
         semester = request.args.get('semester', 'all').strip()
 
-        # Normalize
-        if college_arg.lower() in ['main campus', 'overall', 'all', '']:
-            target_college = 'all'
-        else:
-            target_college = college_arg
+        target_college = 'all' if college_arg.lower() in ['main campus', 'overall', 'all', ''] else college_arg
 
-        # 2. DETERMINE MODE (History vs Future)
-        LATEST_REAL_YEAR = get_latest_real_year()
-        is_forecast = year > LATEST_REAL_YEAR
-        
-        # 3. DATA LOADING (The Dots)
-        # For History: Use the requested year.
-        # For Forecast: Use the Latest Cohort (2024) as a visual proxy for the population.
-        target_data_year = LATEST_REAL_YEAR if is_forecast else year
-        
         if 'Year_Numeric' not in df_full_loaded.columns:
             df_full_loaded['Year_Numeric'] = (
                 df_full_loaded['Year'].astype(str)
@@ -728,69 +821,65 @@ def get_gwa_scatter():
                 .fillna(0).astype(int)
             )
 
-        cohort = df_full_loaded[df_full_loaded['Year_Numeric'] == target_data_year].copy()
+        LATEST_REAL_YEAR = get_latest_real_year()
+        real_years = sorted({
+            int(y) for y in df_full_loaded['Year_Numeric'].dropna().unique() if int(y) > 0
+        })
+        # Cap forecast columns at 4 so the chart doesn't get crowded —
+        # still grows on its own as LATEST_REAL_YEAR advances each upload.
+        forecast_years = get_forecast_years(LATEST_REAL_YEAR)[:4]
 
-        # 4. FILTERING
+        # 2. FILTERING (college/semester only — every real year included)
+        cohort = df_full_loaded.copy()
         if target_college != 'all':
             cohort = cohort[
                 cohort['College'].astype(str).str.strip().str.upper() == target_college.upper()
             ]
-        
         if semester.lower() not in ['all', 'overall']:
             cohort = cohort[
                 cohort['Semester'].astype(str).str.strip().str.upper() == semester.upper()
             ]
 
-        # 5. VALIDATION (Filter valid GWA 1.0-5.0)
+        # 3. VALIDATION (filter valid GWA 1.0-5.0)
         cohort['GWA'] = pd.to_numeric(cohort['GWA'], errors='coerce')
         valid_data = cohort[(cohort['GWA'] >= 1.0) & (cohort['GWA'] <= 5.0)].copy()
 
-        # 6. CALCULATE AVERAGE LINE
-        batch_average = 0
-        
-        if is_forecast and gwa_trend_model:
-            # --- AI PREDICTION FOR THE RED LINE ---
-            # Prepare a single input row for the model
-            X_pred = pd.DataFrame(0, index=[0], columns=gwa_trend_features)
-            
-            # Set Year
-            X_pred['Year_Numeric'] = year 
-            
-            # Set Semester (Map text to number)
-            if '1' in semester: sem_val = 1
-            elif '2' in semester: sem_val = 2
-            else: sem_val = 1.5
-            X_pred['Sem_Numeric'] = sem_val
-            
-            # Set College (One-Hot)
-            if target_college != 'all':
-                for col in gwa_trend_features:
-                    if target_college.upper() in col.upper():
-                        X_pred[col] = 1
-                        break
-            
-            # Predict the Average
-            pred_val = gwa_trend_model.predict(X_pred)[0]
-            batch_average = round(pred_val, 2)
-            line_label = f"Predicted Avg ({batch_average})"
-            
-        else:
-            # --- REAL HISTORICAL AVERAGE ---
-            if not valid_data.empty:
-                batch_average = round(valid_data['GWA'].mean(), 2)
-            line_label = f"Batch Avg ({batch_average})"
+        # 4. SAMPLE (cap TOTAL dots across all years combined, spread
+        # roughly evenly per year so early/small years don't get
+        # drowned out by a much bigger recent year)
+        n_years = max(len(real_years), 1)
+        per_year_cap = max(60, 1200 // n_years)
+        if not valid_data.empty:
+            # NOTE: deliberately NOT using groupby(...).apply(lambda g: g.sample(...)).
+            # As of pandas 2.2+ (hard default in pandas 3.0), DataFrameGroupBy.apply()
+            # excludes the grouping column ('Year_Numeric') from the sub-frame `g`
+            # passed into the lambda, and there's no way to opt back in (the old
+            # include_groups=True escape hatch was removed in pandas 3.0). That
+            # silently dropped Year_Numeric from the result here, which then blew
+            # up every downstream `row['Year_Numeric']` lookup with a 500 error.
+            # A plain loop over groupby() sidesteps this entirely.
+            sampled_parts = [
+                g.sample(n=min(len(g), per_year_cap), random_state=42)
+                for _, g in valid_data.groupby('Year_Numeric')
+            ]
+            valid_data = (
+                pd.concat(sampled_parts, ignore_index=False)
+                if sampled_parts else valid_data.iloc[0:0]
+            )
 
-        # 7. PREPARE DOTS (Sampled & Jittered)
-        if len(valid_data) > 800:
-            valid_data = valid_data.sample(n=800, random_state=42)
-        
-        valid_data['jitter_x'] = np.random.uniform(0.5, 3.5, size=len(valid_data))
+        valid_data['jitter'] = np.random.uniform(-0.32, 0.32, size=len(valid_data))
 
+        # 5. BUILD DOTS — x = year + small jitter, so each year forms its
+        # own visual column on the x-axis
         scatter_points = []
         for _, row in valid_data.iterrows():
+            yr = int(row['Year_Numeric'])
+            if yr not in real_years:
+                continue
             scatter_points.append({
-                "x": round(row['jitter_x'], 2),
+                "x": round(yr + row['jitter'], 2),
                 "y": round(row['GWA'], 2),
+                "year": yr,
                 "student_id": str(row['Student_ID'])[:4] + "-***",
                 # Included so the frontend can color-code each dot:
                 # Main dashboard groups by College, CAHS/dean dashboards
@@ -799,10 +888,46 @@ def get_gwa_scatter():
                 "course": str(row.get('Course', '')).strip()
             })
 
+        # 6. BUILD THE AVERAGE/PREDICTION LINE — one point per year,
+        # real years use the ACTUAL batch average, forecast years use
+        # gwa_trend_model's prediction. Connecting all of them shows the
+        # trend keep moving into the forecast columns automatically.
+        line_points = []
+        for yr in real_years:
+            yr_data = valid_data[valid_data['Year_Numeric'] == yr]
+            if not yr_data.empty:
+                line_points.append({
+                    "x": yr, "y": round(float(yr_data['GWA'].mean()), 2),
+                    "year": yr, "is_forecast": False
+                })
+
+        if gwa_trend_model:
+            for yr in forecast_years:
+                X_pred = pd.DataFrame(0, index=[0], columns=gwa_trend_features)
+                X_pred['Year_Numeric'] = yr
+
+                if '1' in semester: sem_val = 1
+                elif '2' in semester: sem_val = 2
+                else: sem_val = 1.5
+                X_pred['Sem_Numeric'] = sem_val
+
+                if target_college != 'all':
+                    for col in gwa_trend_features:
+                        if target_college.upper() in col.upper():
+                            X_pred[col] = 1
+                            break
+
+                pred_val = round(float(gwa_trend_model.predict(X_pred)[0]), 2)
+                line_points.append({
+                    "x": yr, "y": pred_val, "year": yr, "is_forecast": True
+                })
+
         return jsonify({
             "data": scatter_points,
-            "average": batch_average,
-            "line_label": line_label, # Send the label dynamically
+            "line": line_points,
+            "real_years": real_years,
+            "forecast_years": forecast_years,
+            "latest_real_year": LATEST_REAL_YEAR,
             "count": len(scatter_points)
         })
 
@@ -1025,20 +1150,14 @@ def _inc_rate_series(df_scope, feature_col_name, global_forecast_years):
         list(range(int(max(years)) + 1, int(max(years)) + 6)) if years else [2025, 2026, 2027, 2028, 2029]
     )
 
-    forecast_data = []
-    if inc_model:
-        for yr in forecast_years:
-            X_in = pd.DataFrame(0, index=[0], columns=inc_features)
-            X_in['Year_Numeric'] = yr
-            if feature_col_name and feature_col_name in inc_features:
-                X_in[feature_col_name] = 1
-            try:
-                pred = float(inc_model.predict(X_in)[0])
-                forecast_data.append(round(max(0, pred), 2))
-            except Exception:
-                forecast_data.append(0)
-    else:
-        forecast_data = [0] * len(forecast_years)
+    # Was: inc_model.predict() with a Course_/College_ dummy column that
+    # frequently didn't exist in inc_features (inc_model was only ever
+    # trained on College-level cohort data — see train_inc_forecast in
+    # auto_train.py), so every course silently fell back to the same
+    # baseline prediction and lines collapsed into each other.
+    # Now: forecast THIS group's own INC-rate history directly, so each
+    # college/course line reflects its own trend.
+    forecast_data = forecast_series(history_data, len(forecast_years), y_min=0, y_max=100)
 
     return [int(y) for y in years], history_data, forecast_years, forecast_data
 
@@ -1222,35 +1341,16 @@ def get_subject_forecast():
                     data_points.append(round(float(overall_avg), 2))
 
             # --- B. FORECAST (2025-2028) ---
-            if subj_model:
-                last_val = data_points[-1]
-
-                for y in years_pred:
-                    X_in = pd.DataFrame(0, index=[0], columns=subj_features)
-                    X_in['Year_Numeric'] = y
-
-                    # College Feature
-                    if college.lower() != 'all':
-                        col_feat = f"College_{college.upper()}"
-                        if col_feat in subj_features: X_in[col_feat] = 1
-
-                    # Subject Feature
-                    subj_feat = f"Subject_{subj}"
-                    if subj_feat in subj_features:
-                        X_in[subj_feat] = 1
-                        try:
-                            pred = subj_model.predict(X_in)[0]
-                            smooth_pred = (pred + last_val) / 2
-                            final_val = round(max(1.0, min(5.0, smooth_pred)), 2)
-                            data_points.append(final_val)
-                            last_val = final_val
-                        except:
-                            data_points.append(last_val)
-                    else:
-                        data_points.append(last_val)
-            else:
-                last = data_points[-1] if data_points else 0
-                data_points.extend([last] * 4)
+            # Was: subj_model.predict() + `(pred + last_val) / 2` smoothing.
+            # RandomForestRegressor can't extrapolate past the years it was
+            # trained on, so pred came back nearly constant every future
+            # year; averaging that with last_val every step then converged
+            # every subject toward one flat plateau by ~2027 — the bug
+            # visible on the CEA/CTEC/COAS/CAHS "Top 5 Hardest Subjects"
+            # charts. Now forecast THIS subject's own grade history directly.
+            if years_pred:
+                forecast_vals = forecast_series(data_points, len(years_pred), y_min=1.0, y_max=5.0)
+                data_points.extend(forecast_vals)
 
             datasets.append({
                 "label": subj,
@@ -1412,31 +1512,15 @@ def get_hardest_subjects_by_course():
                     data_points.append(val)
 
                 # --- B. FORECAST (years_pred, from training_state horizon) ---
-                if subj_model and years_pred:
-                    for y in years_pred:
-                        X_in = pd.DataFrame(0, index=[0], columns=subj_features)
-                        X_in['Year_Numeric'] = y
-
-                        col_feat = f"College_{feature_college.upper()}"
-                        if col_feat in subj_features:
-                            X_in[col_feat] = 1
-
-                        subj_feat = f"Subject_{subj}"
-                        if subj_feat in subj_features:
-                            X_in[subj_feat] = 1
-                            try:
-                                pred = subj_model.predict(X_in)[0]
-                                smooth_pred = (pred + last_val) / 2
-                                final_val = round(max(1.0, min(5.0, smooth_pred)), 2)
-                            except Exception:
-                                final_val = last_val
-                        else:
-                            final_val = last_val
-
-                        data_points.append(final_val)
-                        last_val = final_val
-                else:
-                    data_points.extend([last_val] * len(years_pred))
+                # Was: subj_model.predict() + `(pred + last_val) / 2`
+                # smoothing — same flattening bug as get_subject_forecast
+                # above. Now forecast THIS subject's own history directly,
+                # so each course keeps its own distinct trend instead of
+                # collapsing toward a shared value.
+                if years_pred:
+                    data_points.extend(
+                        forecast_series(data_points, len(years_pred), y_min=1.0, y_max=5.0)
+                    )
 
                 subject_series.append({
                     "subject": subj,
@@ -1522,25 +1606,14 @@ def get_dropout_spike():
         last_hist_year = years_hist[-1] if years_hist else 2024
         years_pred = [y for y in years_pred if y > last_hist_year]
 
-        if dropout_spike_model:
-            # Identify College Feature
-            target_col_feat = None
-            if college.lower() != 'all':
-                target_col_feat = f"College_{college.upper()}"
-
-            for yr in years_pred:
-                X_in = pd.DataFrame(0, index=[0], columns=dropout_spike_features)
-                X_in['Year_Numeric'] = yr
-                if target_col_feat and target_col_feat in dropout_spike_features:
-                    X_in[target_col_feat] = 1
-                
-                try:
-                    pred = float(dropout_spike_model.predict(X_in)[0])
-                    data_points.append(round(max(0, pred), 2))
-                except:
-                    data_points.append(0)
-        else:
-            data_points.extend([0] * len(years_pred))
+        # Was: dropout_spike_model.predict() — a LinearRegression fit across
+        # ALL colleges at once via dummy variables, which only ever produces
+        # a straight-line trend and doesn't react to this college's own
+        # recent acceleration/deceleration.
+        # Now: forecast THIS college's own dropout-rate history directly.
+        if years_pred:
+            forecast_vals = forecast_series(data_points, len(years_pred), y_min=0, y_max=100)
+            data_points.extend(forecast_vals)
 
         all_years = [int(y) for y in list(years_hist) + years_pred]
         
@@ -1683,6 +1756,201 @@ def get_status_pie():
 
     except Exception as e:
         print(f"Status Pie Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ── STATUS TREND (prediction-mode counterpart to get_status_pie) ────────────
+# get_status_pie gives ONE year's snapshot (good for a donut).
+# This endpoint gives the SAME Regular/INC/Dropped breakdown, but as three
+# year-by-year series (good for a multi-line chart) — this is what the
+# frontend should call when the user switches to "Prediction Mode" on the
+# Student Status card, instead of just re-drawing the donut for a future
+# year.
+#
+# Real years come straight from the data. Future years are produced by
+# forecast_series() (Holt's damped trend, defined near the top of this
+# file) applied separately to each of the three percentage lines, so
+# Regular/INC/Dropped each get their own trend instead of being derived
+# from one shared classifier's single risk score.
+@ml_bp.route('/api/get_status_trend')
+def get_status_trend():
+    try:
+        college_arg = request.args.get('college', 'all').strip()
+        semester_arg = request.args.get('semester', 'all').strip()
+        # NEW: optional gender filter — powers the Male/Female Retention &
+        # Risk cards' Prediction-mode trend lines. 'all' (default) keeps
+        # the original combined-campus behavior unchanged.
+        gender_arg = request.args.get('gender', 'all').strip()
+        # NEW: optional breakdown — '' (default) keeps the original single
+        # aggregate-line response exactly as-is. 'college' or 'course'
+        # switches to a multi-line response, one Regular%/Irregular% pair
+        # PER college (Main dashboard) or PER course (dean dashboards,
+        # scoped to whichever college is selected) — same convention
+        # already used by /api/get_inc_forecast's own by= parameter, so
+        # colors and grouping behave identically across both charts.
+        breakdown = request.args.get('by', '').strip().lower()
+
+        df_base = df_full_loaded.copy()
+        if 'Year_Numeric' not in df_base.columns:
+            df_base['Year_Numeric'] = (
+                df_base['Year'].astype(str).str.extract(r'^(\d{4})')[0].astype(float)
+            )
+
+        if gender_arg.lower() not in ['all', '']:
+            df_base = df_base[df_base['Gender'].astype(str).str.strip().str.lower() == gender_arg.lower()]
+
+        if semester_arg.lower() not in ['all', 'overall']:
+            df_base = df_base[df_base['Semester'].astype(str).str.contains(semester_arg, case=False, na=False)]
+
+        # One row per (Year, Student) with mutually-exclusive status flags —
+        # same three-category logic used elsewhere on the dashboards
+        # (Regular / INC / Dropped, not the old binary Safe/Risk split).
+        # Shared by both the aggregate branch below AND every per-group
+        # line in the multi-line branch, so a group's numbers always
+        # match what the recent-mode donut for that same group would show.
+        def pct_series(scope_df):
+            agg_cols = {}
+            if "is_drop" in scope_df.columns: agg_cols["is_drop"] = "max"
+            if "is_inc" in scope_df.columns: agg_cols["is_inc"] = "max"
+
+            yrs = sorted(scope_df['Year_Numeric'].dropna().unique().tolist())
+            reg_pct, inc_pct, drop_pct = [], [], []
+
+            for yr in yrs:
+                yr_df = scope_df[scope_df['Year_Numeric'] == yr]
+                student_flags = yr_df.groupby('Student_ID').agg(agg_cols).reset_index()
+
+                if "is_drop" not in student_flags.columns: student_flags["is_drop"] = 0
+                if "is_inc" not in student_flags.columns: student_flags["is_inc"] = 0
+
+                total = len(student_flags)
+                if total == 0:
+                    reg_pct.append(0.0); inc_pct.append(0.0); drop_pct.append(0.0)
+                    continue
+
+                dropped = int(student_flags["is_drop"].sum())
+                # INC and Dropped are mutually exclusive — a dropped student
+                # isn't double counted in the INC bucket even if is_inc is
+                # also flagged for them.
+                inc = int(((student_flags["is_inc"] == 1) & (student_flags["is_drop"] == 0)).sum())
+                regular = total - dropped - inc
+
+                reg_pct.append(round(regular / total * 100, 1))
+                inc_pct.append(round(inc / total * 100, 1))
+                drop_pct.append(round(dropped / total * 100, 1))
+
+            return yrs, reg_pct, inc_pct, drop_pct
+
+        # ── MULTI-LINE MODE ──────────────────────────────────────────
+        if breakdown in ('college', 'course'):
+            scope_df = df_base
+            if college_arg.lower() not in ('all', 'main campus', ''):
+                full_names = expand_college(college_arg)
+                scope_df = scope_df[scope_df['College'].astype(str).str.strip().isin(full_names)]
+
+            if breakdown == 'college':
+                group_col = 'College'
+                groups = sorted(scope_df['College'].dropna().astype(str).str.strip().unique())
+            else:
+                # Course breakdown is always scoped to the selected college
+                # (e.g. the CAHS dean dashboard only wants CAHS's own courses).
+                group_col = 'Course'
+                groups = (
+                    sorted(scope_df['Course'].dropna().astype(str).str.strip().unique())
+                    if 'Course' in scope_df.columns else []
+                )
+
+            per_group = []
+            all_years_set = set()
+
+            for g in groups:
+                g_df = scope_df[scope_df[group_col].astype(str).str.strip() == g]
+                if g_df.empty:
+                    continue
+
+                yrs, reg_pct, inc_pct, drop_pct = pct_series(g_df)
+                if not yrs:
+                    continue
+
+                # Irregular = INC + Dropped combined — matches the binary
+                # Regular/Irregular framing every other status donut on
+                # the dashboard already uses, so a group's Irregular line
+                # here means the same thing as its Irregular donut slice.
+                irr_pct = [round(100 - r, 1) for r in reg_pct]
+
+                latest = int(max(yrs))
+                fyrs = list(range(latest + 1, latest + 6))
+                reg_fore = forecast_series(reg_pct, len(fyrs), y_min=0, y_max=100)
+                irr_fore = forecast_series(irr_pct, len(fyrs), y_min=0, y_max=100)
+
+                all_years_set.update(int(y) for y in yrs)
+                all_years_set.update(fyrs)
+                per_group.append({
+                    "label": g, "years": [int(y) for y in yrs],
+                    "regular": reg_pct, "irregular": irr_pct,
+                    "forecast_years": fyrs,
+                    "regular_forecast": reg_fore, "irregular_forecast": irr_fore,
+                })
+
+            all_years = sorted(all_years_set)
+
+            def build_series(hist_key, fore_key):
+                out = []
+                for pg in per_group:
+                    hist_map = dict(zip(pg["years"], pg[hist_key]))
+                    fc_map = dict(zip(pg["forecast_years"], pg[fore_key]))
+                    hist_line = [hist_map.get(y) for y in all_years]
+                    fc_line = [fc_map.get(y) for y in all_years]
+                    # Bridge the last real point into the forecast line so
+                    # the dashed line visually connects to the solid one.
+                    last_idx = max([i for i, v in enumerate(hist_line) if v is not None], default=None)
+                    if last_idx is not None and last_idx + 1 < len(fc_line):
+                        fc_line[last_idx] = hist_line[last_idx]
+                    out.append({"label": pg["label"], "history": hist_line, "forecast": fc_line})
+                return out
+
+            return jsonify({
+                "years": all_years,
+                "breakdown": breakdown,
+                "regular_series": build_series("regular", "regular_forecast"),
+                "irregular_series": build_series("irregular", "irregular_forecast"),
+            })
+
+        # ── ORIGINAL SINGLE-LINE AGGREGATE MODE (unchanged) ────────────
+        df = df_base
+        if college_arg.lower() not in ['all', 'main campus']:
+            full_names = expand_college(college_arg)
+            df = df[df['College'].astype(str).str.strip().isin(full_names)]
+
+        if df.empty:
+            return jsonify({"error": "No data available for this filter."}), 200
+
+        years, regular_pct, inc_pct, dropped_pct = pct_series(df)
+
+        latest_year = int(max(years)) if years else get_latest_real_year()
+        forecast_years = list(range(latest_year + 1, latest_year + 6))
+
+        # Each line gets its OWN trend — no shared dummy-variable model,
+        # so Regular/INC/Dropped don't collapse toward each other the way
+        # the old per-college classifier approach tended to.
+        regular_forecast = forecast_series(regular_pct, len(forecast_years), y_min=0, y_max=100)
+        inc_forecast_vals = forecast_series(inc_pct, len(forecast_years), y_min=0, y_max=100)
+        dropped_forecast = forecast_series(dropped_pct, len(forecast_years), y_min=0, y_max=100)
+
+        return jsonify({
+            "years": [int(y) for y in years],
+            "regular_pct": regular_pct,
+            "inc_pct": inc_pct,
+            "dropped_pct": dropped_pct,
+            "forecast_years": forecast_years,
+            "regular_forecast": regular_forecast,
+            "inc_forecast": inc_forecast_vals,
+            "dropped_forecast": dropped_forecast,
+            "history_count": len(years),
+        })
+
+    except Exception as e:
+        print(f"Status Trend Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 
