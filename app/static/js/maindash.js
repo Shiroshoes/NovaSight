@@ -76,6 +76,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (typeof updateGwaScatter === 'function') updateGwaScatter(college, semester);
         if (typeof updateRiskByCollege === 'function') updateRiskByCollege(year, semester);
         if (typeof updateHardestSubjectsByCourse === 'function') updateHardestSubjectsByCourse(college);
+        if (typeof updateYearLevelChart === 'function') updateYearLevelChart(year, semester, college);
     }
 
     // Initial load: fetch the real latest uploaded year FIRST (so the

@@ -150,6 +150,53 @@ def parse_grade(raw) -> float | None:
         return None
 
 
+YEAR_LEVEL_PATTERN = re.compile(r'(\d)\s*(?:st|nd|rd|th)?\s*year', re.I)
+
+
+def parse_year_level(raw) -> tuple[int | None, str]:
+    """
+    Normalize the STUDENT YEAR column (col C — e.g. '1st Year', '3rd Year',
+    'Irregular', a bare '4', or blank) into (numeric_level, display_label).
+
+    Previously this column was read off the row but never stored anywhere,
+    so no downstream dataset or chart could break performance/risk down by
+    year level. Returns (None, "Unknown") for anything unrecognized rather
+    than guessing, same philosophy as parse_grade()'s MAX_SNAP_DISTANCE
+    cutoff — an unparseable value should fall into an explicit "Unknown"
+    bucket, not silently become "1st Year".
+
+    'Irregular' is a distinct, explicit category (Year_Level_Num = -1),
+    NOT folded into "Unknown" (Year_Level_Num = None -> 0). Registrar
+    data uses this label for real students with a non-standard course
+    load/schedule — that's meaningfully different from a blank/unparseable
+    cell, and collapsing the two would hide a genuine ~5% of the student
+    body (577 of 10,632 in the 2024-2 file) behind a catch-all bucket that
+    looks like a data-quality gap instead of a real cohort.
+    """
+    if raw is None:
+        return None, "Unknown"
+    s = str(raw).strip()
+    if not s or s.lower() == "none":
+        return None, "Unknown"
+
+    if re.search(r'irreg', s, re.I):
+        return -1, "Irregular"
+
+    m = YEAR_LEVEL_PATTERN.search(s)
+    if m:
+        n = int(m.group(1))
+    else:
+        try:
+            n = int(float(s))
+        except ValueError:
+            return None, "Unknown"
+
+    if n < 1 or n > 6:
+        return None, "Unknown"
+    suffix = {1: "st", 2: "nd", 3: "rd"}.get(n, "th")
+    return n, f"{n}{suffix} Year"
+
+
 def is_subject_code(v) -> bool:
     """
     True if the value looks like a subject code (e.g. EGEC0103, MFHC0111-P).
@@ -264,6 +311,8 @@ def parse_sheet(ws, college_name: str, semester: str, academic_year: str) -> lis
                 gender_val  = 1 if gender_raw.lower() == "female" else (
                               0 if gender_raw.lower() == "male" else -1)
 
+                year_level_num, year_level_label = parse_year_level(row[2])
+
                 grades_raw  = row[3:]   # Col C onward
 
                 # Pair each subject code with its grade
@@ -298,6 +347,8 @@ def parse_sheet(ws, college_name: str, semester: str, academic_year: str) -> lis
                         "Gender":         gender_val,
                         "College":        college_name,
                         "Course":         course_name,
+                        "Year_Level":     year_level_label,
+                        "Year_Level_Num": year_level_num,
                         "Subject":        subject_code,
                         "Grade":          grade_val,
                         "Semester":       semester,
@@ -363,10 +414,11 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # Per-student aggregates (groupby student × semester × year)
     key = ["Student_ID", "Student_Seq", "Gender", "College", "Course",
+           "Year_Level", "Year_Level_Num",
            "Semester", "Year", "Year_Numeric", "Sem_Numeric"]
 
     student_agg = (
-        df.groupby(key)["Grade"]
+        df.groupby(key, dropna=False)["Grade"]
         .agg(
             GWA       = lambda g: g[g > 0].mean() if (g > 0).any() else np.nan,
             # Was: Avg_Grade = "mean" — included 0.0 (dropped subjects) as
@@ -558,6 +610,38 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     band["Pct"] = (band["Count"] / band["Total"] * 100).round(2)
     save(band, "11_performance_band_dist.csv")
 
+    # 13 – Year-level performance distribution (college × course × year
+    # level × perf band). Same bucketing as 11, sliced by Year_Level
+    # instead of/alongside College, so charts can show "which cohort
+    # (1st/2nd/3rd/4th year) is struggling" instead of only "which college".
+    yl_df = band_df.copy()  # already has Perf_Band from the block above
+    yl_df["Year_Level"] = yl_df["Year_Level"].fillna("Unknown")
+    yl_df["Year_Level_Num"] = yl_df["Year_Level_Num"].fillna(0).astype(int)
+    year_level = (
+        yl_df.groupby(["Year_Numeric", "Sem_Numeric", "College", "Course",
+                        "Year_Level", "Year_Level_Num", "Perf_Band"])
+        .agg(Count=("Student_ID", "nunique"))
+        .reset_index()
+    )
+    yl_total = (
+        yl_df.groupby(["Year_Numeric", "Sem_Numeric", "College", "Course",
+                        "Year_Level", "Year_Level_Num"])
+        ["Student_ID"].nunique()
+        .rename("Total")
+        .reset_index()
+    )
+    year_level = year_level.merge(
+        yl_total,
+        on=["Year_Numeric", "Sem_Numeric", "College", "Course",
+            "Year_Level", "Year_Level_Num"],
+        how="left",
+    )
+    year_level["Pct"] = (year_level["Count"] / year_level["Total"] * 100).round(2)
+    year_level = year_level.sort_values(
+        ["College", "Course", "Year_Level_Num"]
+    )
+    save(year_level, "13_year_level_performance.csv")
+
     # 12 – Gender performance
     gender = (
         student_df.groupby(["Year_Numeric", "College", "Gender"])
@@ -697,6 +781,7 @@ FINAL_OUTPUT    = _FINAL_OUTPUT
 # Must match the student-level CSV produced by engineer_features().
 FINAL_COLUMNS = [
     "Student_ID", "Student_Seq", "Gender", "College", "Course",
+    "Year_Level", "Year_Level_Num",
     "Semester", "Year", "Year_Numeric", "Sem_Numeric",
     "GWA", "Avg_Grade", "Std_Grade", "Sub_Count",
     "Min_Grade", "Max_Grade",

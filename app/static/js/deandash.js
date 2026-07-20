@@ -61,6 +61,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (typeof updateDropoutSpike === 'function') updateDropoutSpike(college);
         if (typeof updateHardestSubjectsByCourse === 'function') updateHardestSubjectsByCourse(college);
         if (typeof updateStatusByCourse === 'function') updateStatusByCourse(year, semester, college);
+        if (typeof updateYearLevelChart === 'function') updateYearLevelChart(year, semester, college);
 
     }
 

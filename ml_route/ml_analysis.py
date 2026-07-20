@@ -2188,6 +2188,132 @@ def get_status_by_course():
         return jsonify({"error": str(e)}), 500
 
 
+#  YEAR-LEVEL PERFORMANCE BAND DISTRIBUTION (1st/2nd/3rd/4th Year, etc.)
+@ml_bp.route('/api/get_year_level_distribution')
+def get_year_level_distribution():
+    """
+    Performance-band breakdown by STUDENT YEAR LEVEL (1st/2nd/3rd/4th Year)
+    instead of / on top of College — powers the "Year-Level Risk Grid"
+    stacked bar. Backed by model_datasets/13_year_level_performance.csv,
+    same pre-aggregated-CSV pattern get_subject_forecast() uses for
+    dataset 10, rather than re-deriving bands from the master CSV on
+    every request.
+
+    `college=` follows the SAME single "Department - Course" scope used
+    everywhere else in this file:
+      - 'all' / 'main campus'      -> every college, one grid per college
+      - a college code ('CAHS')    -> every course inside that college,
+        collapsed into one grid for the whole college
+      - a specific course name     -> that course only (this is how the
+        Main dashboard's dropdown behaves once a specific
+        department/program is picked, AND how every dean dashboard's
+        course filter behaves — same param, same resolve_scope() call,
+        so no separate "dean mode" branch is needed here).
+    """
+    try:
+        year = int(request.args.get('year', get_latest_real_year()))
+        college_arg = request.args.get('college', 'all').strip()
+        semester_arg = request.args.get('semester', 'all').strip()
+
+        yl_csv_path = os.path.join(MODEL_DATASETS_DIR, "13_year_level_performance.csv")
+        if not os.path.exists(yl_csv_path):
+            return jsonify({"error": "Year-level dataset not found. Upload a dataset to generate it."}), 200
+
+        df_scope = pd.read_csv(yl_csv_path)
+
+        if df_scope.empty:
+            return jsonify({"labels": [], "datasets": [], "error": "No year-level data found"})
+
+        df_scope = df_scope[df_scope['Year_Numeric'] == year]
+
+        if semester_arg.lower() not in ('all', 'overall'):
+            sem_map = {"1sem": 1, "2sem": 2, "summer": 3}
+            sem_num = sem_map.get(semester_arg.lower())
+            if sem_num is not None:
+                df_scope = df_scope[df_scope['Sem_Numeric'] == sem_num]
+
+        # Same college-OR-course scope resolution as get_subject_forecast /
+        # get_status_by_course — 'college' may actually be a course name
+        # coming from either dashboard's dropdown.
+        yl_scope = resolve_scope(college_arg)
+        df_scope = apply_scope_filter(df_scope, yl_scope)
+
+        if df_scope.empty:
+            return jsonify({"labels": [], "datasets": [], "college": college_arg,
+                             "error": "No data for this selection"})
+
+        # Collapse Course back out — this endpoint always reports at the
+        # Year-Level grain, whether scope is 'all', one college, or one
+        # course (dataset 13 is stored at College x Course x Year_Level
+        # grain, so a college-wide or "all" request needs the courses
+        # summed back together first).
+        collapsed = (
+            df_scope.groupby(['Year_Level', 'Year_Level_Num', 'Perf_Band'])
+            .agg(Count=('Count', 'sum'))
+            .reset_index()
+        )
+        totals = (
+            collapsed.groupby(['Year_Level', 'Year_Level_Num'])['Count']
+            .sum()
+            .rename('Total')
+            .reset_index()
+        )
+        collapsed = collapsed.merge(totals, on=['Year_Level', 'Year_Level_Num'], how='left')
+        collapsed['Pct'] = (collapsed['Count'] / collapsed['Total'] * 100).round(2)
+
+        # Display order: 1st, 2nd, 3rd, 4th Year ... ascending, then
+        # Irregular (Year_Level_Num == -1), then Unknown (== 0) last.
+        # A plain ascending sort on Year_Level_Num would put Irregular
+        # BEFORE 1st Year since -1 < 1 — that's not how a dean reads a
+        # cohort chart, so rank Irregular/Unknown explicitly instead.
+        def _level_sort_key(lv):
+            num = collapsed.loc[collapsed['Year_Level'] == lv, 'Year_Level_Num'].iloc[0]
+            if num == 0:
+                return (2, 0)        # Unknown -> always last
+            if num == -1:
+                return (1, 0)        # Irregular -> after all real year levels
+            return (0, num)          # 1st..Nth Year -> ascending
+
+        level_order = sorted(collapsed['Year_Level'].unique(), key=_level_sort_key)
+
+        # Display-only rename: internal grouping/lookup keys stay
+        # "Unknown" everywhere (level_order, band_rows, totals_by_level),
+        # only the label shown in the chart changes. "Unknown" reads like
+        # a system error to a dean looking at this chart; in reality it
+        # just means the registrar's STUDENT YEAR cell was blank for that
+        # student (verified: every Unknown row traces back to a literal
+        # blank cell in the source file, not a parsing failure) — "Not
+        # Recorded" says that honestly instead.
+        YEAR_LEVEL_DISPLAY_OVERRIDES = {"Unknown": "Not Recorded"}
+        display_labels = [YEAR_LEVEL_DISPLAY_OVERRIDES.get(lv, lv) for lv in level_order]
+
+        band_order = ["Excellent", "Good", "Average", "Below Average", "Failing", "Unknown"]
+        bands_present = [b for b in band_order if b in collapsed['Perf_Band'].unique()]
+
+        datasets = []
+        for band in bands_present:
+            band_rows = collapsed[collapsed['Perf_Band'] == band].set_index('Year_Level')
+            datasets.append({
+                "label": band,
+                "data": [round(float(band_rows['Pct'].get(lv, 0.0)), 2) for lv in level_order],
+                "counts": [int(band_rows['Count'].get(lv, 0)) for lv in level_order],
+            })
+
+        totals_by_level = totals.set_index('Year_Level')['Total']
+
+        return jsonify({
+            "year": year,
+            "labels": display_labels,
+            "datasets": datasets,
+            "totals": [int(totals_by_level.get(lv, 0)) for lv in level_order],
+            "college": college_arg,
+        })
+
+    except Exception as e:
+        print(f"Year Level Distribution Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 #  GENDER x PRECISE STATUS (Regular / INC / Dropped), grouped by COLLEGE or COURSE 
 @ml_bp.route('/api/get_gender_status_breakdown')
 def get_gender_status_breakdown():

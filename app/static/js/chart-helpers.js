@@ -45,6 +45,19 @@ const GENDER_COLORS = {
 // Generic "unknown / not risk" fallback
 const NEUTRAL_COLOR = '#858796';
 
+// Performance-band colors (matches preprocess.py's perf_band() buckets:
+// Excellent/Good/Average/Below Average/Failing). Used by the Year-Level
+// Risk Grid stacked bar, kept separate from COLLEGE_COLORS since a band
+// name and a college code could theoretically collide as object keys.
+const PERF_BAND_COLORS = {
+    'Excellent':      '#1cc88a',   // green
+    'Good':           '#36b9cc',   // teal
+    'Average':        '#f6c23e',   // yellow
+    'Below Average':  '#fd7e14',   // orange
+    'Failing':        '#e74a3b',   // red (matches RISK_COLOR)
+    'Unknown':        NEUTRAL_COLOR,
+};
+
 // A rotating palette used to auto-assign colors to things we don't
 // know in advance (e.g. individual COURSES inside CAHS: BSN, BSPT, etc.)
 // Colors are picked from this list in a stable order (hashed by name)
@@ -358,6 +371,112 @@ function buildDonutSummarySentence(groupLabel, goodLabel, goodValue, badLabel, b
     const goodPct = 100 - badPct;
     return `Out of ${total.toLocaleString()} ${groupLabel} students, ${goodValue.toLocaleString()} (${goodPct}%) are ${goodLabel} and ${badValue.toLocaleString()} (${badPct}%) are ${badLabel}.`;
 }
+
+// ---- YEAR-LEVEL RISK GRID (Stacked Bar) ------------------------------
+// Shared by maindash.js (Main dashboard) and deandash.js (dean
+// dashboards) — both already pass the exact same three args
+// (year, semester, college) into their respective triggerUpdate()
+// pipelines, and `college` is ALREADY resolved by the caller before it
+// gets here:
+//   - Main dashboard: 'all' by default; a specific department/program
+//     once the "Department - Course" dropdown picks one.
+//   - Dean dashboard (e.g. CAHS): the whole college by default; a
+//     specific course once ITS course dropdown picks one.
+// Either way this function (and /api/get_year_level_distribution on the
+// backend, via resolve_scope()) doesn't need to know or care which
+// dashboard called it.
+let yearLevelChart;
+
+function updateYearLevelChart(year, semester, college) {
+    const canvas = document.getElementById('yearLevelChart');
+    if (!canvas) return;
+
+    const safeCollege = encodeURIComponent(college || 'all');
+    const safeSemester = encodeURIComponent(semester || 'all');
+
+    fetch(`/api/get_year_level_distribution?year=${year}&semester=${safeSemester}&college=${safeCollege}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                console.error("Year Level Distribution Error:", data.error);
+                return;
+            }
+
+            const labels = data.labels || [];
+            const totals = data.totals || [];
+
+            // Tooltip needs both the % (what's plotted) and the raw
+            // headcount (what a dean actually cares about) — "%" alone
+            // can hide that e.g. "5th Year" is only 29 students total.
+            const datasets = (data.datasets || []).map(ds => ({
+                label: ds.label,
+                data: ds.data,
+                counts: ds.counts,
+                backgroundColor: hexToRgba(
+                    (typeof PERF_BAND_COLORS !== 'undefined' && PERF_BAND_COLORS[ds.label]) || '#858796',
+                    0.85
+                ),
+                borderColor: '#ffffff',
+                borderWidth: 1,
+                stack: 'yearLevel',
+            }));
+
+            const collText = (college === 'all' || !college) ? 'Main Campus' : college;
+            const semText = semester === 'all' ? 'Overall' : semester;
+            const newTitle = `Performance by Year Level: ${year} (${semText} - ${collText})`;
+
+            const ctx = canvas.getContext('2d');
+            const existingOnCanvas = Chart.getChart(canvas);
+
+            if (yearLevelChart && yearLevelChart.canvas === canvas && existingOnCanvas === yearLevelChart) {
+                yearLevelChart.data.labels = labels;
+                yearLevelChart.data.datasets = datasets;
+                if (yearLevelChart.options.plugins.title) {
+                    yearLevelChart.options.plugins.title.text = newTitle;
+                }
+                yearLevelChart.update();
+            } else {
+                if (existingOnCanvas) existingOnCanvas.destroy();
+                yearLevelChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: labels, datasets: datasets },
+                    options: {
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        scales: {
+                            x: { stacked: true, title: { display: true, text: 'Year Level' } },
+                            y: {
+                                stacked: true,
+                                min: 0,
+                                max: 100,
+                                title: { display: true, text: '% of students in this year level' },
+                            },
+                        },
+                        plugins: {
+                            title: { display: true, text: newTitle },
+                            legend: { display: true, position: 'bottom' },
+                            tooltip: {
+                                callbacks: {
+                                    afterTitle: (items) => {
+                                        const idx = items[0].dataIndex;
+                                        const total = totals[idx];
+                                        return total ? `${total.toLocaleString()} students` : '';
+                                    },
+                                    label: (ctx) => {
+                                        const count = ctx.dataset.counts ? ctx.dataset.counts[ctx.dataIndex] : null;
+                                        const countText = count !== null ? ` (${count.toLocaleString()} students)` : '';
+                                        return ` ${ctx.dataset.label}: ${ctx.raw}%${countText}`;
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+            }
+        })
+        .catch(err => console.error("Year Level Distribution fetch failed:", err));
+}
+
 
 function buildComparisonSentence(labelA, valueA, labelB, valueB, metricName) {
     if (valueA === valueB) {

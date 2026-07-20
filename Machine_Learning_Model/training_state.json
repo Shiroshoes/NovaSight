@@ -1,11 +1,11 @@
 {
-  "trained_at": "2026-07-14T17:42:15.482271Z",
-  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1784050935_2024-2_Student-Performance_Dataset.xlsx",
+  "trained_at": "2026-07-20T10:53:25.985638Z",
+  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1784544805_2024-2_Student-Performance_Dataset.xlsx",
   "models": {
     "dropout_risk": {
       "status": "ok",
-      "r2": 0.0346,
-      "rmse": 0.1279
+      "r2": 0.0358,
+      "rmse": 0.1278
     },
     "dropout_spike": {
       "status": "ok",
@@ -79,16 +79,16 @@
     },
     "gender_performance": {
       "dropout_rate": {
-        "r2": 0.8841,
-        "rmse": 0.382,
-        "mse": 0.1459,
-        "mae": 0.3028
+        "r2": 0.8777,
+        "rmse": 0.7357,
+        "mse": 0.5412,
+        "mae": 0.337
       },
       "avg_gwa": {
-        "r2": 0.5703,
-        "rmse": 0.1372,
-        "mse": 0.0188,
-        "mae": 0.0863
+        "r2": 0.9127,
+        "rmse": 0.0464,
+        "mse": 0.0022,
+        "mae": 0.0366
       }
     }
   },
@@ -112,5 +112,5 @@
   },
   "errors": [],
   "rows_in_master": 57745,
-  "elapsed_seconds": 23.5
+  "elapsed_seconds": 29.3
 }

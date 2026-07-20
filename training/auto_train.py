@@ -330,9 +330,24 @@ def train_dropout_risk(df_path: str) -> dict:
     _log("Training dropout_risk model …")
     df = pd.read_csv(df_path)
 
+    # Year_Level_Num encodes 1=1st Year...4=4th Year, -1=Irregular,
+    # 0=Unknown (see preprocess.py's parse_year_level()). -1 and 0 are
+    # BOTH sentinels, not points on the seniority scale — feeding -1
+    # straight into a LinearRegression as if it were "before 1st Year"
+    # would distort the ordinal relationship the feature is meant to
+    # capture. Irregular status is a different axis (non-standard course
+    # load/schedule) than seniority, and it's a real, separately useful
+    # signal on its own — registrar data shows Irregular students fail
+    # at ~3x the rate of regular 4th-years — so split it into its own
+    # binary flag and leave the ordinal column clean.
+    df["is_irregular_year"] = (df["Year_Level_Num"] == -1).astype(int)
+    df.loc[df["Year_Level_Num"] == -1, "Year_Level_Num"] = np.nan
+    df.loc[df["Year_Level_Num"] == 0, "Year_Level_Num"] = np.nan  # Unknown -> also not a real ordinal point
+
     # 01_dropout_risk_per_student.csv columns match preprocess.py output
     feature_cols = ["Gender","College","Semester","Year_Numeric","Sem_Numeric",
-                     "GWA","Avg_Grade","Sub_Count","is_inc","fail_rate"]
+                     "GWA","Avg_Grade","Sub_Count","is_inc","fail_rate",
+                     "Year_Level_Num","is_irregular_year"]
 
     # Drop rows with no label at all — can't train on those regardless.
     df = df.dropna(subset=["is_drop"])
@@ -340,8 +355,9 @@ def train_dropout_risk(df_path: str) -> dict:
     # Impute:
     #   - numeric grade/rate columns -> median (robust to outliers)
     #   - count-like columns         -> 0 (missing usually means "none logged")
-    numeric_median_cols = ["GWA", "Avg_Grade", "fail_rate"]
-    numeric_zero_cols   = ["Sub_Count", "is_inc", "Year_Numeric", "Sem_Numeric"]
+    numeric_median_cols = ["GWA", "Avg_Grade", "fail_rate", "Year_Level_Num"]
+    numeric_zero_cols   = ["Sub_Count", "is_inc", "Year_Numeric", "Sem_Numeric",
+                            "is_irregular_year"]
 
     for col in numeric_median_cols:
         if col in df.columns:
