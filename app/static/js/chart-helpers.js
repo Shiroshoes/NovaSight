@@ -13,6 +13,20 @@
    Load this file BEFORE maindash.js / deandash.js in the HTML.
    ===================================================================== */
 
+// ---- 0. DATA LABELS PLUGIN (optional) --------------------------------
+// Guarded so pages that haven't added the
+// chartjs-plugin-datalabels <script> tag yet don't break — they just
+// won't get on-bar labels until that tag is added, everything else
+// keeps working exactly as before. Registered OFF by default (a global
+// "display: false") so every existing chart on the dashboard keeps
+// looking exactly the same; only charts that explicitly set
+// `datalabels: { display: ... }` in their own options (like the
+// Performance-by-Year-Level chart below) opt in.
+if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+    Chart.register(ChartDataLabels);
+    Chart.defaults.set('plugins.datalabels', { display: false });
+}
+
 // ---- 1. FIXED COLLEGE PALETTE (Main Dashboard) ----------------------
 // These are the "official" colors for each college. They are reused
 // everywhere: ranking bars, scatter dots, forecast lines, legends.
@@ -134,6 +148,22 @@ function hexToRgba(hex, alpha = 1) {
 }
 
 /**
+ * Picks black or white text for on-bar data labels so a percentage
+ * printed directly on a colored segment (e.g. the yellow "Average" band,
+ * or a light auto-palette course color) stays readable, instead of
+ * always assuming white text works on every color.
+ */
+function getContrastTextColor(hex) {
+    if (!hex) return '#ffffff';
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+    const bigint = parseInt(hex, 16);
+    const r = (bigint >> 16) & 255, g = (bigint >> 8) & 255, b = bigint & 255;
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 150 ? '#212529' : '#ffffff';
+}
+
+/**
  * Injects a row of colored "chip" legend items into a container div.
  * entries = [{ label: 'CAHS', color: '#36b9cc' }, ...]
  * Used under multi-line / multi-color charts (INC forecast, scatter)
@@ -145,7 +175,7 @@ function renderColorLegend(containerId, entries) {
     el.innerHTML = entries.map(e => `
         <span style="display:inline-flex; align-items:center; margin:0.15rem 0.75rem 0.15rem 0; font-size:0.8rem; color:#5a5c69;">
             <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:${e.color}; margin-right:6px; border:1px solid rgba(0,0,0,0.1);"></span>
-            ${e.label}
+            ${e.label}${e.subtitle ? ` <strong style="margin-left:4px; color:${RISK_COLOR};">${e.subtitle}</strong>` : ''}
         </span>
     `).join('');
 }
@@ -154,8 +184,10 @@ function renderColorLegend(containerId, entries) {
  * Populates #globalYearFilter and #filterSemester from real uploaded data
  * (via /api/get_year_semester_options) instead of a hardcoded "2024".
  *
- * - Year dropdown = every year that has real data, PLUS the forecast
- *   years the models can predict (marked "(Forecast)").
+ * - Year dropdown = real/actual uploaded years ONLY. Forecast years are
+ *   deliberately left out — the Recent/Prediction toggle (mode-toggle.js)
+ *   already owns showing forecast data, and its own dropdown-disable
+ *   logic assumes this list never contains a forecast year.
  * - Semester default: if the latest year only has one semester uploaded
  *   so far, that semester is pre-selected (freshest partial view). Once
  *   both semesters exist for that year, "All Semesters" is selected.
@@ -180,13 +212,9 @@ function initYearSemesterFilters(onReady) {
                 return;
             }
 
-            const forecastYears = data.forecast_years || [];
-            const allYears = [...data.years, ...forecastYears];
-
-            yearSelect.innerHTML = allYears.map(y => {
-                const isForecast = y > data.latest_year;
+            yearSelect.innerHTML = data.years.map(y => {
                 const isSelected = y === data.latest_year;
-                return `<option value="${y}" ${isSelected ? 'selected' : ''}>${y}${isForecast ? ' (Forecast)' : ''}</option>`;
+                return `<option value="${y}" ${isSelected ? 'selected' : ''}>${y}${isSelected ? ' (Current)' : ''}</option>`;
             }).join('');
 
             if (semSelect && data.default_semester) {
@@ -386,13 +414,94 @@ function buildDonutSummarySentence(groupLabel, goodLabel, goodValue, badLabel, b
 // backend, via resolve_scope()) doesn't need to know or care which
 // dashboard called it.
 let yearLevelChart;
+let yearLevelIncIrregChart;
 
-function updateYearLevelChart(year, semester, college) {
+function updateYearLevelChart(year, semester, college, isPrediction = false) {
     const canvas = document.getElementById('yearLevelChart');
     if (!canvas) return;
 
     const safeCollege = encodeURIComponent(college || 'all');
     const safeSemester = encodeURIComponent(semester || 'all');
+
+    // Chart TYPE changes between modes (stacked bar <-> multi-line), so
+    // any existing instance must be fully destroyed and rebuilt rather
+    // than updated in place — Chart.js can't hot-swap type on update().
+    const rebuildIfModeChanged = () => {
+        const existingOnCanvas = Chart.getChart(canvas);
+        if (existingOnCanvas && (!yearLevelChart || yearLevelChart._isPrediction !== isPrediction)) {
+            existingOnCanvas.destroy();
+            yearLevelChart = null;
+        }
+    };
+
+    if (isPrediction) {
+        fetch(`/api/get_year_level_gwa_forecast?college=${safeCollege}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    console.error("Year Level GWA Forecast Error:", data.error);
+                    return;
+                }
+                rebuildIfModeChanged();
+
+                const labels = data.labels || [];
+                const historyCount = data.history_count != null ? data.history_count : labels.length;
+                const datasets = (data.datasets || []).map(ds => {
+                    const color = getGroupColor(ds.label);
+                    return {
+                        label: ds.label,
+                        data: ds.data,
+                        borderColor: color,
+                        backgroundColor: hexToRgba(color, 0.08),
+                        fill: false,
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: (ctx) => ctx.dataIndex >= historyCount ? 2 : 3,
+                        pointBackgroundColor: color,
+                        segment: {
+                            borderDash: (ctx) => (ctx.p0DataIndex >= historyCount - 1) ? [5, 4] : undefined,
+                        },
+                    };
+                });
+
+                const collText = (college === 'all' || !college) ? 'Main Campus' : college;
+                const newTitle = `Predicted GWA by Year Level (${collText})`;
+                const ctx = canvas.getContext('2d');
+
+                yearLevelChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: labels, datasets: datasets },
+                    options: {
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        scales: {
+                            y: { min: 1.0, max: 5.0, title: { display: true, text: 'Avg GWA (lower = better)' } },
+                            x: { title: { display: true, text: 'Academic Year' } },
+                        },
+                        plugins: {
+                            title: { display: true, text: newTitle },
+                            legend: { display: true, position: 'bottom' },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => {
+                                        if (ctx.parsed.y === null) return undefined;
+                                        const mode = ctx.dataIndex >= historyCount ? 'Forecast' : 'Recent Data';
+                                        return ` ${ctx.dataset.label} (${mode}): ${ctx.parsed.y}`;
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+                yearLevelChart._isPrediction = true;
+                // Table Mode (table-view.js) reads this to cut off the
+                // dashed forecast tail and only ever show the "Recent
+                // Data" rows/columns, never the predicted ones.
+                yearLevelChart._historyCount = historyCount;
+            })
+            .catch(err => console.error("Year Level GWA Forecast fetch failed:", err));
+        return;
+    }
 
     fetch(`/api/get_year_level_distribution?year=${year}&semester=${safeSemester}&college=${safeCollege}`)
         .then(res => res.json())
@@ -404,29 +513,65 @@ function updateYearLevelChart(year, semester, college) {
 
             const labels = data.labels || [];
             const totals = data.totals || [];
+            // 'band'    -> one course selected, nothing left to segment by,
+            //              so this falls back to the original band-stacked view.
+            // 'college' -> Main dashboard: each segment IS a college.
+            // 'course'  -> Dean dashboard (e.g. CAHS): each segment IS a course.
+            const breakdown = data.breakdown || 'band';
 
             // Tooltip needs both the % (what's plotted) and the raw
             // headcount (what a dean actually cares about) — "%" alone
             // can hide that e.g. "5th Year" is only 29 students total.
-            const datasets = (data.datasets || []).map(ds => ({
-                label: ds.label,
-                data: ds.data,
-                counts: ds.counts,
-                backgroundColor: hexToRgba(
-                    (typeof PERF_BAND_COLORS !== 'undefined' && PERF_BAND_COLORS[ds.label]) || '#858796',
-                    0.85
-                ),
-                borderColor: '#ffffff',
-                borderWidth: 1,
-                stack: 'yearLevel',
-            }));
+            const datasets = (data.datasets || []).map(ds => {
+                const baseColor = breakdown === 'band'
+                    ? ((typeof PERF_BAND_COLORS !== 'undefined' && PERF_BAND_COLORS[ds.label]) || '#858796')
+                    : getGroupColor(ds.label);
+                return {
+                    label: ds.label,
+                    data: ds.data,
+                    counts: ds.counts,
+                    bandMix: ds.bandMix,
+                    backgroundColor: hexToRgba(baseColor, 0.85),
+                    borderColor: '#ffffff',
+                    borderWidth: 1,
+                    stack: 'yearLevel',
+                    // Used only by the on-bar % label below, to pick
+                    // readable text color for THIS segment's own fill.
+                    _labelTextColor: getContrastTextColor(baseColor),
+                };
+            });
 
             const collText = (college === 'all' || !college) ? 'Main Campus' : college;
             const semText = semester === 'all' ? 'Overall' : semester;
-            const newTitle = `Performance by Year Level: ${year} (${semText} - ${collText})`;
+            const segmentText = breakdown === 'college' ? 'by College' : breakdown === 'course' ? 'by Course' : 'by Performance Band';
+            const newTitle = `Performance by Year Level ${segmentText}: ${year} (${semText} - ${collText})`;
 
+            rebuildIfModeChanged();
             const ctx = canvas.getContext('2d');
             const existingOnCanvas = Chart.getChart(canvas);
+
+            const tooltipCallbacks = {
+                afterTitle: (items) => {
+                    const idx = items[0].dataIndex;
+                    const total = totals[idx];
+                    return total ? `${total.toLocaleString()} students` : '';
+                },
+                label: (ctx) => {
+                    const count = ctx.dataset.counts ? ctx.dataset.counts[ctx.dataIndex] : null;
+                    const countText = count !== null ? ` (${count.toLocaleString()} students)` : '';
+                    return ` ${ctx.dataset.label}: ${ctx.raw}%${countText}`;
+                },
+                // Only present when breakdown is college/course — shows the
+                // performance-band mix INSIDE that segment (e.g. what % of
+                // this college's/course's slice is Excellent vs Failing),
+                // so that detail isn't lost just because it's no longer the
+                // primary stacking dimension.
+                afterLabel: (ctx) => {
+                    const mix = ctx.dataset.bandMix ? ctx.dataset.bandMix[ctx.dataIndex] : null;
+                    if (!mix || !mix.length) return undefined;
+                    return mix.map(m => `   ${m.band}: ${m.pct}%`);
+                },
+            };
 
             if (yearLevelChart && yearLevelChart.canvas === canvas && existingOnCanvas === yearLevelChart) {
                 yearLevelChart.data.labels = labels;
@@ -434,6 +579,7 @@ function updateYearLevelChart(year, semester, college) {
                 if (yearLevelChart.options.plugins.title) {
                     yearLevelChart.options.plugins.title.text = newTitle;
                 }
+                yearLevelChart.options.plugins.tooltip.callbacks = tooltipCallbacks;
                 yearLevelChart.update();
             } else {
                 if (existingOnCanvas) existingOnCanvas.destroy();
@@ -455,26 +601,273 @@ function updateYearLevelChart(year, semester, college) {
                         plugins: {
                             title: { display: true, text: newTitle },
                             legend: { display: true, position: 'bottom' },
+                            tooltip: { callbacks: tooltipCallbacks },
+                            // Prints the % right on each segment so a
+                            // dean can read the breakdown at a glance,
+                            // without needing to hover every bar. Hidden
+                            // on slivers under 6% so tiny slices don't
+                            // get an overlapping/illegible label.
+                            datalabels: {
+                                display: (context) => {
+                                    const v = context.dataset.data[context.dataIndex];
+                                    return v !== null && v !== undefined && v >= 6;
+                                },
+                                color: (context) => context.dataset._labelTextColor || '#ffffff',
+                                font: { weight: 'bold', size: 11 },
+                                formatter: (value) => `${Math.round(value)}%`,
+                            },
+                        },
+                    },
+                });
+                yearLevelChart._isPrediction = false;
+            }
+        })
+        .catch(err => console.error("Year Level Distribution fetch failed:", err));
+}
+
+
+// ---- INC / IRREGULAR(behavioral) / DROP RATE BY YEAR LEVEL (Grouped Bar) ----
+// Companion to updateYearLevelChart() above — same shared function used
+// by both maindash.js and deandash.js, same college-or-course scope
+// passthrough. Grouped (not stacked) bar since these three rates are
+// independent metrics, not parts of one whole.
+// Cache of the last args this chart was drawn with, so the metric
+// selector buttons (INC / Irregular / Drop) can re-fetch with a new
+// metric without every caller in maindash.js/deandash.js/mode-toggle.js
+// needing to track and pass the currently-selected metric themselves.
+let _lastIncIrregArgs = { year: null, semester: 'all', college: 'all', isPrediction: false, metric: 'inc' };
+
+// Each metric button carries its own border/text color inline (set in the
+// HTML), so "active" just means: filled with that color, white text;
+// "inactive" means: white fill, colored border/text. Kept as a plain JS
+// helper (rather than a CSS class) since each button's color differs.
+function _paintIncIrregMetricButtons(activeMetric) {
+    document.querySelectorAll('.inc-irreg-metric-btn').forEach(btn => {
+        const isActive = btn.dataset.metric === activeMetric;
+        const color = btn.dataset.color || '#4e73df';
+        btn.classList.toggle('active', isActive);
+        btn.style.background = isActive ? color : '#fff';
+        btn.style.color = isActive ? '#fff' : color;
+    });
+}
+
+function setIncIrregMetric(metric) {
+    _lastIncIrregArgs.metric = metric;
+    updateYearLevelIncIrregChart(
+        _lastIncIrregArgs.year,
+        _lastIncIrregArgs.semester,
+        _lastIncIrregArgs.college,
+        _lastIncIrregArgs.isPrediction,
+        metric
+    );
+    _paintIncIrregMetricButtons(metric);
+}
+
+function updateYearLevelIncIrregChart(year, semester, college, isPrediction = false, metric = 'inc') {
+    const canvas = document.getElementById('yearLevelIncIrregChart');
+    if (!canvas) return;
+
+    _lastIncIrregArgs = { year, semester, college, isPrediction, metric };
+
+    const safeCollege = encodeURIComponent(college || 'all');
+    const safeSemester = encodeURIComponent(semester || 'all');
+
+    const rebuildIfModeChanged = () => {
+        const existingOnCanvas = Chart.getChart(canvas);
+        if (existingOnCanvas && (!yearLevelIncIrregChart || yearLevelIncIrregChart._isPrediction !== isPrediction)) {
+            existingOnCanvas.destroy();
+            yearLevelIncIrregChart = null;
+        }
+    };
+
+    if (isPrediction) {
+        fetch(`/api/get_year_level_inc_irreg_forecast?college=${safeCollege}&metric=${encodeURIComponent(metric)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    console.error("Year Level INC/Irregular Forecast Error:", data.error);
+                    return;
+                }
+                rebuildIfModeChanged();
+
+                const labels = data.labels || [];
+                const historyCount = data.history_count != null ? data.history_count : labels.length;
+                const datasets = (data.datasets || []).map(ds => {
+                    const color = getGroupColor(ds.label);
+                    return {
+                        label: ds.label,
+                        data: ds.data,
+                        borderColor: color,
+                        backgroundColor: hexToRgba(color, 0.08),
+                        fill: false,
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: (ctx) => ctx.dataIndex >= historyCount ? 2 : 3,
+                        pointBackgroundColor: color,
+                        segment: {
+                            borderDash: (ctx) => (ctx.p0DataIndex >= historyCount - 1) ? [5, 4] : undefined,
+                        },
+                    };
+                });
+
+                const collText = (college === 'all' || !college) ? 'Main Campus' : college;
+                const metricLabel = data.metric || 'INC Rate';
+                const newTitle = `Predicted ${metricLabel} by Year Level (${collText})`;
+                const ctx = canvas.getContext('2d');
+
+                yearLevelIncIrregChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: labels, datasets: datasets },
+                    options: {
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        scales: {
+                            y: { min: 0, max: 100, title: { display: true, text: 'Rate (%)' } },
+                            x: { title: { display: true, text: 'Academic Year' } },
+                        },
+                        plugins: {
+                            title: { display: true, text: newTitle },
+                            legend: { display: true, position: 'bottom' },
                             tooltip: {
                                 callbacks: {
-                                    afterTitle: (items) => {
-                                        const idx = items[0].dataIndex;
-                                        const total = totals[idx];
-                                        return total ? `${total.toLocaleString()} students` : '';
-                                    },
                                     label: (ctx) => {
-                                        const count = ctx.dataset.counts ? ctx.dataset.counts[ctx.dataIndex] : null;
-                                        const countText = count !== null ? ` (${count.toLocaleString()} students)` : '';
-                                        return ` ${ctx.dataset.label}: ${ctx.raw}%${countText}`;
+                                        if (ctx.parsed.y === null) return undefined;
+                                        const mode = ctx.dataIndex >= historyCount ? 'Forecast' : 'Recent Data';
+                                        return ` ${ctx.dataset.label} (${mode}): ${ctx.parsed.y}%`;
                                     },
                                 },
                             },
                         },
                     },
                 });
+                yearLevelIncIrregChart._isPrediction = true;
+                // Table Mode (table-view.js) reads this to cut off the
+                // dashed forecast tail and only ever show the "Recent
+                // Data" rows/columns, never the predicted ones.
+                yearLevelIncIrregChart._historyCount = historyCount;
+            })
+            .catch(err => console.error("Year Level INC/Irregular Forecast fetch failed:", err));
+        return;
+    }
+
+    const safeMetric = encodeURIComponent(metric || 'inc');
+    fetch(`/api/get_year_level_inc_irreg?year=${year}&semester=${safeSemester}&college=${safeCollege}&metric=${safeMetric}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                console.error("Year Level INC/Irregular Error:", data.error);
+                return;
+            }
+
+            const labels = data.labels || [];
+            const totals = data.totals || [];
+            // 'metric'  -> one course selected, nothing left to segment by,
+            //              so this falls back to all 3 metrics side by side.
+            // 'college' -> Main dashboard: each bar IS a college, for
+            //              whichever single metric is currently selected.
+            // 'course'  -> Dean dashboard: each bar IS a course.
+            const breakdown = data.breakdown || 'metric';
+
+            // Fixed metric->color mapping (not per-year-level) since
+            // these are three independent rate series, not a palette
+            // keyed by category like PERF_BAND_COLORS.
+            const METRIC_COLORS = {
+                "INC Rate": '#f6c23e',                        // amber
+                "Irregular Rate (behavioral)": '#6f42c1',     // purple
+                "Drop Rate": RISK_COLOR,                       // red — matches Failing/dropout elsewhere
+            };
+
+            const datasets = (data.datasets || []).map(ds => ({
+                label: ds.label,
+                data: ds.data,
+                counts: ds.counts,
+                totalsPerSeg: ds.totals,
+                backgroundColor: hexToRgba(
+                    breakdown === 'metric' ? (METRIC_COLORS[ds.label] || '#4e73df') : getGroupColor(ds.label),
+                    0.85
+                ),
+                borderColor: '#ffffff',
+                borderWidth: 1,
+            }));
+
+            const collText = (college === 'all' || !college) ? 'Main Campus' : college;
+            const semText = semester === 'all' ? 'Overall' : semester;
+            const metricLabel = data.metricLabel || 'INC / Irregular / Drop Rate';
+            const segmentText = breakdown === 'college' ? 'by College' : breakdown === 'course' ? 'by Course' : '';
+            const newTitle = breakdown === 'metric'
+                ? `INC / Irregular / Drop Rate by Year Level: ${year} (${semText} - ${collText})`
+                : `${metricLabel} by Year Level ${segmentText}: ${year} (${semText} - ${collText})`;
+
+            // Toggle the metric-selector buttons: only meaningful once a
+            // breakdown is active (college/course) — with a single course
+            // selected all 3 metrics show at once, so there's nothing to
+            // "select" yet.
+            document.querySelectorAll('.inc-irreg-metric-selector').forEach(el => {
+                el.style.display = breakdown === 'metric' ? 'none' : '';
+            });
+            _paintIncIrregMetricButtons(metric);
+
+            const tooltipCallbacks = {
+                afterTitle: (items) => {
+                    const idx = items[0].dataIndex;
+                    if (breakdown === 'metric') {
+                        const total = totals[idx];
+                        return total ? `${total.toLocaleString()} students` : '';
+                    }
+                    return '';
+                },
+                label: (ctx) => {
+                    const count = ctx.dataset.counts ? ctx.dataset.counts[ctx.dataIndex] : null;
+                    if (breakdown === 'metric') {
+                        const countText = count !== null ? ` (${count.toLocaleString()} students)` : '';
+                        return ` ${ctx.dataset.label}: ${ctx.raw}%${countText}`;
+                    }
+                    const segTotal = ctx.dataset.totalsPerSeg ? ctx.dataset.totalsPerSeg[ctx.dataIndex] : null;
+                    const countText = count !== null && segTotal !== null
+                        ? ` (${count.toLocaleString()} of ${segTotal.toLocaleString()} students)`
+                        : '';
+                    return ` ${ctx.dataset.label}: ${ctx.raw}%${countText}`;
+                },
+            };
+
+            rebuildIfModeChanged();
+            const ctx = canvas.getContext('2d');
+            const existingOnCanvas = Chart.getChart(canvas);
+
+            if (yearLevelIncIrregChart && yearLevelIncIrregChart.canvas === canvas && existingOnCanvas === yearLevelIncIrregChart) {
+                yearLevelIncIrregChart.data.labels = labels;
+                yearLevelIncIrregChart.data.datasets = datasets;
+                if (yearLevelIncIrregChart.options.plugins.title) {
+                    yearLevelIncIrregChart.options.plugins.title.text = newTitle;
+                }
+                yearLevelIncIrregChart.options.plugins.tooltip.callbacks = tooltipCallbacks;
+                yearLevelIncIrregChart.update();
+            } else {
+                if (existingOnCanvas) existingOnCanvas.destroy();
+                yearLevelIncIrregChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: labels, datasets: datasets },
+                    options: {
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        scales: {
+                            x: { title: { display: true, text: 'Year Level' } },
+                            y: {
+                                min: 0,
+                                title: { display: true, text: 'Rate (%)' },
+                            },
+                        },
+                        plugins: {
+                            title: { display: true, text: newTitle },
+                            legend: { display: true, position: 'bottom' },
+                            tooltip: { callbacks: tooltipCallbacks },
+                        },
+                    },
+                });
+                yearLevelIncIrregChart._isPrediction = false;
             }
         })
-        .catch(err => console.error("Year Level Distribution fetch failed:", err));
+        .catch(err => console.error("Year Level INC/Irregular fetch failed:", err));
 }
 
 

@@ -1,19 +1,22 @@
 /* =====================================================================
    MODE-TOGGLE.JS
-   A single pill-style toggle switch — "Recent" / "Prediction" — no year
-   filter/dropdown/hidden-input involved anywhere. The year itself is
-   figured out automatically and kept entirely inside this file:
-     - Recent mode:     always uses the latest REAL year in your data
-     - Prediction mode: always starts at (latest real year + 1)
+   A pill-style toggle switch — "Recent" / "Prediction" — PLUS the
+   #globalYearFilter dropdown (real/actual years only, no forecast
+   entries — see chart-helpers.js):
+     - Recent mode:     uses whichever real year is picked in
+                         #globalYearFilter, defaulting to the latest
+                         real year if nothing's picked yet
+     - Prediction mode: always starts at (latest real year + 1) and
+                         completely ignores the Year dropdown — the
+                         dropdown is disabled while Prediction is active
+                         (see _syncToggleUI) since it has nothing
+                         forecast-related to offer
 
-   Any OTHER chart on the dashboard that still reads a year from
-   #globalYearFilter via triggerUpdate() in maindash.js/deandash.js will
-   fall back to whatever hardcoded default is already built into that
-   function, since that element no longer exists on the page. This file
-   manages the GWA ranking, Status, Dropout ranking, GWA scatter, and
-   Male/Female Retention canvases, plus the KPI tiles (Total Enrollment /
-   Average GWA) — and fetches its own year independently via
-   /api/get_year_semester_options.
+   This file manages the GWA ranking, Status, Dropout ranking, GWA
+   scatter, and Male/Female Retention canvases, plus the KPI tiles
+   (Total Enrollment / Average GWA) — and fetches the latest real year
+   independently via /api/get_year_semester_options for its own
+   Prediction-mode math.
 
    Every other canvas on the dashboards (INC Forecast, Dropout Spike,
    Hardest Subjects) already renders its full real+forecast horizon in
@@ -86,6 +89,17 @@ const ModeAwareCharts = {
 
         const wrap = document.getElementById('modeSwitchWrap');
         if (wrap) wrap.classList.toggle('is-prediction', mode === 'prediction');
+
+        // The Year dropdown only ever lists real/actual years (see
+        // chart-helpers.js) — it has nothing meaningful to select while
+        // Prediction mode is showing forecast years, so grey it out
+        // rather than let it silently do nothing.
+        const yearSelect = document.getElementById('globalYearFilter');
+        if (yearSelect) yearSelect.disabled = (mode === 'prediction');
+
+        // Let table-view.js (or anything else) react to mode changes
+        // without this file needing to know it exists.
+        document.dispatchEvent(new CustomEvent('dashboardModeChanged', { detail: { mode } }));
     },
 
     /** Called by the pill switch's onclick — flips mode and re-renders. */
@@ -123,9 +137,19 @@ const ModeAwareCharts = {
         const safeCollege = (college === 'Main Campus' || !college) ? 'all' : college;
 
         const fallbackYear = new Date().getFullYear();
-        const year = mode === 'prediction'
-            ? (this.latestRealYear || fallbackYear) + 1
-            : (this.latestRealYear || fallbackYear);
+        let year;
+        if (mode === 'prediction') {
+            // Prediction always auto-computes its own forecast year —
+            // the Year dropdown (real years only) never applies here.
+            year = (this.latestRealYear || fallbackYear) + 1;
+        } else {
+            // Recent mode: honor the Year dropdown if the user picked a
+            // specific real year; fall back to the latest real year if
+            // the dropdown isn't there or hasn't loaded yet.
+            const yearSelect = document.getElementById('globalYearFilter');
+            const picked = (yearSelect && yearSelect.value) ? parseInt(yearSelect.value, 10) : null;
+            year = picked || this.latestRealYear || fallbackYear;
+        }
 
         this._renderGwaRanking(safeCollege, semester, year);
         this._renderStatusCharts(safeCollege, semester, year);
@@ -133,6 +157,7 @@ const ModeAwareCharts = {
         this._renderGwaScatter(safeCollege, semester, year);
         this._renderRetentionCharts(safeCollege, semester, year);
         this._renderKpiMetrics(safeCollege, semester, year);
+        this._renderYearLevelCharts(safeCollege, semester, year);
     },
 
     /* ── GWA RANKING CARD ────────────────────────────────────────────
@@ -390,6 +415,28 @@ const ModeAwareCharts = {
         }
     },
 
+    /* ── YEAR-LEVEL CHARTS (Risk Grid + INC/Irregular/Drop) ───────────
+       Recent mode:     Risk Grid = stacked bar of perf bands;
+                         INC chart = grouped bar (INC/Irregular/Drop).
+       Prediction mode: Risk Grid -> multi-line GWA-by-year-level forecast
+                         (a stacked-band forecast would be unreadable, so
+                         GWA trend is the prediction-mode analog instead);
+                         INC chart -> multi-line INC-rate-by-year-level
+                         forecast (one metric at a time; INC by default). */
+    _renderYearLevelCharts(college, semester, year) {
+        const isPred = this.currentMode === 'prediction';
+        if (typeof updateYearLevelChart === 'function') {
+            updateYearLevelChart(year, semester, college, isPred);
+        }
+        if (typeof updateYearLevelIncIrregChart === 'function') {
+            // Keep whatever metric the user had selected via the
+            // INC/Irregular/Drop buttons (defaults to 'inc' the first
+            // time, before any button has been clicked).
+            const activeMetric = (typeof _lastIncIrregArgs !== 'undefined' && _lastIncIrregArgs.metric) || 'inc';
+            updateYearLevelIncIrregChart(year, semester, college, isPred, activeMetric);
+        }
+    },
+
     /* ── GWA DISTRIBUTION (SCATTER) CARD ─────────────────────────────
        No longer mode-dependent at all: /api/get_gwa_scatter always
        returns EVERY real year (with real dots) PLUS the forecast
@@ -550,12 +597,13 @@ const ModeAwareCharts = {
    (See the CSS block shipped alongside this file / inlined in the HTML
    for the .mode-switch styling.)
 
-   2. On page load — no year filter involved anymore. triggerUpdate()
-      (your page's own function) renders every chart once using
-      whatever year maindash.js/deandash.js falls back to on its own.
-      ModeAwareCharts.init() separately fetches the latest real year for
-      ITS OWN internal use (forecast start year), entirely independent
-      of any DOM element:
+   2. On page load — triggerUpdate() (your page's own function) renders
+      every chart once using whatever year is selected in
+      #globalYearFilter (defaulting to the latest real year, populated
+      by chart-helpers.js's initYearSemesterFilters). ModeAwareCharts.init()
+      separately fetches the latest real year for ITS OWN internal use
+      (Prediction mode's forecast start year), entirely independent of
+      the dropdown:
 
    document.addEventListener('DOMContentLoaded', () => {
        if (typeof triggerUpdate === 'function') triggerUpdate();

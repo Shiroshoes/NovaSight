@@ -1,0 +1,215 @@
+/* ==========================================================================
+   Shared "Print Dashboard" styles for NovaSight academic-affair dashboards.
+   Used by every college dashboard (Main, CAHS, CBA, CCST, CEA, COAS, CTEC)
+   so this only needs to be edited in ONE place.
+
+   Depends on markup each dashboard page provides itself:
+     - a .print-header block (logo + title, hidden on screen, shown on print)
+     - a .print-btn-wrap > .print-dashboard-btn ("Print Dashboard" button)
+     - .no-print on anything that should never appear in the printout
+   ========================================================================== */
+
+.print-header { display: none; }
+
+    .print-btn-wrap {
+      text-align: center;
+    }
+
+    .print-dashboard-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.5rem;
+      background-color: #800000;
+      color: #fff;
+      border: none;
+      border-radius: 0.35rem;
+      font-weight: 700;
+      font-size: 0.9rem;
+      font-family: 'Nunito', sans-serif;
+      cursor: pointer;
+      box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    }
+
+    .print-dashboard-btn:hover {
+      background-color: #c72828;
+    }
+
+    @media print {
+      @page {
+        size: landscape;
+        margin: 18px 10mm 26px 10mm;
+
+        @bottom-center {
+          content: "Page " counter(page) " of " counter(pages);
+          font-size: 9pt;
+          color: #555555;
+        }
+      }
+
+      .sidebar,
+      .topmenu,
+      .print-btn-wrap,
+      .no-print,
+      #logoutModal,
+      #modeSwitchWrap,
+      select.form-select,
+      .footer-brand,
+      footer.footer { display: none !important; }
+
+      /* Fixed-sidebar layouts usually make html/body/main scrollable
+         containers with a set height — that clips print output to only
+         whatever is currently scrolled into view. Force them to expand
+         to their full content height so the ENTIRE dashboard prints,
+         not just the visible viewport. */
+      html, body {
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      main {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        margin-left: 0 !important;
+        width: 100% !important;
+      }
+
+      /* Repeats on every printed page — position:fixed elements are
+         re-drawn on each page. The @page top margin above reserves
+         blank space for it, but that margin alone doesn't stop the
+         page CONTENT from also starting at the same top position —
+         so we additionally push the grid itself down by the header's
+         own height below, which is what actually prevents overlap. */
+      .print-header {
+        display: flex;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-bottom: 8px;
+        border-bottom: 3px solid #800000;
+        background: #fff;
+        height: 60px;
+        overflow: hidden;
+      }
+
+      .print-header-logo {
+        height: 40px;
+        width: auto;
+        flex-shrink: 0;
+      }
+
+      .print-header-text {
+        flex: 1;
+        text-align: center;
+        overflow: hidden;
+      }
+
+      .print-header-text h2 {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #000;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .print-header-text h3 {
+        margin: 2px 0 0 0;
+        font-size: 0.78rem;
+        color: #800000;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* The on-screen dashboard is already a 10-column CSS grid where
+         every card class (card-mini, card-wide, card-wide1, card-full-width,
+         third-square, card-bottom-large, etc.) sets its OWN grid-column
+         span and height in the page's main stylesheet. Print keeps that
+         same grid and those same heights — a "wide" chart still takes
+         more of the row than a "mini" card, at the height its own class
+         already defines — and just zooms the whole thing down to fit a
+         landscape page, instead of forcing every card into an identical
+         box regardless of what it actually contains.
+
+         padding-top: the fixed .print-header below is 60px tall with a
+         3px border, so 63px is the minimum before content would touch
+         it. The extra ~24px on top of that (matching the grid's own
+         20px card gap) is the actual breathing room below the header. */
+      section.dashboard-grid,
+      main > section {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        grid-auto-rows: auto !important;
+        row-gap: 16px !important;
+        column-gap: 16px !important;
+        padding-top: 87px !important;
+      }
+
+      .card {
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      /* Shrink each tile uniformly — chart, title, padding, text — like a
+         zoomed-out thumbnail, rather than manually resizing individual
+         pieces. Because the grid-column span and height above are
+         untouched, a wide card still ends up visually wider (and a tall
+         card taller) than a mini card, just all at 60% scale. */
+      .card {
+        zoom: 0.6;
+      }
+
+      /* The 2 KPI cards (Total Enrollment, Average GWA) are explicitly
+         pinned to row 1, split across the two halves of the 10-column
+         grid (columns 1–5 and 6–10). Because that fills the entire row,
+         every other card is automatically pushed to row 2 onward — no
+         matter where it falls in the HTML. They keep their own natural
+         (unzoomed) scale, but their HEIGHT still comes from .card-mini
+         in the page's own stylesheet (65px), same as every other card —
+         nothing here overrides it. */
+      .card:has(#kpi-card-students),
+      .card:has(#kpi-card-gwa) {
+        grid-row: 1 !important;
+        zoom: 1 !important;
+      }
+
+      .card:has(#kpi-card-students) {
+        grid-column: 1 / 6 !important;
+      }
+
+      .card:has(#kpi-card-gwa) {
+        grid-column: 6 / 11 !important;
+      }
+
+      /* Chart.js draws each <canvas> at its ON-SCREEN pixel size and
+         doesn't redraw for print. Since the chart's container div keeps
+         its own original inline height/width here (nothing overrides
+         them anymore) and the whole card is zoomed down as one unit,
+         the canvas shrinks in proportion instead of being stretched
+         into a differently-shaped box. object-fit/overflow stay on as
+         a safety net only, in case any single chart's markup doesn't
+         follow the usual pattern. */
+      div[style*="position: relative"][style*="width: 100%"] {
+        overflow: hidden !important;
+      }
+
+      canvas {
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain !important;
+        display: block !important;
+      }
+
+      body { background: #fff !important; }
+    }

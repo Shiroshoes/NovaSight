@@ -1,6 +1,6 @@
 {
-  "trained_at": "2026-07-20T10:53:25.985638Z",
-  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1784544805_2024-2_Student-Performance_Dataset.xlsx",
+  "trained_at": "2026-07-21T11:51:02.017255Z",
+  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1784634661_2024-2_Student-Performance_Dataset.xlsx",
   "models": {
     "dropout_risk": {
       "status": "ok",
@@ -112,5 +112,5 @@
   },
   "errors": [],
   "rows_in_master": 57745,
-  "elapsed_seconds": 29.3
+  "elapsed_seconds": 26.9
 }

@@ -642,6 +642,34 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     )
     save(year_level, "13_year_level_performance.csv")
 
+    # 14 – INC / Irregular(behavioral) / Drop rate by year level
+    # Same metrics + idiom as dataset 07 (Irreg/Reg cohort), just sliced
+    # by Year_Level (College x Course x Year_Level grain, like 13) instead
+    # of College alone. NOTE: "Irregular_Rate" here is the EXISTING
+    # behavioral flag (is_irregular = had an INC or dropped a subject
+    # this semester) — a different thing from the Year_Level=="Irregular"
+    # category itself (the registrar's own course-load classification).
+    # Cross-tabulating them is intentional: it shows what fraction of
+    # students *labeled* Irregular by the registrar also show up as
+    # behaviorally irregular this term, alongside the same question for
+    # 1st/2nd/3rd/4th Year students.
+    yl_inc = (
+        student_df.groupby(["Year_Numeric", "Sem_Numeric", "College", "Course",
+                             "Year_Level", "Year_Level_Num"])
+        .agg(
+            Total_Students  = ("Student_ID", "nunique"),
+            Irregular_Count = ("is_irregular", "sum"),
+            Drop_Count      = ("is_drop", "sum"),
+            INC_Count       = ("is_inc", "sum"),
+        )
+        .reset_index()
+    )
+    yl_inc["Irregular_Rate"] = (yl_inc["Irregular_Count"] / yl_inc["Total_Students"] * 100).round(2)
+    yl_inc["Drop_Rate"]      = (yl_inc["Drop_Count"]      / yl_inc["Total_Students"] * 100).round(2)
+    yl_inc["INC_Rate"]       = (yl_inc["INC_Count"]       / yl_inc["Total_Students"] * 100).round(2)
+    yl_inc = yl_inc.sort_values(["College", "Course", "Year_Level_Num"])
+    save(yl_inc, "14_year_level_inc_irreg.csv")
+
     # 12 – Gender performance
     gender = (
         student_df.groupby(["Year_Numeric", "College", "Gender"])

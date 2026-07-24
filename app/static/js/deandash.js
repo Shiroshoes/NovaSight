@@ -62,7 +62,11 @@ document.addEventListener("DOMContentLoaded", function() {
         if (typeof updateHardestSubjectsByCourse === 'function') updateHardestSubjectsByCourse(college);
         if (typeof updateStatusByCourse === 'function') updateStatusByCourse(year, semester, college);
         if (typeof updateYearLevelChart === 'function') updateYearLevelChart(year, semester, college);
+        if (typeof updateYearLevelIncIrregChart === 'function') updateYearLevelIncIrregChart(year, semester, college);
 
+        // Keep Table Mode (table-view.js) in sync too — no-op if Chart
+        // Mode is currently active or the module isn't loaded.
+        if (typeof DisplayFormat !== 'undefined') DisplayFormat.refresh(year, semester, college);
     }
 
     // INITIAL LOAD
@@ -91,6 +95,14 @@ document.addEventListener("DOMContentLoaded", function() {
     // 4. LISTENERS
     if (yearSelector) yearSelector.addEventListener('change', function() {
         _initFired = true;        // cancel the timeout fallback
+        // The Year dropdown only ever offers real/actual years — picking
+        // one always means "show me Recent data for this year", so flip
+        // the pill back to Recent first if Prediction was active.
+        if (typeof ModeAwareCharts !== 'undefined' && ModeAwareCharts.currentMode === 'prediction') {
+            const courseVal = courseSelector ? courseSelector.value : (typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : 'all');
+            const semVal = semSelector ? semSelector.value : 'all';
+            ModeAwareCharts.setMode('recent', courseVal, semVal);
+        }
         triggerUpdate();
     });
     if (semSelector) semSelector.addEventListener('change', triggerUpdate);
@@ -827,7 +839,12 @@ function updateIncForecast(college) {
                     pointBorderColor: color,
                     spanGaps: false,
                     fill: false,
-                    tension: 0.3
+                    tension: 0.3,
+                    // Table Mode (table-view.js) drops any dataset
+                    // flagged this way, so its generated table only
+                    // ever shows the Recent/Actual line, never the
+                    // predicted one.
+                    isForecast: true,
                 });
             });
 
@@ -961,6 +978,8 @@ function drawHardestSubjectChart(course, canvas, legendEl) {
         return {
             label: s.subject,
             data: s.data,
+            failCount: s.failCount || 0,
+            failRate: s.failRate || 0,
             borderColor: color,
             backgroundColor: hexToRgba(color, 0.08),
             fill: false,
@@ -998,6 +1017,12 @@ function drawHardestSubjectChart(course, canvas, legendEl) {
                             if (context.parsed.y === null) return undefined;
                             const mode = context.dataIndex >= historyCount ? 'Forecast' : 'Recent Data';
                             return ` ${context.dataset.label}: ${context.parsed.y.toFixed(2)} (${mode})`;
+                        },
+                        afterLabel: function(context) {
+                            const fc = context.dataset.failCount;
+                            const fr = context.dataset.failRate;
+                            if (!fc) return undefined;
+                            return `   ${fc.toLocaleString()} students failed (${fr}%)`;
                         }
                     }
                 }
@@ -1005,9 +1030,20 @@ function drawHardestSubjectChart(course, canvas, legendEl) {
         }
     });
 
+    // Table Mode (table-view.js) reads this to cut off the dashed
+    // forecast tail and only ever show the "Recent Data" years/
+    // columns, never the predicted ones — even though this chart
+    // always draws its own trailing forecast point regardless of the
+    // dashboard-wide Recent/Prediction toggle.
+    hardestSubjectCharts[course.course]._historyCount = historyCount;
+
     if (legendEl && typeof renderColorLegend === 'function') {
         renderColorLegend(legendEl.id, subjects.map(s => ({
-            label: s.subject, color: getGroupColor(s.subject)
+            label: s.subject,
+            color: getGroupColor(s.subject),
+            // Fail count front-and-center in the legend, not just on
+            // hover — the easiest place to spot it at a glance.
+            subtitle: s.failCount ? `${s.failCount.toLocaleString()} failed` : null
         })));
     }
 }
@@ -1407,14 +1443,15 @@ function dropoutSpikeBaseOptions(labels, allSpikesPerDataset) {
 
 
 
-
-
 // --- eval
       (function () {
+        // Colors for each status now live in modelEval.css (.status-ok /
+        // .status-skipped / .status-error) — this just keeps the label text
+        // and which status key to fall back to for an unknown status.
         const STATUS_COLORS = {
-          ok:      { bg: '#eaf7ef', border: '#1cc88a', text: '#1cc88a', label: 'Trained' },
-          skipped: { bg: '#fff8e6', border: '#f6c23e', text: '#b88a00', label: 'Skipped' },
-          error:   { bg: '#fdeeee', border: '#e74a3b', text: '#e74a3b', label: 'Error' },
+          ok:      { label: 'Trained' },
+          skipped: { label: 'Skipped' },
+          error:   { label: 'Error' },
         };
 
         function fmtPct(v) {
@@ -1432,7 +1469,8 @@ function dropoutSpikeBaseOptions(labels, allSpikesPerDataset) {
         }
 
         function renderModelCard(model) {
-          const palette = STATUS_COLORS[model.status] || STATUS_COLORS.skipped;
+          const statusKey = STATUS_COLORS[model.status] ? model.status : 'skipped';
+          const palette = STATUS_COLORS[statusKey];
           const headline = (model.headline_value !== null && model.headline_value !== undefined)
             ? fmtMetricValue(model.headline_label || '', model.headline_value)
             : '—';
@@ -1440,29 +1478,25 @@ function dropoutSpikeBaseOptions(labels, allSpikesPerDataset) {
           const metricRows = Object.entries(model.metrics || {})
             .filter(([k]) => k !== (model.headline_label || '').toLowerCase())
             .map(([k, v]) => `
-              <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#5a5c69; padding:2px 0; gap: 0.5rem;">
-                <span style="text-transform:uppercase; letter-spacing:0.02em; white-space:nowrap;">${k.replace(/_/g, ' ')}</span>
-                <span style="font-weight:700; white-space:nowrap;">${fmtMetricValue(k, v)}</span>
+              <div class="mec-metric-row">
+                <span class="mec-metric-key">${k.replace(/_/g, ' ')}</span>
+                <span class="mec-metric-val">${fmtMetricValue(k, v)}</span>
               </div>
             `).join('');
 
           const reasonRow = model.reason
-            ? `<div style="font-size:0.68rem; color:#858796; margin-top:0.35rem;">${model.reason}</div>`
+            ? `<div class="mec-reason">${model.reason}</div>`
             : '';
 
           return `
-            <div style="border:1px solid ${palette.border}33; background:${palette.bg}; border-radius:0.5rem; padding:0.75rem 0.6rem; min-width: 150px;">
-              <div style="display:flex; flex-direction: column; gap: 0.35rem;">
-                <span style="font-weight:700; font-size:0.75rem; color:#3a3b45; line-height:1.2;">${model.label}</span>
-                <span style="font-size:0.62rem; font-weight:700; color:${palette.text}; background:#fff; border:1px solid ${palette.border}55; border-radius:1rem; padding:0.1rem 0.5rem; align-self:flex-start;">
-                  ${palette.label}
-                </span>
+            <div class="model-eval-card status-${statusKey}">
+              <div class="mec-header">
+                <span class="mec-label">${model.label}</span>
+                <span class="mec-badge">${palette.label}</span>
               </div>
-              <div style="margin-top:0.5rem; font-size:1.3rem; font-weight:800; color:${palette.text}; line-height:1.1;">
-                ${headline}
-              </div>
-              ${model.headline_label ? `<div style="font-size:0.62rem; font-weight:600; color:#858796;">${model.headline_label}</div>` : ''}
-              <div style="margin-top:0.5rem;">${metricRows}</div>
+              <div class="mec-headline">${headline}</div>
+              ${model.headline_label ? `<div class="mec-headline-label">${model.headline_label}</div>` : ''}
+              <div class="mec-metrics">${metricRows}</div>
               ${reasonRow}
             </div>
           `;

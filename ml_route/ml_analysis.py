@@ -1408,6 +1408,19 @@ def get_subject_forecast():
         )
         top_subjects = difficulty.head(5).index.tolist()
 
+        # Fail headcount per subject (all years pooled, in this scope) —
+        # dataset 10 already carries pre-aggregated Fail_Count/Student_Cnt
+        # per year x college x subject, so this is a straight sum, not a
+        # re-derivation from raw grades.
+        has_fail_cols = {'Fail_Count', 'Student_Cnt'}.issubset(df_scope.columns)
+        if has_fail_cols:
+            fail_totals = df_scope.groupby('Subject').agg(
+                Fail_Count=('Fail_Count', 'sum'),
+                Student_Cnt=('Student_Cnt', 'sum'),
+            )
+        else:
+            fail_totals = None
+
         # 3. BUILD TIMELINE — driven by training_state.json horizon
         try:
             from training.auto_train import load_state as _load_state2
@@ -1457,9 +1470,18 @@ def get_subject_forecast():
                 forecast_vals = forecast_series(data_points, len(years_pred), y_min=1.0, y_max=5.0)
                 data_points.extend(forecast_vals)
 
+            fail_count, fail_rate = 0, 0.0
+            if fail_totals is not None and subj in fail_totals.index:
+                fc = int(fail_totals.loc[subj, 'Fail_Count'])
+                sc = int(fail_totals.loc[subj, 'Student_Cnt'])
+                fail_count = fc
+                fail_rate = round(fc / sc * 100, 1) if sc > 0 else 0.0
+
             datasets.append({
                 "label": subj,
-                "data": data_points
+                "data": data_points,
+                "failCount": fail_count,
+                "failRate": fail_rate
             })
 
         return jsonify({
@@ -1583,6 +1605,8 @@ def get_hardest_subjects_by_course():
                 course_college = str(g_df['College'].dropna().astype(str).str.strip().iloc[0]) if 'College' in g_df.columns and not g_df['College'].dropna().empty else college
                 groups.append((course, g_df, course_college))
 
+        has_fail_cols = {'Fail_Count', 'Student_Cnt'}.issubset(df_scope.columns)
+
         for group_label, g_df, feature_college in groups:
             # Overall (all-years) difficulty ranking, same weighting logic
             # as before, just used to pick WHICH 5 subjects, not the values.
@@ -1593,6 +1617,17 @@ def get_hardest_subjects_by_course():
                 .sort_values(ascending=False)
             )
             top5_subjects = difficulty.head(5).index.tolist()
+
+            # Fail headcount per subject, pooled across all years in this
+            # group (college or course) — same pre-aggregated Fail_Count
+            # column dataset 10 carries, summed rather than re-derived.
+            if has_fail_cols:
+                fail_totals = g_df.groupby('Subject').agg(
+                    Fail_Count=('Fail_Count', 'sum'),
+                    Student_Cnt=('Student_Cnt', 'sum'),
+                )
+            else:
+                fail_totals = None
 
             years_hist = sorted(
                 int(y) for y in g_df['Year_Numeric'].dropna().unique()
@@ -1638,10 +1673,19 @@ def get_hardest_subjects_by_course():
                         forecast_series(data_points, len(years_pred), y_min=1.0, y_max=5.0)
                     )
 
+                fail_count, fail_rate = 0, 0.0
+                if fail_totals is not None and subj in fail_totals.index:
+                    fc = int(fail_totals.loc[subj, 'Fail_Count'])
+                    sc = int(fail_totals.loc[subj, 'Student_Cnt'])
+                    fail_count = fc
+                    fail_rate = round(fc / sc * 100, 1) if sc > 0 else 0.0
+
                 subject_series.append({
                     "subject": subj,
                     "avg_grade": round(overall_avg, 2),
-                    "data": data_points
+                    "data": data_points,
+                    "failCount": fail_count,
+                    "failRate": fail_rate
                 })
 
             result.append({
@@ -2242,67 +2286,147 @@ def get_year_level_distribution():
             return jsonify({"labels": [], "datasets": [], "college": college_arg,
                              "error": "No data for this selection"})
 
-        # Collapse Course back out — this endpoint always reports at the
-        # Year-Level grain, whether scope is 'all', one college, or one
-        # course (dataset 13 is stored at College x Course x Year_Level
-        # grain, so a college-wide or "all" request needs the courses
-        # summed back together first).
-        collapsed = (
-            df_scope.groupby(['Year_Level', 'Year_Level_Num', 'Perf_Band'])
-            .agg(Count=('Count', 'sum'))
-            .reset_index()
-        )
-        totals = (
-            collapsed.groupby(['Year_Level', 'Year_Level_Num'])['Count']
-            .sum()
-            .rename('Total')
-            .reset_index()
-        )
-        collapsed = collapsed.merge(totals, on=['Year_Level', 'Year_Level_Num'], how='left')
-        collapsed['Pct'] = (collapsed['Count'] / collapsed['Total'] * 100).round(2)
-
         # Display order: 1st, 2nd, 3rd, 4th Year ... ascending, then
         # Irregular (Year_Level_Num == -1), then Unknown (== 0) last.
         # A plain ascending sort on Year_Level_Num would put Irregular
         # BEFORE 1st Year since -1 < 1 — that's not how a dean reads a
         # cohort chart, so rank Irregular/Unknown explicitly instead.
-        def _level_sort_key(lv):
-            num = collapsed.loc[collapsed['Year_Level'] == lv, 'Year_Level_Num'].iloc[0]
+        def _level_sort_key(df, lv):
+            num = df.loc[df['Year_Level'] == lv, 'Year_Level_Num'].iloc[0]
             if num == 0:
                 return (2, 0)        # Unknown -> always last
             if num == -1:
                 return (1, 0)        # Irregular -> after all real year levels
             return (0, num)          # 1st..Nth Year -> ascending
 
-        level_order = sorted(collapsed['Year_Level'].unique(), key=_level_sort_key)
-
         # Display-only rename: internal grouping/lookup keys stay
-        # "Unknown" everywhere (level_order, band_rows, totals_by_level),
-        # only the label shown in the chart changes. "Unknown" reads like
-        # a system error to a dean looking at this chart; in reality it
-        # just means the registrar's STUDENT YEAR cell was blank for that
-        # student (verified: every Unknown row traces back to a literal
-        # blank cell in the source file, not a parsing failure) — "Not
-        # Recorded" says that honestly instead.
+        # "Unknown" everywhere, only the label shown in the chart changes.
+        # "Unknown" reads like a system error to a dean looking at this
+        # chart; in reality it just means the registrar's STUDENT YEAR
+        # cell was blank for that student (verified: every Unknown row
+        # traces back to a literal blank cell in the source file, not a
+        # parsing failure) — "Not Recorded" says that honestly instead.
         YEAR_LEVEL_DISPLAY_OVERRIDES = {"Unknown": "Not Recorded"}
+        band_order = ["Excellent", "Good", "Average", "Below Average", "Failing", "Unknown"]
+
+        # ---- Decide what each stacked segment represents ----
+        #   scope 'all'     -> segment by COLLEGE ("which college" on the
+        #                       Main dashboard)
+        #   scope 'college' -> segment by COURSE inside that college (a
+        #                       dean dashboard, e.g. CAHS, broken into its
+        #                       own courses)
+        #   scope 'course'  -> only one course is selected, so there's
+        #                       nothing left to break down BY — fall back
+        #                       to the original performance-band stacking,
+        #                       since that's the most useful detail left.
+        if yl_scope["type"] == "all":
+            breakdown, group_col = "college", "College"
+        elif yl_scope["type"] == "college":
+            breakdown, group_col = "course", "Course"
+        else:
+            breakdown, group_col = "band", "Perf_Band"
+
+        if breakdown == "band":
+            # ---- Original behavior: stacked by performance band ----
+            collapsed = (
+                df_scope.groupby(['Year_Level', 'Year_Level_Num', 'Perf_Band'])
+                .agg(Count=('Count', 'sum'))
+                .reset_index()
+            )
+            totals = (
+                collapsed.groupby(['Year_Level', 'Year_Level_Num'])['Count']
+                .sum().rename('Total').reset_index()
+            )
+            collapsed = collapsed.merge(totals, on=['Year_Level', 'Year_Level_Num'], how='left')
+            collapsed['Pct'] = (collapsed['Count'] / collapsed['Total'] * 100).round(2)
+
+            level_order = sorted(collapsed['Year_Level'].unique(), key=lambda lv: _level_sort_key(collapsed, lv))
+            display_labels = [YEAR_LEVEL_DISPLAY_OVERRIDES.get(lv, lv) for lv in level_order]
+            bands_present = [b for b in band_order if b in collapsed['Perf_Band'].unique()]
+
+            datasets = []
+            for band in bands_present:
+                band_rows = collapsed[collapsed['Perf_Band'] == band].set_index('Year_Level')
+                datasets.append({
+                    "label": band,
+                    "data": [round(float(band_rows['Pct'].get(lv, 0.0)), 2) for lv in level_order],
+                    "counts": [int(band_rows['Count'].get(lv, 0)) for lv in level_order],
+                })
+
+            totals_by_level = totals.set_index('Year_Level')['Total']
+
+            return jsonify({
+                "year": year,
+                "breakdown": "band",
+                "labels": display_labels,
+                "datasets": datasets,
+                "totals": [int(totals_by_level.get(lv, 0)) for lv in level_order],
+                "college": college_arg,
+            })
+
+        # ---- New behavior: stacked by College or Course ----
+        # Collapse Perf_Band out of the primary stack — it moves into
+        # `bandMix` below (per-segment tooltip detail) instead of being
+        # the stacking dimension itself, per Jeo's call to segment/color
+        # the bars by college/course instead of performance band.
+        collapsed = (
+            df_scope.groupby(['Year_Level', 'Year_Level_Num', group_col])
+            .agg(Count=('Count', 'sum'))
+            .reset_index()
+        )
+        totals = (
+            collapsed.groupby(['Year_Level', 'Year_Level_Num'])['Count']
+            .sum().rename('Total').reset_index()
+        )
+        collapsed = collapsed.merge(totals, on=['Year_Level', 'Year_Level_Num'], how='left')
+        collapsed['Pct'] = (collapsed['Count'] / collapsed['Total'].replace(0, np.nan) * 100).round(2).fillna(0.0)
+
+        # Performance-band MIX inside each segment, purely for the
+        # tooltip (e.g. "CAHS: 62% Good, 20% Average...") — so nothing
+        # from the old band view is lost, it just moves from the primary
+        # bar encoding into hover detail.
+        band_mix = (
+            df_scope.groupby(['Year_Level', group_col, 'Perf_Band'])['Count']
+            .sum().reset_index()
+        )
+        seg_totals = band_mix.groupby(['Year_Level', group_col])['Count'].sum().rename('SegTotal')
+        band_mix = band_mix.join(seg_totals, on=['Year_Level', group_col])
+        band_mix['BandPct'] = (band_mix['Count'] / band_mix['SegTotal'].replace(0, np.nan) * 100).round(1).fillna(0.0)
+        band_mix_lookup = {}
+        for (lv, seg), g in band_mix.groupby(['Year_Level', group_col]):
+            ordered = sorted(
+                g.to_dict('records'),
+                key=lambda r: band_order.index(r['Perf_Band']) if r['Perf_Band'] in band_order else 99
+            )
+            band_mix_lookup[(lv, seg)] = [
+                {"band": r['Perf_Band'], "pct": float(r['BandPct'])} for r in ordered if r['BandPct'] > 0
+            ]
+
+        level_order = sorted(collapsed['Year_Level'].unique(), key=lambda lv: _level_sort_key(collapsed, lv))
         display_labels = [YEAR_LEVEL_DISPLAY_OVERRIDES.get(lv, lv) for lv in level_order]
 
-        band_order = ["Excellent", "Good", "Average", "Below Average", "Failing", "Unknown"]
-        bands_present = [b for b in band_order if b in collapsed['Perf_Band'].unique()]
+        segments = sorted(collapsed[group_col].dropna().astype(str).unique())
+        if breakdown == "college":
+            # Fixed college order (matches the rest of the dashboard)
+            # instead of alphabetical.
+            fixed_order = ['CAHS', 'CBA', 'CCST', 'CEA', 'COAS', 'CTEC']
+            segments = [c for c in fixed_order if c in segments] + [c for c in segments if c not in fixed_order]
 
         datasets = []
-        for band in bands_present:
-            band_rows = collapsed[collapsed['Perf_Band'] == band].set_index('Year_Level')
+        for seg in segments:
+            seg_rows = collapsed[collapsed[group_col] == seg].set_index('Year_Level')
             datasets.append({
-                "label": band,
-                "data": [round(float(band_rows['Pct'].get(lv, 0.0)), 2) for lv in level_order],
-                "counts": [int(band_rows['Count'].get(lv, 0)) for lv in level_order],
+                "label": seg,
+                "data": [round(float(seg_rows['Pct'].get(lv, 0.0)), 2) for lv in level_order],
+                "counts": [int(seg_rows['Count'].get(lv, 0)) for lv in level_order],
+                "bandMix": [band_mix_lookup.get((lv, seg), []) for lv in level_order],
             })
 
         totals_by_level = totals.set_index('Year_Level')['Total']
 
         return jsonify({
             "year": year,
+            "breakdown": breakdown,
             "labels": display_labels,
             "datasets": datasets,
             "totals": [int(totals_by_level.get(lv, 0)) for lv in level_order],
@@ -2311,6 +2435,347 @@ def get_year_level_distribution():
 
     except Exception as e:
         print(f"Year Level Distribution Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+#  INC / IRREGULAR(behavioral) / DROP RATE BY YEAR LEVEL (Grouped Bar)
+@ml_bp.route('/api/get_year_level_inc_irreg')
+def get_year_level_inc_irreg():
+    """
+    Grouped bar of INC / Irregular(behavioral) / Drop rate per year level.
+    Backed by model_datasets/14_year_level_inc_irreg.csv. Same
+    college-or-course scope resolution as get_year_level_distribution —
+    see that function's docstring for how 'college' is interpreted by
+    both the Main and dean dashboards.
+
+    NOTE: "Irregular_Rate" here is the behavioral is_irregular flag (had
+    an INC or dropped a subject this term) — NOT the same thing as a
+    Year_Level label of "Irregular" (the registrar's own course-load
+    classification), which can appear as one of the x-axis bars. The two
+    are related but distinct; this endpoint intentionally lets you compare
+    them (e.g. registrar-labeled Irregular students may have a LOWER or
+    HIGHER behavioral irregularity rate than regular-year students).
+    """
+    try:
+        year = int(request.args.get('year', get_latest_real_year()))
+        college_arg = request.args.get('college', 'all').strip()
+        semester_arg = request.args.get('semester', 'all').strip()
+        # Which single metric to break down by College/Course when a
+        # breakdown is possible (see below) — rates can't be stacked the
+        # way headcounts can (a "62% INC + 40% Drop" stack is meaningless),
+        # so instead of segmenting all 3 metrics at once, one metric is
+        # shown at a time, segmented by college/course, with a selector
+        # in the UI to flip between INC / Irregular / Drop.
+        metric_arg = request.args.get('metric', 'inc').strip().lower()
+
+        csv_path = os.path.join(MODEL_DATASETS_DIR, "14_year_level_inc_irreg.csv")
+        if not os.path.exists(csv_path):
+            return jsonify({"error": "Year-level INC/Irregular dataset not found. Upload a dataset to generate it."}), 200
+
+        df_scope = pd.read_csv(csv_path)
+        if df_scope.empty:
+            return jsonify({"labels": [], "datasets": [], "error": "No year-level data found"})
+
+        df_scope = df_scope[df_scope['Year_Numeric'] == year]
+
+        if semester_arg.lower() not in ('all', 'overall'):
+            sem_map = {"1sem": 1, "2sem": 2, "summer": 3}
+            sem_num = sem_map.get(semester_arg.lower())
+            if sem_num is not None:
+                df_scope = df_scope[df_scope['Sem_Numeric'] == sem_num]
+
+        yl_scope = resolve_scope(college_arg)
+        df_scope = apply_scope_filter(df_scope, yl_scope)
+
+        if df_scope.empty:
+            return jsonify({"labels": [], "datasets": [], "college": college_arg,
+                             "error": "No data for this selection"})
+
+        def _level_sort_key(df, lv):
+            num = df.loc[df['Year_Level'] == lv, 'Year_Level_Num'].iloc[0]
+            if num == 0:
+                return (2, 0)
+            if num == -1:
+                return (1, 0)
+            return (0, num)
+
+        YEAR_LEVEL_DISPLAY_OVERRIDES = {"Unknown": "Not Recorded"}
+
+        METRIC_INFO = {
+            "inc":       {"label": "INC Rate",                    "rate_col": "INC_Rate",       "count_col": "INC_Count"},
+            "irregular": {"label": "Irregular Rate (behavioral)",  "rate_col": "Irregular_Rate",  "count_col": "Irregular_Count"},
+            "drop":      {"label": "Drop Rate",                    "rate_col": "Drop_Rate",       "count_col": "Drop_Count"},
+        }
+        if metric_arg not in METRIC_INFO:
+            metric_arg = "inc"
+
+        # ---- Decide what each bar/group represents ----
+        #   scope 'all'     -> group by COLLEGE, one metric at a time
+        #   scope 'college' -> group by COURSE inside that college
+        #   scope 'course'  -> only one course selected, nothing left to
+        #                      segment by — fall back to the original
+        #                      3-metrics-side-by-side view for that course.
+        if yl_scope["type"] == "all":
+            breakdown, group_col = "college", "College"
+        elif yl_scope["type"] == "college":
+            breakdown, group_col = "course", "Course"
+        else:
+            breakdown, group_col = "metric", None
+
+        if breakdown == "metric":
+            collapsed = (
+                df_scope.groupby(['Year_Level', 'Year_Level_Num'])
+                .agg(
+                    Total_Students  = ('Total_Students', 'sum'),
+                    Irregular_Count = ('Irregular_Count', 'sum'),
+                    Drop_Count      = ('Drop_Count', 'sum'),
+                    INC_Count       = ('INC_Count', 'sum'),
+                )
+                .reset_index()
+            )
+            collapsed['Irregular_Rate'] = (collapsed['Irregular_Count'] / collapsed['Total_Students'] * 100).round(2)
+            collapsed['Drop_Rate']      = (collapsed['Drop_Count']      / collapsed['Total_Students'] * 100).round(2)
+            collapsed['INC_Rate']       = (collapsed['INC_Count']       / collapsed['Total_Students'] * 100).round(2)
+
+            level_order = sorted(collapsed['Year_Level'].unique(), key=lambda lv: _level_sort_key(collapsed, lv))
+            display_labels = [YEAR_LEVEL_DISPLAY_OVERRIDES.get(lv, lv) for lv in level_order]
+            collapsed_idx = collapsed.set_index('Year_Level')
+
+            datasets = [
+                {
+                    "label": "INC Rate",
+                    "data": [float(collapsed_idx['INC_Rate'].get(lv, 0.0)) for lv in level_order],
+                    "counts": [int(collapsed_idx['INC_Count'].get(lv, 0)) for lv in level_order],
+                },
+                {
+                    "label": "Irregular Rate (behavioral)",
+                    "data": [float(collapsed_idx['Irregular_Rate'].get(lv, 0.0)) for lv in level_order],
+                    "counts": [int(collapsed_idx['Irregular_Count'].get(lv, 0)) for lv in level_order],
+                },
+                {
+                    "label": "Drop Rate",
+                    "data": [float(collapsed_idx['Drop_Rate'].get(lv, 0.0)) for lv in level_order],
+                    "counts": [int(collapsed_idx['Drop_Count'].get(lv, 0)) for lv in level_order],
+                },
+            ]
+
+            return jsonify({
+                "year": year,
+                "breakdown": "metric",
+                "labels": display_labels,
+                "datasets": datasets,
+                "totals": [int(collapsed_idx['Total_Students'].get(lv, 0)) for lv in level_order],
+                "college": college_arg,
+            })
+
+        # ---- New behavior: grouped bars per College/Course, one metric ----
+        collapsed = (
+            df_scope.groupby(['Year_Level', 'Year_Level_Num', group_col])
+            .agg(
+                Total_Students  = ('Total_Students', 'sum'),
+                Irregular_Count = ('Irregular_Count', 'sum'),
+                Drop_Count      = ('Drop_Count', 'sum'),
+                INC_Count       = ('INC_Count', 'sum'),
+            )
+            .reset_index()
+        )
+        safe_total = collapsed['Total_Students'].replace(0, np.nan)
+        collapsed['Irregular_Rate'] = (collapsed['Irregular_Count'] / safe_total * 100).round(2).fillna(0.0)
+        collapsed['Drop_Rate']      = (collapsed['Drop_Count']      / safe_total * 100).round(2).fillna(0.0)
+        collapsed['INC_Rate']       = (collapsed['INC_Count']       / safe_total * 100).round(2).fillna(0.0)
+
+        rate_col = METRIC_INFO[metric_arg]["rate_col"]
+        count_col = METRIC_INFO[metric_arg]["count_col"]
+
+        level_order = sorted(collapsed['Year_Level'].unique(), key=lambda lv: _level_sort_key(collapsed, lv))
+        display_labels = [YEAR_LEVEL_DISPLAY_OVERRIDES.get(lv, lv) for lv in level_order]
+
+        segments = sorted(collapsed[group_col].dropna().astype(str).unique())
+        if breakdown == "college":
+            fixed_order = ['CAHS', 'CBA', 'CCST', 'CEA', 'COAS', 'CTEC']
+            segments = [c for c in fixed_order if c in segments] + [c for c in segments if c not in fixed_order]
+
+        datasets = []
+        for seg in segments:
+            seg_rows = collapsed[collapsed[group_col] == seg].set_index('Year_Level')
+            datasets.append({
+                "label": seg,
+                "data": [float(seg_rows[rate_col].get(lv, 0.0)) for lv in level_order],
+                "counts": [int(seg_rows[count_col].get(lv, 0)) for lv in level_order],
+                "totals": [int(seg_rows['Total_Students'].get(lv, 0)) for lv in level_order],
+            })
+
+        totals_by_level = collapsed.groupby('Year_Level')['Total_Students'].sum()
+
+        return jsonify({
+            "year": year,
+            "breakdown": breakdown,
+            "metric": metric_arg,
+            "metricLabel": METRIC_INFO[metric_arg]["label"],
+            "labels": display_labels,
+            "datasets": datasets,
+            "totals": [int(totals_by_level.get(lv, 0)) for lv in level_order],
+            "college": college_arg,
+        })
+
+    except Exception as e:
+        print(f"Year Level INC/Irregular Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+#  YEAR-LEVEL GWA FORECAST (Prediction mode for "Performance by Year Level")
+_YEAR_LEVEL_FORECAST_EXCLUDE = {"Unknown"}  # a blank-cell data gap isn't a real cohort to forecast
+
+
+def _year_level_groups_present(df_scope):
+    """Year levels actually present in scope, in 1st->4th->Irregular order,
+    with the 'Unknown'/blank-cell bucket excluded (not a real cohort)."""
+    order = {"1st Year": 1, "2nd Year": 2, "3rd Year": 3, "4th Year": 4,
+             "5th Year": 5, "6th Year": 6, "Irregular": 99}
+    present = [
+        lv for lv in df_scope['Year_Level'].dropna().unique()
+        if lv not in _YEAR_LEVEL_FORECAST_EXCLUDE
+    ]
+    return sorted(present, key=lambda lv: order.get(lv, 50))
+
+
+def _forecast_horizon():
+    """Same training_state.json-driven horizon every other forecast
+    endpoint in this file uses (get_subject_forecast, get_inc_forecast)."""
+    try:
+        from training.auto_train import load_state as _load_state3
+        hs = _load_state3().get('horizon', {})
+        latest = hs.get('latest_year_start', 2024)
+        pred_labels = hs.get('prediction_years', [])
+        years_pred = [int(y.split('-')[0]) for y in pred_labels]
+    except Exception:
+        latest = 2024
+        years_pred = [2025, 2026, 2027, 2028, 2029, 2030]
+    return latest, years_pred
+
+
+@ml_bp.route('/api/get_year_level_gwa_forecast')
+def get_year_level_gwa_forecast():
+    """
+    Prediction-mode companion to /api/get_year_level_distribution
+    ("Performance by Year Level"). That chart is a single-semester
+    stacked bar of performance bands — there's no clean way to forecast
+    5 stacked band percentages per year level without the chart turning
+    into visual noise, so this forecasts each year level's average GWA
+    trend instead (same metric/scale dataset 05's GWA trend chart
+    already uses), one line per year level, dashed tail = forecast.
+
+    Built directly off df_full_loaded (not a pre-aggregated CSV) because
+    this needs one row per (Year_Level, Year_Numeric) computed fresh —
+    same architecture as get_inc_forecast's per-group helpers.
+    """
+    try:
+        college_arg = request.args.get('college', 'all').strip()
+
+        yl_scope = resolve_scope(college_arg)
+        df_scope = apply_scope_filter(df_full_loaded, yl_scope)
+
+        if df_scope.empty or 'Year_Level' not in df_scope.columns:
+            return jsonify({"labels": [], "datasets": [], "error": "No year-level data found"})
+
+        latest, years_pred = _forecast_horizon()
+        years_hist = sorted([
+            int(y) for y in df_scope['Year_Numeric'].dropna().unique() if int(y) <= latest
+        ])
+        if not years_hist:
+            years_hist = [2022, 2023, 2024]
+        all_years = years_hist + years_pred
+
+        groups = _year_level_groups_present(df_scope)
+        datasets = []
+
+        for lv in groups:
+            lv_rows = df_scope[df_scope['Year_Level'] == lv]
+            overall_avg = lv_rows['GWA'].mean()
+            data_points = []
+
+            for y in years_hist:
+                vals = lv_rows.loc[lv_rows['Year_Numeric'] == y, 'GWA']
+                val = vals.mean() if not vals.empty else np.nan
+                data_points.append(round(float(val), 2) if pd.notna(val) else
+                                    (round(float(overall_avg), 2) if pd.notna(overall_avg) else 2.5))
+
+            if years_pred:
+                data_points.extend(forecast_series(data_points, len(years_pred), y_min=1.0, y_max=5.0))
+
+            datasets.append({"label": lv, "data": data_points})
+
+        return jsonify({"labels": all_years, "datasets": datasets, "history_count": len(years_hist), "college": college_arg})
+
+    except Exception as e:
+        print(f"Year Level GWA Forecast Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+#  YEAR-LEVEL INC/IRREGULAR/DROP FORECAST (Prediction mode for the grouped-bar chart)
+@ml_bp.route('/api/get_year_level_inc_irreg_forecast')
+def get_year_level_inc_irreg_forecast():
+    """
+    Prediction-mode companion to /api/get_year_level_inc_irreg. Pick ONE
+    metric per request (?metric=inc|irregular|drop, default inc) rather
+    than forecasting all three at once — 5 year levels x 3 metrics = 15
+    lines on one chart would be unreadable. One line per year level for
+    the chosen metric, same history+dashed-forecast-tail shape as
+    get_year_level_gwa_forecast above.
+    """
+    try:
+        college_arg = request.args.get('college', 'all').strip()
+        metric = request.args.get('metric', 'inc').strip().lower()
+
+        metric_col_map = {"inc": "is_inc", "irregular": "is_irregular", "drop": "is_drop"}
+        metric_label_map = {"inc": "INC Rate", "irregular": "Irregular Rate (behavioral)", "drop": "Drop Rate"}
+        flag_col = metric_col_map.get(metric, "is_inc")
+
+        yl_scope = resolve_scope(college_arg)
+        df_scope = apply_scope_filter(df_full_loaded, yl_scope)
+
+        if df_scope.empty or 'Year_Level' not in df_scope.columns:
+            return jsonify({"labels": [], "datasets": [], "error": "No year-level data found"})
+
+        latest, years_pred = _forecast_horizon()
+        years_hist = sorted([
+            int(y) for y in df_scope['Year_Numeric'].dropna().unique() if int(y) <= latest
+        ])
+        if not years_hist:
+            years_hist = [2022, 2023, 2024]
+        all_years = years_hist + years_pred
+
+        groups = _year_level_groups_present(df_scope)
+        datasets = []
+
+        for lv in groups:
+            lv_rows = df_scope[df_scope['Year_Level'] == lv]
+            data_points = []
+
+            for y in years_hist:
+                yr_rows = lv_rows[lv_rows['Year_Numeric'] == y]
+                total = yr_rows['Student_ID'].nunique()
+                if total > 0:
+                    flagged = yr_rows.groupby('Student_ID')[flag_col].max().sum()
+                    data_points.append(round(float(flagged / total * 100), 2))
+                else:
+                    data_points.append(0.0)
+
+            if years_pred:
+                data_points.extend(forecast_series(data_points, len(years_pred), y_min=0, y_max=100))
+
+            datasets.append({"label": lv, "data": data_points})
+
+        return jsonify({
+            "labels": all_years,
+            "datasets": datasets,
+            "history_count": len(years_hist),
+            "metric": metric_label_map.get(metric, metric),
+            "college": college_arg,
+        })
+
+    except Exception as e:
+        print(f"Year Level INC/Irregular Forecast Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 

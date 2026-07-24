@@ -111,23 +111,31 @@ function splitMetrics(metrics) {
 
 // ── Render a single model card ──────────────────────────────────
 function buildCard(model, index) {
-  const isClf = model.type === 'classification';
-  const isErr = model.status === 'error';
+  const isClf     = model.type === 'classification';
+  const isErr     = model.status === 'error';
+  const isSkipped = model.status === 'skipped';
 
   const typeLabel = isErr ? 'Error'
+                 : isSkipped ? 'Skipped'
                  : isClf  ? 'Random Forest'
                  : 'Linear Regression';
-  const typeCls   = isErr ? 'err' : isClf ? 'clf' : 'reg';
+  const typeCls   = isErr ? 'err' : isSkipped ? 'skip' : isClf ? 'clf' : 'reg';
 
   // Build metric boxes
   let metricsHTML;
-  if (isErr) {
+  if (isErr || isSkipped) {
+    // Skipped models (usually "not enough data yet") carry the same
+    // free-text explanation an error would, just without implying
+    // something actually broke.
+    const message = isErr
+      ? (model.error || 'Unknown error')
+      : (model.description || 'Skipped — not enough data for this model yet.');
     metricsHTML = `
       <div class="ml-metrics-row">
         <div class="ml-metric-box" style="flex:1;">
-          <div class="ml-metric-key">Error</div>
-          <div class="ml-metric-val val-poor" style="font-size:0.7rem; font-weight:600; word-break:break-word;">
-            ${model.error || 'Unknown error'}
+          <div class="ml-metric-key">${isErr ? 'Error' : 'Why'}</div>
+          <div class="ml-metric-val ${isErr ? 'val-poor' : 'val-fair'}" style="font-size:0.7rem; font-weight:600; word-break:break-word;">
+            ${message}
           </div>
         </div>
       </div>`;
@@ -156,7 +164,7 @@ function buildCard(model, index) {
     <div class="ml-model-card ${typeCls}" style="${delay}">
       <span class="ml-card-label ${typeCls}">${typeLabel}</span>
       <div class="ml-card-title">${model.name}</div>
-      <div class="ml-card-desc">${model.description}</div>
+      <div class="ml-card-desc">${model.description || ''}</div>
       ${metricsHTML}
     </div>`;
 }
@@ -183,6 +191,16 @@ async function loadModelMetrics() {
         <div style="grid-column:1/-1; text-align:center; padding:2rem; color:#e74a3b;">
           <strong>Error loading metrics:</strong> ${data.error}
         </div>`;
+      if (timestamp) timestamp.textContent = '';
+      return;
+    }
+
+    if (!data.models || !data.models.length) {
+      grid.innerHTML = `
+        <div style="grid-column:1/-1; text-align:center; color:#858796; padding:1.5rem 0;">
+          No model has been trained yet. Upload a dataset to begin.
+        </div>`;
+      if (timestamp) timestamp.textContent = '';
       return;
     }
 

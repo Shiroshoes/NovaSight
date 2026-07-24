@@ -7,7 +7,13 @@
   <link rel="icon" href="{{ url_for('static', filename='image/logo2.png') }}" type="image/x-icon">
   <link rel="stylesheet" href="{{url_for('static', filename='css/admin/maindashboardadmin.css')}}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/logout/logout.css') }}">
+  <link rel="stylesheet" href="{{url_for('static', filename='css/chart/kebabMenu.css')}}">
+  <link rel="stylesheet" href="{{url_for('static', filename='css/chart/modelEval.css')}}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+  <style>.print-header { display: none; }</style>
+  <link rel="stylesheet" href="{{url_for('static', filename='css/print/dashboard-print.css')}}">
 </head>
 <body>
   <!-- fixed side bar -->
@@ -147,6 +153,16 @@
     </nav>
   </aside>
 <main>
+
+  <!-- Print-only header: shown only when the Print Dashboard button is used -->
+  <div class="print-header">
+    <img src="{{url_for('static', filename='image/logo2.png')}}" alt="BPSU Logo" class="print-header-logo">
+    <div class="print-header-text">
+      <h2>Bataan Peninsula State University - Main Campus</h2>
+      <h3>Main Dashboard</h3>
+    </div>
+    <img src="{{url_for('static', filename='image/logo.png')}}" alt="NovaSight Logo" class="print-header-logo">
+  </div>
  
   <!--header -->
         <header class="topmenu">
@@ -191,8 +207,20 @@
       </script>
 
       <!-- Recent Data / Prediction Mode — pill-style toggle switch -->
-      <div class="card card-mini">
+      <div class="card card-mini no-print" style="position:relative;">
         <label>View Mode</label>
+
+        <!-- 3-dot menu, top-right of the card -->
+        <button type="button" id="displayFormatKebabBtn" class="kebab-btn" aria-label="Display format options">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="kebab-icon">
+              <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
+            </svg>
+        </button>
+        <div id="displayFormatMenu" class="kebab-menu">
+            <button type="button" id="displayFormatChartBtn" class="kebab-menu-item active">Chart Mode</button>
+            <button type="button" id="displayFormatTableBtn" class="kebab-menu-item">Table Mode</button>
+        </div>
+
         <div class="mode-switch" id="modeSwitchWrap"
              onclick="ModeAwareCharts.toggle(document.getElementById('filterCollege').value, document.getElementById('filterSemester').value)">
             <div class="mode-switch-thumb"></div>
@@ -200,51 +228,6 @@
             <span class="mode-switch-option" data-value="prediction">Prediction</span>
         </div>
       </div>
-
-      <style>
-          .mode-switch {
-              position: relative;
-              display: flex;
-              width: 220px;
-              height: 34px;
-              background: rgba(120, 90, 90, 0.5);
-              border-radius: 999px;
-              cursor: pointer;
-              user-select: none;
-              padding: 3px;
-              box-sizing: border-box;
-          }
-          .mode-switch-thumb {
-              position: absolute;
-              top: 3px;
-              left: 3px;
-              width: calc(50% - 3px);
-              height: calc(100% - 6px);
-              background: #800000;
-              border-radius: 999px;
-              transition: transform 0.25s ease;
-              box-shadow: 0 2px 6px rgba(223, 78, 78, 0.35);
-          }
-          .mode-switch.is-prediction .mode-switch-thumb {
-              transform: translateX(100%);
-          }
-          .mode-switch-option {
-              position: relative;
-              z-index: 1;
-              flex: 1;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 0.75rem;
-              font-weight: 600;
-              color: #000000;
-              transition: color 0.25s ease;
-          }
-          .mode-switch:not(.is-prediction) .mode-switch-option[data-value="recent"],
-          .mode-switch.is-prediction .mode-switch-option[data-value="prediction"] {
-              color: #fff;
-          }
-      </style>
 
       <script>
           document.addEventListener('DOMContentLoaded', () => {
@@ -256,7 +239,7 @@
           });
       </script>
 
-      <div class="card card-mini">
+      <div class="card card-mini no-print">
         <label>Semester</label>
         <select id="filterSemester" class="form-select">
             <option value="all">All Semesters</option>
@@ -266,7 +249,7 @@
         </select>
       </div>
 
-      <div class="card card-mini">
+      <div class="card card-mini no-print">
         <label>Department</label>
         <select id="filterCollege" class="form-select">
             <option value="Main Campus">All Colleges</option>
@@ -278,8 +261,25 @@
             <option value="CTEC">CTEC</option>
         </select>
       </div> 
-      
-      <div class="card card-mini">
+
+      <div class="card card-mini no-print">
+        <label>Year</label>
+        <select id="globalYearFilter" class="form-select">
+        </select>
+      </div> 
+
+      <div class="card card-mini no-print">
+        <label>Print Dashboard</label>
+        <div class="print-btn-wrap no-print">
+            <button type="button" class="print-dashboard-btn" onclick="window.print()">
+            <i class="fas fa-print"></i> Print Dashboard
+            </button>
+        </div>
+      </div> 
+
+      <!-- Table Mode renders here instead of the charts below (see table-view.js) -->
+      <div id="chartViewContainer" style="display:contents;">
+      <div class="card card-mini1">
         <div id="kpi-card-students" style="border-radius: 10px; background: white; padding: 10px; height: 50px;">
             <div style="align-items: center; display: flex; justify-content: space-between;" >
                 <div>
@@ -300,7 +300,7 @@
       </div>
 
 
-      <div class="card card-mini">
+      <div class="card card-mini1">
         <div id="kpi-card-gwa" style="border-radius: 10px; background: white; padding: 10px; height: 50px;">
             <div style="align-items: center; display: flex; justify-content: space-between;">
                 <div>
@@ -366,7 +366,7 @@
           </div>
       </div>
 
-      <div class="card card-full-width-bar">
+      <div class="card card-full-width-bar1">
         <div style="border-radius: 10px; background-color: white;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
@@ -382,6 +382,54 @@
                   <i class="fas fa-info-circle"></i>
                   Note: <strong>Lower Bar Height</strong> = <strong>Better Grade</strong> (GWA closer to 1.0 is best; closer to 5.0 is failing).
                   Each college always uses the same bar color across this whole dashboard.
+              </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full-width-bar1">
+        <div style="border-radius: 10px; background-color: white;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Performance by Year Level
+              </h6>
+          </div>
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+              <div style="position: relative; height: 350px; width: 100%;">
+                  <canvas id="yearLevelChart"></canvas>
+              </div>
+              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
+              <div style="text-align: center; font-size: 0.875rem; color: #858796;">
+                  <i class="fas fa-info-circle"></i>
+                  Each bar is one year level (1st–4th Year, etc.), segmented by college. Hover a segment for exact headcount and its performance-band breakdown. Reflects Main Campus by default, or the selected college/course from the filter above.
+              </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full-width-bar">
+        <div style="border-radius: 10px; background-color: white;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  INC / Irregular / Drop Rate by Year Level
+              </h6>
+          </div>
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+              <div class="inc-irreg-metric-selector" style="display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 0.75rem;">
+                  <button type="button" class="inc-irreg-metric-btn active" data-metric="inc" data-color="#f6c23e" onclick="setIncIrregMetric('inc')"
+                      style="border: 1px solid #f6c23e; background: #f6c23e; color: #fff; border-radius: 20px; padding: 0.3rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">INC Rate</button>
+                  <button type="button" class="inc-irreg-metric-btn" data-metric="irregular" data-color="#6f42c1" onclick="setIncIrregMetric('irregular')"
+                      style="border: 1px solid #6f42c1; background: #fff; color: #6f42c1; border-radius: 20px; padding: 0.3rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">Irregular Rate</button>
+                  <button type="button" class="inc-irreg-metric-btn" data-metric="drop" data-color="#e74a3b" onclick="setIncIrregMetric('drop')"
+                      style="border: 1px solid #e74a3b; background: #fff; color: #e74a3b; border-radius: 20px; padding: 0.3rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">Drop Rate</button>
+              </div>
+              <div style="position: relative; height: 350px; width: 100%;">
+                  <canvas id="yearLevelIncIrregChart"></canvas>
+              </div>
+              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
+              <div style="text-align: center; font-size: 0.875rem; color: #858796;">
+                  <i class="fas fa-info-circle"></i>
+                  "Irregular Rate" here is behavioral (had an INC or dropped a subject this term) — separate from the "Irregular" bar itself, which is the registrar's own course-load classification. Each college always uses the same color across this whole dashboard. Use the buttons above to switch which rate is broken down by college.
               </div>
           </div>
         </div>
@@ -676,36 +724,40 @@
         </div>
       </div>
 
-      <!-- ───────────────── Model Performance / Evaluation ───────────────── -->
-      <div class="card card-bottom-small-1">
-        <div style="background-color: #fff; border: 1px solid #e3e6f0; border-radius: 0.35rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
+      <!-- ───────────────── Model Performance / Evaluation ─────────────────
+           id="model-eval-card" is what Table Mode (table-view.js) checks for
+           so this card is always left exactly as-is, same as the KPI cards —
+           it has no <canvas> and nothing here maps to a meaningful table row. -->
+      <div class="card card-bottom-small-1" id="model-eval-card">
+        <div class="model-eval-box">
 
-          <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
-            <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-              <i class="fas fa-flask" style="margin-right: 0.25rem;"></i> Model Performance & Accuracy
+          <div class="model-eval-box-header">
+            <h6>
+              <i class="fas fa-flask"></i> Model Performance & Accuracy
             </h6>
-            <span id="mp-trained-at" style="font-size: 0.75rem; color: #858796;">Loading…</span>
+            <span id="mp-trained-at">Loading…</span>
           </div>
 
-          <div style="padding: 1.25rem;">
-            <div id="mp-empty-state" style="display:none; text-align:center; color:#858796; padding: 1.5rem 0;">
+          <div class="model-eval-box-body">
+            <div id="mp-empty-state">
               No model has been trained yet. Upload a dataset to begin.
             </div>
 
-            <div id="mp-grid" style="display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 0.75rem;">
+            <div id="mp-grid">
               <!-- model cards injected by JS -->
             </div>
 
-            <div id="mp-errors" style="margin-top: 1rem; display:none;">
-              <hr style="border: 0; border-top: 1px solid rgba(0,0,0,.1);">
-              <p style="font-weight: 700; font-size: 0.7rem; color: #e74a3b; text-transform: uppercase; margin-bottom: 0.5rem;">
+            <div id="mp-errors">
+              <hr>
+              <p>
                 Training Errors
               </p>
-              <ul id="mp-errors-list" style="font-size: 0.8rem; color: #e74a3b; margin: 0; padding-left: 1.1rem;"></ul>
+              <ul id="mp-errors-list"></ul>
             </div>
           </div>
         </div>
       </div>
+      </div><!-- /#chartViewContainer -->
     </section>
 
     <script>
@@ -718,12 +770,13 @@
           'ctec': 'hardestSubjectsCard_CTEC'
       };
     </script>
-  <script src="{{url_for('static', filename='js/chart-helpers.js')}}?v=2"></script>
-  <script src="{{url_for('static', filename='js/prediction-mode-visuals.js')}}?v=2"></script>
-  <script src="{{url_for('static', filename='js/maindash.js')}}?v=2"></script>
-  <script src="{{url_for('static', filename='js/mode-toggle.js')}}?v=2"></script>
+    <script src="{{url_for('static', filename='js/chart-helpers.js')}}?v=2"></script>
+    <script src="{{url_for('static', filename='js/prediction-mode-visuals.js')}}?v=2"></script>
+    <script src="{{url_for('static', filename='js/maindash.js')}}?v=2"></script>
+    <script src="{{url_for('static', filename='js/mode-toggle.js')}}?v=2"></script>
+    <script src="{{url_for('static', filename='js/kebabMenu.js')}}?v=1"></script>
+    <script src="{{url_for('static', filename='js/tableView.js')}}?v=1"></script>
   </section>
-
 
   <!-- Logout Modal Structure -->
   <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
@@ -749,7 +802,7 @@
           <div class="footer-brand-text">
               <h3>NovaSight</h3>
               <p>Machine Learning-Based Student Performance Prediction System</p>
-              <small>© 2026 Bataan Peninsula State University</small>
+              <small>2026 Bataan Peninsula State University</small>
           </div>
       </div>
   </div>

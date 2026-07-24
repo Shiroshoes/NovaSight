@@ -1,0 +1,144 @@
+/* =====================================================================
+   KEBAB-MENU.CSS
+   Styles for the 3-dot "kebab" menu (Chart Mode / Table Mode picker)
+   and the Recent/Prediction pill switch on the "View Mode" card.
+
+   Extracted from the inline <style> blocks that used to live inside
+   cahsdashboardacademicaffair.html and maindashboardacademicaffair.html.
+   Both pages share the exact same markup for this card, so both pages
+   can safely link this one file instead of keeping duplicate copies.
+
+   Pairs with: js/kebab-menu.js
+   ===================================================================== */
+
+.kebab-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border-radius: 50%;
+    transition: background 0.15s ease;
+}
+
+.kebab-btn:hover {
+    background: #c72828;
+}
+
+.kebab-btn span {
+    display: block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #5a5c69;
+}
+
+.kebab-icon {
+    width: 20px;
+    height: 20px;
+    color: #000000;
+}
+
+.kebab-icon:hover {
+    width: 20px;
+    height: 20px;
+    color: #ffffff;
+}
+
+.kebab-menu {
+    display: none;
+    position: absolute;
+    top: 38px;
+    right: 10px;
+    z-index: 20;
+    background: #fff;
+    border: 1px solid #800000;
+    box-shadow: 0 0.25rem 1rem rgba(58, 59, 69, 0.2);
+    overflow: hidden;
+    min-width: 140px;
+}
+
+.kebab-menu.open {
+    display: flex;
+    flex-direction: column;
+}
+
+.kebab-menu-item {
+    border: none;
+    background: #fff;
+    color: #5a5c69;
+    text-align: left;
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.kebab-menu-item:hover {
+    background: #f8f9fc;
+}
+
+.kebab-menu-item.active {
+    background: #800000;
+    color: #fff;
+}
+
+.kebab-menu-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.mode-switch {
+    position: relative;
+    display: flex;
+    width: 220px;
+    height: 34px;
+    background: rgba(120, 90, 90, 0.5);
+    border-radius: 999px;
+    cursor: pointer;
+    user-select: none;
+    padding: 3px;
+    box-sizing: border-box;
+}
+
+.mode-switch-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    height: calc(100% - 6px);
+    background: #800000;
+    border-radius: 999px;
+    transition: transform 0.25s ease;
+    box-shadow: 0 2px 6px rgba(223, 78, 78, 0.35);
+}
+
+.mode-switch.is-prediction .mode-switch-thumb {
+    transform: translateX(100%);
+}
+
+.mode-switch-option {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #000000;
+    transition: color 0.25s ease;
+}
+
+.mode-switch:not(.is-prediction) .mode-switch-option[data-value="recent"],
+.mode-switch.is-prediction .mode-switch-option[data-value="prediction"] {
+    color: #fff;
+}

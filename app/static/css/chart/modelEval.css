@@ -1,0 +1,180 @@
+/* =====================================================================
+   MODELEVAL.CSS
+   Styles for the "Model Performance & Accuracy" card (#model-eval-card,
+   #mp-grid inside it) on the Main and Dean dashboards.
+
+   This is NOT new styling — every rule here already existed as inline
+   `style="..."` attributes: the card shell/header/grid markup lived in
+   maindashboardacademicaffair.html / cahsdashboardacademicaffair.html,
+   and the per-model-card colors lived in the STATUS_COLORS palette +
+   renderModelCard() in maindash.js / deandash.js (both dashboards use
+   the identical "// eval" IIFE). This file just pulls all of that out
+   into one place instead of duplicating it inline in four spots.
+
+   Pairs with: js/maindash.js, js/deandash.js (renderModelCard)
+   ===================================================================== */
+
+/* --- Card shell (was inline on the wrapping <div> in the HTML) --- */
+.model-eval-box {
+    background-color: #fff;
+    border: 1px solid #e3e6f0;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 1.5rem;
+    font-family: 'Nunito', sans-serif;
+}
+
+.model-eval-box-header {
+    padding: 0.75rem 1.25rem;
+    background-color: #f8f9fc;
+    border-bottom: 1px solid #e3e6f0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    border-top-left-radius: 0.35rem;
+    border-top-right-radius: 0.35rem;
+}
+
+.model-eval-box-header h6 {
+    margin: 0;
+    font-weight: 700;
+    color: #000000;
+    font-size: 1rem;
+}
+
+.model-eval-box-header h6 i {
+    margin-right: 0.25rem;
+}
+
+#mp-trained-at {
+    font-size: 0.75rem;
+    color: #858796;
+}
+
+.model-eval-box-body {
+    padding: 1.25rem;
+}
+
+#mp-empty-state {
+    display: none;
+    text-align: center;
+    color: #858796;
+    padding: 1.5rem 0;
+}
+
+#mp-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    gap: 0.75rem;
+}
+
+#mp-errors {
+    margin-top: 1rem;
+    display: none;
+}
+
+#mp-errors hr {
+    border: 0;
+    border-top: 1px solid rgba(0, 0, 0, .1);
+}
+
+#mp-errors p {
+    font-weight: 700;
+    font-size: 0.7rem;
+    color: #e74a3b;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+#mp-errors-list {
+    font-size: 0.8rem;
+    color: #e74a3b;
+    margin: 0;
+    padding-left: 1.1rem;
+}
+
+/* --- Per-model card (was built with inline styles + the STATUS_COLORS
+   object in renderModelCard(), same three colors: green/yellow/red) --- */
+.model-eval-card {
+    border-radius: 0.5rem;
+    padding: 0.75rem 0.6rem;
+    min-width: 150px;
+}
+
+.model-eval-card.status-ok       { background: #eaf7ef; border: 1px solid #1cc88a33; }
+.model-eval-card.status-skipped  { background: #fff8e6; border: 1px solid #f6c23e33; }
+.model-eval-card.status-error    { background: #fdeeee; border: 1px solid #e74a3b33; }
+
+.mec-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.mec-label {
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: #3a3b45;
+    line-height: 1.2;
+}
+
+.mec-badge {
+    font-size: 0.62rem;
+    font-weight: 700;
+    background: #fff;
+    border-radius: 1rem;
+    padding: 0.1rem 0.5rem;
+    align-self: flex-start;
+}
+
+.status-ok .mec-badge      { color: #1cc88a; border: 1px solid #1cc88a55; }
+.status-skipped .mec-badge { color: #b88a00; border: 1px solid #f6c23e55; }
+.status-error .mec-badge   { color: #e74a3b; border: 1px solid #e74a3b55; }
+
+.mec-headline {
+    margin-top: 0.5rem;
+    font-size: 1.3rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.status-ok .mec-headline      { color: #1cc88a; }
+.status-skipped .mec-headline { color: #b88a00; }
+.status-error .mec-headline   { color: #e74a3b; }
+
+.mec-headline-label {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: #858796;
+}
+
+.mec-metrics {
+    margin-top: 0.5rem;
+}
+
+.mec-metric-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    color: #5a5c69;
+    padding: 2px 0;
+    gap: 0.5rem;
+}
+
+.mec-metric-key {
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.mec-metric-val {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.mec-reason {
+    font-size: 0.68rem;
+    color: #858796;
+    margin-top: 0.35rem;
+}

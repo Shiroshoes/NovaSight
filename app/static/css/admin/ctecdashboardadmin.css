@@ -422,10 +422,12 @@ footer{
 
 /* Precise Sizing Classes */
 .card-mini { grid-column: span 2; height: 65px; padding: 15px;}
+.card-mini1 { grid-column: span 5; height: 65px; padding: 15px;}
 .card-wide { grid-column: span 5; height: 510px; padding: 20px; padding-bottom: 70px;}
 .card-wide1 { grid-column: span 10; height: 490px; padding: 20px; padding-bottom: 70px;}
 .card-square { grid-column: span 2; height: 350px; padding: 20px; }
 .card-full-width { grid-column: span 10; height: 450px; padding: 10px; }
+.card-full-width1 { grid-column: span 10; height: 500px; padding: 10px; }
 .third-square { grid-column: span 5; height: 430px; padding: 10px; }
 
 .card-ranking {
@@ -460,21 +462,20 @@ select.form-select {
 
 /* Hover State */
 select.form-select:hover {
-    border-color: var(--bg-col); /* Red border on hover */
-    background-color: rgba(255, 228, 228, 0.829);
+    background-color: #785a5a64;
+    font-weight: bold;
 }
 
 /* Focus State (Glow Effect) */
 select.form-select:focus {
     outline: none;
-    border-color: var(--bg-col);
-    box-shadow: 0 0 15px rgba(253, 42, 42, 0.4); /* Red glow to match logo */
+    border-color: #800000;
 }
 
 /* Styling the options inside the dropdown */
 select.form-select option {
-    background-color: #020F17; /* Solid color for readability */
-    color: #ffffff;
+    background-color: #ffffff; /* Solid color for readability */
+    color: #000000;
     padding: 10px;
 }
 
@@ -494,4 +495,14 @@ select.form-select option {
 
 .hidden {
     display: none;
+}
+
+/* --- Table Mode (table-view.js) --- */
+#chartViewContainer.df-table-active .card:not(.card-mini):not(.card-mini1) {
+    height: auto;
+    overflow: visible;
+}
+
+.dashboard-grid:has(#chartViewContainer.df-table-active) {
+    align-items: stretch;
 }
