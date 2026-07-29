@@ -294,15 +294,17 @@ const DisplayFormat = {
     },
 
     /** Cards Table Mode must never strip down, no matter what's inside
-     *  them: KPI cards (`.card-mini` / `.card-mini1`), the Model
-     *  Performance & Accuracy card (`#model-eval-card` — Main/CAHS/CBA),
-     *  and the ml_eval.js-based equivalent used on some college
-     *  dashboards (`#ml-eval-card` — CCST/CEA/COAS/CTEC). Add classes/ids
-     *  here rather than at every call site if more "always show as-is"
-     *  cards come up later. */
+     *  them: KPI cards (`.card-mini` / `.card-mini1` / `.card-mini2` —
+     *  Total Enrollment, Average GWA, Total Drop), the Model Performance
+     *  & Accuracy card (`#model-eval-card` — Main/CAHS/CBA), and the
+     *  ml_eval.js-based equivalent used on some college dashboards
+     *  (`#ml-eval-card` — CCST/CEA/COAS/CTEC). Add classes/ids here
+     *  rather than at every call site if more "always show as-is" cards
+     *  come up later. */
     _isUntouchableCard(card) {
         return card.classList.contains('card-mini')
             || card.classList.contains('card-mini1')
+            || card.classList.contains('card-mini2')
             || card.id === 'model-eval-card'
             || card.id === 'ml-eval-card';
     },
@@ -366,10 +368,50 @@ const DisplayFormat = {
             return this._scatterSummaryTable(datasets);
         }
         if (type === 'pie' || type === 'doughnut') {
+            // The Male/Female Retention donuts (renderGenderStatusGrid in
+            // maindash.js/deandash.js) build 3 slices per course/college
+            // ("Name — Regular", "Name — INC", "Name — Dropped") sharing
+            // one dataset. The generic Label/Value table would show that
+            // flat and hard to compare across courses — this instead
+            // regroups it into one row per course/college with
+            // Regular/INC/Dropped as columns, matching the table already
+            // used for its on-screen legend.
+            if (chart.canvas && /^genderStatusDonut_/.test(chart.canvas.id)) {
+                return this._genderStatusTable(labels, datasets[0]);
+            }
             return this._singleColumnTable(labels, datasets[0]);
         }
         // bar / line / anything else with shared labels
         return this._matrixTable(labels, datasets);
+    },
+
+    /** Regroups the gender status donut's flat "Name — Status" slices
+     *  back into one row per course/college, Regular/INC/Dropped as
+     *  columns. */
+    _genderStatusTable(labels, dataset) {
+        const values = (dataset && dataset.data) || [];
+        const groups = {};
+        const order = [];
+
+        labels.forEach((label, i) => {
+            const sep = label.lastIndexOf(' — ');
+            if (sep === -1) return;
+            const name = label.slice(0, sep);
+            const status = label.slice(sep + 3).trim().toLowerCase();
+
+            if (!groups[name]) {
+                groups[name] = { regular: 0, inc: 0, drop: 0 };
+                order.push(name);
+            }
+            const v = values[i];
+            const num = (v === null || v === undefined) ? 0 : v;
+            if (status === 'regular') groups[name].regular = num;
+            else if (status === 'inc') groups[name].inc = num;
+            else if (status === 'dropped') groups[name].drop = num;
+        });
+
+        const rows = order.map(name => [name, groups[name].regular, groups[name].inc, groups[name].drop]);
+        return this._shell(['Course', 'Regular', 'INC', 'Dropped'], rows);
     },
 
     _matrixTable(labels, datasets) {

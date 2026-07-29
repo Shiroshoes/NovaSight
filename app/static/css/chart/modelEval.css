@@ -17,9 +17,7 @@
 /* --- Card shell (was inline on the wrapping <div> in the HTML) --- */
 .model-eval-box {
     background-color: #fff;
-    border: 1px solid #e3e6f0;
     border-radius: 0.35rem;
-    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
     margin-bottom: 1.5rem;
     font-family: 'Nunito', sans-serif;
 }

@@ -287,7 +287,7 @@ _MODEL_LABELS = {
     'gwa_trend':          'GWA Trend (Time-Series)',
     'inc_forecast':       'INC Rate Forecast',
     'irreg_reg':          'Irregular vs Regular Rate',
-    'kpi':                'KPI — GWA & Enrollment',
+    'kpi':                'KPI — GWA, Enrollment & Drop',
     'subject_grade':      'Subject Grade Forecast',
     'performance_band':   'Performance Band Distribution',
     'gender_performance': 'Gender Performance (Dropout & GWA)',

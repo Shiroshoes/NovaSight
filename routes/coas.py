@@ -40,15 +40,6 @@ def help_coas():
     return render_template('deans/COASDean/help/html/coasdeanhelp.html')
 
 # --- COAS Dean Specific Dashboards ---
-# Main COAS Dean Dashboard
-@coas_bp.route('/maindashboard')
-def maindash_coas():
-    if 'user_id' not in session or session.get('role') != 'CoASdean':
-        return redirect(url_for('home'))
-
-    return render_template('deans/COASDean/dashboard/maindashboardcoasdean.html', college_type='all') 
-
-# coas dash (if there's a specific dashboard for COAS itself, distinct from the Dean's)
 @coas_bp.route('/coasdashboard')
 def coasdash_coas():
     if 'user_id' not in session or session.get('role') != 'CoASdean':

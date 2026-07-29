@@ -40,14 +40,6 @@ def help_cahs():
     return render_template('deans/CAHSdean/help/html/helpcahsdean.html') 
 
 # --- CAHS Specific Dashboards ---
-# Main CAHS Dashboard
-@cahs_bp.route('/maindashboard')
-def maindash_cahs():
-    if 'user_id' not in session or session.get('role') != 'CAHSdean':
-        return redirect(url_for('home'))
-    return render_template('deans/CAHSdean/dashboard/maindashboardcahsdean.html', college_type='all') 
-
-# cahs dash
 @cahs_bp.route('/cahsdashboard')
 def cahsdash_cahs():
     if 'user_id' not in session or session.get('role') != 'CAHSdean':

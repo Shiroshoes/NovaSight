@@ -614,10 +614,12 @@ def train_irreg_reg(df_path: str) -> dict:
     return {"status": "ok", **_reg_metrics(y_test, y_pred)}
 
 
-def train_kpi(gwa_path: str, enroll_path: str) -> dict:
-    """GWA half: LinearRegression | Enrollment half: LinearRegression.
+def train_kpi(gwa_path: str, enroll_path: str, drop_path: str = None) -> dict:
+    """GWA half: LinearRegression | Enrollment half: LinearRegression |
+    Drop half: LinearRegression.
 
-    Powers: /api/get_kpi_metrics -> dean-dashboard KPI tiles (predicted GWA & headcount).
+    Powers: /api/get_kpi_metrics -> dean-dashboard KPI tiles (predicted GWA,
+    headcount, and Total Drop).
 
     Restricted-candidate model_comparison.py results:
       - GWA half   (08_kpi_gwa_student.csv):        R^2=0.054  -- weak, same
@@ -629,6 +631,14 @@ def train_kpi(gwa_path: str, enroll_path: str) -> dict:
         won with R^2=0.8879 -- swapped from RandomForestRegressor
         (previously 0.8925). The gap is small enough to be a wash; picked
         per the comparison's numeric winner.
+      - Drop half (15_kpi_drop_college.csv): new, dedicated to this KPI.
+        Previously the KPI endpoint borrowed college_dropout_model_final.pkl
+        (train_dropout_ranking's model), which predicts a per-STUDENT
+        drop probability with near-zero R^2 (~0.004) and was trained for a
+        different chart entirely. This half instead predicts the
+        per-college/year/sem drop COUNT directly (same shape as the
+        Enrollment half), so it's a purpose-built regression rather than a
+        borrowed classifier-ish rate applied post-hoc.
     """
     _log("Training kpi models …")
     results = {}
@@ -660,6 +670,23 @@ def train_kpi(gwa_path: str, enroll_path: str) -> dict:
         results["enrollment"] = _reg_metrics(y, m.predict(X))
     else:
         results["enrollment"] = {"status": "skipped"}
+
+    # Total Drop model — dedicated, separate from dropout_ranking's model.
+    if drop_path and os.path.exists(drop_path):
+        df_drop = pd.read_csv(drop_path)
+        if len(df_drop) >= 3:
+            X = pd.get_dummies(df_drop[["College"]], prefix="College")
+            X["Year_Numeric"] = df_drop["Year_Numeric"]
+            X["Sem_Numeric"]  = df_drop["Sem_Numeric"]
+            y = df_drop["Drop_Count"]
+            m = LinearRegression().fit(X, y)
+            _save(m,               "kpi_drop_model.pkl")
+            _save(X.columns.tolist(), "kpi_drop_features.pkl")
+            results["drop"] = _reg_metrics(y, m.predict(X))
+        else:
+            results["drop"] = {"status": "skipped", "reason": "too few rows"}
+    else:
+        results["drop"] = {"status": "skipped", "reason": "no drop_path provided"}
 
     return results
 
@@ -878,7 +905,7 @@ def run_full_pipeline(new_file: str = None) -> dict:
         ("gwa_trend",        lambda: train_gwa_trend(f"{md}/05_gwa_trend_timeseries.csv")),
         ("inc_forecast",     lambda: train_inc_forecast(f"{md}/06_inc_forecast_cohort.csv")),
         ("irreg_reg",        lambda: train_irreg_reg(f"{md}/07_irreg_reg_cohort.csv")),
-        ("kpi",              lambda: train_kpi(f"{md}/08_kpi_gwa_student.csv", f"{md}/09_kpi_enrollment_college.csv")),
+        ("kpi",              lambda: train_kpi(f"{md}/08_kpi_gwa_student.csv", f"{md}/09_kpi_enrollment_college.csv", f"{md}/15_kpi_drop_college.csv")),
         ("subject_grade",    lambda: train_subject_top(f"{md}/10_subject_grade_forecast.csv")),
         ("performance_band", lambda: train_performance_band(f"{md}/11_performance_band_dist.csv")),
         ("gender_performance", lambda: train_gender_performance(f"{md}/12_gender_performance.csv")),

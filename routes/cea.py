@@ -40,15 +40,6 @@ def help_cea():
     return render_template('deans/CEADean/help/html/ceadeanhelp.html')
 
 # --- CEA Dean Specific Dashboards ---
-# Main CEA Dean Dashboard
-@cea_bp.route('/maindashboard')
-def maindash_cea():
-    if 'user_id' not in session or session.get('role') != 'CEAdean':
-        return redirect(url_for('home'))
-
-    return render_template('deans/CEADean/dashboard/maindashboardceadean.html', college_type='all') 
-
-# cea dash
 @cea_bp.route('/ceadashboard')
 def ceadash_cea(): # Renamed function to avoid confusion
     if 'user_id' not in session or session.get('role') != 'CEAdean':

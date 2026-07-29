@@ -40,13 +40,6 @@ def help_ccst():
     return render_template('deans/CCSTDean/help/html/ccstdeanhelp.html')
 
 # --- CCST Dean Specific Dashboards ---
-# Main CCST Dean Dashboard
-@ccst_bp.route('/maindashboard')
-def maindash_ccst():
-    if 'user_id' not in session or session.get('role') != 'CCSTdean':
-        return redirect(url_for('home'))
-
-    return render_template('deans/CCSTDean/dashboard/maindashboardccstdean.html', college_type='all') 
 
 # ccst dash (if there's a specific dashboard for CCST itself, distinct from the Dean's)
 @ccst_bp.route('/ccstdashboard')

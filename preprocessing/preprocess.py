@@ -567,6 +567,17 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     ).round(2)
     save(enroll, "09_kpi_enrollment_college.csv")
 
+    # 15 – KPI drop college (college × year × sem drop counts) — dedicated
+    # dataset for the "Total Drop" KPI tile, mirroring 09's shape so it can
+    # get its own model instead of borrowing the dropout-ranking one.
+    kpi_drop = (
+        student_df.groupby(["Year_Numeric", "Sem_Numeric", "College"])
+        .agg(Drop_Count=("is_drop", "sum"))
+        .reset_index()
+        .sort_values(["College", "Year_Numeric", "Sem_Numeric"])
+    )
+    save(kpi_drop, "15_kpi_drop_college.csv")
+
     # 10 – Subject grade forecast (long_df aggregated per subject)
     subj = (
         long_df[long_df["Grade"] > 0]   # exclude drops/INCs for grade difficulty

@@ -40,12 +40,6 @@ def help_cba():
     return render_template('deans/CBADean/help/html/cbadeanhelp.html')
 
 # --- CBA Dean Specific Dashboards ---
-# Main CBA Dean Dashboard
-@cba_bp.route('/maindashboard')
-def maindash_cba():
-    if 'user_id' not in session or session.get('role') != 'CBAdean':\
-        return redirect(url_for('home'))
-    return render_template('deans/CBADean/dashboard/maindashboardcbadean.html', college_type='all') 
 
 @cba_bp.route('/cbadashboard')
 def cbadash_cba():

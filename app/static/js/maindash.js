@@ -344,8 +344,6 @@ function renderGenderStatusGrid(container, chartStore, rows, gender, groupBy) {
 
 
 
-
-
 //  GWA RANKING CHART (Bar)
 function updateGWARanking(year, semester, college) {
     const canvas = document.getElementById('gwaRankingChart');
@@ -792,12 +790,19 @@ function updateKPIMetrics(year, semester, college) {
             // 1. Get Elements
             const elStudents = document.getElementById('kpi-val-students');
             const elGWA = document.getElementById('kpi-val-gwa');
+            const elDrop = document.getElementById('kpi-val-drop');
             const titleStudents = document.getElementById('kpi-title-students');
             const titleGWA = document.getElementById('kpi-title-gwa');
+            const titleDrop = document.getElementById('kpi-title-drop');
             const cardStudents = document.getElementById('kpi-card-students');
             const cardGWA = document.getElementById('kpi-card-gwa');
+            const cardDrop = document.getElementById('kpi-card-drop');
 
             if (!elStudents || !elGWA) return;
+
+            // Total Drop is a newer field — default to 0 rather than
+            // treating an older/malformed payload as a hard error.
+            const safeDrop = data.drop === undefined ? 0 : data.drop;
 
             // 2. Update Numbers
             const isPred = data.is_prediction;
@@ -808,13 +813,20 @@ function updateKPIMetrics(year, semester, college) {
                 PredictionStyle.applyKpiPredictionStyle(cardGWA, elGWA, {
                     rawValue: data.gwa.toFixed(2),
                 });
+                if (elDrop) {
+                    PredictionStyle.applyKpiPredictionStyle(cardDrop, elDrop, {
+                        rawValue: safeDrop.toLocaleString(),
+                    });
+                }
             } else {
                 if (typeof PredictionStyle !== 'undefined') {
                     PredictionStyle.clearKpiPredictionStyle(cardStudents, elStudents);
                     PredictionStyle.clearKpiPredictionStyle(cardGWA, elGWA);
+                    if (elDrop) PredictionStyle.clearKpiPredictionStyle(cardDrop, elDrop);
                 }
                 elStudents.innerText = data.students.toLocaleString(); // 1,200
                 elGWA.innerText = data.gwa.toFixed(2); // 1.25
+                if (elDrop) elDrop.innerText = safeDrop.toLocaleString();
             }
 
             // 3. Dynamic Styling (Blue = History, Orange = AI Prediction)
@@ -832,6 +844,14 @@ function updateKPIMetrics(year, semester, college) {
             cardGWA.style.borderLeftColor = gwaColor;
             titleGWA.style.color = gwaColor;
             titleGWA.innerText = `Average GWA ${suffix}`;
+
+            // Total Drop stays maroon in both modes — a dropout count
+            // reads as a warning regardless of Actual vs Predicted,
+            // unlike the blue/orange history-vs-forecast split above.
+            if (titleDrop) {
+                const dropLabel = isPred ? 'Projected Drop' : 'Total Drop';
+                titleDrop.innerText = `${dropLabel} ${suffix}`;
+            }
         })
         .catch(err => console.error("KPI Error:", err));
 }

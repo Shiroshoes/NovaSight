@@ -414,13 +414,7 @@ function renderGenderStatusGrid(container, chartStore, rows, gender, groupBy) {
     const labels = [];
     const values = [];
     const colors = [];
-    // Kept as 3 separate rows (not one flat list) so the legend below
-    // always renders as exactly 3 lines: all Regular chips, then all
-    // INC chips, then all Dropped chips — instead of interleaving
-    // status-by-status per course.
-    const legendRegular = [];
-    const legendInc = [];
-    const legendDrop = [];
+    const legendEntries = [];
     nonZero.forEach(r => {
         const name = r.group;
         const base = getGenderShade(getGroupColor(name), isFemale);
@@ -435,9 +429,9 @@ function renderGenderStatusGrid(container, chartStore, rows, gender, groupBy) {
         if (incVal > 0) { labels.push(`${name} — INC`); values.push(incVal); colors.push(inc); }
         if (drop > 0) { labels.push(`${name} — Dropped`); values.push(drop); colors.push(risk); }
 
-        legendRegular.push({ label: name, color: base });
-        legendInc.push({ label: name, color: inc });
-        legendDrop.push({ label: name, color: risk });
+        legendEntries.push({ label: `${name} — Regular`, color: base });
+        legendEntries.push({ label: `${name} — INC`, color: inc });
+        legendEntries.push({ label: `${name} — Dropped`, color: risk });
     });
 
     const canvasId = `genderStatusDonut_${gender}`;
@@ -500,25 +494,8 @@ function renderGenderStatusGrid(container, chartStore, rows, gender, groupBy) {
     // all 3 statuses, even when a status is 0 for this gender — keeps
     // Male/Female legends structurally identical instead of a status
     // silently disappearing whenever its count happens to be zero.
-    const genderLegendEl = document.getElementById(legendId);
-    if (genderLegendEl) {
-        const chip = (e) => `
-            <span style="display:inline-flex; align-items:center; margin:0.1rem 0.6rem 0.1rem 0; font-size:0.8rem; color:#5a5c69;">
-                <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:${e.color}; margin-right:6px; border:1px solid rgba(0,0,0,0.1);"></span>
-                ${e.label}
-            </span>
-        `;
-        const row = (label, entries) => `
-            <div style="margin-bottom:0.3rem;">
-                <span style="font-weight:700; font-size:0.75rem; color:#858796; text-transform:uppercase; margin-right:0.5rem;">${label}:</span>
-                ${entries.map(chip).join('')}
-            </div>
-        `;
-        genderLegendEl.innerHTML = `
-            ${row('Regular', legendRegular)}
-            ${row('INC', legendInc)}
-            ${row('Dropped', legendDrop)}
-        `;
+    if (typeof renderColorLegend === 'function') {
+        renderColorLegend(legendId, legendEntries);
     }
 }
 
@@ -543,10 +520,13 @@ function updateKPIMetrics(year, semester, college) {
             // 1. Get Elements
             const elStudents = document.getElementById('kpi-val-students');
             const elGWA = document.getElementById('kpi-val-gwa');
+            const elDrop = document.getElementById('kpi-val-drop');
             const titleStudents = document.getElementById('kpi-title-students');
             const titleGWA = document.getElementById('kpi-title-gwa');
+            const titleDrop = document.getElementById('kpi-title-drop');
             const cardStudents = document.getElementById('kpi-card-students');
             const cardGWA = document.getElementById('kpi-card-gwa');
+            const cardDrop = document.getElementById('kpi-card-drop');
 
             if (!elStudents || !elGWA) {
                 console.warn("KPI Elements not found in HTML.");
@@ -564,6 +544,9 @@ function updateKPIMetrics(year, semester, college) {
             }
             const safeStudents = data.students;
             const safeGWA = data.gwa;
+            // Total Drop is a newer field — default to 0 rather than
+            // treating an older/malformed payload as a hard error.
+            const safeDrop = data.drop === undefined ? 0 : data.drop;
             const isPred = data.is_prediction;
 
             if (isPred && typeof PredictionStyle !== 'undefined') {
@@ -573,13 +556,20 @@ function updateKPIMetrics(year, semester, college) {
                 PredictionStyle.applyKpiPredictionStyle(cardGWA, elGWA, {
                     rawValue: Number(safeGWA).toFixed(2),
                 });
+                if (elDrop) {
+                    PredictionStyle.applyKpiPredictionStyle(cardDrop, elDrop, {
+                        rawValue: safeDrop.toLocaleString(),
+                    });
+                }
             } else {
                 if (typeof PredictionStyle !== 'undefined') {
                     PredictionStyle.clearKpiPredictionStyle(cardStudents, elStudents);
                     PredictionStyle.clearKpiPredictionStyle(cardGWA, elGWA);
+                    if (elDrop) PredictionStyle.clearKpiPredictionStyle(cardDrop, elDrop);
                 }
                 elStudents.innerText = safeStudents.toLocaleString();
                 elGWA.innerText = Number(safeGWA).toFixed(2);
+                if (elDrop) elDrop.innerText = safeDrop.toLocaleString();
             }
 
             // 3. Dynamic Styling (Blue = History, Orange = AI Prediction)
@@ -606,6 +596,13 @@ function updateKPIMetrics(year, semester, college) {
                 titleGWA.style.color = colorSecondary;
                 titleGWA.innerText = `Average GWA ${suffix}`;
             }
+
+            // Apply Styles: Total Drop Card (maroon stays maroon either
+            // way — a dropout count reads as a warning color regardless
+            // of Actual vs Predicted, unlike the blue/orange history-vs-
+            // forecast split used for the other two cards)
+            const dropLabel = isPred ? 'Projected Drop' : 'Total Drop';
+            if(titleDrop) titleDrop.innerText = `${dropLabel} ${suffix}`;
         })
         .catch(err => console.error("KPI Error:", err));
 }

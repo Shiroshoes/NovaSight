@@ -36,9 +36,29 @@
     }
 
     @media print {
+      /* Browsers strip background colors/images from print output by
+         default (the "background graphics" setting) — that silently
+         blanks out anything colored via background-color, including
+         Chart.js legend swatches (small colored boxes/dots next to each
+         legend label) and any other card content that relies on a
+         background color rather than a border or text color. This
+         forces those colors to actually print instead of being
+         dropped. Applies globally so it also fixes non-legend elements
+         that hit the same silent-strip behavior. */
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
       @page {
         size: landscape;
-        margin: 18px 10mm 26px 10mm;
+        /* .print-header now sits in normal document flow (see below)
+           instead of being fixed, so it only ever appears once, at the
+           top of page 1 — it does NOT repeat on later pages. That means
+           @page no longer needs a big reserved top margin on every page
+           just to make room for it; a normal margin is enough. */
+        margin: 10mm 10mm 26px 10mm;
 
         @bottom-center {
           content: "Page " counter(page) " of " counter(pages);
@@ -75,23 +95,22 @@
         width: 100% !important;
       }
 
-      /* Repeats on every printed page — position:fixed elements are
-         re-drawn on each page. The @page top margin above reserves
-         blank space for it, but that margin alone doesn't stop the
-         page CONTENT from also starting at the same top position —
-         so we additionally push the grid itself down by the header's
-         own height below, which is what actually prevents overlap. */
+      /* Static (normal document flow), NOT fixed — a fixed header would
+         be re-drawn on every printed page. In normal flow it's just the
+         first thing on page 1: it prints once, then the grid follows
+         after it, and later pages start fresh with no header at all.
+         This also fixes the KPI row disappearing: the old fixed header
+         had z-index:1000 and sat on top of whatever content landed
+         underneath its 60px strip — including the row-1 KPI cards
+         whenever the page's actual layout drifted slightly from the
+         @page-reserved space. Normal flow can't overlap anything. */
       .print-header {
         display: flex;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 1000;
         align-items: center;
         justify-content: space-between;
         gap: 1rem;
         padding-bottom: 8px;
+        margin-bottom: 24px;
         border-bottom: 3px solid #800000;
         background: #fff;
         height: 60px;
@@ -138,10 +157,9 @@
          landscape page, instead of forcing every card into an identical
          box regardless of what it actually contains.
 
-         padding-top: the fixed .print-header below is 60px tall with a
-         3px border, so 63px is the minimum before content would touch
-         it. The extra ~24px on top of that (matching the grid's own
-         20px card gap) is the actual breathing room below the header. */
+         No extra top spacing needed here — the gap after the header
+         on page 1 comes from .print-header's own margin-bottom, and
+         later pages just start at the normal @page top margin. */
       section.dashboard-grid,
       main > section {
         height: auto !important;
@@ -150,7 +168,6 @@
         grid-auto-rows: auto !important;
         row-gap: 16px !important;
         column-gap: 16px !important;
-        padding-top: 87px !important;
       }
 
       .card {
@@ -170,26 +187,55 @@
         zoom: 0.6;
       }
 
-      /* The 2 KPI cards (Total Enrollment, Average GWA) are explicitly
-         pinned to row 1, split across the two halves of the 10-column
-         grid (columns 1–5 and 6–10). Because that fills the entire row,
-         every other card is automatically pushed to row 2 onward — no
-         matter where it falls in the HTML. They keep their own natural
-         (unzoomed) scale, but their HEIGHT still comes from .card-mini
-         in the page's own stylesheet (65px), same as every other card —
-         nothing here overrides it. */
+      /* The 3 KPI cards (Total Enrollment, Average GWA, Total Drop) are
+         explicitly pinned to row 1, split across three roughly-equal
+         thirds of the 10-column grid (columns 1–4, 4–7, 7–11). Because
+         that fills the entire row, every other card is automatically
+         pushed to row 2 onward — no matter where it falls in the HTML.
+         They keep their own natural (unzoomed) scale. Height is pinned
+         to match .card-mini (65px) and centered with flex, since the
+         KPI markup's own inner div (50px + 10px padding ≈ 70px) would
+         otherwise sit slightly off and pinned to the top instead of
+         centered. */
       .card:has(#kpi-card-students),
-      .card:has(#kpi-card-gwa) {
+      .card:has(#kpi-card-gwa),
+      .card:has(#kpi-card-drop) {
         grid-row: 1 !important;
         zoom: 1 !important;
+        height: 65px !important;
+        display: flex !important;
+        align-items: center !important;
       }
 
       .card:has(#kpi-card-students) {
-        grid-column: 1 / 6 !important;
+        grid-column: 1 / 4 !important;
       }
 
       .card:has(#kpi-card-gwa) {
-        grid-column: 6 / 11 !important;
+        grid-column: 4 / 7 !important;
+      }
+
+      .card:has(#kpi-card-drop) {
+        grid-column: 7 / 11 !important;
+      }
+
+      /* The KPI markup wraps its content in its own div with a fixed
+         50px height + 10px padding — stretch that inner div to fill
+         the card and center its contents, instead of leaving it
+         pinned to the top. */
+      .card:has(#kpi-card-students) > div,
+      .card:has(#kpi-card-gwa) > div,
+      .card:has(#kpi-card-drop) > div {
+        height: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
+      }
+
+      .card:has(#kpi-card-students) > div > div,
+      .card:has(#kpi-card-gwa) > div > div,
+      .card:has(#kpi-card-drop) > div > div {
+        width: 100%;
       }
 
       /* Chart.js draws each <canvas> at its ON-SCREEN pixel size and
@@ -199,16 +245,66 @@
          the canvas shrinks in proportion instead of being stretched
          into a differently-shaped box. object-fit/overflow stay on as
          a safety net only, in case any single chart's markup doesn't
-         follow the usual pattern. */
-      div[style*="position: relative"][style*="width: 100%"] {
+         follow the usual pattern.
+
+         EXCLUDES the 4 chart cards handled separately below (Student
+         Status Overview (Irregular), GWA Distribution, Dropout Risk
+         Ranking, INC Rate Forecast). Those cards have a note sentence
+         and/or a legend stacked BELOW the chart — stretching their
+         chart container to 100% of the card (this rule) makes the
+         chart alone claim the whole card, so the note/legend get
+         squeezed into the same space and overlap it. Everything else
+         (a chart with nothing else in the card) still gets the normal
+         fill-the-card treatment here. */
+      div[style*="position: relative"][style*="width: 100%"]:not(
+        .card:has(#statusIrregularChart) *,
+        .card:has(#gwaScatterChart) *,
+        .card:has(#dropoutRankingChart) *,
+        .card:has(#incForecastChart) *
+      ) {
         overflow: hidden !important;
+        height: 100% !important;
       }
 
-      canvas {
+      /* width/height 100% (not just max-width/max-height) so a chart
+         actually grows to fill whatever space its card has, instead of
+         only ever shrinking to fit — object-fit: contain still keeps
+         the chart's own aspect ratio so it doesn't stretch/distort.
+         Same exclusion as above: the 4 note/legend cards keep their
+         canvas sized to ITS OWN small container instead of the whole
+         card, so they render at a normal, non-overflowing size. */
+      canvas:not(
+        .card:has(#statusIrregularChart) canvas,
+        .card:has(#gwaScatterChart) canvas,
+        .card:has(#dropoutRankingChart) canvas,
+        .card:has(#incForecastChart) canvas
+      ) {
+        width: 100% !important;
+        height: 100% !important;
         max-width: 100% !important;
         max-height: 100% !important;
         object-fit: contain !important;
         display: block !important;
+      }
+
+      /* These cards need more room than the shared card sizing gives
+         them: 4 charts that have a note sentence and/or legend below
+         the chart (excluded above, so their chart keeps its own
+         authored height instead of ballooning to fill the card), plus
+         the 2 gender-retention cards, whose donut grid is built by JS
+         at print time and can wrap to more rows than the card was
+         sized for. height: auto + overflow: visible let each card grow
+         to fit whatever it actually contains instead of clipping the
+         bottom (which is what was cutting off / overlapping the note,
+         legend, or extra donut rows). */
+      .card:has(#statusIrregularChart),
+      .card:has(#gwaScatterChart),
+      .card:has(#dropoutRankingChart),
+      .card:has(#incForecastChart),
+      .card:has(#maleStatusGridContainer),
+      .card:has(#femaleStatusGridContainer) {
+        height: auto !important;
+        overflow: visible !important;
       }
 
       body { background: #fff !important; }

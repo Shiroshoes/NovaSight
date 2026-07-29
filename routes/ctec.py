@@ -40,17 +40,8 @@ def help_ctec():
     return render_template('deans/CTECdean/help/html/ctecdeanhelp.html') 
 
 # --- CTEC Dean Specific Dashboards ---
-# Main CTEC Dean Dashboard
-@ctec_bp.route('/maindashboard')
-def maindash_ctec():
-    if 'user_id' not in session or session.get('role') != 'CTECdean':
-        return redirect(url_for('home'))
-    
-    return render_template('deans/CTECdean/dashboard/maindashboardctecdean.html', college_type='all') 
-
-# ctec dash
 @ctec_bp.route('/ctecdashboard')
-def ctecdash_ctec(): # Renamed function to avoid confusion
+def ctecdash_ctec():
     if 'user_id' not in session or session.get('role') != 'CTECdean':
         return redirect(url_for('home'))
     

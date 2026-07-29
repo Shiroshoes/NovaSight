@@ -330,6 +330,9 @@ kpi_gwa_features = load_model("kpi_gwa_features.pkl")
 kpi_enroll_model = load_model("kpi_enrollment_model.pkl")
 kpi_enroll_features = load_model("kpi_enrollment_features.pkl")
 
+kpi_drop_model = load_model("kpi_drop_model.pkl")
+kpi_drop_features = load_model("kpi_drop_features.pkl")
+
 status_model = load_model("status_forest_model.pkl")
 status_features = load_model("status_forest_features.pkl")
 
@@ -352,6 +355,7 @@ def reload_models():
     global gwa_trend_model, gwa_trend_features
     global kpi_gwa_model, kpi_gwa_features
     global kpi_enroll_model, kpi_enroll_features
+    global kpi_drop_model, kpi_drop_features
     global status_model, status_features
     global inc_model, inc_features
     global subj_model, subj_features
@@ -369,6 +373,8 @@ def reload_models():
     kpi_gwa_features        = load_model("kpi_gwa_features.pkl")
     kpi_enroll_model        = load_model("kpi_enrollment_model.pkl")
     kpi_enroll_features     = load_model("kpi_enrollment_features.pkl")
+    kpi_drop_model          = load_model("kpi_drop_model.pkl")
+    kpi_drop_features       = load_model("kpi_drop_features.pkl")
     status_model            = load_model("status_forest_model.pkl")
     status_features         = load_model("status_forest_features.pkl")
     inc_model               = load_model("inc_rate_model.pkl")
@@ -394,7 +400,7 @@ def api_reload_models():
                   for name in [
                       "dropout_model.pkl", "gwa_ranking_model_final.pkl",
                       "college_dropout_model_final.pkl", "gwa_trend_model_final.pkl",
-                      "kpi_gwa_model.pkl", "kpi_enrollment_model.pkl",
+                      "kpi_gwa_model.pkl", "kpi_enrollment_model.pkl", "kpi_drop_model.pkl",
                       "status_forest_model.pkl", "inc_rate_model.pkl",
                       "subject_grade_model.pkl", "dropout_spike_model.pkl",
                   ]}
@@ -1044,10 +1050,18 @@ def get_kpi_metrics():
                 df_scope = df_scope[df_scope['Sem_Numeric'] == sem_val]
 
             if df_scope.empty:
-                return jsonify({"students": 0, "gwa": 0, "is_prediction": False})
+                return jsonify({"students": 0, "gwa": 0, "drop": 0, "is_prediction": False})
             
             total_students = int(df_scope['Student_ID'].nunique())
             avg_gwa = round(df_scope['GWA'].mean(), 2)
+
+            # Total Drop — reuse the same pre-computed is_drop flag every
+            # other endpoint relies on (master CSV has no raw Status column
+            # in all rows, so 'is_drop' is the reliable source of truth).
+            if 'is_drop' in df_scope.columns:
+                total_drops = int(df_scope.groupby('Student_ID')['is_drop'].max().sum())
+            else:
+                total_drops = 0
 
         # SCENARIO B: PREDICTIVE DATA (Future AI)
         else:
@@ -1090,6 +1104,7 @@ def get_kpi_metrics():
 
             total_students_accum = 0
             gwa_accum = []
+            total_drops_accum = 0
 
             for col_name in colleges_to_process:
                 # A. Predict Enrollment
@@ -1122,20 +1137,49 @@ def get_kpi_metrics():
                     pred_grade = float(kpi_gwa_model.predict(X_gwa)[0])
                     gwa_accum.append(pred_grade)
 
+                # C. Predict Total Drop — dedicated model (kpi_drop_model),
+                # trained specifically for this KPI on per-college/year/sem
+                # drop counts. Previously this borrowed college_dropout
+                # _model_final.pkl (the Dropout Ranking chart's model),
+                # which predicts a per-student drop probability with
+                # near-zero R^2 and wasn't built for this purpose.
+                if 'kpi_drop_model' in globals() and kpi_drop_model and kpi_drop_features:
+                    # If semester is 'all', sum Sem 1 & Sem 2 predicted
+                    # counts (unlike GWA, which averages a rate — a drop
+                    # COUNT for the full year is the sum of both sems).
+                    for s in sem_loop:
+                        X_drop = pd.DataFrame(np.zeros((1, len(kpi_drop_features))), columns=kpi_drop_features)
+                        X_drop['Year_Numeric'] = year
+                        X_drop['Sem_Numeric'] = s
+
+                        if col_feat in kpi_drop_features:
+                            X_drop[col_feat] = 1
+
+                        try:
+                            pred_drop = max(0.0, float(kpi_drop_model.predict(X_drop)[0]))
+                        except Exception:
+                            pred_drop = 0.0
+
+                        if scope["type"] == "course":
+                            pred_drop *= course_share
+                        total_drops_accum += pred_drop
+
             # Final Calculation
             total_students = total_students_accum
             avg_gwa = round(sum(gwa_accum) / len(gwa_accum), 2) if gwa_accum else 0
+            total_drops = int(round(total_drops_accum))
 
         return jsonify({
             "students": total_students,
             "gwa": avg_gwa,
+            "drop": total_drops,
             "is_prediction": is_prediction,
             "year": year
         })
 
     except Exception as e:
         print(f"KPI Error: {e}")
-        return jsonify({"students": 0, "gwa": 0, "error": str(e)}), 500
+        return jsonify({"students": 0, "gwa": 0, "drop": 0, "error": str(e)}), 500
 
 
 
