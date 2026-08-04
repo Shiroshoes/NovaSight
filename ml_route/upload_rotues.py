@@ -291,6 +291,8 @@ _MODEL_LABELS = {
     'subject_grade':      'Subject Grade Forecast',
     'performance_band':   'Performance Band Distribution',
     'gender_performance': 'Gender Performance (Dropout & GWA)',
+    'year_level_performance': 'Performance by Year Level',
+    'year_level_inc_irreg':   'INC / Irregular / Drop by Year Level',
 }
 
 

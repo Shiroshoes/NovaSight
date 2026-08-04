@@ -348,6 +348,30 @@
         </div>
       </div>
 
+      <!-- Course x Year-Level Dropout Heatmap -->
+      <div class="card card-full-width1" id="heatmapCard">
+        <div style="background-color: white; border-radius: 10px;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; align-items: center; justify-content: space-between;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Dropout Rate Heatmap: Course &times; Year Level
+              </h6>
+              <span id="heatmap-year-badge" style="color: #5a5c69; font-size: 1rem; font-weight: 700; padding: 0.25rem 0.6rem;"></span>
+          </div>
+          <div style="padding: 1.25rem;">
+              <p style="margin: 0 0 0.75rem 0; font-size: 0.8rem; color: #858796;">
+                  Every course inside this college, broken down by year level.
+              </p>
+              <div id="courseYearLevelHeatmap">
+                  <p style="color:#858796; text-align:center;">Loading heatmap...</p>
+              </div>
+              <div style="margin-top: 0.75rem; text-align: center; font-size: 0.875rem; color: #858796;">
+                  <i class="fas fa-info-circle"></i>
+                  Darker red = higher dropout rate for that program's students at that year. Hover a cell for exact headcount.
+              </div>
+          </div>
+        </div>
+      </div>
+
       <div class="card card-wide">
           <div style="background-color: #fff; border-radius: 0.35rem; margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
               <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">

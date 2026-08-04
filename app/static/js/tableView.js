@@ -296,17 +296,22 @@ const DisplayFormat = {
     /** Cards Table Mode must never strip down, no matter what's inside
      *  them: KPI cards (`.card-mini` / `.card-mini1` / `.card-mini2` —
      *  Total Enrollment, Average GWA, Total Drop), the Model Performance
-     *  & Accuracy card (`#model-eval-card` — Main/CAHS/CBA), and the
+     *  & Accuracy card (`#model-eval-card` — Main/CAHS/CBA), the
      *  ml_eval.js-based equivalent used on some college dashboards
-     *  (`#ml-eval-card` — CCST/CEA/COAS/CTEC). Add classes/ids here
-     *  rather than at every call site if more "always show as-is" cards
-     *  come up later. */
+     *  (`#ml-eval-card` — CCST/CEA/COAS/CTEC), and the Course x
+     *  Year-Level Dropout Heatmap (`#heatmapCard`) — it's rendered as a
+     *  plain HTML table already (see updateCourseYearLevelHeatmap in
+     *  chart-helpers.js), so stripping it down would just remove the
+     *  numbers it exists to show, not simplify anything. Add classes/
+     *  ids here rather than at every call site if more "always show
+     *  as-is" cards come up later. */
     _isUntouchableCard(card) {
         return card.classList.contains('card-mini')
             || card.classList.contains('card-mini1')
             || card.classList.contains('card-mini2')
             || card.id === 'model-eval-card'
-            || card.id === 'ml-eval-card';
+            || card.id === 'ml-eval-card'
+            || card.id === 'heatmapCard';
     },
 
     /* ── Build table HTML straight from chart.data — no separate fetch,

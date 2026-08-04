@@ -2667,6 +2667,109 @@ def get_year_level_inc_irreg():
         return jsonify({"error": str(e)}), 500
 
 
+@ml_bp.route('/api/get_course_year_level_heatmap')
+def get_course_year_level_heatmap():
+    """
+    Dropout/At-Risk Rate HEATMAP: rows = COURSE/PROGRAM, columns = YEAR
+    LEVEL, each cell = that course's dropout rate at that year level (%).
+    This is the same Total_Students / Drop_Count numbers
+    get_year_level_inc_irreg() already reads from
+    model_datasets/14_year_level_inc_irreg.csv — just pivoted into a
+    full Course x Year_Level grid instead of collapsed into one bar per
+    level, so a dean/admin can spot exactly which program AND which
+    cohort year is driving risk, not just which year level overall.
+
+    `college=` follows the same single "Department - Course" scope used
+    everywhere else in this file:
+      - 'all' / 'main campus' -> every course, campus-wide (Main dashboard)
+      - a college code ('CAHS') -> only that college's own courses (a
+        dean dashboard)
+      - a specific course name -> has nothing left to break down BY
+        course, so (like get_status_by_course/get_year_level_distribution)
+        this falls back to that course's own parent college, so every
+        sibling course still shows instead of a one-row heatmap.
+    """
+    try:
+        year = int(request.args.get('year', get_latest_real_year()))
+        college_arg = request.args.get('college', 'all').strip()
+        semester_arg = request.args.get('semester', 'all').strip()
+
+        csv_path = os.path.join(MODEL_DATASETS_DIR, "14_year_level_inc_irreg.csv")
+        if not os.path.exists(csv_path):
+            return jsonify({"error": "Year-level dataset not found. Upload a dataset to generate it."}), 200
+
+        df_scope = pd.read_csv(csv_path)
+        if df_scope.empty:
+            return jsonify({"courses": [], "levels": [], "matrix": [], "error": "No year-level data found"})
+
+        df_scope = df_scope[df_scope['Year_Numeric'] == year]
+
+        if semester_arg.lower() not in ('all', 'overall'):
+            sem_map = {"1sem": 1, "2sem": 2, "summer": 3}
+            sem_num = sem_map.get(semester_arg.lower())
+            if sem_num is not None:
+                df_scope = df_scope[df_scope['Sem_Numeric'] == sem_num]
+
+        heatmap_scope = resolve_scope(college_arg)
+        if heatmap_scope["type"] == "course" and heatmap_scope["feature_college"]:
+            heatmap_scope = {"type": "college", "college_names": expand_college(heatmap_scope["feature_college"])}
+        df_scope = apply_scope_filter(df_scope, heatmap_scope)
+
+        if df_scope.empty or 'Course' not in df_scope.columns:
+            return jsonify({"courses": [], "levels": [], "matrix": [], "college": college_arg,
+                             "error": "No data for this selection"})
+
+        def _level_sort_key(df, lv):
+            num = df.loc[df['Year_Level'] == lv, 'Year_Level_Num'].iloc[0]
+            if num == 0:
+                return (2, 0)        # Unknown -> always last
+            if num == -1:
+                return (1, 0)        # Irregular -> after all real year levels
+            return (0, num)          # 1st..Nth Year -> ascending
+
+        YEAR_LEVEL_DISPLAY_OVERRIDES = {"Unknown": "Not Recorded"}
+
+        collapsed = (
+            df_scope.groupby(['Course', 'Year_Level', 'Year_Level_Num'])
+            .agg(
+                Total_Students=('Total_Students', 'sum'),
+                Drop_Count=('Drop_Count', 'sum'),
+            )
+            .reset_index()
+        )
+        safe_total = collapsed['Total_Students'].replace(0, np.nan)
+        collapsed['Drop_Rate'] = (collapsed['Drop_Count'] / safe_total * 100).round(2).fillna(0.0)
+
+        level_order = sorted(collapsed['Year_Level'].unique(), key=lambda lv: _level_sort_key(collapsed, lv))
+        display_levels = [YEAR_LEVEL_DISPLAY_OVERRIDES.get(lv, lv) for lv in level_order]
+
+        courses = sorted(collapsed['Course'].dropna().astype(str).str.strip().unique())
+
+        matrix = []
+        for course in courses:
+            c_rows = collapsed[collapsed['Course'] == course].set_index('Year_Level')
+            matrix.append([
+                {
+                    "rate": float(c_rows['Drop_Rate'].get(lv, 0.0)),
+                    "count": int(c_rows['Drop_Count'].get(lv, 0)),
+                    "total": int(c_rows['Total_Students'].get(lv, 0)),
+                }
+                for lv in level_order
+            ])
+
+        return jsonify({
+            "year": year,
+            "college": college_arg,
+            "courses": courses,
+            "levels": display_levels,
+            "matrix": matrix,
+        })
+
+    except Exception as e:
+        print(f"Course Year-Level Heatmap Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 #  YEAR-LEVEL GWA FORECAST (Prediction mode for "Performance by Year Level")
 _YEAR_LEVEL_FORECAST_EXCLUDE = {"Unknown"}  # a blank-cell data gap isn't a real cohort to forecast
 

@@ -78,6 +78,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (typeof updateHardestSubjectsByCourse === 'function') updateHardestSubjectsByCourse(college);
         if (typeof updateYearLevelChart === 'function') updateYearLevelChart(year, semester, college);
         if (typeof updateYearLevelIncIrregChart === 'function') updateYearLevelIncIrregChart(year, semester, college);
+        if (typeof updateCourseYearLevelHeatmap === 'function') updateCourseYearLevelHeatmap(year, semester, college);
 
         // Keep Table Mode (table-view.js) in sync too — no-op if Chart
         // Mode is currently active or the module isn't loaded.
@@ -149,12 +150,17 @@ function updateDropoutPie(year, college) {
             const mTotal = mStay + mRisk;
             const fTotal = fStay + fRisk;
 
-            // Badge + title (shared across both cards)
-            const dpModeLabel = typeof displayModeLabel === 'function' ? displayModeLabel(data.mode) : data.mode;
+            // Year label only (shared across both cards) — no status
+            // pill here. The Retention & Risk donuts underneath
+            // (get_gender_status_breakdown) have no real prediction
+            // model behind them; even when the dashboard is in
+            // Prediction mode, that endpoint silently falls back to the
+            // latest real year's actual data, so a "Current"/"Predicted"
+            // badge would never be meaningful here — just show the year.
             document.querySelectorAll('[id^="drop-pie-badge"]').forEach(badge => {
-                badge.innerText = `${year} ${dpModeLabel}`;
-                badge.style.backgroundColor = data.mode === "Forecast" ? "#ffc107" : "rgb(28, 200, 138)";
-                badge.style.color = data.mode === "Forecast" ? "#212529" : "#fff";
+                badge.innerText = `${year}`;
+                badge.style.backgroundColor = "transparent";
+                badge.style.color = "#5a5c69";
             });
 
             document.querySelectorAll('[id^="dp-college-name"]').forEach(titleSpan => {
@@ -718,7 +724,7 @@ function updateGwaScatter(college, semester) {
                                 stepSize: 1,
                                 callback: (v) => Math.round(v) === v ? Math.round(v) : ''
                             },
-                            title: { display: true, text: 'School Year (dashed columns to the right are forecast)' }
+                            title: { display: true, text: 'School Year (dashed columns to the right are Predicted Data)' }
                         },
                         y: {
                             reverse: true, // 1.0 Top
@@ -832,7 +838,7 @@ function updateKPIMetrics(year, semester, college) {
             // 3. Dynamic Styling (Blue = History, Orange = AI Prediction)
             const color = isPred ? '#f6ad55' : '#4e73df'; // Orange vs Blue
             const gwaColor = isPred ? '#f6ad55' : '#1cc88a'; // Orange vs Green
-            const suffix = isPred ? `(Predicted Data — ${year})` : '(Current Data)';
+            const suffix = isPred ? `(Predicted Data — ${year})` : `(${year})`;
 
             const studentsLabel = isPred ? 'Enrollment Increase' : 'Total Enrollment';
 
@@ -1076,16 +1082,22 @@ function updateStatusChart(year, semester, college) {
         fetchStatusByCollege(year, safeSemester).then(rows => {
             const totalReg = rows.reduce((a, r) => a + r.regular, 0);
             const totalIrr = rows.reduce((a, r) => a + r.irregular, 0);
-            const mode = rows.find(r => r.mode === 'Forecast') ? 'Forecast' : 'Actual';
             const displayYear = rows[0] ? rows[0].year : year;
 
             if (elReg) elReg.innerText = totalReg.toLocaleString();
             if (elIrr) elIrr.innerText = totalIrr.toLocaleString();
             if (badges.length) {
-                const modeLabel = typeof displayModeLabel === 'function' ? displayModeLabel(mode) : mode;
+                // Same reasoning as the Male/Female Retention & Risk
+                // badges (drop-pie-badge): this only ever renders in
+                // Recent mode — Prediction mode swaps in a separate
+                // trend-line chart entirely (see mode-toggle.js's
+                // _renderStatusCharts) — so an Actual/Forecast pill here
+                // was implying a distinction that isn't meaningful on
+                // this specific card. Just show the year.
                 badges.forEach(badge => {
-                    badge.innerText = `${displayYear} ${modeLabel}`;
-                    badge.style.backgroundColor = mode === 'Forecast' ? "#f6c23e" : "rgb(28, 200, 138)";
+                    badge.innerText = `${displayYear}`;
+                    badge.style.backgroundColor = "transparent";
+                    badge.style.color = "#5a5c69";
                 });
             }
             if (summaryEl && typeof buildDonutSummarySentence === 'function') {
@@ -1154,9 +1166,18 @@ function updateStatusChart(year, semester, college) {
                 if (elReg) elReg.innerText = totalReg.toLocaleString();
                 if (elIrr) elIrr.innerText = totalIrr.toLocaleString();
                 if (badges.length) {
+                    // Same reasoning as the Male/Female Retention & Risk
+                    // badges (drop-pie-badge, deandash.js): this only
+                    // ever renders in Recent mode — Prediction mode
+                    // swaps in a separate trend-line chart entirely (see
+                    // mode-toggle.js's _renderStatusCharts) — so a
+                    // "Current Data" pill here was implying a live/vs
+                    // forecast distinction that doesn't actually exist
+                    // on this card. Just show the year.
                     badges.forEach(badge => {
-                        badge.innerText = `${data.year || year} Recent Data`;
-                        badge.style.backgroundColor = "rgb(28, 200, 138)";
+                        badge.innerText = `${data.year || year}`;
+                        badge.style.backgroundColor = "transparent";
+                        badge.style.color = "#5a5c69";
                     });
                 }
                 if (summaryEl && typeof buildDonutSummarySentence === 'function') {

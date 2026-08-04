@@ -72,6 +72,16 @@ const PERF_BAND_COLORS = {
     'Unknown':        NEUTRAL_COLOR,
 };
 
+// Fixed colors for CAHS's three courses, checked (as a substring match
+// against the course's full name) before anything falls through to the
+// auto-hash palette below — so these three always render as requested
+// instead of whatever the hash happens to land on.
+const COURSE_COLORS = {
+    'PUBLIC HEALTH': '#FFA07A',  // peach
+    'NURSING':        '#4e73df', // blue
+    'MIDWIFERY':      '#e83e8c', // pink
+};
+
 // A rotating palette used to auto-assign colors to things we don't
 // know in advance (e.g. individual COURSES inside CAHS: BSN, BSPT, etc.)
 // Colors are picked from this list in a stable order (hashed by name)
@@ -110,6 +120,9 @@ function getGroupColor(label) {
     const key = String(label).trim().toUpperCase();
 
     if (COLLEGE_COLORS[key]) return COLLEGE_COLORS[key];
+    for (const courseKey in COURSE_COLORS) {
+        if (key.includes(courseKey)) return COURSE_COLORS[courseKey];
+    }
     if (_autoColorCache[key]) return _autoColorCache[key];
 
     let hash = 0;
@@ -378,13 +391,17 @@ function getGenderShade(baseHex, isFemale) {
 
 
 /**
- * The backend still calls the "not forecast" state "Actual" (data.mode).
- * On screen we show the friendlier "Recent Data" instead — this is the
- * ONLY place that mapping lives, so every badge/label across every
- * dashboard says the same thing.
+ * The backend still calls the two states "Actual" / "Forecast"
+ * (data.mode). On screen every badge instead says "Current Data" /
+ * "Predicted Data" — this is the ONLY place that mapping lives, so
+ * every badge across every dashboard uses the exact same two labels.
+ * Only call this for charts that have a REAL prediction model behind
+ * them (i.e. `mode` can genuinely be 'Forecast') — a chart with no
+ * prediction mode at all should just hardcode "Current Data" directly
+ * rather than route through here.
  */
 function displayModeLabel(mode) {
-    return mode === 'Forecast' ? 'Forecast' : 'Recent Data';
+    return mode === 'Forecast' ? 'Predicted Data' : 'Current Data';
 }
 
 /**
@@ -881,4 +898,140 @@ function buildComparisonSentence(labelA, valueA, labelB, valueB, metricName) {
     const loVal = Math.min(valueA, valueB);
     const diff = hiVal - loVal;
     return `${higher} has the higher ${metricName} (${hiVal} vs ${loVal} for ${lower}), a difference of ${diff}.`;
+}
+
+
+// COURSE x YEAR-LEVEL DROPOUT/AT-RISK HEATMAP
+// Rows = course/program — every course campus-wide on the Main
+// dashboard, or just this college's own courses on a dean dashboard;
+// columns = year level (1st Year, 2nd Year, 3rd Year, 4th Year,
+// Irregular). Each cell's color is that course's Drop Rate (%) for
+// that year level, pulled from the same
+// /api/get_course_year_level_heatmap numbers behind the "INC/Irregular/
+// Drop Rate by Year Level" chart (14_year_level_inc_irreg.csv), just
+// pivoted into a full grid instead of collapsed to one bar per level.
+// Rendered as a plain HTML table (not Chart.js) since a heatmap IS
+// already tabular — table-view.js treats this card as "untouchable"
+// (see tableView.js) so Table Mode leaves it exactly as-is.
+function updateCourseYearLevelHeatmap(year, semester, college) {
+    const container = document.getElementById('courseYearLevelHeatmap');
+    if (!container) return;
+
+    // #heatmapCard shares the same .card / .card-full-width1 styling as
+    // the chart cards around it, which are height-constrained for their
+    // canvases. This card is always a plain HTML table though (never a
+    // chart), so — same idea as the df-table-active height override
+    // Table Mode applies to chart cards — force it to size to its own
+    // content instead of clipping/scrolling internally.
+    const heatmapCard = document.getElementById('heatmapCard');
+    if (heatmapCard) {
+        heatmapCard.style.height = 'auto';
+        heatmapCard.style.maxHeight = 'none';
+        heatmapCard.style.overflow = 'visible';
+    }
+    container.style.height = '100%';
+    container.style.width = '100%';
+
+    const safeCollege = (college === 'Main Campus' || !college) ? 'all' : college;
+    const safeSemester = semester || 'all';
+
+    const badge = document.getElementById('heatmap-year-badge');
+    if (badge) badge.innerText = `${year}`;
+
+    fetch(`/api/get_course_year_level_heatmap?year=${year}&semester=${safeSemester}&college=${safeCollege}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                container.innerHTML = `<p style="color:#858796; text-align:center;">${data.error}</p>`;
+                return;
+            }
+            const courses = data.courses || [];
+            const levels = data.levels || [];
+            const matrix = data.matrix || [];
+
+            if (courses.length === 0 || levels.length === 0) {
+                container.innerHTML = `<p style="color:#858796; text-align:center;">No year-level dropout data available yet.</p>`;
+                return;
+            }
+
+            // Fixed 0-50%+ color scale (not this selection's own min/max)
+            // so a cell's color always means the same real-world risk
+            // level no matter which college/year is filtered — switching
+            // filters won't silently repaint "10% dropout" dark red just
+            // because everything else currently in view happens to be
+            // even lower.
+            function heatColor(rate) {
+                const stops = [
+                    { pct: 0,  color: [28, 200, 138] },   // #1cc88a green  — low risk
+                    { pct: 15, color: [246, 194, 62] },   // #f6c23e amber
+                    { pct: 30, color: [230, 126, 34] },   // orange
+                    { pct: 50, color: [231, 74, 59] },    // #e74a3b red    — high risk
+                ];
+                const clamped = Math.max(0, Math.min(rate, 50));
+                let lo = stops[0], hi = stops[stops.length - 1];
+                for (let i = 0; i < stops.length - 1; i++) {
+                    if (clamped >= stops[i].pct && clamped <= stops[i + 1].pct) {
+                        lo = stops[i]; hi = stops[i + 1]; break;
+                    }
+                }
+                const span = (hi.pct - lo.pct) || 1;
+                const t = (clamped - lo.pct) / span;
+                const rgb = lo.color.map((c, i) => Math.round(c + (hi.color[i] - c) * t));
+                return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+            }
+            // Text stays readable against both light green and dark red.
+            const textColor = (rate) => (rate >= 22 ? '#ffffff' : '#212529');
+
+            // Columns = year level, rows = course/program.
+            const headerCells = levels.map(level => `
+                <th style="padding:0.55rem 0.6rem; font-size:0.72rem; font-weight:700; color:#5a5c69; text-align:center; white-space:nowrap; border-bottom:2px solid #e3e6f0;">${level}</th>
+            `).join('');
+
+            const bodyRows = courses.map((course, ci) => {
+                const cells = (matrix[ci] || []).map(cell => {
+                    const rate = cell.rate || 0;
+                    const total = cell.total || 0;
+                    const bg = total > 0 ? heatColor(rate) : '#eef0f5';
+                    const fg = total > 0 ? textColor(rate) : '#b7bdc9';
+                    const label = total > 0 ? `${rate.toFixed(1)}%` : '—';
+                    const title = total > 0
+                        ? `${course}: ${rate.toFixed(1)}% dropout (${cell.count.toLocaleString()} of ${total.toLocaleString()} students)`
+                        : `${course}: no students recorded at this year level`;
+                    return `<td title="${title}" style="padding:0.55rem 0.3rem; text-align:center; font-size:0.78rem; font-weight:700; background-color:${bg}; color:${fg}; border:1px solid rgba(255,255,255,0.6);">${label}</td>`;
+                }).join('');
+                return `
+                    <tr>
+                        <th scope="row" style="padding:0.55rem 0.5rem; font-size:0.78rem; font-weight:700; color:#5a5c69; text-align:left; white-space:normal; word-break:break-word; line-height:1.25; border-right:2px solid #e3e6f0; background:#f8f9fc; position:sticky; left:0;">${course}</th>
+                        ${cells}
+                    </tr>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div style="overflow-x:auto; width:100%; height:100%;">
+                    <table style="border-collapse:collapse; width:100%; height:100%; table-layout:fixed; min-width:${Math.max(400, levels.length * 90 + 120)}px;">
+                        <colgroup>
+                            <col style="width:160px;">
+                            ${levels.map(() => '<col>').join('')}
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th style="padding:0.55rem 0.5rem; border-bottom:2px solid #e3e6f0; background:#f8f9fc; position:sticky; left:0;"></th>
+                                ${headerCells}
+                            </tr>
+                        </thead>
+                        <tbody>${bodyRows}</tbody>
+                    </table>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:center; gap:0.4rem; margin-top:1rem; font-size:0.72rem; color:#858796;">
+                    <span>Low</span>
+                    <div style="width:160px; height:10px; border-radius:5px; background:linear-gradient(90deg, #1cc88a, #f6c23e, #e17e34, #e74a3b);"></div>
+                    <span>High (50%+) dropout rate</span>
+                </div>
+            `;
+        })
+        .catch(err => {
+            console.error("Course Year-Level Heatmap Error:", err);
+            container.innerHTML = `<p style="color:#858796; text-align:center;">Unable to load heatmap.</p>`;
+        });
 }

@@ -85,6 +85,27 @@ const ModeAwareCharts = {
         document.querySelectorAll('[data-mode-badge]').forEach(el => {
             el.textContent = mode === 'prediction' ? 'Predicted Data' : 'Recent Data';
             el.style.backgroundColor = mode === 'prediction' ? '#f6ad55' : '#1cc88a';
+            // updateStatusChart's plain-year badge (Recent mode only —
+            // see _renderStatusCharts) sets this to a dark gray since it
+            // sits on a transparent pill; that color otherwise lingers
+            // when switching into Prediction mode's orange pill, so
+            // reset it explicitly here rather than relying on whatever
+            // Recent mode last left behind.
+            el.style.color = mode === 'prediction' ? '#ffffff' : '#5a5c69';
+        });
+
+        // Prediction-only badges: unlike [data-mode-badge] above (which
+        // always shows, just relabeling itself), these stay fully
+        // hidden in Recent mode and only appear once Prediction mode is
+        // active — used on cards where "Predicted Data" is only ever
+        // worth calling out, not a state worth badging in Recent mode.
+        document.querySelectorAll('[data-mode-badge-prediction-only]').forEach(el => {
+            if (mode === 'prediction') {
+                el.textContent = 'Predicted Data';
+                el.style.display = 'inline-block';
+            } else {
+                el.style.display = 'none';
+            }
         });
 
         const wrap = document.getElementById('modeSwitchWrap');
@@ -210,7 +231,7 @@ const ModeAwareCharts = {
                 },
                 plugins: {
                     legend: { position: 'bottom' },
-                    title: { display: true, text: `Academic Performance Forecast: ${forecastYears[0]}–${forecastYears[forecastYears.length - 1]}` },
+                    title: { display: true, text: `Academic Performance Ranking — Predicted Data: ${forecastYears[0]}–${forecastYears[forecastYears.length - 1]}` },
                 },
             },
         });
@@ -317,7 +338,7 @@ const ModeAwareCharts = {
                             scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } },
                             plugins: {
                                 legend: { display: false }, // color-chip legend below instead
-                                title: { display: true, text: `Regular % Forecast — by ${byLabel}` },
+                                title: { display: true, text: `Regular % — Predicted Data — by ${byLabel}` },
                                 tooltip: {
                                     callbacks: {
                                         label: (ctx) => (ctx.parsed.y === null) ? undefined : ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`,
@@ -343,7 +364,7 @@ const ModeAwareCharts = {
                             scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } },
                             plugins: {
                                 legend: { display: false },
-                                title: { display: true, text: `Irregular % Forecast — by ${byLabel}` },
+                                title: { display: true, text: `Irregular % — Predicted Data — by ${byLabel}` },
                                 tooltip: {
                                     callbacks: {
                                         label: (ctx) => (ctx.parsed.y === null) ? undefined : ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`,

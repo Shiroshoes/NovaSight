@@ -1,6 +1,6 @@
 {
-  "trained_at": "2026-07-29T10:24:53.616954Z",
-  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1785320693_2024-2_Student-Performance_Dataset.xlsx",
+  "trained_at": "2026-08-04T07:07:41.435643Z",
+  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1785827261_2024-2_Student-Performance_Dataset.xlsx",
   "models": {
     "dropout_risk": {
       "status": "ok",
@@ -96,6 +96,33 @@
         "mse": 0.0022,
         "mae": 0.0366
       }
+    },
+    "year_level_performance": {
+      "status": "ok",
+      "r2": 0.6963,
+      "rmse": 11.581,
+      "mse": 134.1192,
+      "mae": 8.3865
+    },
+    "year_level_inc_irreg": {
+      "inc_rate": {
+        "r2": 0.1262,
+        "rmse": 17.294,
+        "mse": 299.0814,
+        "mae": 12.436
+      },
+      "irregular_rate": {
+        "r2": 0.1495,
+        "rmse": 17.2629,
+        "mse": 298.0088,
+        "mae": 12.4396
+      },
+      "drop_rate": {
+        "r2": -0.3217,
+        "rmse": 2.8456,
+        "mse": 8.0976,
+        "mae": 1.8291
+      }
     }
   },
   "horizon": {
@@ -118,5 +145,5 @@
   },
   "errors": [],
   "rows_in_master": 57745,
-  "elapsed_seconds": 17.7
+  "elapsed_seconds": 20.1
 }

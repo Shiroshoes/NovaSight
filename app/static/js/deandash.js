@@ -63,6 +63,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (typeof updateStatusByCourse === 'function') updateStatusByCourse(year, semester, college);
         if (typeof updateYearLevelChart === 'function') updateYearLevelChart(year, semester, college);
         if (typeof updateYearLevelIncIrregChart === 'function') updateYearLevelIncIrregChart(year, semester, college);
+        if (typeof updateCourseYearLevelHeatmap === 'function') updateCourseYearLevelHeatmap(year, semester, college);
 
         // Keep Table Mode (table-view.js) in sync too — no-op if Chart
         // Mode is currently active or the module isn't loaded.
@@ -241,7 +242,7 @@ function updateGwaScatter(college, semester) {
                                 stepSize: 1,
                                 callback: (v) => Math.round(v) === v ? Math.round(v) : ''
                             },
-                            title: { display: true, text: 'School Year (dashed columns to the right are forecast)' }
+                            title: { display: true, text: 'School Year (dashed columns to the right are Predicted Data)' }
                         },
                         y: {
                             reverse: true, // 1.0 Top
@@ -310,11 +311,17 @@ function updateDropoutPie(year, college) {
             const mTotal = mStay + mRisk;
             const fTotal = fStay + fRisk;
 
-            const dpModeLabel = typeof displayModeLabel === 'function' ? displayModeLabel(data.mode) : data.mode;
+            // Year label only (shared across both cards) — no status
+            // pill here. The Retention & Risk donuts underneath
+            // (get_gender_status_breakdown) have no real prediction
+            // model behind them; even when the dashboard is in
+            // Prediction mode, that endpoint silently falls back to the
+            // latest real year's actual data, so a "Current"/"Predicted"
+            // badge would never be meaningful here — just show the year.
             document.querySelectorAll('[id^="drop-pie-badge"]').forEach(badge => {
-                badge.innerText = `${year} ${dpModeLabel}`;
-                badge.style.backgroundColor = data.mode === "Forecast" ? "#ffc107" : "rgb(28, 200, 138)";
-                badge.style.color = data.mode === "Forecast" ? "#212529" : "#fff";
+                badge.innerText = `${year}`;
+                badge.style.backgroundColor = "transparent";
+                badge.style.color = "#5a5c69";
             });
 
             document.querySelectorAll('[id^="dp-college-name"]').forEach(titleSpan => {
@@ -577,7 +584,7 @@ function updateKPIMetrics(year, semester, college) {
             // Colors
             const colorPrimary = isPred ? '#f6ad55' : '#4e73df'; // Orange vs Blue
             const colorSecondary = isPred ? '#f6ad55' : '#1cc88a'; // Orange vs Green
-            const suffix = isPred ? `(Predicted Data — ${year})` : '(Current Data)';
+            const suffix = isPred ? `(Predicted Data — ${year})` : `(${year})`;
             // Same predicted headcount as before — just a clearer label
             // while in Prediction mode, since "Total Enrollment" reads
             // as a snapshot rather than a forecast.
@@ -727,9 +734,17 @@ function updateStatusChart(year, semester, college) {
             if (elReg) elReg.innerText = totalReg.toLocaleString();
             if (elIrr) elIrr.innerText = totalIrr.toLocaleString();
             if (badges.length) {
+                // Same reasoning as the Male/Female Retention & Risk
+                // badges (drop-pie-badge, above): this only ever renders
+                // in Recent mode — Prediction mode swaps in a separate
+                // trend-line chart entirely (see mode-toggle.js's
+                // _renderStatusCharts) — so a "Current Data" pill here
+                // was implying a live/vs-forecast distinction that
+                // doesn't actually exist on this card. Just show the year.
                 badges.forEach(badge => {
-                    badge.innerText = `${data.year || year} Recent Data`;
-                    badge.style.backgroundColor = "rgb(28, 200, 138)";
+                    badge.innerText = `${data.year || year}`;
+                    badge.style.backgroundColor = "transparent";
+                    badge.style.color = "#5a5c69";
                 });
             }
             if (summaryEl && typeof buildDonutSummarySentence === 'function') {
@@ -1415,7 +1430,7 @@ function dropoutSpikeBaseOptions(labels, allSpikesPerDataset) {
                         borderWidth: 1,
                         borderDash: [2, 2],
                         label: {
-                            content: 'Forecast Start',
+                            content: 'Predicted Data Start',
                             enabled: true,
                             position: 'top'
                         }

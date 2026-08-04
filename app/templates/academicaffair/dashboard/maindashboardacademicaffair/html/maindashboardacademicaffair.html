@@ -342,6 +342,29 @@
         </div>
       </div>
 
+      <!-- Course x Year-Level Dropout Heatmap -->
+      <div class="card card-full-width-bar2" id="heatmapCard">
+        <div style="border-radius: 10px; background-color: white;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; align-items: center; justify-content: space-between;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Dropout Rate Heatmap: Course &times; Year Level
+              </h6>
+              <span id="heatmap-year-badge" style="color: #5a5c69; font-size: 1rem; font-weight: 700; padding: 0.25rem 0.6rem;"></span>
+          </div>
+          <div style="padding: 1.25rem;">
+              <div id="courseYearLevelHeatmap">
+                  <p style="color:#858796; text-align:center;">Loading heatmap...</p>
+              </div>
+              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
+              <div style="text-align: center; font-size: 0.875rem; color: #858796;">
+                  <i class="fas fa-info-circle"></i>
+                  Every program across every college, broken down by year level. Darker red = higher dropout rate for that program's students at that year. Hover a cell for exact headcount. Reflects Main Campus by default, or the selected college/course from the filter above.
+              </div>
+          </div>
+        </div>
+      </div>
+      
+    
       <div class="card card-wide">
           <div style="background-color: #fff; border-radius: 0.35rem; margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
 
@@ -350,7 +373,7 @@
                       <span id="dp-dot-m" style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:#4e73df; margin-right:6px;"></span>
                       Male Retention & Risk: <span id="dp-college-name-m" style="color: #5a5c69;">Main Campus</span>
                   </h6>
-                  <span id="drop-pie-badge-m" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>
+                  <span id="drop-pie-badge-m" style="font-size: 0.85rem; font-weight: 600; color: #5a5c69;"></span>
               </div>
 
               <div style="padding: 1.25rem;">
@@ -372,7 +395,7 @@
                       <span id="dp-dot-f" style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:#e83e8c; margin-right:6px;"></span>
                       Female Retention & Risk: <span id="dp-college-name-f" style="color: #5a5c69;">Main Campus</span>
                   </h6>
-                  <span id="drop-pie-badge-f" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>
+                  <span id="drop-pie-badge-f" style="font-size: 0.85rem; font-weight: 600; color: #5a5c69;"></span>
               </div>
 
               <div style="padding: 1.25rem;">
@@ -388,10 +411,11 @@
 
       <div class="card card-full-width-bar1">
         <div style="border-radius: 10px; background-color: white;">
-          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; align-items: center; justify-content: space-between;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                   Academic Performance Ranking (GWA)
               </h6>
+              <span data-mode-badge-prediction-only style="display: none; padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: 700; border-radius: 20px; background-color: #f6ad55; color: #fff;">Predicted Data</span>
           </div>
           <div style="padding: 1.25rem; flex: 1 1 auto;">
               <div style="position: relative; height: 350px; width: 100%;">
@@ -409,10 +433,11 @@
 
       <div class="card card-full-width-bar1">
         <div style="border-radius: 10px; background-color: white;">
-          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; align-items: center; justify-content: space-between;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                   Performance by Year Level
               </h6>
+              <span data-mode-badge-prediction-only style="display: none; padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: 700; border-radius: 20px; background-color: #f6ad55; color: #fff;">Predicted Data</span>
           </div>
           <div style="padding: 1.25rem; flex: 1 1 auto;">
               <div style="position: relative; height: 350px; width: 100%;">
@@ -429,10 +454,11 @@
 
       <div class="card card-full-width-bar">
         <div style="border-radius: 10px; background-color: white;">
-          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; align-items: center; justify-content: space-between;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                   INC / Irregular / Drop Rate by Year Level
               </h6>
+              <span data-mode-badge-prediction-only style="display: none; padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: 700; border-radius: 20px; background-color: #f6ad55; color: #fff;">Predicted Data</span>
           </div>
           <div style="padding: 1.25rem; flex: 1 1 auto;">
               <div class="inc-irreg-metric-selector" style="display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 0.75rem;">
@@ -722,7 +748,7 @@
         <div style="border-radius: 10px; background-color: white;">
           <div style="border-radius: 10px 10px 0px 0px; padding-top: 10px; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                  <i class="fas fa-clock" style="margin-right: 0.25rem;"></i> INC Rate Forecast (Incomplete Grades)
+                  <i class="fas fa-clock" style="margin-right: 0.25rem;"></i> INC Rate — Predicted Data (Incomplete Grades)
               </h6>
           </div>
           <div style="padding: 1.25rem; flex: 1 1 auto;">

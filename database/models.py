@@ -22,8 +22,16 @@ class AcadUser(db.Model):
 
     @property
     def username(self):
+        """'Last, First MI.' — used for uploaded-by / audit-trail displays."""
         if self.mi:
-            return f"{self.first_name} {self.last_name} {self.mi}."
+            return f"{self.last_name}, {self.first_name} {self.mi}."
+        return f"{self.last_name}, {self.first_name}"
+
+    @property
+    def profile_name(self):
+        """'First MI. Last' — used for profile / header display."""
+        if self.mi:
+            return f"{self.first_name} {self.mi}. {self.last_name}"
         return f"{self.first_name} {self.last_name}"
 
     def set_password(self, pwd):

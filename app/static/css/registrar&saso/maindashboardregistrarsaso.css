@@ -434,6 +434,7 @@ footer{
 .card-square { grid-column: span 2; height: 350px; padding: 20px; }
 .card-full-width-bar { grid-column: span 6; height: 530px; padding: 10px; }
 .card-full-width-bar1 { grid-column: span 10; height: 500px; padding: 10px; }
+.card-full-width-bar2 { grid-column: span 10; height: 860px; padding: 10px; }
 .card-full-width { grid-column: span 5; height: 490px; padding: 10px; }
 
 /* Applied via JS when a single department is selected in the filter,
@@ -452,7 +453,7 @@ footer{
 /* Bottom Row Proportions */
 .card-bottom-large { grid-column: span 6; height: 510px; padding: 10px;}
 .card-bottom-small { grid-column: span 4; height: 510px; padding: 10px;}
-.card-bottom-small-1 { grid-column: span 10; height: 850px; padding: 10px;}
+.card-bottom-small-1 { grid-column: span 10; height: 890px; padding: 10px;}
 
 /* --- Custom Select Styling --- */
 select.form-select {

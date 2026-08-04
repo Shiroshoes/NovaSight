@@ -830,6 +830,102 @@ def train_gender_performance(df_path: str) -> dict:
     return results
 
 
+def train_year_level_performance(df_path: str) -> dict:
+    """RandomForestRegressor — % of students per performance band, by year level.
+
+    Dataset: 13_year_level_performance.csv (College x Course x Year_Level x
+    Perf_Band x Year_Numeric x Sem_Numeric -> Pct). Same recipe as
+    train_performance_band (dataset 11), which scored R^2=0.9331 on the
+    college-level cut of this same shape — Course/Year_Level_Num are just
+    added here as extra features rather than a new architecture.
+
+    Powers: prediction-mode companion to /api/get_year_level_distribution
+    ("Performance by Year Level"). ml_analysis.py currently forecasts that
+    chart on the fly via forecast_series() instead of a trained model —
+    wiring get_year_level_gwa_forecast (or a new distribution-forecast
+    endpoint) to call this .pkl for forecast years is a follow-up step,
+    not done here; this trainer just makes the model + its eval available.
+    """
+    _log("Training year_level_performance model …")
+    df = pd.read_csv(df_path)
+
+    if len(df) < 10:
+        return {"status": "skipped", "reason": "too few rows"}
+
+    X = pd.get_dummies(df[["College", "Course", "Perf_Band"]],
+                        prefix=["College", "Course", "Band"])
+    X["Year_Level_Num"] = df["Year_Level_Num"]
+    X["Year_Numeric"]   = df["Year_Numeric"]
+    X["Sem_Numeric"]    = df["Sem_Numeric"]
+    y = df["Pct"]
+
+    model = RandomForestRegressor(n_estimators=200, max_depth=6, random_state=42)
+    model.fit(X, y)
+    y_pred = model.predict(X)
+
+    _save(model,              "year_level_performance_model.pkl")
+    _save(X.columns.tolist(), "year_level_performance_features.pkl")
+    return {"status": "ok", **_reg_metrics(y, y_pred)}
+
+
+def train_year_level_inc_irreg(df_path: str) -> dict:
+    """RandomForestRegressor x3 — INC / Irregular(behavioral) / Drop rate, by year level.
+
+    Dataset: 14_year_level_inc_irreg.csv (College x Course x Year_Level x
+    Year_Numeric x Sem_Numeric -> INC_Rate, Irregular_Rate, Drop_Rate). Same
+    recipe as train_irreg_reg (dataset 07's college-level Irregular_Rate),
+    with Course/Year_Level_Num added as extra features, trained once per
+    target the same way train_gender_performance trains its two targets —
+    one RandomForestRegressor per rate, returned as a nested dict so
+    _flatten_metric_block's generic sub-model detection in upload_routes.py
+    picks up all three automatically (inc_rate_r2, irregular_rate_r2, etc.).
+
+    The Drop_Rate half is the same signal behind the Course x Year-Level
+    Dropout Heatmap — its eval here doubles as that chart's accuracy read,
+    without a separate trainer/dataset needed for the heatmap.
+
+    NOT CONSUMED BY ANY ENDPOINT YET — same status train_performance_band /
+    train_gender_performance had before being adopted: this produces the
+    .pkl files so they're ready to wire in, but
+    get_year_level_inc_irreg_forecast and the heatmap endpoint still use
+    forecast_series() / real-data-only respectively until a follow-up
+    endpoint change swaps them over.
+    """
+    _log("Training year_level_inc_irreg models …")
+    df = pd.read_csv(df_path)
+
+    if len(df) < 10:
+        return {"status": "skipped", "reason": "too few rows"}
+
+    X = pd.get_dummies(df[["College", "Course"]], prefix=["College", "Course"])
+    X["Year_Level_Num"] = df["Year_Level_Num"]
+    X["Year_Numeric"]   = df["Year_Numeric"]
+    X["Sem_Numeric"]    = df["Sem_Numeric"]
+
+    targets = {
+        "inc_rate":       ("INC_Rate",       "year_level_inc_model.pkl",       "year_level_inc_features.pkl"),
+        "irregular_rate": ("Irregular_Rate", "year_level_irregular_model.pkl", "year_level_irregular_features.pkl"),
+        "drop_rate":      ("Drop_Rate",      "year_level_drop_model.pkl",      "year_level_drop_features.pkl"),
+    }
+
+    results = {}
+    for key, (col, model_file, features_file) in targets.items():
+        y = df[col]
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        ) if len(df) >= 10 else (X, X, y, y)
+
+        model = RandomForestRegressor(n_estimators=200, max_depth=6, random_state=42)
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+
+        _save(model,              model_file)
+        _save(X.columns.tolist(), features_file)
+        results[key] = _reg_metrics(y_test, y_pred)
+
+    return results
+
+
 
 # ORCHESTRATOR
 
@@ -914,6 +1010,12 @@ def run_full_pipeline(new_file: str = None) -> dict:
         # The restricted LinearRegression/RandomForestRegressor comparison
         # shows real signal on both targets — now trained. See the
         # finalized model-choices table above for details.
+        ("year_level_performance", lambda: train_year_level_performance(f"{md}/13_year_level_performance.csv")),
+        ("year_level_inc_irreg",   lambda: train_year_level_inc_irreg(f"{md}/14_year_level_inc_irreg.csv")),
+        # 13/14 were exported by preprocess.py but never trained on before —
+        # same "dataset ready, no trainer yet" situation performance_band and
+        # gender_performance were in. Same recipes as those two, just with
+        # Course/Year_Level_Num added as features.
     ]
 
     for name, trainer_fn in trainers:
