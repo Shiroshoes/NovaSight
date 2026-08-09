@@ -8,6 +8,15 @@ document.addEventListener('DOMContentLoaded', function () {
     editButtons.forEach(button => {
         button.addEventListener('click', function () {
             const userId = this.getAttribute('data-user-id');
+
+            // Toggle: clicking the same user's Edit button while the card is
+            // already open for that user closes the card instead of re-opening it.
+            const editUserIdField = document.getElementById('editUserId');
+            if (editSection.classList.contains('open') && editUserIdField.value === userId) {
+                editSection.classList.remove('open');
+                return;
+            }
+
             editSection.classList.add('open');
 
             fetch(`/NovaSight/admin/get_user/${userId}`)
@@ -76,6 +85,13 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.classList.add('edit-btn');
         btn.addEventListener('click', function () {
             const userId = this.getAttribute('data-user-id');
+
+            const editUserIdField = document.getElementById('editUserId');
+            if (editSection.classList.contains('open') && editUserIdField.value === userId) {
+                editSection.classList.remove('open');
+                return;
+            }
+
             editSection.classList.add('open');
             fetch(`/NovaSight/admin/get_user/${userId}`)
                 .then(res => res.json())

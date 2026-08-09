@@ -336,11 +336,17 @@
       <!-- Course x Year-Level Dropout Heatmap -->
       <div class="card card-full-width-bar2" id="heatmapCard">
         <div style="border-radius: 10px; background-color: white;">
-          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; align-items: center; justify-content: space-between;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                   Dropout Rate Heatmap: Course &times; Year Level
               </h6>
-              <span id="heatmap-year-badge" style="color: #5a5c69; font-size: 1rem; font-weight: 700; padding: 0.25rem 0.6rem;"></span>
+              <div style="display: flex; align-items: center; gap: 0.6rem;">
+                  <label for="heatmapCourseFilter" style="margin: 0; font-size: 0.78rem; font-weight: 600; color: #5a5c69;">Course:</label>
+                  <select id="heatmapCourseFilter" class="form-select">
+                      <option value="all">All Courses</option>
+                  </select>
+                  <span id="heatmap-year-badge" style="color: #5a5c69; font-size: 1rem; font-weight: 700; padding: 0.25rem 0.6rem;"></span>
+              </div>
           </div>
           <div style="padding: 1.25rem;">
               <div id="courseYearLevelHeatmap">
@@ -349,7 +355,7 @@
               <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
               <div style="text-align: center; font-size: 0.875rem; color: #858796;">
                   <i class="fas fa-info-circle"></i>
-                  Every program across every college, broken down by year level. Darker red = higher dropout rate for that program's students at that year. Hover a cell for exact headcount. Reflects Main Campus by default, or the selected college/course from the filter above.
+                  Every program across every college, broken down by year level. Darker red = higher dropout rate for that program's students at that year. Hover a cell for exact headcount. Reflects Main Campus by default, or the selected college/course from the filter above. Use the Course dropdown above to narrow this heatmap to a single program — it only affects this chart.
               </div>
           </div>
         </div>

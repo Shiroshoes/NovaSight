@@ -63,7 +63,14 @@ document.addEventListener("DOMContentLoaded", function() {
         if (typeof updateStatusByCourse === 'function') updateStatusByCourse(year, semester, college);
         if (typeof updateYearLevelChart === 'function') updateYearLevelChart(year, semester, college);
         if (typeof updateYearLevelIncIrregChart === 'function') updateYearLevelIncIrregChart(year, semester, college);
-        if (typeof updateCourseYearLevelHeatmap === 'function') updateCourseYearLevelHeatmap(year, semester, college);
+        // 4th arg syncs the heatmap's own "Course:" filter to match this
+        // same course dropdown — 'all' when the whole college is
+        // selected, so the heatmap's local filter always mirrors what's
+        // already scoping every other chart on this page.
+        if (typeof updateCourseYearLevelHeatmap === 'function') {
+            const heatmapCourse = (courseValue && courseValue !== wholeCollege) ? courseValue : 'all';
+            updateCourseYearLevelHeatmap(year, semester, college, heatmapCourse);
+        }
 
         // Keep Table Mode (table-view.js) in sync too — no-op if Chart
         // Mode is currently active or the module isn't loaded.

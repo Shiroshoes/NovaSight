@@ -257,11 +257,44 @@ header {
 }
 
 .user-info { display: flex; align-items: center; gap: 10px; font-weight: 500; }
-.item-actions { display: flex; gap: 12px; }
+/* Container layout remains crisp and inline */
+.item-actions { 
+    display: inline-flex; 
+    gap: 12px; 
+    align-items: center;
+    vertical-align: middle; 
+    cursor: pointer;
+}
+
+/* Core button resets and shared interactions */
+.play-btn, .del-btn, .edit-btn { 
+    background: none; 
+    border: none; 
+    cursor: pointer; 
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .play-btn { color: var(--bg-glow); }
 .del-btn { color: var(--danger); }
-.play-btn, .del-btn { background: none; border: none; cursor: pointer; transition: transform 0.2s; }
-.play-btn:hover, .del-btn:hover { transform: scale(1.2); color: #c72828;}
+.edit-btn { color: #800000; }
+
+/* Clean text label styling */
+.btn-edit-label {
+    margin-right: 5px;
+    font-size: 0.9rem;
+    font-family: var(--font-sans);
+    color: inherit;
+    cursor: pointer;
+}
+
+/* Shared hover transitions */
+.play-btn:hover, .del-btn:hover, .edit-btn:hover { 
+    color: #c72828;
+}
+
 
 /* --- FORMS & ANIMATIONS --- */
 .slide-hidden {
@@ -288,17 +321,29 @@ header {
 }
 
 .plus-box {
-    background: #800000; color: white;
-    width: 24px; height: 24px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 6px; font-weight: bold;
+    background: #800000; 
+    color: white;
+    width: 24px; 
+    height: 24px;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    border-radius: 6px; 
+    font-weight: bold;
+    transition: transform 0.2s ease, background-color 0.2s ease; 
 }
 
-.plus-box:hover {
+/* 2. Hovering anywhere on the container updates the plus-box */
+.add-header:hover .plus-box,
+.button:hover {
     background: #c72828;
     color: white;
-    transition: 0.2s;
     transform: scale(1.1);
+}
+
+/* 3. Hovering anywhere on the container turns the title text to #c72828 */
+.add-header:hover .blue-title {
+    color: #c72828;
 }
 
 .form-group { display: flex; align-items: center; margin-bottom: 15px; gap: 20px; }
