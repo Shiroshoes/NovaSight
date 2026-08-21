@@ -14,6 +14,48 @@ let hardestSubjectCharts = {};      // one Top-5-hardest-subjects line chart per
 // minus the "MAIN CAMPUS"/"ALL" aggregate entries).
 const ALL_COLLEGE_CODES = ['CAHS', 'CBA', 'CCST', 'CEA', 'COAS', 'CTEC'];
 
+/* ── Chart loading / empty-state helper ───────────────────────────
+   A handful of bare <canvas> charts (GWA Ranking, Dropout Ranking,
+   INC Forecast, GWA Scatter) had no visual feedback when a fetch
+   resolved with zero rows — the canvas just stayed blank, which reads
+   like the chart is stuck loading forever. This gives any canvas that
+   opts in a real Loading… -> No data -> chart lifecycle, matching the
+   "No Data" grey-slice pattern the donut charts already use. Creates
+   one small status <p> right after the canvas (once) and reuses it. */
+function chartStatusEl(canvas) {
+    if (!canvas) return null;
+    let el = canvas.nextElementSibling;
+    if (!el || !el.classList || !el.classList.contains('chart-status-msg')) {
+        el = document.createElement('p');
+        el.className = 'chart-status-msg';
+        el.style.cssText = 'color:#858796; text-align:center; margin:0.75rem 0 0; font-size:0.85rem;';
+        canvas.insertAdjacentElement('afterend', el);
+    }
+    return el;
+}
+function setChartLoading(canvas, label) {
+    const el = chartStatusEl(canvas);
+    if (!el || !canvas) return;
+    el.textContent = label || 'Loading…';
+    el.style.display = '';
+    canvas.style.display = 'none';
+}
+function setChartEmpty(canvas, label) {
+    const el = chartStatusEl(canvas);
+    if (!el || !canvas) return;
+    el.textContent = label || 'No data available yet.';
+    el.style.display = '';
+    canvas.style.display = 'none';
+}
+function setChartReady(canvas) {
+    if (!canvas) return;
+    const el = canvas.nextElementSibling;
+    if (el && el.classList && el.classList.contains('chart-status-msg')) {
+        el.style.display = 'none';
+    }
+    canvas.style.display = '';
+}
+
 /**
  * Fetches /api/get_status_pie once PER COLLEGE (reusing the same trusted
  * endpoint every other chart already uses) so we can show a genuine
@@ -150,13 +192,12 @@ function updateDropoutPie(year, college) {
             const mTotal = mStay + mRisk;
             const fTotal = fStay + fRisk;
 
-            // Year label only (shared across both cards) — no status
-            // pill here. The Retention & Risk donuts underneath
-            // (get_gender_status_breakdown) have no real prediction
-            // model behind them; even when the dashboard is in
-            // Prediction mode, that endpoint silently falls back to the
-            // latest real year's actual data, so a "Current"/"Predicted"
-            // badge would never be meaningful here — just show the year.
+            // Year label only, initially — the Retention & Risk donuts
+            // underneath (get_gender_status_breakdown) get their own
+            // Forecast/Actual badge below once that fetch resolves, since
+            // this endpoint (get_dropout_pie) doesn't know whether the
+            // gender models actually covered this selection. This is just
+            // the placeholder shown while that second fetch is in flight.
             document.querySelectorAll('[id^="drop-pie-badge"]').forEach(badge => {
                 badge.innerText = `${year}`;
                 badge.style.backgroundColor = "transparent";
@@ -212,6 +253,24 @@ function updateDropoutPie(year, college) {
             const rows = data.rows || [];
             renderGenderStatusGrid(maleContainer, maleStatusGridDonuts, rows, 'male', data.group_by);
             renderGenderStatusGrid(femaleContainer, femaleStatusGridDonuts, rows, 'female', data.group_by);
+
+            // Forecast/Actual badge for the two Retention & Risk donuts —
+            // only meaningful for the per-college view (Main dashboard):
+            // that's the only grain the gender models were trained on
+            // (College x Year, no Course), so a future year there is a
+            // real model prediction, same Forecast/Actual convention as
+            // updateRiskByCollege's badge. Per-course (dean dashboards)
+            // has no model to back it, so it stays the plain year/
+            // transparent placeholder set above in updateDropoutPie.
+            if (data.group_by === 'college') {
+                const mode = data.mode === 'Forecast' ? 'Forecast' : 'Actual';
+                const modeLabel = typeof displayModeLabel === 'function' ? displayModeLabel(mode) : mode;
+                document.querySelectorAll('[id^="drop-pie-badge"]').forEach(badge => {
+                    badge.innerText = `${year} ${modeLabel}`;
+                    badge.style.backgroundColor = mode === 'Forecast' ? "#f6c23e" : "rgb(28, 200, 138)";
+                    badge.style.color = "#fff";
+                });
+            }
         })
         .catch(err => console.error("Gender Status Breakdown Error:", err));
 }
@@ -358,10 +417,16 @@ function updateGWARanking(year, semester, college) {
     // Uses the SHARED palette (chart-helpers.js) so a college's color here
     // matches its color in every other chart on this dashboard.
 
+    setChartLoading(canvas, 'Loading GWA ranking…');
+
     fetch(`/api/get_gwa_ranking_data/${year}?semester=${semester}&college=${college}`)
         .then(res => res.json())
         .then(data => {
-            if (data.error) return console.error("GWA Ranking Error:", data.error);
+            if (data.error) {
+                console.error("GWA Ranking Error:", data.error);
+                setChartEmpty(canvas, 'Unable to load GWA ranking data.');
+                return;
+            }
 
             //  1. FILTER DATA 
             let displayData = data;
@@ -371,7 +436,14 @@ function updateGWARanking(year, semester, college) {
 
             const labels = displayData.map(item => item.college);
             const values = displayData.map(item => item.gwa);
-            
+
+            if (labels.length === 0) {
+                if (gwaRankingChart) { gwaRankingChart.destroy(); gwaRankingChart = null; }
+                setChartEmpty(canvas, 'No GWA ranking data available yet.');
+                return;
+            }
+            setChartReady(canvas);
+
             //  2. COLORS (shared palette so this matches scatter/forecast/pie)
             const backgroundColors = labels.map(c => hexToRgba(getGroupColor(c), 0.85));
 
@@ -464,7 +536,10 @@ function updateGWARanking(year, semester, college) {
                 });
             }
         })
-        .catch(err => console.error("GWA Ranking Fatal:", err));
+        .catch(err => {
+            console.error("GWA Ranking Fatal:", err);
+            setChartEmpty(canvas, 'Unable to load GWA ranking data.');
+        });
 }
 
 
@@ -491,22 +566,29 @@ function updateDropoutRanking(year, semester, college = 'all', isPrediction = fa
     }
 
     // 3. Fetch Data
+    setChartLoading(canvas, 'Loading dropout ranking…');
+
     fetch(`/api/get_dropout_ranking?year=${year}&semester=${apiSemester}`)
         .then(res => res.json())
         .then(data => {
-            if (data.error) return console.error("Ranking API Error:", data.error);
+            if (data.error) {
+                console.error("Ranking API Error:", data.error);
+                setChartEmpty(canvas, 'Unable to load dropout ranking data.');
+                return;
+            }
 
             const chartData = data.data || [];
 
             // 4. Handle Empty Data (Prevents Crash)
             if (chartData.length === 0) {
                 if (dropoutRankingChart) {
-                    dropoutRankingChart.data.labels = [];
-                    dropoutRankingChart.data.datasets[0].data = [];
-                    dropoutRankingChart.update();
+                    dropoutRankingChart.destroy();
+                    dropoutRankingChart = null;
                 }
+                setChartEmpty(canvas, 'No dropout ranking data available yet.');
                 return;
             }
+            setChartReady(canvas);
 
             const labels = chartData.map(d => d.college);
             const values = chartData.map(d => d.rate);
@@ -592,7 +674,10 @@ function updateDropoutRanking(year, semester, college = 'all', isPrediction = fa
                 }
             });
         })
-        .catch(err => console.error("Ranking Chart Fatal:", err));
+        .catch(err => {
+            console.error("Ranking Chart Fatal:", err);
+            setChartEmpty(canvas, 'Unable to load dropout ranking data.');
+        });
 }
 
 
@@ -622,10 +707,23 @@ function updateGwaScatter(college, semester) {
 
     // 2. Fetch Data — no `year` param anymore, the endpoint always
     // returns every real year plus the forecast horizon.
+    setChartLoading(canvas, 'Loading GWA distribution…');
+
     fetch(`/api/get_gwa_scatter?college=${safeCollege}&semester=${safeSemester}`)
         .then(res => res.json())
         .then(data => {
-            if (data.error) return console.error("Scatter API Fail:", data.error);
+            if (data.error) {
+                console.error("Scatter API Fail:", data.error);
+                setChartEmpty(canvas, 'Unable to load GWA distribution data.');
+                return;
+            }
+
+            if (!data.data || !data.data.length) {
+                if (gwaScatterChart) { gwaScatterChart.destroy(); gwaScatterChart = null; }
+                setChartEmpty(canvas, 'No GWA distribution data available yet.');
+                return;
+            }
+            setChartReady(canvas);
 
             const ctx = canvas.getContext('2d');
 
@@ -769,7 +867,10 @@ function updateGwaScatter(college, semester) {
                 })));
             }
         })
-        .catch(err => console.error("Scatter Chart Error:", err));
+        .catch(err => {
+            console.error("Scatter Chart Error:", err);
+            setChartEmpty(canvas, 'Unable to load GWA distribution data.');
+        });
 }
 
 
@@ -874,10 +975,23 @@ function updateIncForecast(college) {
     // always shows ALL colleges at once so users can compare them)
     const safeCollege = (college === 'Main Campus' || !college) ? 'all' : college;
 
+    setChartLoading(canvas, 'Loading INC forecast…');
+
     fetch(`/api/get_inc_forecast?college=${safeCollege}&by=college`)
         .then(res => res.json())
         .then(data => {
-            if (data.error) return console.error("INC Forecast Error:", data.error);
+            if (data.error) {
+                console.error("INC Forecast Error:", data.error);
+                setChartEmpty(canvas, 'Unable to load INC forecast data.');
+                return;
+            }
+
+            if (!data.series || !data.series.length) {
+                if (incForecastChart) { incForecastChart.destroy(); incForecastChart = null; }
+                setChartEmpty(canvas, 'No INC forecast data available yet.');
+                return;
+            }
+            setChartReady(canvas);
 
             const ctx = canvas.getContext('2d');
             const labels = data.years;
@@ -972,7 +1086,10 @@ function updateIncForecast(college) {
                 })));
             }
         })
-        .catch(err => console.error("INC Chart Fatal:", err));
+        .catch(err => {
+            console.error("INC Chart Fatal:", err);
+            setChartEmpty(canvas, 'Unable to load INC forecast data.');
+        });
 }
 
 

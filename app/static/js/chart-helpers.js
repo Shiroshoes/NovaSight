@@ -1058,9 +1058,17 @@ function escapeHtmlAttr(str) {
         .replace(/>/g, '&gt;');
 }
 
-// Renders the table from _heatmapLatestData, sliced down to
+// Renders the heatmap from _heatmapLatestData, sliced down to
 // _heatmapSelectedCourse if it isn't "all". Pure re-render — never
 // fetches, never touches any other chart.
+//
+// Builds TWO views into the same container: the colored heatmap grid
+// (Chart Mode) and a plain numbers-only table (Table Mode) — same
+// rows/columns, just without the color scale, matching how every other
+// chart on the dashboard turns into a plain table in Table Mode.
+// _syncHeatmapCardVisibility() (called at the end here, and from
+// tableView.js's setFormat()) shows whichever one matches the current
+// mode.
 function renderCourseYearLevelHeatmap() {
     const container = document.getElementById('courseYearLevelHeatmap');
     if (!container || !_heatmapLatestData) return;
@@ -1133,26 +1141,85 @@ function renderCourseYearLevelHeatmap() {
         `;
     }).join('');
 
+    // Plain (uncolored) version of the exact same rows/columns for
+    // Table Mode — no background scale, no title tooltips, just the
+    // numbers, same as every other chart's generated table elsewhere
+    // on the dashboard.
+    const plainHeaderCells = levels.map(level => `
+        <th style="padding:0.5rem 0.75rem; text-align:center; background:#f8f9fc; border-bottom:2px solid #e3e6f0; font-size:0.75rem; text-transform:uppercase; color:#5a5c69;">${level}</th>
+    `).join('');
+
+    const plainBodyRows = courses.map((course, ci) => {
+        const cells = (matrix[ci] || []).map(cell => {
+            const rate = cell.rate || 0;
+            const total = cell.total || 0;
+            const label = total > 0 ? `${rate.toFixed(1)}%` : '—';
+            return `<td style="padding:0.5rem 0.75rem; text-align:center; border-bottom:1px solid #e3e6f0; font-size:0.85rem; color:#212529;">${label}</td>`;
+        }).join('');
+        return `
+            <tr>
+                <th scope="row" style="padding:0.5rem 0.75rem; text-align:left; border-bottom:1px solid #e3e6f0; font-size:0.85rem; color:#212529; background:#f8f9fc;">${course}</th>
+                ${cells}
+            </tr>
+        `;
+    }).join('');
+
     container.innerHTML = `
-        <div style="overflow-x:auto; width:100%; height:100%;">
-            <table style="border-collapse:collapse; width:100%; height:100%; table-layout:fixed; min-width:${Math.max(400, levels.length * 90 + 120)}px;">
-                <colgroup>
-                    <col style="width:160px;">
-                    ${levels.map(() => '<col>').join('')}
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th style="padding:0.55rem 0.5rem; border-bottom:2px solid #e3e6f0; background:#f8f9fc; position:sticky; left:0;"></th>
-                        ${headerCells}
-                    </tr>
-                </thead>
-                <tbody>${bodyRows}</tbody>
-            </table>
+        <div id="courseYearLevelHeatmapChartView" style="width:100%; height:100%;">
+            <div style="overflow-x:auto; width:100%; height:100%;">
+                <table style="border-collapse:collapse; width:100%; height:100%; table-layout:fixed; min-width:${Math.max(400, levels.length * 90 + 120)}px;">
+                    <colgroup>
+                        <col style="width:160px;">
+                        ${levels.map(() => '<col>').join('')}
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th style="padding:0.55rem 0.5rem; border-bottom:2px solid #e3e6f0; background:#f8f9fc; position:sticky; left:0;"></th>
+                            ${headerCells}
+                        </tr>
+                    </thead>
+                    <tbody>${bodyRows}</tbody>
+                </table>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:0.4rem; margin-top:1rem; font-size:0.72rem; color:#858796;">
+                <span>Low</span>
+                <div style="width:160px; height:10px; border-radius:5px; background:linear-gradient(90deg, #1cc88a, #f6c23e, #e17e34, #e74a3b);"></div>
+                <span>High (50%+) dropout rate</span>
+            </div>
         </div>
-        <div style="display:flex; align-items:center; justify-content:center; gap:0.4rem; margin-top:1rem; font-size:0.72rem; color:#858796;">
-            <span>Low</span>
-            <div style="width:160px; height:10px; border-radius:5px; background:linear-gradient(90deg, #1cc88a, #f6c23e, #e17e34, #e74a3b);"></div>
-            <span>High (50%+) dropout rate</span>
+        <div id="courseYearLevelHeatmapTableView" style="display:none;">
+            <div style="overflow-x:auto; background:#fff; border:1px solid #e3e6f0; border-radius:0.35rem;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="padding:0.5rem 0.75rem; text-align:left; background:#f8f9fc; border-bottom:2px solid #e3e6f0; font-size:0.75rem; text-transform:uppercase; color:#5a5c69;">Course</th>
+                            ${plainHeaderCells}
+                        </tr>
+                    </thead>
+                    <tbody>${plainBodyRows}</tbody>
+                </table>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:0.4rem; margin-top:1rem; font-size:0.72rem; color:#858796;">
+                <span>0% Low</span>
+                <div style="width:160px; height:10px; border-radius:5px; background:linear-gradient(90deg, #1cc88a, #f6c23e, #e17e34, #e74a3b);"></div>
+                <span>High (50%+) dropout rate</span>
+            </div>
         </div>
     `;
+
+    _syncHeatmapCardVisibility();
+}
+
+// Shows whichever of the two views built by renderCourseYearLevelHeatmap
+// above matches the dashboard's current Chart Mode / Table Mode — the
+// colored heatmap grid in Chart Mode, the plain numbers table in Table
+// Mode. Called here after every re-render and from tableView.js's
+// setFormat() when the pill itself is toggled.
+function _syncHeatmapCardVisibility() {
+    const chartView = document.getElementById('courseYearLevelHeatmapChartView');
+    const tableView = document.getElementById('courseYearLevelHeatmapTableView');
+    if (!chartView || !tableView) return;
+    const isTable = (typeof DisplayFormat !== 'undefined' && DisplayFormat.current === 'table');
+    chartView.style.display = isTable ? 'none' : '';
+    tableView.style.display = isTable ? '' : 'none';
 }

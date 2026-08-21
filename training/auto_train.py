@@ -11,9 +11,12 @@ import numpy as np
 import joblib
 
 from sklearn.linear_model    import LinearRegression
-from sklearn.ensemble        import RandomForestRegressor
+from sklearn.ensemble        import RandomForestRegressor, RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics         import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.metrics         import (
+    r2_score, mean_squared_error, mean_absolute_error,
+    accuracy_score, f1_score,
+)
 
 # Import our preprocessor
 from preprocessing.preprocess import (
@@ -83,6 +86,30 @@ def _reg_metrics(y_true, y_pred) -> dict:
         "rmse": _rmse(y_true, y_pred),
         "mse":  _mse(y_true, y_pred),
         "mae":  _mae(y_true, y_pred),
+    }
+
+
+def _accuracy(y_true, y_pred) -> float:
+    try:
+        return round(float(accuracy_score(y_true, y_pred)), 4)
+    except Exception:
+        return 0.0
+
+
+def _f1(y_true, y_pred) -> float:
+    try:
+        return round(float(f1_score(y_true, y_pred, zero_division=0)), 4)
+    except Exception:
+        return 0.0
+
+
+def _clf_metrics(y_true, y_pred) -> dict:
+    """Standard classifier metric bundle: Accuracy, F1. Keys are named to
+    match ml_eval.js's classifyMetric()/QUALITY table ('accuracy'/'f1'
+    substrings), same convention _reg_metrics follows for r2/rmse/mse/mae."""
+    return {
+        "accuracy": _accuracy(y_true, y_pred),
+        "f1":       _f1(y_true, y_pred),
     }
 
 
@@ -169,9 +196,11 @@ def compute_horizon(df: pd.DataFrame,
 #   09_kpi_enrollment_college.csv       LinearRegression           R^2=0.8879 ( swapped from RandomForestRegressor — narrowly wins the 2-model comparison, was 0.8925 for RF)
 #   10_subject_grade_forecast.csv       LinearRegression           R^2=0.1082 ( down from Ridge's 0.2622 — cost of dropping Ridge from the pool)
 #   11_performance_band_dist.csv        RandomForestRegressor      R^2=0.9331 ( up from GradientBoostingRegressor's 0.6224 — clear win, see train_performance_band)
-#   12_gender_performance.csv           NOW ADOPTED — see train_gender_performance
+#   12_gender_performance_male.csv,     NOW ADOPTED — see train_gender_performance_male/_female
+#   12_gender_performance_female.csv
 #     Dropout_Rate: RandomForestRegressor  R^2=0.5801
-#     Avg_GWA:      LinearRegression       R^2=0.3618
+#     (Avg_GWA was trained here too but never consumed by any chart —
+#      removed 2026-08-19, along with the CSV's unused Irregular_Rate col.)
 #     Previously NOT ADOPTED (every candidate scored negative R^2 in the
 #     unrestricted comparison: best was -0.22 / -0.39). The restricted
 #     2-model comparison now shows real signal on both targets — worth
@@ -288,16 +317,20 @@ def compute_horizon(df: pd.DataFrame,
 #       endpoint (in ml_analysis.py) and a matching chart in the frontend
 #       are still needed before this actually reaches the dashboard.
 #
-#   train_gender_performance -> gender_dropout_model.pkl (RandomForestRegressor),
-#                                gender_gwa_model.pkl (LinearRegression)
-#       Consumed by: NOTHING YET — no endpoint reads either model.
-#       R^2=0.580 (Dropout_Rate) / 0.362 (Avg_GWA) — previously this dataset
-#       was skipped entirely (every candidate scored negative R^2 in the
-#       unrestricted comparison). Worth training now; see docstring.
-#       Intended for: real per-gender forecasts on the "Male/Female
-#       Retention Trend" cards, which currently fall back to a generic
-#       Holt-fit trend (/api/get_status_trend&gender=) in Prediction mode
-#       because /api/get_gender_status_breakdown is historical-only.
+#   train_gender_performance_male   -> male_gender_dropout_model.pkl (RandomForestRegressor)
+#   train_gender_performance_female -> female_gender_dropout_model.pkl (RandomForestRegressor)
+#       Trained on 12_gender_performance_male.csv / _female.csv — the old
+#       combined 12_gender_performance.csv (Gender as a one-hot feature on
+#       one shared model) is now two dedicated per-gender files/models.
+#       R^2=0.580 (Dropout_Rate) on the old combined run — previously this
+#       dataset was skipped entirely (every candidate
+#       scored negative R^2 in the unrestricted comparison).
+#       CONSUMED BY: /api/get_status_trend (gender=male|female, single-line
+#       mode) — the Dropout_Rate half now powers that endpoint's Dropped%
+#       forecast for the "Male/Female Retention Trend" cards, in place of
+#       the generic Holt-fit fallback it used to fall back on for every
+#       forecast year. (/api/get_gender_status_breakdown stays
+#       historical-only by design — unrelated, not changed here.)
 # ─────────────────────────────────────────────────────────────────────────
 
 
@@ -310,18 +343,28 @@ def train_dropout_risk(df_path: str) -> dict:
     RandomForestRegressor only) shows LinearRegression winning with
     R^2=1.0 on this dataset.
 
-     R^2=1.0 IS A RED FLAG, NOT A CLEAN WIN — same suspicion as the old
+     R^2=1.0 WAS A RED FLAG, NOT A CLEAN WIN — same suspicion as the old
     LogisticRegression F1=1.0 result. A perfect fit on real student data
     almost always means one of the input features is a restatement of
-    the label. Prime suspects here: "fail_rate" and "is_inc" — if either
-    is computed FROM the same dropped/incomplete subject records used to
-    build "is_drop", the model is just reading the answer off a reworded
-    copy of itself. Before trusting this model's risk scores in production:
-        1. Check preprocess.py for how fail_rate/is_inc/is_drop are each
-           derived — do any of them share a source column/condition?
-        2. Retrain with the suspect column dropped and see if R^2 drops
-           to a believable range.
-        3. Only then treat the dropout-risk donut's numbers as real.
+    the label.
+
+    LEAKAGE CHECK (done): pulled preprocess.py's derivation —
+        is_inc      = (Grade == 5.0).any()
+        is_drop     = (Grade == 0.0).any()
+        fail_count  = (Grade >= 3.0).sum()      # includes 5.0 (INC), not 0.0 (drop)
+        fail_rate   = fail_count / Sub_Count
+    "is_drop"'s grade code (0.0) never falls inside fail_count's >=3.0
+    threshold, so fail_rate isn't a literal restatement of is_drop —
+    that's the good news. But fail_count DOES double-count INC as a
+    "fail", which makes "is_inc" and "fail_rate" redundant with each
+    other, and that redundancy alone can be enough to let a linear model
+    fit a near-perfect line. FIX: "is_inc" removed from feature_cols
+    below. Re-run training and check the new R^2:
+        - if it drops to a believable range, the redundancy was the
+          cause and the risk scores can be trusted going forward.
+        - if R^2 stays near 1.0 even without is_inc, GWA/fail_rate are
+          the next things to check — the leak just moved, it didn't
+          necessarily go away.
 
     Outputs a continuous 0-1 risk score; get_dropout_pie's existing
     `np.clip(np.round(preds), 0, 1)` turns it back into the 0/1 flag the
@@ -344,9 +387,13 @@ def train_dropout_risk(df_path: str) -> dict:
     df.loc[df["Year_Level_Num"] == -1, "Year_Level_Num"] = np.nan
     df.loc[df["Year_Level_Num"] == 0, "Year_Level_Num"] = np.nan  # Unknown -> also not a real ordinal point
 
-    # 01_dropout_risk_per_student.csv columns match preprocess.py output
+    # 01_dropout_risk_per_student.csv columns match preprocess.py output.
+    # "is_inc" is intentionally EXCLUDED here — see leakage-check note
+    # above. fail_rate is kept for now since it isn't a literal
+    # restatement of is_drop, but re-check it first if R^2 is still
+    # suspiciously high after this change.
     feature_cols = ["Gender","College","Semester","Year_Numeric","Sem_Numeric",
-                     "GWA","Avg_Grade","Sub_Count","is_inc","fail_rate",
+                     "GWA","Avg_Grade","Sub_Count","fail_rate",
                      "Year_Level_Num","is_irregular_year"]
 
     # Drop rows with no label at all — can't train on those regardless.
@@ -356,7 +403,7 @@ def train_dropout_risk(df_path: str) -> dict:
     #   - numeric grade/rate columns -> median (robust to outliers)
     #   - count-like columns         -> 0 (missing usually means "none logged")
     numeric_median_cols = ["GWA", "Avg_Grade", "fail_rate", "Year_Level_Num"]
-    numeric_zero_cols   = ["Sub_Count", "is_inc", "Year_Numeric", "Sem_Numeric",
+    numeric_zero_cols   = ["Sub_Count", "Year_Numeric", "Sem_Numeric",
                             "is_irregular_year"]
 
     for col in numeric_median_cols:
@@ -390,8 +437,8 @@ def train_dropout_risk(df_path: str) -> dict:
     # Continuous 0-1 risk score — get_dropout_pie's np.clip(np.round(...))
     # turns this into the same 0/1 flag it always expected.
 
-    _save(model,              "dropout_model.pkl")
-    _save(X.columns.tolist(), "dropout_features.pkl")
+    _save(model,              "dropout_pie_model.pkl")
+    _save(X.columns.tolist(), "dropout_pie_features.pkl")
 
     return {
         "status": "ok",
@@ -432,8 +479,8 @@ def train_dropout_spike(df_path: str) -> dict:
     model.fit(X, y)
     y_pred = model.predict(X)
 
-    _save(model,              "dropout_spike_model.pkl")
-    _save(X.columns.tolist(), "dropout_spike_features.pkl")
+    _save(model,              "dropout_trend_chart_model.pkl")
+    _save(X.columns.tolist(), "dropout_trend_chart_features.pkl")
     return {"status": "ok", **_reg_metrics(y, y_pred)}
 
 
@@ -469,8 +516,8 @@ def train_dropout_ranking(df_path: str) -> dict:
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 
-    _save(model,              "college_dropout_model_final.pkl")
-    _save(X.columns.tolist(), "dropout_ranking_features_final.pkl")
+    _save(model,              "college_ranking_chart_model.pkl")
+    _save(X.columns.tolist(), "college_ranking_chart_features.pkl")
     return {"status": "ok", **_reg_metrics(y_test, y_pred)}
 
 
@@ -503,8 +550,8 @@ def train_gwa_ranking(df_path: str) -> dict:
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 
-    _save(model,              "gwa_ranking_model_final.pkl")
-    _save(X.columns.tolist(), "gwa_ranking_features_final.pkl")
+    _save(model,              "gwa_ranking_chart_model.pkl")
+    _save(X.columns.tolist(), "gwa_ranking_chart_features.pkl")
     return {"status": "ok", **_reg_metrics(y_test, y_pred)}
 
 
@@ -535,8 +582,8 @@ def train_gwa_trend(df_path: str) -> dict:
     model.fit(X, y)
     y_pred = model.predict(X)
 
-    _save(model,              "gwa_trend_model_final.pkl")
-    _save(X.columns.tolist(), "gwa_trend_features.pkl")
+    _save(model,              "gwa_trend_chart_model.pkl")
+    _save(X.columns.tolist(), "gwa_trend_chart_features.pkl")
     return {"status": "ok", **_reg_metrics(y, y_pred)}
 
 
@@ -571,47 +618,85 @@ def train_inc_forecast(df_path: str) -> dict:
     model.fit(X, y)
     y_pred = model.predict(X)
 
-    _save(model,              "inc_rate_model.pkl")
-    _save(X.columns.tolist(), "inc_rate_features.pkl")
+    _save(model,              "inc_rate_chart_model.pkl")
+    _save(X.columns.tolist(), "inc_rate_chart_features.pkl")
     return {"status": "ok", **_reg_metrics(y, y_pred)}
 
 
 def train_irreg_reg(df_path: str) -> dict:
-    """RandomForestRegressor — Irregular student rate per cohort.
+    """RandomForestClassifier — per-student behaviorally-Irregular flag.
 
-    Powers: /api/get_status_pie, /api/get_status_by_course -> irregular-rate views.
+    Powers: /api/get_status_pie -> irregular-rate donut (forecast mode).
 
-    Restricted-candidate model_comparison.py run shows RandomForestRegressor
-    winning at R^2=0.2127 with a fold std of 0.87 (UNRELIABLE) — down
-    sharply from Ridge's R^2=0.8476. UNLIKE dropout_spike/inc_forecast,
-    this endpoint reads the .pkl's predictions directly rather than
-    falling back to forecast_series(), so this drop in reliability is
-    worth flagging before shipping — consider re-adding Ridge to the
-    candidate pool for this dataset specifically if the numbers on the
-    live chart look off.
+    MODEL-TYPE FIX: this used to be a RandomForestRegressor trained on
+    07_irreg_reg_cohort.csv's cohort-level Irregular_Rate (a %), scoring
+    R^2=0.2127 (fold std 0.87 — UNRELIABLE) and feeding that number
+    straight into get_status_pie with no fallback. But "Irregular" is a
+    category (a student either is or isn't), not a continuous quantity —
+    modeling it as regression on a handful of cohort-aggregate rows was
+    the wrong shape for the problem, which is likely WHY the R^2 was so
+    weak. The label already exists as a real per-student binary column
+    ("is_irregular" — see preprocess.py) inside
+    01_dropout_risk_per_student.csv, the SAME file train_dropout_risk
+    trains on, so this is switched to a RandomForestClassifier on that
+    student-level table instead: get_status_pie can score a real
+    population of students (same "advance last year's real cohort by
+    one year" pattern get_dropout_pie already uses for its own forecast)
+    and count how many come back Irregular, instead of trusting one
+    cohort-level percentage.
+
+    "is_inc" / "is_drop" are deliberately EXCLUDED from feature_cols:
+    preprocess.py defines is_irregular literally as
+    (is_inc == 1) | (is_drop == 1), so including either would be
+    training the model to read the label off itself. "fail_rate" is
+    excluded too since fail_count folds in Grade==5.0 (INC) and is
+    highly redundant with is_inc for the same reason flagged in
+    train_dropout_risk's docstring.
     """
-    _log("Training irreg_reg model …")
+    _log("Training irreg_reg model (classifier) …")
     df = pd.read_csv(df_path)
 
-    if len(df) < 5:
-        return {"status": "skipped", "reason": "too few cohort rows"}
+    if len(df) < 20 or "is_irregular" not in df.columns or df["is_irregular"].nunique() < 2:
+        _log("  [SKIP] Insufficient data or only one class present.")
+        return {"status": "skipped", "reason": "too few samples / one class only"}
 
-    X = pd.get_dummies(df[["College"]], prefix="College")
-    X["Year_Numeric"] = df["Year_Numeric"]
-    X["Sem_Numeric"]  = df["Sem_Numeric"]
-    y = df["Irregular_Rate"]
+    # Same Year_Level_Num sentinel handling as train_dropout_risk (-1 =
+    # Irregular course-load classification, 0 = Unknown — neither is a
+    # real point on the seniority scale).
+    df["is_irregular_year"] = (df["Year_Level_Num"] == -1).astype(int)
+    df.loc[df["Year_Level_Num"] == -1, "Year_Level_Num"] = np.nan
+    df.loc[df["Year_Level_Num"] == 0, "Year_Level_Num"] = np.nan
+
+    feature_cols = ["Gender", "College", "Semester", "Year_Numeric", "Sem_Numeric",
+                     "GWA", "Avg_Grade", "Sub_Count", "Year_Level_Num", "is_irregular_year"]
+
+    numeric_median_cols = ["GWA", "Avg_Grade", "Year_Level_Num"]
+    numeric_zero_cols   = ["Sub_Count", "Year_Numeric", "Sem_Numeric", "is_irregular_year"]
+    for col in numeric_median_cols:
+        if col in df.columns:
+            df[col] = df[col].fillna(df[col].median())
+    for col in numeric_zero_cols:
+        if col in df.columns:
+            df[col] = df[col].fillna(0)
+    for col in ["Gender", "College", "Semester"]:
+        if col in df.columns:
+            df[col] = df[col].fillna("Unknown")
+
+    df = df.dropna(subset=["is_irregular"])
+
+    X = pd.get_dummies(df[feature_cols], drop_first=False)
+    y = df["is_irregular"]
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    ) if len(df) >= 10 else (X, X, y, y)
-
-    model = RandomForestRegressor(n_estimators=200, max_depth=6, random_state=42)
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    model = RandomForestClassifier(n_estimators=200, max_depth=6, random_state=42)
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 
-    _save(model,              "status_forest_model.pkl")
-    _save(X.columns.tolist(), "status_forest_features.pkl")
-    return {"status": "ok", **_reg_metrics(y_test, y_pred)}
+    _save(model,              "status_pie_model.pkl")
+    _save(X.columns.tolist(), "status_pie_features.pkl")
+    return {"status": "ok", **_clf_metrics(y_test, y_pred)}
 
 
 def train_kpi(gwa_path: str, enroll_path: str, drop_path: str = None) -> dict:
@@ -652,8 +737,8 @@ def train_kpi(gwa_path: str, enroll_path: str, drop_path: str = None) -> dict:
         X["Sem_Numeric"]  = df_gwa["Sem_Numeric"]
         y = df_gwa["GWA"]
         m = LinearRegression().fit(X, y)
-        _save(m,               "kpi_gwa_model.pkl")
-        _save(X.columns.tolist(), "kpi_gwa_features.pkl")
+        _save(m,               "kpi_tiles_gwa_model.pkl")
+        _save(X.columns.tolist(), "kpi_tiles_gwa_features.pkl")
         results["gwa"] = _reg_metrics(y, m.predict(X))
     else:
         results["gwa"] = {"status": "skipped"}
@@ -665,8 +750,8 @@ def train_kpi(gwa_path: str, enroll_path: str, drop_path: str = None) -> dict:
         X["Year_Numeric"] = df_en["Year_Numeric"]
         y = df_en["Headcount"]
         m = LinearRegression().fit(X, y)
-        _save(m,               "kpi_enrollment_model.pkl")
-        _save(X.columns.tolist(), "kpi_enrollment_features.pkl")
+        _save(m,               "kpi_tiles_enrollment_model.pkl")
+        _save(X.columns.tolist(), "kpi_tiles_enrollment_features.pkl")
         results["enrollment"] = _reg_metrics(y, m.predict(X))
     else:
         results["enrollment"] = {"status": "skipped"}
@@ -680,8 +765,8 @@ def train_kpi(gwa_path: str, enroll_path: str, drop_path: str = None) -> dict:
             X["Sem_Numeric"]  = df_drop["Sem_Numeric"]
             y = df_drop["Drop_Count"]
             m = LinearRegression().fit(X, y)
-            _save(m,               "kpi_drop_model.pkl")
-            _save(X.columns.tolist(), "kpi_drop_features.pkl")
+            _save(m,               "kpi_tiles_drop_model.pkl")
+            _save(X.columns.tolist(), "kpi_tiles_drop_features.pkl")
             results["drop"] = _reg_metrics(y, m.predict(X))
         else:
             results["drop"] = {"status": "skipped", "reason": "too few rows"}
@@ -726,8 +811,8 @@ def train_subject_top(df_path: str) -> dict:
     model.fit(X, y)
     y_pred = model.predict(X)
 
-    _save(model,              "subject_grade_model.pkl")
-    _save(X.columns.tolist(), "subject_grade_features.pkl")
+    _save(model,              "hardest_subjects_chart_model.pkl")
+    _save(X.columns.tolist(), "hardest_subjects_chart_features.pkl")
     return {"status": "ok", **_reg_metrics(y, y_pred)}
 
 
@@ -769,65 +854,94 @@ def train_performance_band(df_path: str) -> dict:
     model.fit(X, y)
     y_pred = model.predict(X)
 
-    _save(model,              "performance_band_model.pkl")
-    _save(X.columns.tolist(), "performance_band_features.pkl")
+    _save(model,              "gwa_distribution_chart_unused_model.pkl")
+    _save(X.columns.tolist(), "gwa_distribution_chart_unused_features.pkl")
     return {"status": "ok", **_reg_metrics(y, y_pred)}
 
 
-def train_gender_performance(df_path: str) -> dict:
-    """Dropout_Rate half: RandomForestRegressor | Avg_GWA half: LinearRegression.
+def _train_gender_half(df_path: str, gender: str) -> dict:
+    """Shared trainer body for ONE gender's cohort file. Dropout_Rate half:
+    RandomForestRegressor — same model choice the original combined trainer
+    settled on (restricted-candidate run: RandomForestRegressor R^2=0.5801
+    for Dropout_Rate), just fit separately per gender now instead of
+    with Gender as a one-hot feature on one shared model. Saves
+    gender-prefixed .pkl files so male and female each get their own model
+    instead of overwriting each other.
 
-    Dataset: 12_gender_performance.csv — cohort-level (College x Gender x
-    Year) dropout rate and average GWA.
+    Avg_GWA half removed 2026-08-19: trained a model every run but fed no
+    chart, and the source CSV's Avg_GWA column had no other reader either
+    — removed end-to-end (preprocess.py column, this training block, the
+    .pkl load in ml_analysis.py, and the label map in upload_rotues.py).
+    Irregular_Rate was in the same source CSV and equally unread by this
+    trainer — dropped from preprocess.py's gender aggregation too.
 
-    Previously NOT ADOPTED: in the original unrestricted model_comparison.py
-    run, every candidate model scored negative R^2 on both targets (best
-    was R^2=-0.22 for Dropout_Rate, -0.39 for Avg_GWA) — not enough signal
-    to train on, so no .pkl was ever produced for this dataset.
-
-    The restricted-candidate run (LinearRegression vs RandomForestRegressor
-    only) shows real predictive power on both targets:
-      - Dropout_Rate: RandomForestRegressor won, R^2=0.5801
-      - Avg_GWA:      LinearRegression won,      R^2=0.3618
-    Worth adopting now.
-
-     NOT CONSUMED BY ANY ENDPOINT YET. mode-toggle.js's
-    _renderRetentionCharts currently swaps to a generic Holt-fit trend
-    (/api/get_status_trend, filtered by &gender=) for the "Male/Female
-    Retention Trend" cards in Prediction mode, specifically because
-    /api/get_gender_status_breakdown is historical-only. These two models
-    are the prerequisite for a genuine per-gender forecast — wiring that
-    up needs a new endpoint in ml_analysis.py plus a small addition to
-    upload_routes.py's _flatten_metric_block() to recognize this
-    trainer's nested result shape (same pattern as train_kpi's
-    'gwa'/'enrollment' sub-keys).
+    INC_Rate half added 2026-08-19: the source CSV already carries an
+    INC_Rate column (same preprocess.py student-level aggregation that
+    produces Dropout_Rate) but nothing ever trained on it — Dropout_Rate
+    alone can't reconstruct the Regular/INC/Dropped 3-way split the
+    Retention & Risk donuts need, since INC and Dropped are separate,
+    mutually-exclusive buckets. Modeled the same way as Dropout_Rate
+    (RandomForestRegressor — same bounded-percentage shape), not folded
+    into that call, so its own accuracy is visible on its own card.
     """
-    _log("Training gender_performance models …")
+    _log(f"Training gender_performance ({gender}) models …")
     df = pd.read_csv(df_path)
 
     if len(df) < 10:
         return {"status": "skipped", "reason": "too few rows"}
 
-    X = pd.get_dummies(df[["College", "Gender_Label"]], prefix=["College", "Gender"])
+    # Gender is no longer a feature — the file itself is already one
+    # gender's data, so College + Year_Numeric are the only real signals.
+    X = pd.get_dummies(df[["College"]], prefix="College")
     X["Year_Numeric"] = df["Year_Numeric"]
 
     results = {}
+    prefix = gender.lower()  # "male" / "female"
 
-    # Dropout_Rate half — RandomForestRegressor won (R^2=0.5801)
+    # Dropout_Rate half
     y_drop = df["Dropout_Rate"]
     m_drop = RandomForestRegressor(n_estimators=200, max_depth=6, random_state=42).fit(X, y_drop)
-    _save(m_drop,              "gender_dropout_model.pkl")
-    _save(X.columns.tolist(),  "gender_dropout_features.pkl")
+    _save(m_drop,              f"retention_trend_chart_{prefix}_dropout_model.pkl")
+    _save(X.columns.tolist(),  f"retention_trend_chart_{prefix}_dropout_features.pkl")
     results["dropout_rate"] = _reg_metrics(y_drop, m_drop.predict(X))
 
-    # Avg_GWA half — LinearRegression won (R^2=0.3618)
-    y_gwa = df["Avg_GWA"]
-    m_gwa = LinearRegression().fit(X, y_gwa)
-    _save(m_gwa,               "gender_gwa_model.pkl")
-    _save(X.columns.tolist(),  "gender_gwa_features.pkl")
-    results["avg_gwa"] = _reg_metrics(y_gwa, m_gwa.predict(X))
+    # INC_Rate half
+    if "INC_Rate" in df.columns:
+        y_inc = df["INC_Rate"]
+        m_inc = RandomForestRegressor(n_estimators=200, max_depth=6, random_state=42).fit(X, y_inc)
+        _save(m_inc,               f"retention_trend_chart_{prefix}_inc_model.pkl")
+        _save(X.columns.tolist(),  f"retention_trend_chart_{prefix}_inc_features.pkl")
+        results["inc_rate"] = _reg_metrics(y_inc, m_inc.predict(X))
+    else:
+        results["inc_rate"] = {"status": "skipped", "reason": "INC_Rate column missing from source CSV"}
 
     return results
+
+
+def train_gender_performance_male(df_path: str) -> dict:
+    """Male-only half of gender_performance — see _train_gender_half().
+
+    Dataset: 12_gender_performance_male.csv (College x Year, Male
+    students only — split out of the old combined
+    12_gender_performance.csv so each gender gets its own dedicated
+    model instead of sharing one with a Gender dummy feature).
+
+    Consumed by: /api/get_status_trend (gender=male, single-line mode) —
+    replaces that endpoint's generic Holt-fit fallback for the "Male
+    Retention Trend" card's Dropped% forecast with a real per-gender
+    model, now that one exists. (/api/get_gender_status_breakdown stays
+    historical-only by design, unrelated to this.)
+    """
+    return _train_gender_half(df_path, "male")
+
+
+def train_gender_performance_female(df_path: str) -> dict:
+    """Female-only half of gender_performance — see _train_gender_half().
+
+    Dataset: 12_gender_performance_female.csv. Same wiring as
+    train_gender_performance_male, mirrored for Female.
+    """
+    return _train_gender_half(df_path, "female")
 
 
 def train_year_level_performance(df_path: str) -> dict:
@@ -863,8 +977,8 @@ def train_year_level_performance(df_path: str) -> dict:
     model.fit(X, y)
     y_pred = model.predict(X)
 
-    _save(model,              "year_level_performance_model.pkl")
-    _save(X.columns.tolist(), "year_level_performance_features.pkl")
+    _save(model,              "year_level_chart_unused_model.pkl")
+    _save(X.columns.tolist(), "year_level_chart_unused_features.pkl")
     return {"status": "ok", **_reg_metrics(y, y_pred)}
 
 
@@ -875,7 +989,7 @@ def train_year_level_inc_irreg(df_path: str) -> dict:
     Year_Numeric x Sem_Numeric -> INC_Rate, Irregular_Rate, Drop_Rate). Same
     recipe as train_irreg_reg (dataset 07's college-level Irregular_Rate),
     with Course/Year_Level_Num added as extra features, trained once per
-    target the same way train_gender_performance trains its two targets —
+    target the same way train_gender_performance_male/_female trains its two targets —
     one RandomForestRegressor per rate, returned as a nested dict so
     _flatten_metric_block's generic sub-model detection in upload_routes.py
     picks up all three automatically (inc_rate_r2, irregular_rate_r2, etc.).
@@ -885,7 +999,7 @@ def train_year_level_inc_irreg(df_path: str) -> dict:
     without a separate trainer/dataset needed for the heatmap.
 
     NOT CONSUMED BY ANY ENDPOINT YET — same status train_performance_band /
-    train_gender_performance had before being adopted: this produces the
+    train_gender_performance_male/_female had before being adopted: this produces the
     .pkl files so they're ready to wire in, but
     get_year_level_inc_irreg_forecast and the heatmap endpoint still use
     forecast_series() / real-data-only respectively until a follow-up
@@ -903,9 +1017,9 @@ def train_year_level_inc_irreg(df_path: str) -> dict:
     X["Sem_Numeric"]    = df["Sem_Numeric"]
 
     targets = {
-        "inc_rate":       ("INC_Rate",       "year_level_inc_model.pkl",       "year_level_inc_features.pkl"),
-        "irregular_rate": ("Irregular_Rate", "year_level_irregular_model.pkl", "year_level_irregular_features.pkl"),
-        "drop_rate":      ("Drop_Rate",      "year_level_drop_model.pkl",      "year_level_drop_features.pkl"),
+        "inc_rate":       ("INC_Rate",       "year_level_heatmap_unused_inc_model.pkl",       "year_level_heatmap_unused_inc_features.pkl"),
+        "irregular_rate": ("Irregular_Rate", "year_level_heatmap_unused_irregular_model.pkl", "year_level_heatmap_unused_irregular_features.pkl"),
+        "drop_rate":      ("Drop_Rate",      "year_level_heatmap_unused_drop_model.pkl",      "year_level_heatmap_unused_drop_features.pkl"),
     }
 
     results = {}
@@ -994,28 +1108,52 @@ def run_full_pipeline(new_file: str = None) -> dict:
 
     # ── Step 3: Train all models ─────────────────────────────
     trainers = [
-        ("dropout_risk",     lambda: train_dropout_risk(f"{md}/01_dropout_risk_per_student.csv")),
-        ("dropout_spike",    lambda: train_dropout_spike(f"{md}/02_dropout_spike_cohort.csv")),
-        ("dropout_ranking",  lambda: train_dropout_ranking(f"{md}/03_dropout_ranking_college.csv")),
-        ("gwa_ranking",      lambda: train_gwa_ranking(f"{md}/04_gwa_ranking_college.csv")),
-        ("gwa_trend",        lambda: train_gwa_trend(f"{md}/05_gwa_trend_timeseries.csv")),
-        ("inc_forecast",     lambda: train_inc_forecast(f"{md}/06_inc_forecast_cohort.csv")),
-        ("irreg_reg",        lambda: train_irreg_reg(f"{md}/07_irreg_reg_cohort.csv")),
-        ("kpi",              lambda: train_kpi(f"{md}/08_kpi_gwa_student.csv", f"{md}/09_kpi_enrollment_college.csv", f"{md}/15_kpi_drop_college.csv")),
-        ("subject_grade",    lambda: train_subject_top(f"{md}/10_subject_grade_forecast.csv")),
-        ("performance_band", lambda: train_performance_band(f"{md}/11_performance_band_dist.csv")),
-        ("gender_performance", lambda: train_gender_performance(f"{md}/12_gender_performance.csv")),
+        ("dropout_risk",     lambda: train_dropout_risk(f"{md}/01_dropout_risk_per_student_dropout_pie_status_pie.csv")),
+        ("dropout_spike",    lambda: train_dropout_spike(f"{md}/02_dropout_spike_cohort_dropout_trend_chart.csv")),
+        ("dropout_ranking",  lambda: train_dropout_ranking(f"{md}/03_dropout_ranking_college_college_ranking_chart.csv")),
+        ("gwa_ranking",      lambda: train_gwa_ranking(f"{md}/04_gwa_ranking_college_gwa_ranking_chart.csv")),
+        ("gwa_trend",        lambda: train_gwa_trend(f"{md}/05_gwa_trend_timeseries_gwa_trend_chart.csv")),
+        ("inc_forecast",     lambda: train_inc_forecast(f"{md}/06_inc_forecast_cohort_inc_rate_chart.csv")),
+        ("irreg_reg",        lambda: train_irreg_reg(f"{md}/01_dropout_risk_per_student_dropout_pie_status_pie.csv")),
+        ("kpi",              lambda: train_kpi(f"{md}/08_kpi_gwa_student_kpi_tiles.csv", f"{md}/09_kpi_enrollment_college_kpi_tiles.csv", f"{md}/15_kpi_drop_college_kpi_tiles.csv")),
+        ("subject_grade",    lambda: train_subject_top(f"{md}/10_subject_grade_forecast_hardest_subjects_chart.csv")),
+        ("gender_performance_male",   lambda: train_gender_performance_male(f"{md}/12_gender_performance_male_retention_trend_chart.csv")),
+        ("gender_performance_female", lambda: train_gender_performance_female(f"{md}/12_gender_performance_female_retention_trend_chart.csv")),
         # 12_gender_performance.csv was previously skipped here (every
         # candidate scored negative R^2 in the unrestricted comparison).
         # The restricted LinearRegression/RandomForestRegressor comparison
-        # shows real signal on both targets — now trained. See the
+        # shows real signal on both targets — now trained, and split into
+        # a Male file/model pair and a Female file/model pair instead of
+        # one combined dataset with a Gender dummy feature. See the
         # finalized model-choices table above for details.
-        ("year_level_performance", lambda: train_year_level_performance(f"{md}/13_year_level_performance.csv")),
-        ("year_level_inc_irreg",   lambda: train_year_level_inc_irreg(f"{md}/14_year_level_inc_irreg.csv")),
-        # 13/14 were exported by preprocess.py but never trained on before —
-        # same "dataset ready, no trainer yet" situation performance_band and
-        # gender_performance were in. Same recipes as those two, just with
-        # Course/Year_Level_Num added as features.
+        #
+        # REMOVED (2026-08-19): performance_band, year_level_performance,
+        # and year_level_inc_irreg used to train here. All three were
+        # RandomForestRegressor models whose whole job was to power a
+        # FUTURE-YEAR forecast — but RandomForestRegressor cannot
+        # extrapolate past the years it was trained on (see the bug #1
+        # writeup in forecast_series()'s docstring above — this is the
+        # exact same failure mode that was already hit and fixed once for
+        # the subject-grade forecast). Their strong-looking R^2 scores
+        # only measured fit on HISTORICAL rows, not forecasting skill,
+        # which is the one thing they were trained for.
+        #   - year_level_inc_irreg was additionally proven actively bad
+        #     (Drop_Rate R^2 = -0.63, worse than predicting the mean) AND
+        #     fully redundant: /api/get_year_level_inc_irreg_forecast
+        #     already forecasts all three rates live via forecast_series(),
+        #     which the RF model never fed.
+        #   - year_level_performance's target (/api/get_year_level_distribution)
+        #     had no forecast branch at all — see ml_analysis.py, which
+        #     now forecasts per-band % there with forecast_series() instead
+        #     of ever loading this model.
+        #   - performance_band's target chart (a "GWA Distribution"
+        #     prediction-mode view) was never built. If that chart gets
+        #     built later, use forecast_series() per band the same way,
+        #     not a re-trained RF regressor — it will hit the same
+        #     extrapolation ceiling.
+        # If reviving any of these, don't just re-add the lambda: swap the
+        # trainer to fit a per-series trend (like train_gwa_trend /
+        # forecast_series) instead of a scikit RandomForestRegressor.
     ]
 
     for name, trainer_fn in trainers:

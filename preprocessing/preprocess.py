@@ -474,7 +474,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
         log.info(f"    Saved {name}: {len(df):,} rows")
 
     # 01 – Dropout risk per student (the main student-level table)
-    save(student_df, "01_dropout_risk_per_student.csv")
+    save(student_df, "01_dropout_risk_per_student_dropout_pie_status_pie.csv")
 
     # 02 – Dropout spike cohort (college × year dropout rate)
     spike = (
@@ -487,20 +487,20 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     )
     spike["Dropout_Rate"]    = (spike["Dropout_Count"] / spike["Total_Students"] * 100).round(2)
     spike["Non_Dropout_Pct"] = (100 - spike["Dropout_Rate"]).round(2)
-    save(spike, "02_dropout_spike_cohort.csv")
+    save(spike, "02_dropout_spike_cohort_dropout_trend_chart.csv")
 
     # 03 – Dropout ranking college (student-level with key columns)
     save(
         student_df[["Student_ID", "College", "Course", "Semester",
                     "Sem_Numeric", "Year_Numeric", "GWA", "fail_rate", "is_drop"]],
-        "03_dropout_ranking_college.csv"
+        "03_dropout_ranking_college_college_ranking_chart.csv"
     )
 
     # 04 – GWA ranking college (student-level)
     save(
         student_df[["Student_ID", "College", "Course",
                     "Year_Numeric", "Sem_Numeric", "GWA"]].dropna(subset=["GWA"]),
-        "04_gwa_ranking_college.csv"
+        "04_gwa_ranking_college_gwa_ranking_chart.csv"
     )
 
     # 05 – GWA trend timeseries (college × year × sem)
@@ -516,7 +516,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     )
     trend["Avg_GWA"] = trend["Avg_GWA"].round(2)
     trend["Std_GWA"] = trend["Std_GWA"].round(2)
-    save(trend, "05_gwa_trend_timeseries.csv")
+    save(trend, "05_gwa_trend_timeseries_gwa_trend_chart.csv")
 
     # 06 – INC forecast cohort
     inc = (
@@ -528,7 +528,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
         .reset_index()
     )
     inc["INC_Rate"] = (inc["INC_Count"] / inc["Total_Students"] * 100).round(2)
-    save(inc, "06_inc_forecast_cohort.csv")
+    save(inc, "06_inc_forecast_cohort_inc_rate_chart.csv")
 
     # 07 – Irreg/Reg cohort
     irreg = (
@@ -544,13 +544,13 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     irreg["Irregular_Rate"] = (irreg["Irregular_Count"] / irreg["Total_Students"] * 100).round(2)
     irreg["Drop_Rate"]      = (irreg["Drop_Count"]      / irreg["Total_Students"] * 100).round(2)
     irreg["INC_Rate"]       = (irreg["INC_Count"]       / irreg["Total_Students"] * 100).round(2)
-    save(irreg, "07_irreg_reg_cohort.csv")
+    save(irreg, "07_irreg_reg_cohort_unused_legacy.csv")
 
     # 08 – KPI GWA student (same as 04)
     save(
         student_df[["Student_ID", "College", "Course",
                     "Year_Numeric", "Sem_Numeric", "GWA"]].dropna(subset=["GWA"]),
-        "08_kpi_gwa_student.csv"
+        "08_kpi_gwa_student_kpi_tiles.csv"
     )
 
     # 09 – KPI enrollment college
@@ -565,7 +565,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
         (enroll["Headcount"] - enroll["Headcount_Prev"])
         / enroll["Headcount_Prev"] * 100
     ).round(2)
-    save(enroll, "09_kpi_enrollment_college.csv")
+    save(enroll, "09_kpi_enrollment_college_kpi_tiles.csv")
 
     # 15 – KPI drop college (college × year × sem drop counts) — dedicated
     # dataset for the "Total Drop" KPI tile, mirroring 09's shape so it can
@@ -576,7 +576,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
         .reset_index()
         .sort_values(["College", "Year_Numeric", "Sem_Numeric"])
     )
-    save(kpi_drop, "15_kpi_drop_college.csv")
+    save(kpi_drop, "15_kpi_drop_college_kpi_tiles.csv")
 
     # 10 – Subject grade forecast (long_df aggregated per subject)
     subj = (
@@ -593,7 +593,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     subj["Avg_Grade"] = subj["Avg_Grade"].round(2)
     subj["Std_Grade"] = subj["Std_Grade"].round(2)
     subj["Fail_Rate"] = (subj["Fail_Count"] / subj["Student_Cnt"] * 100).round(2)
-    save(subj, "10_subject_grade_forecast.csv")
+    save(subj, "10_subject_grade_forecast_hardest_subjects_chart.csv")
 
     # 11 – Performance band distribution
     def perf_band(gwa):
@@ -619,7 +619,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     )
     band = band.merge(total_map, on=["Year_Numeric", "Sem_Numeric", "College"], how="left")
     band["Pct"] = (band["Count"] / band["Total"] * 100).round(2)
-    save(band, "11_performance_band_dist.csv")
+    save(band, "11_performance_band_dist_unused_gwa_distribution_chart.csv")
 
     # 13 – Year-level performance distribution (college × course × year
     # level × perf band). Same bucketing as 11, sliced by Year_Level
@@ -651,7 +651,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     year_level = year_level.sort_values(
         ["College", "Course", "Year_Level_Num"]
     )
-    save(year_level, "13_year_level_performance.csv")
+    save(year_level, "13_year_level_performance_unused_year_level_chart.csv")
 
     # 14 – INC / Irregular(behavioral) / Drop rate by year level
     # Same metrics + idiom as dataset 07 (Irreg/Reg cohort), just sliced
@@ -679,26 +679,40 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     yl_inc["Drop_Rate"]      = (yl_inc["Drop_Count"]      / yl_inc["Total_Students"] * 100).round(2)
     yl_inc["INC_Rate"]       = (yl_inc["INC_Count"]       / yl_inc["Total_Students"] * 100).round(2)
     yl_inc = yl_inc.sort_values(["College", "Course", "Year_Level_Num"])
-    save(yl_inc, "14_year_level_inc_irreg.csv")
+    save(yl_inc, "14_year_level_inc_irreg_unused_year_level_heatmap.csv")
 
     # 12 – Gender performance
     gender = (
         student_df.groupby(["Year_Numeric", "College", "Gender"])
         .agg(
             Student_Count  = ("Student_ID", "nunique"),
-            Avg_GWA        = ("GWA", "mean"),
             Dropout_Rate   = ("is_drop", lambda g: g.mean() * 100),
             INC_Rate       = ("is_inc",  lambda g: g.mean() * 100),
-            Irregular_Rate = ("is_irregular", lambda g: g.mean() * 100),
         )
         .reset_index()
     )
-    gender["Avg_GWA"]        = gender["Avg_GWA"].round(2)
     gender["Dropout_Rate"]   = gender["Dropout_Rate"].round(2)
     gender["INC_Rate"]       = gender["INC_Rate"].round(2)
-    gender["Irregular_Rate"] = gender["Irregular_Rate"].round(2)
     gender["Gender_Label"]   = gender["Gender"].map({1: "Female", 0: "Male", -1: "Unknown"})
-    save(gender, "12_gender_performance.csv")
+
+    # Split into a Male-only and a Female-only CSV instead of one combined
+    # file with a Gender_Label dummy column. Two reasons:
+    #   1. train_gender_performance previously fit ONE model across both
+    #      genders with Gender as a one-hot feature — on a small cohort-
+    #      level dataset like this, that lets the model partly average
+    #      away gender-specific signal instead of learning each gender's
+    #      own trend. Two dedicated models (one per gender) can each fit
+    #      that gender's Dropout_Rate/INC_Rate pattern directly.
+    #   2. It matches how these numbers are actually consumed downstream
+    #      (a Male line and a Female line, never a blended one), so the
+    #      training data now mirrors the shape of the eventual forecast.
+    # "Unknown" gender rows are dropped from both — not enough of them to
+    # train a third model on, and the two retention cards only ever show
+    # Male vs Female.
+    gender_male   = gender[gender["Gender_Label"] == "Male"].drop(columns=["Gender", "Gender_Label"]).reset_index(drop=True)
+    gender_female = gender[gender["Gender_Label"] == "Female"].drop(columns=["Gender", "Gender_Label"]).reset_index(drop=True)
+    save(gender_male,   "12_gender_performance_male_retention_trend_chart.csv")
+    save(gender_female, "12_gender_performance_female_retention_trend_chart.csv")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

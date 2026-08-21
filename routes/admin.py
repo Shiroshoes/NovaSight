@@ -45,6 +45,14 @@ def profile():
         user_image_url=user.profile_image_url
     )
 
+# ---------------- File Upload ----------------
+@admin_bp.route('/fileupload')
+def fileupload_admin():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('home'))
+    return render_template('admin/fileupload/fileupload.html')
+
+
 # ------------ Help admin ------------
 @admin_bp.route('/help')
 def help_admin():

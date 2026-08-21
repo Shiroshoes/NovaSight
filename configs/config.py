@@ -57,7 +57,7 @@ ALLOWED_ROLES = [
 ]
 
 # Roles that are allowed to upload grade-sheet datasets
-UPLOAD_ALLOWED_ROLES = {'Academic_Affair'}
+UPLOAD_ALLOWED_ROLES = {'Academic_Affair', 'admin'}
 
 # ── Auto-create folders on import ─────────────────────────────
 for _d in (UNPROCESSED_DATASETS_DIR, PROCESSED_DATASETS_DIR, MODEL_DATASETS_DIR, ML_MODEL_DIR):

@@ -331,3 +331,52 @@
 
 /* ── Utility ─────────────────────────────────────────────── */
 .hidden { display: none !important; }
+
+/* ── Floating "upload failed" card ──────────────────────────
+   Reuses the existing .modal-overlay / .logout-card look (same
+   pattern as the logout confirmation) so it matches the rest of
+   the app without needing its own overlay styling. */
+.upload-failed-card .brand-name {
+  color: #b53030;
+}
+.upload-failed-text {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.upload-failed-reason {
+  font-size: 0.85rem;
+  color: #7a1a1a;
+  background: #fef0f0;
+  border: 1px solid #f5b0b0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 4px 0 18px;
+  line-height: 1.5;
+  max-height: 140px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+.upload-failed-card .button-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+#uploadFailedRemove {
+  background: #b53030;
+}
+#uploadFailedRemove:hover {
+  background: #931e1e;
+}
+#uploadFailedReupload {
+  background: #800000;
+}
+#uploadFailedReupload:hover {
+  background: #c72828;
+}
+#uploadFailedCancel {
+  background: #888;
+}
+#uploadFailedCancel:hover {
+  background: #666;
+}

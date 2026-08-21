@@ -312,38 +312,55 @@ def get_forecast_years(latest_year: int) -> list:
 def load_model(filename):
     path = os.path.join(MODEL_DIR, filename)
     return joblib.load(path) if os.path.exists(path) else None
-drop_pie_model = load_model("dropout_model.pkl")
-drop_pie_features = load_model("dropout_features.pkl")
+drop_pie_model = load_model("dropout_pie_model.pkl")
+drop_pie_features = load_model("dropout_pie_features.pkl")
 
-gwa_ranking_model = load_model("gwa_ranking_model_final.pkl")
-gwa_ranking_features = load_model("gwa_ranking_features_final.pkl")
+gwa_ranking_model = load_model("gwa_ranking_chart_model.pkl")
+gwa_ranking_features = load_model("gwa_ranking_chart_features.pkl")
 
-dropout_ranking_model = load_model("college_dropout_model_final.pkl")
-dropout_ranking_features = load_model("dropout_ranking_features_final.pkl")
+dropout_ranking_model = load_model("college_ranking_chart_model.pkl")
+dropout_ranking_features = load_model("college_ranking_chart_features.pkl")
 
-gwa_trend_model = load_model("gwa_trend_model_final.pkl")
-gwa_trend_features = load_model("gwa_trend_features.pkl")
+gwa_trend_model = load_model("gwa_trend_chart_model.pkl")
+gwa_trend_features = load_model("gwa_trend_chart_features.pkl")
 
-kpi_gwa_model = load_model("kpi_gwa_model.pkl")
-kpi_gwa_features = load_model("kpi_gwa_features.pkl")
+kpi_gwa_model = load_model("kpi_tiles_gwa_model.pkl")
+kpi_gwa_features = load_model("kpi_tiles_gwa_features.pkl")
 
-kpi_enroll_model = load_model("kpi_enrollment_model.pkl")
-kpi_enroll_features = load_model("kpi_enrollment_features.pkl")
+kpi_enroll_model = load_model("kpi_tiles_enrollment_model.pkl")
+kpi_enroll_features = load_model("kpi_tiles_enrollment_features.pkl")
 
-kpi_drop_model = load_model("kpi_drop_model.pkl")
-kpi_drop_features = load_model("kpi_drop_features.pkl")
+kpi_drop_model = load_model("kpi_tiles_drop_model.pkl")
+kpi_drop_features = load_model("kpi_tiles_drop_features.pkl")
 
-status_model = load_model("status_forest_model.pkl")
-status_features = load_model("status_forest_features.pkl")
+status_model = load_model("status_pie_model.pkl")
+status_features = load_model("status_pie_features.pkl")
 
-inc_model = load_model("inc_rate_model.pkl")
-inc_features = load_model("inc_rate_features.pkl")
+inc_model = load_model("inc_rate_chart_model.pkl")
+inc_features = load_model("inc_rate_chart_features.pkl")
 
-subj_model = load_model("subject_grade_model.pkl")
-subj_features = load_model("subject_grade_features.pkl")
+subj_model = load_model("hardest_subjects_chart_model.pkl")
+subj_features = load_model("hardest_subjects_chart_features.pkl")
 
-dropout_spike_model = load_model("dropout_spike_model.pkl")
-dropout_spike_features = load_model("dropout_spike_features.pkl")
+dropout_spike_model = load_model("dropout_trend_chart_model.pkl")
+dropout_spike_features = load_model("dropout_trend_chart_features.pkl")
+
+# Per-gender models (male_/female_ prefixed — see auto_train.py's
+# train_gender_performance_male/_female). Dropout_Rate + INC_Rate halves
+# power get_gender_status_breakdown's Prediction-mode Retention & Risk
+# donuts (per-college view only — this dataset has no Course grain, so
+# the dean dashboards' per-course view still uses forecast_series()).
+# (Avg_GWA half removed 2026-08-19 — trained but never consumed by any
+# chart; removed end-to-end along with the CSV's unused Irregular_Rate.)
+male_gender_dropout_model = load_model("retention_trend_chart_male_dropout_model.pkl")
+male_gender_dropout_features = load_model("retention_trend_chart_male_dropout_features.pkl")
+male_gender_inc_model = load_model("retention_trend_chart_male_inc_model.pkl")
+male_gender_inc_features = load_model("retention_trend_chart_male_inc_features.pkl")
+
+female_gender_dropout_model = load_model("retention_trend_chart_female_dropout_model.pkl")
+female_gender_dropout_features = load_model("retention_trend_chart_female_dropout_features.pkl")
+female_gender_inc_model = load_model("retention_trend_chart_female_inc_model.pkl")
+female_gender_inc_features = load_model("retention_trend_chart_female_inc_features.pkl")
 
 
 # ── reload_models() ──────────────────────────────────────────────────────────
@@ -360,29 +377,41 @@ def reload_models():
     global inc_model, inc_features
     global subj_model, subj_features
     global dropout_spike_model, dropout_spike_features
+    global male_gender_dropout_model, male_gender_dropout_features
+    global male_gender_inc_model, male_gender_inc_features
+    global female_gender_dropout_model, female_gender_dropout_features
+    global female_gender_inc_model, female_gender_inc_features
 
-    drop_pie_model          = load_model("dropout_model.pkl")
-    drop_pie_features       = load_model("dropout_features.pkl")
-    gwa_ranking_model       = load_model("gwa_ranking_model_final.pkl")
-    gwa_ranking_features    = load_model("gwa_ranking_features_final.pkl")
-    dropout_ranking_model   = load_model("college_dropout_model_final.pkl")
-    dropout_ranking_features= load_model("dropout_ranking_features_final.pkl")
-    gwa_trend_model         = load_model("gwa_trend_model_final.pkl")
-    gwa_trend_features      = load_model("gwa_trend_features.pkl")
-    kpi_gwa_model           = load_model("kpi_gwa_model.pkl")
-    kpi_gwa_features        = load_model("kpi_gwa_features.pkl")
-    kpi_enroll_model        = load_model("kpi_enrollment_model.pkl")
-    kpi_enroll_features     = load_model("kpi_enrollment_features.pkl")
-    kpi_drop_model          = load_model("kpi_drop_model.pkl")
-    kpi_drop_features       = load_model("kpi_drop_features.pkl")
-    status_model            = load_model("status_forest_model.pkl")
-    status_features         = load_model("status_forest_features.pkl")
-    inc_model               = load_model("inc_rate_model.pkl")
-    inc_features            = load_model("inc_rate_features.pkl")
-    subj_model              = load_model("subject_grade_model.pkl")
-    subj_features           = load_model("subject_grade_features.pkl")
-    dropout_spike_model     = load_model("dropout_spike_model.pkl")
-    dropout_spike_features  = load_model("dropout_spike_features.pkl")
+    drop_pie_model          = load_model("dropout_pie_model.pkl")
+    drop_pie_features       = load_model("dropout_pie_features.pkl")
+    gwa_ranking_model       = load_model("gwa_ranking_chart_model.pkl")
+    gwa_ranking_features    = load_model("gwa_ranking_chart_features.pkl")
+    dropout_ranking_model   = load_model("college_ranking_chart_model.pkl")
+    dropout_ranking_features= load_model("college_ranking_chart_features.pkl")
+    gwa_trend_model         = load_model("gwa_trend_chart_model.pkl")
+    gwa_trend_features      = load_model("gwa_trend_chart_features.pkl")
+    kpi_gwa_model           = load_model("kpi_tiles_gwa_model.pkl")
+    kpi_gwa_features        = load_model("kpi_tiles_gwa_features.pkl")
+    kpi_enroll_model        = load_model("kpi_tiles_enrollment_model.pkl")
+    kpi_enroll_features     = load_model("kpi_tiles_enrollment_features.pkl")
+    kpi_drop_model          = load_model("kpi_tiles_drop_model.pkl")
+    kpi_drop_features       = load_model("kpi_tiles_drop_features.pkl")
+    status_model            = load_model("status_pie_model.pkl")
+    status_features         = load_model("status_pie_features.pkl")
+    inc_model               = load_model("inc_rate_chart_model.pkl")
+    inc_features            = load_model("inc_rate_chart_features.pkl")
+    subj_model              = load_model("hardest_subjects_chart_model.pkl")
+    subj_features           = load_model("hardest_subjects_chart_features.pkl")
+    dropout_spike_model     = load_model("dropout_trend_chart_model.pkl")
+    dropout_spike_features  = load_model("dropout_trend_chart_features.pkl")
+    male_gender_dropout_model    = load_model("retention_trend_chart_male_dropout_model.pkl")
+    male_gender_dropout_features = load_model("retention_trend_chart_male_dropout_features.pkl")
+    male_gender_inc_model        = load_model("retention_trend_chart_male_inc_model.pkl")
+    male_gender_inc_features     = load_model("retention_trend_chart_male_inc_features.pkl")
+    female_gender_dropout_model    = load_model("retention_trend_chart_female_dropout_model.pkl")
+    female_gender_dropout_features = load_model("retention_trend_chart_female_dropout_features.pkl")
+    female_gender_inc_model        = load_model("retention_trend_chart_female_inc_model.pkl")
+    female_gender_inc_features     = load_model("retention_trend_chart_female_inc_features.pkl")
     print("[reload_models] All models reloaded from", MODEL_DIR)
     reload_data()
 
@@ -398,11 +427,13 @@ def api_reload_models():
         reload_models()
         loaded = {name: os.path.exists(os.path.join(MODEL_DIR, name))
                   for name in [
-                      "dropout_model.pkl", "gwa_ranking_model_final.pkl",
-                      "college_dropout_model_final.pkl", "gwa_trend_model_final.pkl",
-                      "kpi_gwa_model.pkl", "kpi_enrollment_model.pkl", "kpi_drop_model.pkl",
-                      "status_forest_model.pkl", "inc_rate_model.pkl",
-                      "subject_grade_model.pkl", "dropout_spike_model.pkl",
+                      "dropout_pie_model.pkl", "gwa_ranking_chart_model.pkl",
+                      "college_ranking_chart_model.pkl", "gwa_trend_chart_model.pkl",
+                      "kpi_tiles_gwa_model.pkl", "kpi_tiles_enrollment_model.pkl", "kpi_tiles_drop_model.pkl",
+                      "status_pie_model.pkl", "inc_rate_chart_model.pkl",
+                      "hardest_subjects_chart_model.pkl", "dropout_trend_chart_model.pkl",
+                      "retention_trend_chart_male_dropout_model.pkl",
+                      "retention_trend_chart_female_dropout_model.pkl",
                   ]}
         return jsonify({"status": "ok", "models_found": loaded})
     except Exception as e:
@@ -1185,6 +1216,13 @@ def get_kpi_metrics():
 
 
 # piechart
+# NOTE: not called from maindash.js/deandash.js (dead route) — confirmed
+# by search. Left unconverted: it treats status_model's output as a
+# continuous predicted GWA (threshold 900/950), which no longer matches
+# what status_model predicts now that train_irreg_reg trains a per-student
+# RandomForestClassifier (0/1) instead of a cohort-level GWA-like score.
+# If this route is ever wired back up, it needs the same rework
+# get_status_pie's forecast branch got.
 @ml_bp.route('/api/get_status_distribution')
 def get_status_distribution():
     try:
@@ -1423,7 +1461,7 @@ def get_subject_forecast():
         # missing", which happened whenever df_full_loaded came back
         # empty (e.g. wrong/missing master CSV) since that endpoint had
         # no other source for subject-level data.
-        subject_csv_path = os.path.join(MODEL_DATASETS_DIR, "10_subject_grade_forecast.csv")
+        subject_csv_path = os.path.join(MODEL_DATASETS_DIR, "10_subject_grade_forecast_hardest_subjects_chart.csv")
 
         if not os.path.exists(subject_csv_path):
             return jsonify({"error": "Subject dataset not found. Upload a dataset to generate it."}), 200
@@ -1579,7 +1617,7 @@ def get_hardest_subjects_by_course():
     try:
         college = request.args.get('college', 'all').strip()
 
-        subject_csv_path = os.path.join(MODEL_DATASETS_DIR, "10_subject_grade_forecast.csv")
+        subject_csv_path = os.path.join(MODEL_DATASETS_DIR, "10_subject_grade_forecast_hardest_subjects_chart.csv")
         if not os.path.exists(subject_csv_path):
             return jsonify({"error": "Subject dataset not found. Upload a dataset to generate it."}), 200
 
@@ -1887,48 +1925,80 @@ def get_status_pie():
 
         # --- A. FORECAST MODE ---
         if is_forecast:
-            # 1. Predict Rate (%)
-            pred_rate = 0
-            if status_model and status_features:
-                # Build Input Vector
-                X_in = pd.DataFrame(0, index=[0], columns=status_features)
-                X_in['Year_Numeric'] = year
-                
-                # Map Semester
-                sem_val = 1.5 # Default
+            # status_model is now a per-student RandomForestClassifier
+            # (was a cohort-level RandomForestRegressor on a % — see
+            # auto_train.py's train_irreg_reg docstring for why that
+            # changed). A classifier needs actual student ROWS to score,
+            # not one synthetic cohort-average row, so this mirrors
+            # get_dropout_pie's forecast pattern: take the last real
+            # year's actual students as the baseline population, "age"
+            # them into the target forecast year, and predict each one.
+            last_cohort = get_filtered_data(LATEST_REAL_YEAR)
+            base_pop = last_cohort['Student_ID'].nunique()
+
+            if base_pop == 0:
+                base_pop = 100  # Fallback
+                irregular_count = 0
+                regular_count = base_pop
+            elif status_model and status_features:
+                agg_cols = {"Gender": "first", "College": "first", "Semester": "first"}
+                for c in ("GWA", "Avg_Grade", "Sub_Count", "Year_Level_Num"):
+                    if c in last_cohort.columns:
+                        agg_cols[c] = "first"
+                student_features = last_cohort.groupby("Student_ID").agg(agg_cols).reset_index()
+
+                X_pred = pd.DataFrame(0, index=np.arange(len(student_features)), columns=status_features)
+                X_pred['Year_Numeric'] = year
+
+                sem_val = 1.5  # Default
                 if '1' in semester_arg: sem_val = 1
                 elif '2' in semester_arg: sem_val = 2
                 elif 'summer' in semester_arg.lower(): sem_val = 3
-                
                 if 'Sem_Numeric' in status_features:
-                    X_in['Sem_Numeric'] = sem_val
-                
-                # Map College — no per-course model, so a course selection
-                # uses its own parent college's feature bit.
-                feat_college = pie_scope["feature_college"] or (
-                    college_arg if pie_scope["type"] == "college" else None
-                )
-                if feat_college:
-                    col_feat = f"College_{feat_college.upper()}"
-                    if col_feat in status_features:
-                        X_in[col_feat] = 1
-                
+                    X_pred['Sem_Numeric'] = sem_val
+
+                for col in ("GWA", "Avg_Grade", "Sub_Count", "Year_Level_Num"):
+                    if col in status_features and col in student_features.columns:
+                        X_pred[col] = student_features[col].fillna(0).values
+
+                if "Gender" in status_features:
+                    if student_features["Gender"].dtype == "object":
+                        X_pred["Gender"] = student_features["Gender"].map({"Male": 0, "Female": 1}).fillna(0).values
+                    else:
+                        X_pred["Gender"] = student_features["Gender"].fillna(0).values
+
+                for feat in status_features:
+                    if feat.startswith("College_"):
+                        c_name = feat.replace("College_", "").strip().upper()
+                        mask = student_features["College"].astype(str).str.strip().str.upper() == c_name
+                        X_pred.loc[mask.values, feat] = 1
+                    if feat.startswith("Semester_"):
+                        s_name = feat.replace("Semester_", "").strip()
+                        mask = student_features["Semester"].astype(str).str.strip() == s_name
+                        X_pred.loc[mask.values, feat] = 1
+
+                # If a specific college/course scope is active, only that
+                # population feeds the counts below — mirrors get_dropout_pie.
+                scope_mask = pd.Series(True, index=student_features.index)
+                if pie_scope["type"] == "college":
+                    scope_mask = student_features["College"].astype(str).str.strip().str.upper().isin(
+                        [n.upper() for n in pie_scope["college_names"]]
+                    )
+                elif pie_scope["type"] == "course" and pie_scope["feature_college"]:
+                    scope_mask = student_features["College"].astype(str).str.strip().str.upper() == pie_scope["feature_college"]
+
                 try:
-                    # Predict and Clamp (0-100%)
-                    pred_rate = float(status_model.predict(X_in)[0])
-                    pred_rate = max(0, min(100, pred_rate))
-                except:
-                    pred_rate = 0
+                    preds = status_model.predict(X_pred.loc[scope_mask.values] if scope_mask.any() else X_pred)
+                    preds = np.clip(np.round(preds), 0, 1)
+                except Exception:
+                    preds = np.zeros(int(scope_mask.sum()) or len(X_pred))
 
-            # 2. Estimate Population (Baseline = Last Actual Year)
-            last_cohort = get_filtered_data(LATEST_REAL_YEAR)
-            base_pop = last_cohort['Student_ID'].nunique()
-            
-            if base_pop == 0: base_pop = 100 # Fallback
-
-            # 3. Calculate Counts
-            irregular_count = int(base_pop * (pred_rate / 100))
-            regular_count = int(base_pop - irregular_count)
+                base_pop = int(scope_mask.sum()) or base_pop
+                irregular_count = int(np.sum(preds))
+                regular_count = int(base_pop - irregular_count)
+            else:
+                irregular_count = 0
+                regular_count = base_pop
 
         # --- B. HISTORICAL MODE ---
         else:
@@ -2151,9 +2221,51 @@ def get_status_trend():
         # Each line gets its OWN trend — no shared dummy-variable model,
         # so Regular/INC/Dropped don't collapse toward each other the way
         # the old per-college classifier approach tended to.
-        regular_forecast = forecast_series(regular_pct, len(forecast_years), y_min=0, y_max=100)
         inc_forecast_vals = forecast_series(inc_pct, len(forecast_years), y_min=0, y_max=100)
-        dropped_forecast = forecast_series(dropped_pct, len(forecast_years), y_min=0, y_max=100)
+
+        # Dropped% forecast: use the trained per-gender model
+        # (train_gender_performance_male/_female in auto_train.py) when a
+        # specific gender is selected and its model is available — a real
+        # forecast instead of the generic Holt-fit trend every other line
+        # here still uses. Falls back to forecast_series() the same as
+        # before if no gender is selected, or the model/features aren't
+        # loaded yet (e.g. before the first retrain after this feature
+        # was added).
+        gender_model, gender_features = None, None
+        if gender_arg.lower() == 'male':
+            gender_model, gender_features = male_gender_dropout_model, male_gender_dropout_features
+        elif gender_arg.lower() == 'female':
+            gender_model, gender_features = female_gender_dropout_model, female_gender_dropout_features
+
+        dropped_forecast = None
+        if gender_model is not None and gender_features is not None:
+            try:
+                gscope = resolve_scope(college_arg)
+                feat_college = gscope["feature_college"] or (
+                    college_arg if gscope["type"] == "college" else None
+                )
+                X_g = pd.DataFrame(0, index=np.arange(len(forecast_years)), columns=gender_features)
+                X_g["Year_Numeric"] = forecast_years
+                if feat_college:
+                    col_feat = f"College_{feat_college.upper()}"
+                    if col_feat in gender_features:
+                        X_g[col_feat] = 1
+                dropped_forecast = [round(float(v), 1) for v in
+                                     np.clip(gender_model.predict(X_g), 0, 100)]
+            except Exception as e:
+                print(f"Gender dropout-model forecast failed, falling back to Holt: {e}")
+                dropped_forecast = None
+
+        if dropped_forecast is None:
+            dropped_forecast = forecast_series(dropped_pct, len(forecast_years), y_min=0, y_max=100)
+
+        # Regular% is derived as the remainder so the three lines still
+        # sum to 100, same as the historical pct_series() values do —
+        # matters most here since dropped_forecast may now come from a
+        # genuinely different source (the gender model) than inc_forecast
+        # (still Holt-fit).
+        regular_forecast = [round(max(0, 100 - i - d), 1)
+                             for i, d in zip(inc_forecast_vals, dropped_forecast)]
 
         return jsonify({
             "years": [int(y) for y in years],
@@ -2299,11 +2411,13 @@ def get_year_level_distribution():
         so no separate "dean mode" branch is needed here).
     """
     try:
-        year = int(request.args.get('year', get_latest_real_year()))
+        latest_real_year = get_latest_real_year()
+        year = int(request.args.get('year', latest_real_year))
+        is_forecast = year > latest_real_year
         college_arg = request.args.get('college', 'all').strip()
         semester_arg = request.args.get('semester', 'all').strip()
 
-        yl_csv_path = os.path.join(MODEL_DATASETS_DIR, "13_year_level_performance.csv")
+        yl_csv_path = os.path.join(MODEL_DATASETS_DIR, "13_year_level_performance_unused_year_level_chart.csv")
         if not os.path.exists(yl_csv_path):
             return jsonify({"error": "Year-level dataset not found. Upload a dataset to generate it."}), 200
 
@@ -2312,7 +2426,21 @@ def get_year_level_distribution():
         if df_scope.empty:
             return jsonify({"labels": [], "datasets": [], "error": "No year-level data found"})
 
-        df_scope = df_scope[df_scope['Year_Numeric'] == year]
+        # PREDICTION MODE: a future year has no rows to filter to — keep
+        # every real historical year instead of collapsing to one, so
+        # _forecast_band_pct() below has a per-year time series to
+        # extrapolate from. This used to just filter to `year` unconditionally,
+        # which silently returned "No data" for any future year — there was
+        # no forecast branch here at all. (A RandomForestRegressor was once
+        # trained for this — year_level_performance in auto_train.py — but
+        # it was removed: RF can't extrapolate past its training years, so
+        # it could never have actually forecast a future year anyway. This
+        # uses forecast_series(), the same damped-trend approach already
+        # proven elsewhere on this dashboard, instead.)
+        if is_forecast:
+            df_scope = df_scope[df_scope['Year_Numeric'] <= latest_real_year]
+        else:
+            df_scope = df_scope[df_scope['Year_Numeric'] == year]
 
         if semester_arg.lower() not in ('all', 'overall'):
             sem_map = {"1sem": 1, "2sem": 2, "summer": 3}
@@ -2371,7 +2499,77 @@ def get_year_level_distribution():
             breakdown, group_col = "band", "Perf_Band"
 
         if breakdown == "band":
-            # ---- Original behavior: stacked by performance band ----
+
+            if is_forecast:
+                # ---- PREDICTION MODE: per-(Year_Level, Band) trend, damped-extrapolated ----
+                # One Pct time series per (Year_Level, Perf_Band) across every
+                # real year in scope, each independently forecast out to the
+                # requested year with forecast_series() (same method as
+                # get_year_level_inc_irreg_forecast / get_year_level_gwa_forecast),
+                # then renormalized so each Year_Level's bands sum back to 100 —
+                # independent per-band forecasts drift off 100% on their own.
+                yearly = (
+                    df_scope.groupby(['Year_Level', 'Year_Level_Num', 'Year_Numeric', 'Perf_Band'])
+                    .agg(Count=('Count', 'sum')).reset_index()
+                )
+                yearly_totals = (
+                    yearly.groupby(['Year_Level', 'Year_Numeric'])['Count']
+                    .sum().rename('Total').reset_index()
+                )
+                yearly = yearly.merge(yearly_totals, on=['Year_Level', 'Year_Numeric'], how='left')
+                yearly['Pct'] = (yearly['Count'] / yearly['Total'].replace(0, np.nan) * 100).fillna(0.0)
+
+                level_order = sorted(yearly['Year_Level'].unique(), key=lambda lv: _level_sort_key(yearly, lv))
+                display_labels = [YEAR_LEVEL_DISPLAY_OVERRIDES.get(lv, lv) for lv in level_order]
+                bands_present = [b for b in band_order if b in yearly['Perf_Band'].unique()]
+                steps = year - latest_real_year
+
+                forecast_pct = {lv: {} for lv in level_order}
+                for lv in level_order:
+                    lv_years = sorted(yearly.loc[yearly['Year_Level'] == lv, 'Year_Numeric'].unique())
+                    for band in bands_present:
+                        series = yearly[(yearly['Year_Level'] == lv) & (yearly['Perf_Band'] == band)] \
+                            .set_index('Year_Numeric')['Pct']
+                        history = [round(float(series.get(y, 0.0)), 4) for y in lv_years]
+                        projected = forecast_series(history, steps, y_min=0, y_max=100)[-1] if history else 0.0
+                        forecast_pct[lv][band] = max(0.0, projected)
+                    # Renormalize this Year_Level's bands back to ~100%.
+                    total_pct = sum(forecast_pct[lv].values())
+                    if total_pct > 0:
+                        for band in bands_present:
+                            forecast_pct[lv][band] = forecast_pct[lv][band] / total_pct * 100
+
+                # Estimate a headcount to attach to forecast bars: hold the
+                # last real year's total flat per Year_Level (no separate
+                # enrollment-forecast model feeds this chart) — bar heights
+                # (the %) are the real forecast signal, counts are just for
+                # the tooltip.
+                latest_totals = (
+                    yearly[yearly['Year_Numeric'] == latest_real_year]
+                    .groupby('Year_Level')['Total'].first()
+                )
+
+                datasets = []
+                for band in bands_present:
+                    datasets.append({
+                        "label": band,
+                        "data": [round(forecast_pct[lv].get(band, 0.0), 2) for lv in level_order],
+                        "counts": [int(round(latest_totals.get(lv, 0) * forecast_pct[lv].get(band, 0.0) / 100))
+                                   for lv in level_order],
+                        "is_forecast": True,
+                    })
+
+                return jsonify({
+                    "year": year,
+                    "breakdown": "band",
+                    "is_forecast": True,
+                    "labels": display_labels,
+                    "datasets": datasets,
+                    "totals": [int(latest_totals.get(lv, 0)) for lv in level_order],
+                    "college": college_arg,
+                })
+
+            # ---- Original behavior: stacked by performance band (real data) ----
             collapsed = (
                 df_scope.groupby(['Year_Level', 'Year_Level_Num', 'Perf_Band'])
                 .agg(Count=('Count', 'sum'))
@@ -2402,6 +2600,7 @@ def get_year_level_distribution():
             return jsonify({
                 "year": year,
                 "breakdown": "band",
+                "is_forecast": False,
                 "labels": display_labels,
                 "datasets": datasets,
                 "totals": [int(totals_by_level.get(lv, 0)) for lv in level_order],
@@ -2409,6 +2608,23 @@ def get_year_level_distribution():
             })
 
         # ---- New behavior: stacked by College or Course ----
+        if is_forecast:
+            # Forecasting is only implemented for the per-band view above —
+            # this breakdown segments by College/Course instead, which is a
+            # different (currently un-forecast) shape. Say so plainly rather
+            # than silently rendering an empty/misleading chart for a future
+            # year here; the caller should request scope=course to fall back
+            # to the (forecastable) band view, or wait for this breakdown to
+            # get its own forecast pass.
+            return jsonify({
+                "labels": [], "datasets": [], "totals": [],
+                "year": year, "breakdown": breakdown, "is_forecast": True,
+                "college": college_arg,
+                "error": "Prediction mode isn't available yet for the College/Course "
+                         "breakdown of this chart — only the per-band view forecasts "
+                         "future years right now.",
+            })
+
         # Collapse Perf_Band out of the primary stack — it moves into
         # `bandMix` below (per-segment tooltip detail) instead of being
         # the stacking dimension itself, per Jeo's call to segment/color
@@ -2512,7 +2728,7 @@ def get_year_level_inc_irreg():
         # in the UI to flip between INC / Irregular / Drop.
         metric_arg = request.args.get('metric', 'inc').strip().lower()
 
-        csv_path = os.path.join(MODEL_DATASETS_DIR, "14_year_level_inc_irreg.csv")
+        csv_path = os.path.join(MODEL_DATASETS_DIR, "14_year_level_inc_irreg_unused_year_level_heatmap.csv")
         if not os.path.exists(csv_path):
             return jsonify({"error": "Year-level INC/Irregular dataset not found. Upload a dataset to generate it."}), 200
 
@@ -2694,7 +2910,7 @@ def get_course_year_level_heatmap():
         college_arg = request.args.get('college', 'all').strip()
         semester_arg = request.args.get('semester', 'all').strip()
 
-        csv_path = os.path.join(MODEL_DATASETS_DIR, "14_year_level_inc_irreg.csv")
+        csv_path = os.path.join(MODEL_DATASETS_DIR, "14_year_level_inc_irreg_unused_year_level_heatmap.csv")
         if not os.path.exists(csv_path):
             return jsonify({"error": "Year-level dataset not found. Upload a dataset to generate it."}), 200
 
@@ -2951,6 +3167,20 @@ def get_gender_status_breakdown():
     Historical (real, uploaded) data only — same student-level flags the
     Status/Dropout donuts already trust — so it works even without a
     trained per-course/per-college forecast model.
+
+    PREDICTION MODE (per-college view only): Regular/INC/Dropped counts for
+    a future year are no longer just the latest real year repeated. The
+    latest real year's TOTAL headcount per gender/college is held flat (no
+    separate enrollment-forecast model feeds this chart), but the SPLIT
+    across Regular/INC/Dropped comes from male_gender_dropout_model /
+    male_gender_inc_model (and the female pair) — real RandomForestRegressor
+    predictions for that college and year, not a repeated snapshot. Falls
+    back to the historical split for any college those models weren't
+    trained on (e.g. a college added after the last training run).
+
+    The per-course view (dean dashboards) stays historical-only even in
+    Prediction Mode — the source dataset for these models is College x
+    Year only, no Course grain, so there's no per-course model to call.
     """
     try:
         year = int(request.args.get('year', get_latest_real_year()))
@@ -3004,6 +3234,57 @@ def get_gender_status_breakdown():
                 "female_drop": int((dropped & is_female).sum()),
             }
 
+        def _predict_gender_pct(model, feature_cols, college_code, target_year):
+            """One-row predict for a College+Year cell, reindexed to match
+            the exact dummy columns the model was trained on (rather than
+            re-running pd.get_dummies on a single row, which would only
+            ever produce one column and break alignment). Returns None —
+            not 0 — if the model/features are missing or this college never
+            appeared in training, so the caller can fall back to the real
+            historical split instead of silently predicting a wrong 0%."""
+            if model is None or not feature_cols:
+                return None
+            college_col = f"College_{college_code}"
+            if college_col not in feature_cols or 'Year_Numeric' not in feature_cols:
+                return None
+            row = {col: 0 for col in feature_cols}
+            row[college_col] = 1
+            row['Year_Numeric'] = target_year
+            try:
+                X_row = pd.DataFrame([row])[feature_cols]
+                pred = float(model.predict(X_row)[0])
+            except Exception:
+                return None
+            return max(0.0, pred)
+
+        def _apply_gender_forecast(row, code, target_year):
+            """Overwrite row's male_/female_ counts with a model-predicted
+            split for `code`/`target_year`, holding each gender's total
+            headcount at its latest-real-year value. Leaves `row` untouched
+            (the historical-fallback split) if either gender's model can't
+            cover this college."""
+            for gender, drop_model, drop_feats, inc_model_, inc_feats in (
+                ("male", male_gender_dropout_model, male_gender_dropout_features,
+                 male_gender_inc_model, male_gender_inc_features),
+                ("female", female_gender_dropout_model, female_gender_dropout_features,
+                 female_gender_inc_model, female_gender_inc_features),
+            ):
+                total = row[f"{gender}_regular"] + row[f"{gender}_inc"] + row[f"{gender}_drop"]
+                if total <= 0:
+                    continue
+                pred_drop_pct = _predict_gender_pct(drop_model, drop_feats, code, target_year)
+                pred_inc_pct = _predict_gender_pct(inc_model_, inc_feats, code, target_year)
+                if pred_drop_pct is None or pred_inc_pct is None:
+                    continue  # keep the historical-fallback split for this gender
+                new_drop = int(round(total * pred_drop_pct / 100))
+                new_inc = int(round(total * pred_inc_pct / 100))
+                new_drop = min(new_drop, total)
+                new_inc = min(new_inc, total - new_drop)
+                row[f"{gender}_drop"] = new_drop
+                row[f"{gender}_inc"] = new_inc
+                row[f"{gender}_regular"] = total - new_drop - new_inc
+            return row
+
         results = []
 
         if is_main:
@@ -3016,6 +3297,8 @@ def get_gender_status_breakdown():
                 if c_df.empty:
                     continue
                 row = bucket_group(c_df)
+                if is_forecast:
+                    row = _apply_gender_forecast(row, code, year)
                 row['group'] = code
                 row['college'] = code
                 results.append(row)

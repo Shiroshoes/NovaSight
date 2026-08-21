@@ -23,16 +23,36 @@ body {
 
 .sidebar {
   position: fixed;
-  width: 235px;
-  height: 100%;
+  top: 0;
+  left: 0;
+  width: 275px;
+  height: 100vh;
   background-color: #ffffff;
-  padding: 20px;
   border-right: 1px solid #DCD6C9;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;      /* sidebar itself doesn't scroll — the nav inside it does */
 }
 
 .pad {
+  flex: 1;                /* fills remaining sidebar height so overflow works */
   margin-top: 10%;
-  gap: 10px
+  gap: 10px;
+  overflow-y: auto;       /* THIS is what scrolls */
+  overflow-x: hidden;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.pad::-webkit-scrollbar {
+    width: 5px;
+}
+.pad::-webkit-scrollbar-thumb {
+    background: #DCD6C9;
+    border-radius: 3px;
+}
+.pad::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .menu-active {
@@ -116,6 +136,81 @@ body {
   width: 100%;
 }
 
+/* --- Dashboard Button Styling --- */
+.dash-btn {
+    width: 200px;
+    align-items: center;
+    display: flex;
+    margin-top: 10px;
+    padding: 12px;
+    gap: 12px;
+    border-radius: 12px;
+    color: #000000;
+    font-size: 16px;
+    transition: 0.3s;
+    text-decoration: none;
+}
+
+.non-active-icondash {
+  width: 24px;
+  height: 24px;
+  color: #ffffff;
+}
+
+.non-active-bordericondash {
+  width: 35px;
+  height: 33px;
+  border-radius: 10px;
+  background-color: #785a5a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dash-btn:hover {
+  background: #785a5a64;
+  margin-bottom: 10px;
+  color: #000000;
+  width: 200px;
+  font-weight: bold;
+}
+
+.dash-btn:hover .non-active-bordericondash {
+  background-color: #c72828;
+}
+
+
+.dash-active {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(120, 90, 90, 0.5);
+    color: #000000;
+    font-size: 16px;
+    text-decoration: none;
+    width: 200px;
+    font-weight: bold;
+    border-width: 2px;
+    border: 1px solid #000000;
+}
+
+.active-bordericondash {
+  width: 35px;
+  height: 33px;
+  border-radius: 10px;
+  background-color: #800000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.active-icondash {
+  width: 24px;
+  height: 24px;
+  color: #ffff;
+}
 
 /* header  */
  /* --- FIX: Main Content Container --- */
@@ -491,4 +586,762 @@ footer{
 
 .hidden {
     display: none;
+}
+
+
+
+
+
+
+
+/* The rtuts Button */
+
+.tutorial-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.btn-tutorial-large {
+    background-color: #800000;
+    color: white;
+    text-decoration: none;
+    padding: 15px 80px; /* Horizontal wide button */
+    border-radius: 9999px; /* Fully rounded */
+    font-size: 1.2rem;
+    font-weight: bold;
+    display: inline-block;
+    transition: 0.3s ease;
+}
+
+.btn-tutorial-large:hover {
+    background-color: #c72828; /* Darker blue on hover */
+    transform: translateY(-2px);
+    cursor: pointer;
+}
+
+.p_tutorial {
+    color: #6B7280;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+
+/* -- tutorial modal -- */
+.tutorial-card {
+  background: #ffffff;
+  width: 1171px;
+  height: 800px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  color: rgb(11, 11, 11);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.tutorial-title-bar {
+  background-color: #800000;
+  width: 100%;
+  height: 50px;
+  display: flex;
+  align-items: center;
+}
+
+.tutorial-bpsu-logo {
+  height: 39px;
+  width: 30px;
+  margin-left: 10px;
+}
+
+.tutorial-titlebar-title {
+  color: white;
+  font-size: 1rem;
+  margin: 0 auto;
+  font-weight: bold;
+  display: flex;
+  margin-left: 10px;
+}
+
+.tutorial-sidebar-content {
+  display: flex;
+  flex-direction: row;
+  box-sizing: border-box;
+  height: 750px;
+}
+
+/* --- Left column: video + info bar + controls --- */
+.tutorial-main {
+  display: flex;
+  flex-direction: column;
+  width: 916px;
+  height: 750px;
+  box-sizing: border-box;
+  background-color: #ffffff;
+  border-left: 2px solid #DCD6C9;
+}
+
+.tutorial-video-placeholder {
+  background-color: #ffffffff;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.tutorial-video-el {
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
+  margin: 10px;
+  border-radius: 10px;
+  object-fit: contain;
+  background-color: #ffffff;
+}
+
+/* --- YouTube-style captions overlay (rendered from cuechange, not native ::cue) --- */
+.tutorial-captions-overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  max-width: 88%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.tutorial-captions-overlay.active {
+  opacity: 1;
+}
+
+.tutorial-captions-overlay .tutorial-caption-line {
+  display: inline-block;
+  background: rgba(8, 8, 8, 0.75);
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-align: center;
+  white-space: pre-line;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+/* --- YouTube-style +10/-10 flash indicator --- */
+.tutorial-seek-indicator {
+  position: absolute;
+  top: 50%;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) scale(0.85);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 5;
+}
+
+.tutorial-seek-indicator svg {
+  width: 30px;
+  height: 30px;
+}
+
+.tutorial-seek-indicator span {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.tutorial-seek-indicator-back {
+  left: 12%;
+}
+
+.tutorial-seek-indicator-forward {
+  right: 12%;
+}
+
+.tutorial-seek-indicator.show {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+/* --- YouTube-style center play/pause flash --- */
+.tutorial-center-flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.85);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 5;
+}
+
+.tutorial-center-flash svg {
+  width: 38px;
+  height: 38px;
+}
+
+.tutorial-center-flash.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* --- Progress row / scrubber --- */
+.tutorial-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px 0;
+  box-sizing: border-box;
+}
+
+.tutorial-time-label {
+  font-size: 0.8rem;
+  color: #4B4B4B;
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.tutorial-seek-range {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 6px;
+  border-radius: 2px;
+  background: #DCD6C9;
+  cursor: pointer;
+  outline: none;
+}
+
+.tutorial-seek-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #800000;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px #800000;
+  cursor: pointer;
+  margin-top: -3.5px;
+  transition: transform 0.15s ease;
+}
+
+.tutorial-seek-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.tutorial-seek-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.tutorial-seek-range::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #800000;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px #800000;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.tutorial-seek-range::-moz-range-thumb:hover {
+  transform: scale(1.15);
+}
+
+.tutorial-seek-range::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+/* Nicer native caption styling inside the video */
+video::cue {
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  font-size: 1.05rem;
+  padding: 2px 6px;
+  border-radius: 20px;
+}
+
+.tutorial-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 24px;
+  box-sizing: border-box;
+}
+
+.tutorial-info-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tutorial-info-logo {
+  width: 39px;
+  height: 39px;
+  border-radius: 25%;
+  object-fit: cover;
+}
+
+.tutorial-info-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #111111;
+}
+
+.tutorial-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px 16px;
+  box-sizing: border-box;
+}
+
+.tutorial-controls-left,
+.tutorial-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tutorial-round-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background-color: #785A5A;
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.tutorial-round-btn:hover {
+  background-color: #800000;
+}
+
+.tutorial-round-btn.active {
+  background-color: #800000;
+}
+
+.tutorial-round-btn:active {
+  transform: translateY(1px);
+}
+
+.tutorial-round-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* --- Hover-reveal volume slider next to the mute button --- */
+.tutorial-volume-wrap {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.tutorial-volume-slider-wrap {
+  width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  transition: width 0.25s ease, padding 0.25s ease;
+  box-sizing: border-box;
+}
+
+.tutorial-volume-wrap:hover .tutorial-volume-slider-wrap,
+.tutorial-volume-slider-wrap.force-open {
+  width: 130px;
+  height: 52px;
+  transition: width 0.25s ease, padding 0.25s ease;
+  padding: 0 10px 0 8px;
+}
+
+.tutorial-volume-range {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 13px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.tutorial-volume-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #800000;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px #800000;
+  cursor: pointer;
+  margin-top: -4.5px;
+}
+
+.tutorial-volume-range::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #DCD6C9;
+}
+
+.tutorial-volume-range::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #800000;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px #800000;
+  cursor: pointer;
+}
+
+.tutorial-volume-range::-moz-range-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #DCD6C9;
+}
+
+.tutorial-skip-group {
+  display: flex;
+  align-items: center;
+  background-color: #785A5A;
+  border-radius: 26px;
+  overflow: hidden;
+}
+
+.tutorial-skip-btn {
+  width: 52px;
+  height: 52px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.tutorial-skip-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tutorial-skip-btn:hover {
+  background-color: #800000;
+}
+
+.btn-close {
+  background-color: #800000;
+  color: white;
+  width: 199px;
+  height: 66px;
+  font-size: 1.2rem;
+  border-radius: 33px;
+  border: none;
+}
+
+.btn-close:hover {
+  background-color: #c72828;
+  transform: translateY(-2px);
+  cursor: pointer;
+}
+
+/* --- Right column: accordion topic menu --- */
+.tutorial-video-content {
+  width: 253px;
+  height: 750px;
+  background-color: #DCD6C9;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.tutorial-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 24px 20px;
+  box-sizing: border-box;
+}
+
+.tutorial-close-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 0 20px 24px;
+  box-sizing: border-box;
+}
+
+.tutorial-accordion-header {
+  width: 100%;
+  background-color: #785A5A;
+  color: #ffffff;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1rem;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.2s;
+}
+
+.tutorial-accordion-header:hover,
+.tutorial-accordion-header.active {
+  background-color: #800000;
+}
+
+.tutorial-chevron {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.tutorial-accordion-header.active .tutorial-chevron {
+  transform: rotate(180deg);
+}
+
+.tutorial-accordion-panel {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: max-height 0.35s ease, opacity 0.25s ease, margin-top 0.25s ease, padding 0.25s ease;
+}
+
+/* Background block behind the open links, showing they belong to the
+   header above them. */
+.tutorial-accordion-panel.open {
+  max-height: 300px;
+  opacity: 1;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(120, 90, 90, 0.18);
+}
+
+.tutorial-video-link {
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  font-size: 0.85rem;
+  color: #000000;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.tutorial-video-link:hover {
+  background-color: #785a5a;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.tutorial-video-link.active {
+  background-color: #ffffff;
+  color: #800000;
+  font-weight: 700;
+}
+
+/* ================================================================
+   Settings popup (playback speed / quality / captions) — rows
+   expand in place to reveal their options, no back-and-forth panels.
+   ================================================================ */
+.tutorial-settings-wrap {
+  position: relative;
+}
+
+.tutorial-settings-menu {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  width: 250px;
+  background: rgba(24, 20, 20, 0.94);
+  color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 20;
+  font-size: 0.85rem;
+}
+
+.tutorial-settings-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.tutorial-settings-row,
+.tutorial-settings-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  padding: 10px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-sizing: border-box;
+  gap: 10px;
+}
+
+.tutorial-settings-row:hover,
+.tutorial-settings-option:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.tutorial-settings-row-icon svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.tutorial-settings-row-label {
+  flex: 1;
+  font-weight: 600;
+}
+
+.tutorial-settings-row-value {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.8rem;
+}
+
+.tutorial-settings-row-chevron {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.5);
+  transition: transform 0.25s ease;
+}
+
+.tutorial-settings-row.expanded .tutorial-settings-row-chevron {
+  transform: rotate(90deg);
+}
+
+/* The numbers/options for a row: hidden until that row is clicked,
+   then they simply appear underneath it. */
+.tutorial-settings-options {
+  max-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: max-height 0.3s ease, padding 0.25s ease;
+}
+
+.tutorial-settings-options.expanded {
+  max-height: 260px;
+  padding: 4px 0 8px 8px;
+}
+
+.tutorial-settings-option {
+  padding-left: 30px;
+  position: relative;
+}
+
+.tutorial-settings-option.selected {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.tutorial-settings-option.selected::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #ffffff;
+}
+
+.tutorial-settings-option:not(.selected) {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Toggle switch used for the Subtitles/CC row */
+.tutorial-toggle-switch {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.25);
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+}
+
+.tutorial-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  transition: transform 0.2s ease;
+}
+
+.tutorial-toggle-switch.on {
+  background-color: #800000;
+}
+
+.tutorial-toggle-switch.on .tutorial-toggle-knob {
+  transform: translateX(16px);
 }

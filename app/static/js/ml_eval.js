@@ -109,6 +109,29 @@ function splitMetrics(metrics) {
   return { primary, secondary };
 }
 
+// Which chart on the dashboard each model feeds, keyed by keywords found
+// in the model's name/key. Falls back to model.chart_type from the API
+// if the backend already supplies it — this map only covers the gap.
+const CHART_LABELS = [
+  { match: /dropout.*risk|risk.*dropout/i, label: 'Dropout Risk (Donut)' },
+  { match: /irreg/i,                       label: 'Irregular Students (Donut)' },
+  { match: /dropout.*spike|spike/i,        label: 'Dropout Trend (Line)' },
+  { match: /gwa.*trend|trend.*gwa/i,       label: 'GWA Trend (Line)' },
+  { match: /forecast/i,                    label: 'Forecast (Line)' },
+  { match: /subject.*grade/i,              label: 'Subject Grades (Line)' },
+  { match: /gender/i,                      label: 'Gender Performance (Line)' },
+  { match: /ranking/i,                     label: 'Ranking (Bar)' },
+  { match: /^kpi$|kpi/i,                   label: 'KPI Tile' },
+  { match: /year.*level/i,                 label: 'Year Level (Heatmap)' },
+];
+
+function chartLabelFor(model) {
+  if (model.chart_type) return model.chart_type;
+  const key = model.name || model.key || '';
+  const hit = CHART_LABELS.find(({ match }) => match.test(key));
+  return hit ? hit.label : null;
+}
+
 // ── Render a single model card ──────────────────────────────────
 function buildCard(model, index) {
   const isClf     = model.type === 'classification';
@@ -160,9 +183,14 @@ function buildCard(model, index) {
   // Stagger animation delay
   const delay = `animation-delay: ${index * 0.05}s;`;
 
+  const chartLabel = chartLabelFor(model);
+  const chartBadge = chartLabel
+    ? `<span class="ml-card-chart-used" style="font-size:0.65rem; opacity:0.65; margin-left:0.4rem;">Used in: ${chartLabel}</span>`
+    : '';
+
   return `
     <div class="ml-model-card ${typeCls}" style="${delay}">
-      <span class="ml-card-label ${typeCls}">${typeLabel}</span>
+      <span class="ml-card-label ${typeCls}">${typeLabel}</span>${chartBadge}
       <div class="ml-card-title">${model.name}</div>
       <div class="ml-card-desc">${model.description || ''}</div>
       ${metricsHTML}

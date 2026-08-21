@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import glob
 import threading
 import shutil
 
@@ -18,7 +19,7 @@ from configs.config import (
     DATASET_FILENAME_REGEX,
     UPLOAD_ALLOWED_ROLES,
 )
-from training.auto_train import run_full_pipeline, load_state
+from training.auto_train import run_full_pipeline, load_state, MODEL_DIR as ML_MODEL_DIR
 
 upload_bp = Blueprint('upload_bp', __name__)
 
@@ -142,6 +143,27 @@ def _background_train(app, record_id: int, raw_path: str):
             db.session.commit()
             traceback.print_exc()
 
+            # ── Clean up the physical files ─────────────────────
+            # The duplicate check only looks at whether a canonical-name
+            # copy exists on disk. If we left that copy sitting in
+            # Unprocessed_Datasets/ after a failed run, re-uploading the
+            # exact same filename would be rejected as a "duplicate"
+            # forever, even though nothing ever succeeded. Remove both
+            # the raw upload and its canonical copy so a reupload of the
+            # same filename is accepted right away. The DB record itself
+            # is kept (status='failed') only long enough to drive the
+            # "file failed to process" floating notice on the frontend —
+            # see /api/upload-record/<id> for how it's removed for good.
+            canonical_path = os.path.join(
+                UNPROCESSED_DATASETS_DIR, _canonical_name(record.original_filename)
+            )
+            for stale_path in (raw_path, canonical_path):
+                if stale_path and os.path.exists(stale_path):
+                    try:
+                        os.remove(stale_path)
+                    except OSError as cleanup_err:
+                        print(f"[upload_routes] failed-file cleanup warning: {cleanup_err}")
+
 
 # ─────────────────────────────────────────────────────────────
 # ROUTES
@@ -255,6 +277,67 @@ def api_upload_dataset():
     }), 202
 
 
+@upload_bp.route('/api/upload-record/<int:record_id>', methods=['DELETE'])
+def api_delete_upload_record(record_id: int):
+    """
+    Permanently remove an upload record — used by the 'Remove' button on
+    the failed-upload floating card. Only 'failed' or still-'pending'
+    records may be removed this way; anything mid-flight ('processing')
+    or already 'done' should go through the reset-all-data flow instead,
+    not be silently deleted one row at a time.
+    """
+    user = _current_user()
+    if not user:
+        return jsonify({'ok': False, 'error': 'Not logged in.'}), 401
+    if user.role not in UPLOAD_ALLOWED_ROLES:
+        return jsonify({'ok': False, 'error': 'Your role is not permitted to modify uploads.'}), 403
+
+    record = UploadedDataset.query.get(record_id)
+    if not record:
+        return jsonify({'ok': False, 'error': 'Record not found.'}), 404
+
+    if record.status not in ('failed', 'pending'):
+        return jsonify({
+            'ok': False,
+            'error': f"Cannot remove a record with status '{record.status}'.",
+        }), 400
+
+    # Belt-and-suspenders: the failure handler already deletes these, but
+    # clear any leftover files in case this record failed before that
+    # cleanup existed, or is still 'pending'.
+    canonical_path = os.path.join(
+        UNPROCESSED_DATASETS_DIR, _canonical_name(record.original_filename)
+    )
+    for stale_path in (record.raw_path, canonical_path):
+        if stale_path and os.path.exists(stale_path):
+            try:
+                os.remove(stale_path)
+            except OSError as cleanup_err:
+                print(f"[upload_routes] remove-record cleanup warning: {cleanup_err}")
+
+    db.session.delete(record)
+    db.session.commit()
+
+    return jsonify({'ok': True, 'message': 'Upload record removed.'})
+
+
+@upload_bp.route('/api/failed-uploads')
+def api_failed_uploads():
+    """
+    Any 'failed' upload records still sitting in the DB (not yet dismissed
+    via the Remove button). Polled once on page load so the failed-upload
+    floating card can resurface after a refresh instead of only appearing
+    during the same in-flight upload session.
+    """
+    records = (
+        UploadedDataset.query
+        .filter_by(status='failed')
+        .order_by(UploadedDataset.uploaded_at.desc())
+        .all()
+    )
+    return jsonify([r.to_dict() for r in records])
+
+
 @upload_bp.route('/api/upload-status/<int:record_id>')
 def api_upload_status(record_id: int):
     """Poll until status is 'done' or 'failed'."""
@@ -279,6 +362,23 @@ def api_training_state():
 
 
 # ── Human-readable labels for each trained model ────────────────
+# For models that train several sub-models at once (kpi, gender_performance_*),
+# this is the SHARED prefix — the actual sub-model name comes from
+# _SUBMODEL_LABELS below and each sub-model gets rendered as its own
+# dashboard card instead of one bundled card.
+#
+# performance_band, year_level_performance, and year_level_inc_irreg were
+# REMOVED (2026-08-19) from auto_train.py's trainer list — all three were
+# RandomForestRegressor models trained to eventually power a forecast, but
+# RF can't extrapolate past the years it was trained on (see forecast_series()'s
+# docstring in ml_analysis.py — the same failure mode already hit and fixed
+# once for the subject-grade forecast). year_level_inc_irreg was additionally
+# measurably harmful (Drop_Rate R^2 = -0.63) and fully redundant with
+# /api/get_year_level_inc_irreg_forecast, which already forecasts all three
+# rates live via forecast_series(). Deliberately not listed here anymore —
+# if a stale training_state.json still has them, they'll fall back to a
+# Title-Cased key and an unwired "chart_used" badge, which is the correct
+# signal to retrain and drop them for good.
 _MODEL_LABELS = {
     'dropout_risk':       'Dropout Risk (per Student)',
     'dropout_spike':      'Dropout Spike (Cohort Trend)',
@@ -286,71 +386,64 @@ _MODEL_LABELS = {
     'gwa_ranking':        'GWA Ranking (per College)',
     'gwa_trend':          'GWA Trend (Time-Series)',
     'inc_forecast':       'INC Rate Forecast',
-    'irreg_reg':          'Irregular vs Regular Rate',
-    'kpi':                'KPI — GWA, Enrollment & Drop',
+    'irreg_reg':          'Irregular vs Regular (per Student)',
+    'kpi':                'KPI',
     'subject_grade':      'Subject Grade Forecast',
-    'performance_band':   'Performance Band Distribution',
-    'gender_performance': 'Gender Performance (Dropout & GWA)',
-    'year_level_performance': 'Performance by Year Level',
-    'year_level_inc_irreg':   'INC / Irregular / Drop by Year Level',
+    'gender_performance_male':   'Gender Performance — Male',
+    'gender_performance_female': 'Gender Performance — Female',
+}
+
+# Sub-model display names, keyed by parent model key -> {sub_name: label}.
+# Only needed for trainers that return a nested dict (one dict per sub-model).
+_SUBMODEL_LABELS = {
+    'kpi': {'gwa': 'GWA', 'enrollment': 'Enrollment', 'drop': 'Drop Rate'},
+    'gender_performance_male':   {'dropout_rate': 'Dropout Rate', 'inc_rate': 'INC Rate'},
+    'gender_performance_female': {'dropout_rate': 'Dropout Rate', 'inc_rate': 'INC Rate'},
+}
+
+# Which chart/endpoint actually consumes each model's predictions, keyed by
+# the FULL model key (parent key, or "parent_subname" for split sub-models).
+# None/absent = trained but not wired to anything yet — surfaced on the
+# dashboard card instead of silently hidden, so a dead model is visible
+# the moment it happens instead of needing another grep session to find.
+# Short chart NAME each model's predictions feed — deliberately short
+# (no endpoint paths/descriptions) since this gets folded straight into
+# the card title as "<Model Label> — <Chart Name>", same pattern as the
+# "KPI — GWA" sub-model labels, rather than shown as a separate row.
+# None/absent = trained but not wired to any chart yet.
+_CHART_USAGE = {
+    'dropout_risk':    'Student Status Donut',
+    'dropout_spike':   'Dropout Trend & Spike Chart',
+    'dropout_ranking': 'College Dropout Ranking',
+    'gwa_ranking':     'GWA Ranking Bar Chart',
+    'gwa_trend':       'GWA Trend Line Chart',
+    'inc_forecast':    'INC Rate Forecast Chart',
+    'irreg_reg':       'Irregular-Rate Donut (Forecast Mode)',
+    'subject_grade':   'Subject Forecast / Hardest Subjects Chart',
+    'kpi_gwa':         'KPI Tile',
+    'kpi_enrollment':  'KPI Tile',
+    'kpi_drop':        'KPI Tile',
+    'gender_performance_male_dropout_rate':   'Retention & Risk Donut (Male, per-college)',
+    'gender_performance_male_inc_rate':       'Retention & Risk Donut (Male, per-college)',
+    'gender_performance_female_dropout_rate': 'Retention & Risk Donut (Female, per-college)',
+    'gender_performance_female_inc_rate':     'Retention & Risk Donut (Female, per-college)',
 }
 
 
-def _flatten_metric_block(result: dict) -> dict:
-    """
-    Normalise the differently-shaped result dicts each trainer returns into
-    one consistent set of display fields: status, a primary headline metric
-    (accuracy if classification, R^2 if regression), and the rest as
-    secondary metrics.
+def _titled_label(key: str, label: str) -> str:
+    """Fold the chart-usage name straight into the card title: '<label> — <chart>',
+    or '<label> — Not Used in Any Chart Yet' if nothing consumes this model —
+    so an unwired model is impossible to miss without a separate badge row."""
+    chart = _CHART_USAGE.get(key)
+    return f"{label} — {chart}" if chart else f"{label} — Not Used in Any Chart Yet"
 
-    Some trainers return a NESTED dict — one sub-result per sub-model —
-    instead of a flat set of metrics (train_kpi's 'gwa'/'enrollment',
-    train_gender_performance's 'dropout_rate'/'avg_gwa'). Detected
-    generically here: if any top-level value is itself a dict, every such
-    value is treated as a named sub-model result and flattened under
-    `{sub_name}_{metric}` keys — so this covers any future multi-submodel
-    trainer too, not just today's two, without hardcoding key names.
-    """
-    if not isinstance(result, dict):
-        return {'status': 'unknown', 'headline_label': None, 'headline_value': None, 'metrics': {}}
+
+def _build_flat_entry(key: str, label: str, result: dict) -> dict:
+    """Build one dashboard-card entry for a flat (non-nested) result dict."""
 
     status = result.get('status', 'ok' if 'error' not in result else 'error')
-
-    has_nested_submodels = any(isinstance(v, dict) for v in result.values())
-
-    if has_nested_submodels:
-        sub_metrics = {}
-        for sub_name, sub_result in result.items():
-            if isinstance(sub_result, dict):
-                for k, v in sub_result.items():
-                    sub_metrics[f"{sub_name}_{k}"] = v
-
-        # Headline = first R^2 found, in insertion order (matches the old
-        # hardcoded 'gwa_r2' behavior for train_kpi); falls back to the
-        # first accuracy if a nested block is ever classification-based.
-        headline_label, headline_value = None, None
-        for k, v in sub_metrics.items():
-            if k.endswith('_r2'):
-                pretty = k[:-3].replace('_', ' ').title()
-                headline_label, headline_value = f'R² ({pretty})', v
-                break
-        if headline_label is None:
-            for k, v in sub_metrics.items():
-                if k.endswith('_accuracy'):
-                    pretty = k[:-9].replace('_', ' ').title()
-                    headline_label, headline_value = f'Accuracy ({pretty})', v
-                    break
-
-        return {
-            'status': 'ok' if sub_metrics else 'skipped',
-            'headline_label': headline_label,
-            'headline_value': headline_value,
-            'metrics': sub_metrics,
-        }
-
     metrics = {k: v for k, v in result.items() if k not in ('status', 'reason', 'error')}
 
-    # Prefer accuracy/F1 for classifiers, R^2 for regressors
     if 'accuracy' in metrics:
         headline_label, headline_value = 'Accuracy', metrics['accuracy']
     elif 'r2' in metrics:
@@ -359,12 +452,50 @@ def _flatten_metric_block(result: dict) -> dict:
         headline_label, headline_value = None, None
 
     return {
+        'key': key,
+        'label': _titled_label(key, label),
         'status': status,
         'headline_label': headline_label,
         'headline_value': headline_value,
         'metrics': metrics,
         'reason': result.get('reason') or result.get('error'),
     }
+
+
+def _flatten_metric_block(key: str, result: dict) -> list:
+    """
+    Normalise a trainer's result dict into one or more dashboard-card
+    entries: status, a primary headline metric (accuracy if classification,
+    R^2 if regression), and the rest as secondary metrics.
+
+    Some trainers return a NESTED dict — one sub-result per sub-model
+    (train_kpi's 'gwa'/'enrollment'/'drop', train_gender_performance's
+    'dropout_rate'/'inc_rate'). Each sub-model gets its OWN entry/card here
+    (rather than one bundled card with prefixed metric keys) so each
+    sub-model's accuracy is visible on its own, instead of averaging
+    distinct sub-models' evals into one card. Which chart each card feeds
+    is baked directly into its title via _titled_label() (e.g.
+    "KPI — GWA — KPI Tile") rather than shown as a separate row.
+    """
+    if not isinstance(result, dict):
+        return [{'key': key, 'label': _titled_label(key, key), 'status': 'unknown',
+                  'headline_label': None, 'headline_value': None, 'metrics': {}}]
+
+    has_nested_submodels = any(isinstance(v, dict) for v in result.values())
+    if not has_nested_submodels:
+        label = _MODEL_LABELS.get(key, key.replace('_', ' ').title())
+        return [_build_flat_entry(key, label, result)]
+
+    base_label = _MODEL_LABELS.get(key, key.replace('_', ' ').title())
+    sub_labels = _SUBMODEL_LABELS.get(key, {})
+    entries = []
+    for sub_name, sub_result in result.items():
+        if not isinstance(sub_result, dict):
+            continue
+        sub_key = f"{key}_{sub_name}"
+        sub_label = sub_labels.get(sub_name, sub_name.replace('_', ' ').title())
+        entries.append(_build_flat_entry(sub_key, f"{base_label} — {sub_label}", sub_result))
+    return entries or [_build_flat_entry(key, base_label, {'status': 'skipped'})]
 
 
 @upload_bp.route('/api/model-performance')
@@ -386,12 +517,7 @@ def api_model_performance():
 
     models = []
     for key, result in state.get('models', {}).items():
-        flat = _flatten_metric_block(result)
-        models.append({
-            'key': key,
-            'label': _MODEL_LABELS.get(key, key.replace('_', ' ').title()),
-            **flat,
-        })
+        models.extend(_flatten_metric_block(key, result))
 
     return jsonify({
         'status': 'ok',
@@ -409,6 +535,7 @@ def api_model_performance():
 def api_unprocessed_list():
     records = (
         UploadedDataset.query
+        .filter(UploadedDataset.status != 'failed')
         .order_by(UploadedDataset.uploaded_at.desc())
         .all()
     )
@@ -447,4 +574,113 @@ def api_processed_list():
         'model_files'       : model_files,
         'merged_csv_exists' : os.path.exists(FINAL_MERGED_CSV),
         'horizon'           : horizon,
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# RESET / CLEAR ALL DATA
+# ─────────────────────────────────────────────────────────────
+#
+# Everything the training pipeline produces lives in a handful of
+# SHARED, app-wide files/tables — Final_Merged_Student_Data.csv,
+# Final_LongForm_Student_Grades.csv, the model_datasets/*.csv exports,
+# every trained .pkl in ML_MODEL_DIR, training_state.json, and the
+# UploadedDataset rows — none of it is scoped per user. That's why a
+# fresh account can see populated charts / a trained Model Eval card
+# despite never having uploaded anything themselves: whoever uploaded
+# first left data sitting in these shared files, and everyone reads
+# the same copy. This route wipes all of it back to a clean slate.
+
+def _delete_files_in(dir_path: str, patterns=('*',)) -> list[str]:
+    """Delete files (not subdirectories) directly inside dir_path matching
+    any of `patterns`. Returns the list of deleted paths. Safe no-op if
+    dir_path doesn't exist."""
+    deleted = []
+    if not dir_path or not os.path.isdir(dir_path):
+        return deleted
+    for pattern in patterns:
+        for fpath in glob.glob(os.path.join(dir_path, pattern)):
+            if os.path.isfile(fpath):
+                try:
+                    os.remove(fpath)
+                    deleted.append(fpath)
+                except OSError as e:
+                    print(f"[upload_routes] reset: failed to delete {fpath}: {e}")
+    return deleted
+
+
+@upload_bp.route('/api/reset-all-data', methods=['POST'])
+def api_reset_all_data():
+    """
+    Wipes the shared master dataset, every trained model, and the
+    upload history — back to the exact 'no model has been trained yet'
+    state a brand-new install starts in. This is destructive and
+    affects EVERY user of the app, not just the caller, since none of
+    the underlying storage is per-user.
+
+    Requires:
+      - an authenticated user whose role is in UPLOAD_ALLOWED_ROLES
+        (same permission gate as uploading — tighten this to a
+        dedicated 'admin' role if/when one exists)
+      - a JSON body of {"confirm": "RESET"} as a deliberate
+        speed-bump against an accidental call (e.g. a stray button
+        click or a retried request)
+    """
+    user = _current_user()
+    if not user:
+        return jsonify({'ok': False, 'error': 'Not logged in.'}), 401
+    if user.role not in UPLOAD_ALLOWED_ROLES:
+        return jsonify({'ok': False, 'error': 'Your role is not permitted to reset data.'}), 403
+
+    body = request.get_json(silent=True) or {}
+    if body.get('confirm') != 'RESET':
+        return jsonify({
+            'ok': False,
+            'error': 'Destructive action. Resend with JSON body {"confirm": "RESET"} to proceed.',
+        }), 400
+
+    deleted = {
+        'model_artifacts'   : _delete_files_in(ML_MODEL_DIR, ('*.pkl', '*.json')),
+        'model_datasets'    : _delete_files_in(MODEL_DATASETS_DIR, ('*.csv',)),
+        'master_csvs'       : [],
+        'raw_uploads'       : _delete_files_in(UNPROCESSED_DATASETS_DIR, ('*',)),
+        'processed_csvs'    : _delete_files_in(PROCESSED_DATASETS_DIR, ('*.csv',)),
+    }
+
+    # FINAL_MERGED_CSV and the long-form CSV live in PROCESSED_DATASETS_DIR
+    # too, so the glob above already caught them — but call out explicitly
+    # for the response in case that path ever changes.
+    long_form_csv = os.path.join(PROCESSED_DATASETS_DIR, 'Final_LongForm_Student_Grades.csv')
+    for p in (FINAL_MERGED_CSV, long_form_csv):
+        if p not in deleted['processed_csvs'] and os.path.exists(p):
+            try:
+                os.remove(p)
+                deleted['master_csvs'].append(p)
+            except OSError as e:
+                print(f"[upload_routes] reset: failed to delete {p}: {e}")
+
+    # Clear upload history (DB) so the audit trail matches reality.
+    deleted_records = UploadedDataset.query.delete()
+    db.session.commit()
+
+    # Hot-reload the in-memory ML models so dashboards/model-eval stop
+    # serving stale predictions from before the reset, same mechanism
+    # used after a normal upload finishes training.
+    try:
+        from ml_route.ml_analysis import reload_models
+        reload_models()
+    except Exception as _re:
+        print(f"[upload_routes] reset: reload_models warning: {_re}")
+
+    total_files_deleted = sum(len(v) for v in deleted.values() if isinstance(v, list))
+
+    return jsonify({
+        'ok': True,
+        'message': (
+            f"Reset complete. Deleted {total_files_deleted} file(s) and "
+            f"{deleted_records} upload record(s). The dashboard and Model "
+            "Eval will show 'no data' until the next upload."
+        ),
+        'deleted': deleted,
+        'deleted_records': deleted_records,
     })

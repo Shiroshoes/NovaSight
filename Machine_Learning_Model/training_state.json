@@ -1,10 +1,10 @@
 {
-  "trained_at": "2026-08-04T07:07:41.435643Z",
-  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1785827261_2024-2_Student-Performance_Dataset.xlsx",
+  "trained_at": "2026-08-19T08:43:32.810257Z",
+  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1787129012_2024-2_Student-Performance_Dataset.xlsx",
   "models": {
     "dropout_risk": {
       "status": "ok",
-      "r2": 0.0358,
+      "r2": 0.0354,
       "rmse": 0.1278
     },
     "dropout_spike": {
@@ -44,10 +44,8 @@
     },
     "irreg_reg": {
       "status": "ok",
-      "r2": 0.8584,
-      "rmse": 2.8289,
-      "mse": 8.0029,
-      "mae": 2.3515
+      "accuracy": 0.9261,
+      "f1": 0.8258
     },
     "kpi": {
       "gwa": {
@@ -76,52 +74,32 @@
       "mse": 0.1804,
       "mae": 0.2574
     },
-    "performance_band": {
-      "status": "ok",
-      "r2": 0.9774,
-      "rmse": 2.6001,
-      "mse": 6.7605,
-      "mae": 1.7706
-    },
-    "gender_performance": {
+    "gender_performance_male": {
       "dropout_rate": {
-        "r2": 0.8777,
-        "rmse": 0.7357,
-        "mse": 0.5412,
-        "mae": 0.337
+        "r2": 0.9009,
+        "rmse": 0.3556,
+        "mse": 0.1265,
+        "mae": 0.2928
       },
-      "avg_gwa": {
-        "r2": 0.9127,
-        "rmse": 0.0464,
-        "mse": 0.0022,
-        "mae": 0.0366
+      "inc_rate": {
+        "r2": 0.946,
+        "rmse": 1.9744,
+        "mse": 3.8982,
+        "mae": 1.5824
       }
     },
-    "year_level_performance": {
-      "status": "ok",
-      "r2": 0.6963,
-      "rmse": 11.581,
-      "mse": 134.1192,
-      "mae": 8.3865
-    },
-    "year_level_inc_irreg": {
+    "gender_performance_female": {
+      "dropout_rate": {
+        "r2": 0.8613,
+        "rmse": 0.3912,
+        "mse": 0.153,
+        "mae": 0.3033
+      },
       "inc_rate": {
-        "r2": 0.1262,
-        "rmse": 17.294,
-        "mse": 299.0814,
-        "mae": 12.436
-      },
-      "irregular_rate": {
-        "r2": 0.1495,
-        "rmse": 17.2629,
-        "mse": 298.0088,
-        "mae": 12.4396
-      },
-      "drop_rate": {
-        "r2": -0.3217,
-        "rmse": 2.8456,
-        "mse": 8.0976,
-        "mae": 1.8291
+        "r2": 0.9262,
+        "rmse": 1.9372,
+        "mse": 3.7528,
+        "mae": 1.3849
       }
     }
   },
@@ -145,5 +123,5 @@
   },
   "errors": [],
   "rows_in_master": 57745,
-  "elapsed_seconds": 20.1
+  "elapsed_seconds": 55.8
 }
