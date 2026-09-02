@@ -15,7 +15,13 @@ SECRET_KEY = 'your_secret_key_here'
 # ── Profile image uploads ─────────────────────────────────────
 UPLOAD_FOLDER      = os.path.join(BASE_DIR, 'app', 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-# No MAX_CONTENT_LENGTH — unlimited upload size
+# Real image formats accepted after content verification (extension alone is spoofable)
+ALLOWED_IMAGE_FORMATS = {'JPEG', 'PNG'}
+# Avatars only — the unlimited size note below is specifically about dataset
+# uploads (DATASET_MAX_SIZE_MB), not this. Avatars get their own small cap.
+AVATAR_MAX_SIZE_MB = 5
+AVATAR_MAX_DIMENSION_PX = 1024  # long edge is downscaled to this on upload
+# No MAX_CONTENT_LENGTH set globally — dataset uploads below are intentionally unlimited
 
 # ── Grade-sheet dataset folders ───────────────────────────────
 # Raw uploads land here first (used as the duplicate-check source)

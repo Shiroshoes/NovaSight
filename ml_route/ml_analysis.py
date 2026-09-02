@@ -16,7 +16,8 @@ ml_bp = Blueprint('ml_analysis', __name__)
 
 
 # ── forecast_series() ────────────────────────────────────────────────────────
-def forecast_series(history_values, steps: int, y_min: float = None, y_max: float = None, phi: float = 0.85):
+def forecast_series(history_values, steps: int, y_min: float = None, y_max: float = None,
+                     phi: float = 0.85, return_bounds: bool = False, z: float = 1.0):
     """
     Shared per-series forecaster — pure numpy, no statsmodels dependency.
 
@@ -55,10 +56,26 @@ def forecast_series(history_values, steps: int, y_min: float = None, y_max: floa
     steps           : how many future points to generate
     y_min / y_max   : optional clip range (e.g. 1.0-5.0 for grades)
     phi             : damping factor in (0, 1]. Default 0.85.
+    return_bounds   : if True, also return a (lower, upper) uncertainty
+                       band per forecast step that WIDENS the further out
+                       the step is — instead of the flat damped line
+                       silently implying equal confidence for year 1 and
+                       year 7. Default False, so every existing caller
+                       that only unpacks a single list keeps working
+                       unchanged.
+    z               : width multiplier for the band (in units of the
+                       fit's own residual std). z=1.0 is a "typical
+                       spread" band, not a formal statistical CI — this
+                       is a visual honesty signal for the chart, not a
+                       hypothesis test.
 
-    Returns: list[float] of length `steps`.
+    Returns: list[float] of length `steps` (return_bounds=False), or
+             (values, lower, upper) — each list[float] of length `steps`
+             — when return_bounds=True.
     """
     clean = [float(v) for v in history_values if v is not None and not pd.isna(v)]
+
+    residual_std = 0.0
 
     if len(clean) < 3:
         # Too few points to fit a trend line reliably — carry the last
@@ -70,6 +87,12 @@ def forecast_series(history_values, steps: int, y_min: float = None, y_max: floa
         slope, intercept = np.polyfit(x, clean, deg=1)
         last_fitted = slope * (len(clean) - 1) + intercept
 
+        # How much the real history wiggles around its own trend line —
+        # this is what the uncertainty band below is built from.
+        fitted_hist = slope * x + intercept
+        residuals = np.array(clean) - fitted_hist
+        residual_std = float(np.std(residuals, ddof=1)) if len(residuals) > 2 else float(np.std(residuals))
+
         # Damped multi-step trend: cumulative sum of slope * phi^i,
         # added on top of the last real (fitted) value — NOT a straight
         # line through future_x like before. See docstring above.
@@ -79,12 +102,33 @@ def forecast_series(history_values, steps: int, y_min: float = None, y_max: floa
             cum += slope * (phi ** i)
             out.append(last_fitted + cum)
 
-    if y_min is not None or y_max is not None:
-        lo = y_min if y_min is not None else float("-inf")
-        hi = y_max if y_max is not None else float("inf")
-        out = [max(lo, min(hi, v)) for v in out]
+    def _clip(vals):
+        if y_min is not None or y_max is not None:
+            lo = y_min if y_min is not None else float("-inf")
+            hi = y_max if y_max is not None else float("inf")
+            return [max(lo, min(hi, v)) for v in vals]
+        return vals
 
-    return [round(v, 2) for v in out]
+    out = [round(v, 2) for v in _clip(out)]
+
+    if not return_bounds:
+        return out
+
+    # Band widens with sqrt(steps out) — a standard, simple way to reflect
+    # that a step further from real data carries more compounded
+    # uncertainty, without inventing a full statistical forecast-interval
+    # model. With few history points (or a flat/tiny residual_std),
+    # this collapses toward 0 width rather than fabricating confidence.
+    lower, upper = [], []
+    for i, val in enumerate(out, start=1):
+        half_width = z * residual_std * (i ** 0.5)
+        lower.append(val - half_width)
+        upper.append(val + half_width)
+
+    lower = [round(v, 2) for v in _clip(lower)]
+    upper = [round(v, 2) for v in _clip(upper)]
+
+    return out, lower, upper
 
 COLLEGE_MAP = {
     "CEA":  ["CEA"],
@@ -305,7 +349,12 @@ def get_forecast_years(latest_year: int) -> list:
             return years
     except Exception:
         pass
-    return list(range(latest_year + 1, latest_year + 7))
+    # Only reached if training_state.json can't be loaded at all (e.g.
+    # before the very first training run). Kept short/conservative to
+    # match the same "don't outrun real history" philosophy as
+    # compute_horizon()'s HORIZON_MIN_STEPS, rather than defaulting to a
+    # long 6-year guess with zero data behind it.
+    return list(range(latest_year + 1, latest_year + 3))
 
 
 # Load Models
@@ -1326,8 +1375,11 @@ def _inc_rate_series(df_scope, feature_col_name, global_forecast_years):
         else:
             history_data.append(0)
 
+    # Fallback only fires if training_state.json couldn't be loaded at
+    # all — shortened to match the same conservative default as
+    # get_forecast_years()'s own fallback.
     forecast_years = global_forecast_years or (
-        list(range(int(max(years)) + 1, int(max(years)) + 6)) if years else [2025, 2026, 2027, 2028, 2029]
+        list(range(int(max(years)) + 1, int(max(years)) + 3)) if years else [2025, 2026]
     )
 
     # Was: inc_model.predict() with a Course_/College_ dummy column that
@@ -1432,10 +1484,22 @@ def get_inc_forecast():
         feat_col = f"College_{college.upper()}" if single_scope["type"] != "all" else None
         years, history_data, forecast_years, forecast_data = _inc_rate_series(df_scope, feat_col, global_forecast_years)
 
+        # Widening uncertainty band for the forecast years — same trend
+        # values as before, plus a lower/upper bound per forecast year
+        # that grows with how far out the step is. The frontend can shade
+        # the area between forecast_lower/forecast_upper (e.g. a
+        # Chart.js "fill between two datasets" band) so a flatter far-out
+        # forecast reads as "genuinely less certain" rather than "broken".
+        _, forecast_lower, forecast_upper = forecast_series(
+            history_data, len(forecast_years), y_min=0, y_max=100, return_bounds=True
+        )
+
         return jsonify({
             "years": years + forecast_years,
             "history": history_data,
-            "forecast": forecast_data
+            "forecast": forecast_data,
+            "forecast_lower": forecast_lower,
+            "forecast_upper": forecast_upper
         })
 
     except Exception as e:
@@ -1841,8 +1905,11 @@ def get_dropout_spike():
         except Exception:
             years_pred = []
         if not years_pred:
+            # Fallback only fires if training_state.json couldn't be
+            # loaded at all — shortened to match the same conservative
+            # default used elsewhere in this file.
             _base = int(max(years_hist)) if years_hist else 2024
-            years_pred = list(range(_base + 1, _base + 6))
+            years_pred = list(range(_base + 1, _base + 3))
         
         # Filter out years we already have in history to avoid overlap
         last_hist_year = years_hist[-1] if years_hist else 2024
@@ -2170,7 +2237,17 @@ def get_status_trend():
                 irr_pct = [round(100 - r, 1) for r in reg_pct]
 
                 latest = int(max(yrs))
-                fyrs = list(range(latest + 1, latest + 6))
+                # Was: list(range(latest + 1, latest + 6)) — a hardcoded
+                # 5-year horizon completely independent of
+                # training_state.json's horizon (compute_horizon() in
+                # auto_train.py). That meant this chart kept showing up
+                # to 5 forecast years even after the shared horizon was
+                # capped to the length of real history — the "some
+                # charts still show more prediction" bug. Now uses the
+                # same shared horizon every other forecast on the
+                # dashboard uses, so this chart never disagrees with the
+                # rest of the dashboard about how far into the future to go.
+                fyrs = get_forecast_years(latest)
                 reg_fore = forecast_series(reg_pct, len(fyrs), y_min=0, y_max=100)
                 irr_fore = forecast_series(irr_pct, len(fyrs), y_min=0, y_max=100)
 
@@ -2216,7 +2293,9 @@ def get_status_trend():
         years, regular_pct, inc_pct, dropped_pct = pct_series(df)
 
         latest_year = int(max(years)) if years else get_latest_real_year()
-        forecast_years = list(range(latest_year + 1, latest_year + 6))
+        # Same fix as the multi-line branch above: was a hardcoded 5-year
+        # range independent of the shared training_state.json horizon.
+        forecast_years = get_forecast_years(latest_year)
 
         # Each line gets its OWN trend — no shared dummy-variable model,
         # so Regular/INC/Dropped don't collapse toward each other the way

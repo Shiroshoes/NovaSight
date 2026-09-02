@@ -4,9 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Home</title>
-  <link rel="icon" href="{{ url_for('static', filename='image/logo2.png') }}" type="image/x-icon">
+  <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/homeadmin.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/logout/logout.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tutorial/page-video-modal.css') }}">
 </head>
 <body>
   <!-- fixed side bar -->
@@ -171,10 +173,10 @@
                     <span>{{ user.username }}</span>
 
                 {% if user.profile_image_url %}
-                    <img src="{{ user.profile_image_url }}" alt="User Avatar" class="avatar" style="background-color: rgb(143, 185, 219);">
+                    <img src="{{ user.profile_image_url }}" alt="User Avatar" class="avatar">
                     {% else %}
-                        <!-- Default SVG when logged in but NO image -->
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar" style="width: 32px; height: 32px;">
+                        <!-- Default SVG when logged in but NO image — tinted per role/user -->
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar avatar-default" style="width: 32px; height: 32px; --avatar-color: {{ user.avatar_color }}; --avatar-icon-color: {{ user.avatar_icon_color }};">
                           <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
                         </svg>
                     {% endif %}
@@ -197,6 +199,11 @@
     <div class="welcome-content">
       <h2>Welcome to BPSU Academic Prediction</h2>
       <p>A Dashboard system designed to display the predictive result of student performance in Bataan Peninsula State University - Main Campus</p>
+
+      <div class="tutorial-section">
+        <a class="btn-tutorial-large" id="tutorialLink">Tutorial</a>
+        <small class="p_tutorial">Dont know how to use the system? Click the tutorial button to learn how to use the system</small>
+      </div>
     </div>
   </div>
 
@@ -240,11 +247,287 @@
       </div>
   </div>
 
+  <!-- Tutorial Modal -->
+  <div id="tutorialModal" class="modal-overlay" style="display: none;">
+    <div class="tutorial-card">
+      <div class="tutorial-title-bar">
+        <img src="{{url_for('static', filename='image/logo2.png')}}" alt="BPSU logo" class="tutorial-bpsu-logo">
+        <h2 class="tutorial-titlebar-title">Student Performance Prediction: System Tutorial</h2>
+      </div>
+
+      <div class="tutorial-sidebar-content">
+
+        <!-- Video player + controls -->
+        <div class="tutorial-main">
+          <div class="tutorial-video-placeholder">
+            <video id="tutorialVideo" class="tutorial-video-el" playsinline preload="metadata">
+              <track id="tutorialCaptionsTrack" kind="subtitles" srclang="en" label="English">
+            </video>
+
+            <div id="tutorialCaptionsOverlay" class="tutorial-captions-overlay" aria-live="polite"></div>
+
+            <div class="tutorial-seek-indicator tutorial-seek-indicator-back" id="tutorialSeekBackIndicator">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9.195 18.44c1.25.714 2.805-.189 2.805-1.629v-2.34l6.945 3.968c1.25.715 2.805-.188 2.805-1.628V8.69c0-1.44-1.555-2.343-2.805-1.628L12 11.029v-2.34c0-1.44-1.555-2.343-2.805-1.628l-7.108 4.061c-1.26.72-1.26 2.536 0 3.256l7.108 4.061Z" />
+              </svg>
+              <span>10 seconds</span>
+            </div>
+
+            <div class="tutorial-seek-indicator tutorial-seek-indicator-forward" id="tutorialSeekForwardIndicator">             
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5.055 7.06C3.805 6.347 2.25 7.25 2.25 8.69v8.122c0 1.44 1.555 2.343 2.805 1.628L12 14.471v2.34c0 1.44 1.555 2.343 2.805 1.628l7.108-4.061c1.26-.72 1.26-2.536 0-3.256l-7.108-4.061C13.555 6.346 12 7.249 12 8.689v2.34L5.055 7.061Z" />
+              </svg>
+              <span>10 seconds</span>
+            </div>
+
+            <div class="tutorial-center-flash" id="tutorialCenterFlash">
+              <svg id="tutorialFlashPlayIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" />
+              </svg>
+              <svg id="tutorialFlashPauseIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+                <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="tutorial-progress-row">
+            <span id="tutorialCurrentTime" class="tutorial-time-label">0:00</span>
+            <input id="tutorialSeekBar" class="tutorial-seek-range" type="range" min="0" max="100" step="0.1" value="0">
+            <span id="tutorialDuration" class="tutorial-time-label">0:00</span>
+          </div>
+
+          <div class="tutorial-info-bar">
+            <div class="tutorial-info-left">
+              <img src="{{url_for('static', filename='image/logo.png')}}" alt="BPSU logo" class="tutorial-info-logo">
+              <span id="tutorialVideoTitle" class="tutorial-info-title">Tutorial: Select a topic</span>
+            </div>
+          </div>
+
+          <div class="tutorial-controls-bar">
+            <div class="tutorial-controls-left">
+              <button id="tutorialPlayPauseBtn" class="tutorial-round-btn" aria-label="Play or pause" type="button">
+                <svg id="tutorialPlayIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" />
+                </svg>
+                <svg id="tutorialPauseIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+                  <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
+                </svg>
+              </button>
+
+              <div class="tutorial-skip-group">
+                <button id="tutorialPrevBtn" class="tutorial-skip-btn" aria-label="Rewind 10 seconds" type="button">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9.195 18.44c1.25.714 2.805-.189 2.805-1.629v-2.34l6.945 3.968c1.25.715 2.805-.188 2.805-1.628V8.69c0-1.44-1.555-2.343-2.805-1.628L12 11.029v-2.34c0-1.44-1.555-2.343-2.805-1.628l-7.108 4.061c-1.26.72-1.26 2.536 0 3.256l7.108 4.061Z" />
+                  </svg>
+                </button>
+                
+                <button id="tutorialNextBtn" class="tutorial-skip-btn" aria-label="Forward 10 seconds" type="button">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5.055 7.06C3.805 6.347 2.25 7.25 2.25 8.69v8.122c0 1.44 1.555 2.343 2.805 1.628L12 14.471v2.34c0 1.44 1.555 2.343 2.805 1.628l7.108-4.061c1.26-.72 1.26-2.536 0-3.256l-7.108-4.061C13.555 6.346 12 7.249 12 8.689v2.34L5.055 7.061Z" />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="tutorial-volume-wrap">
+                <button id="tutorialMuteBtn" class="tutorial-round-btn" aria-label="Mute or unmute" type="button">
+                  <svg id="tutorialVolumeOnIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06L6.99 6.94H3.75A2.25 2.25 0 0 0 1.5 9.19v5.62a2.25 2.25 0 0 0 2.25 2.25h3.24l3.95 3.94c.945.945 2.56.276 2.56-1.06V4.06Z"/>
+                    <path d="M18.584 5.106a.75.75 0 0 1 1.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 0 1-1.06-1.06 8.25 8.25 0 0 0 0-11.668.75.75 0 0 1 0-1.06Z"/>
+                    <path d="M15.932 7.757a.75.75 0 0 1 1.061 0 6 6 0 0 1 0 8.486.75.75 0 0 1-1.06-1.061 4.5 4.5 0 0 0 0-6.364.75.75 0 0 1 0-1.06Z"/>
+                  </svg>
+                  <svg id="tutorialVolumeOffIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+                    <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 0 0 1.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06ZM17.78 9.22a.75.75 0 1 0-1.06 1.06L18.44 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06l1.72-1.72 1.72 1.72a.75.75 0 1 0 1.06-1.06L20.56 12l1.72-1.72a.75.75 0 1 0-1.06-1.06l-1.72 1.72-1.72-1.72Z" />
+                  </svg>
+                </button>
+
+                <div class="tutorial-volume-slider-wrap">
+                  <input id="tutorialVolumeSlider" class="tutorial-volume-range" type="range" min="0" max="100" step="1" value="100" aria-label="Volume">
+                </div>
+              </div>
+            </div>
+
+            <div class="tutorial-controls-right">
+              <button id="tutorialCaptionsBtn" class="tutorial-round-btn" aria-label="Toggle captions" type="button">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path fill-rule="evenodd" d="M9 2.25a.75.75 0 0 1 .75.75v1.506a49.384 49.384 0 0 1 5.343.371.75.75 0 1 1-.186 1.489c-.66-.083-1.323-.151-1.99-.206a18.67 18.67 0 0 1-2.97 6.323c.318.384.65.753 1 1.107a.75.75 0 0 1-1.07 1.052A18.902 18.902 0 0 1 9 13.687a18.823 18.823 0 0 1-5.656 4.482.75.75 0 0 1-.688-1.333 17.323 17.323 0 0 0 5.396-4.353A18.72 18.72 0 0 1 5.89 8.598a.75.75 0 0 1 1.388-.568A17.21 17.21 0 0 0 9 11.224a17.168 17.168 0 0 0 2.391-5.165 48.04 48.04 0 0 0-8.298.307.75.75 0 0 1-.186-1.489 49.159 49.159 0 0 1 5.343-.371V3A.75.75 0 0 1 9 2.25ZM15.75 9a.75.75 0 0 1 .68.433l5.25 11.25a.75.75 0 1 1-1.36.634l-1.198-2.567h-6.744l-1.198 2.567a.75.75 0 0 1-1.36-.634l5.25-11.25A.75.75 0 0 1 15.75 9Zm-2.672 8.25h5.344l-2.672-5.726-2.672 5.726Z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              <div class="tutorial-settings-wrap">
+                <button id="tutorialSettingsBtn" class="tutorial-round-btn" aria-label="Settings" aria-haspopup="true" aria-expanded="false" type="button">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path fill-rule="evenodd" d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567L9.05 4.889c-.02.12-.115.26-.297.348a7.493 7.493 0 0 0-.986.57c-.166.115-.334.126-.45.083L6.3 5.508a1.875 1.875 0 0 0-2.282.819l-.922 1.597a1.875 1.875 0 0 0 .432 2.385l.84.692c.095.078.17.229.154.43a7.598 7.598 0 0 0 0 1.139c.015.2-.059.352-.153.43l-.841.692a1.875 1.875 0 0 0-.432 2.385l.922 1.597a1.875 1.875 0 0 0 2.282.818l1.019-.382c.115-.043.283-.031.45.082.312.214.641.405.985.57.182.088.277.228.297.35l.178 1.071c.151.904.933 1.567 1.85 1.567h1.844c.916 0 1.699-.663 1.85-1.567l.178-1.072c.02-.12.114-.26.297-.349.344-.165.673-.356.985-.57.167-.114.335-.125.45-.082l1.02.382a1.875 1.875 0 0 0 2.28-.819l.923-1.597a1.875 1.875 0 0 0-.432-2.385l-.84-.692c-.095-.078-.17-.229-.154-.43a7.614 7.614 0 0 0 0-1.139c-.016-.2.059-.352.153-.43l.84-.692c.708-.582.891-1.59.433-2.385l-.922-1.597a1.875 1.875 0 0 0-2.282-.818l-1.02.382c-.114.043-.282.031-.449-.083a7.49 7.49 0 0 0-.985-.57c-.183-.087-.277-.227-.297-.348l-.179-1.072a1.875 1.875 0 0 0-1.85-1.567h-1.843ZM12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+
+                <!-- Settings popup: rows expand in place to show their options -->
+                <div id="tutorialSettingsMenu" class="tutorial-settings-menu hidden">
+                  <div class="tutorial-settings-panel">
+
+                    <button class="tutorial-settings-row" type="button" data-toggle-section="speed">
+                      <span class="tutorial-settings-row-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clip-rule="evenodd"/></svg>
+                      </span>
+                      <span class="tutorial-settings-row-label">Playback speed</span>
+                      <span class="tutorial-settings-row-value" id="tutorialSpeedValue">Normal</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="tutorial-settings-row-chevron"><path fill-rule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clip-rule="evenodd" /></svg>
+                    </button>
+                    <div class="tutorial-settings-options" data-section="speed">
+                      <button class="tutorial-settings-option" type="button" data-speed="0.5">0.5x</button>
+                      <button class="tutorial-settings-option" type="button" data-speed="0.75">0.75x</button>
+                      <button class="tutorial-settings-option" type="button" data-speed="1">Normal</button>
+                      <button class="tutorial-settings-option" type="button" data-speed="1.25">1.25x</button>
+                      <button class="tutorial-settings-option" type="button" data-speed="1.5">1.5x</button>
+                      <button class="tutorial-settings-option" type="button" data-speed="1.75">1.75x</button>
+                      <button class="tutorial-settings-option" type="button" data-speed="2">2x</button>
+                    </div>
+
+                    <button class="tutorial-settings-row" type="button" data-toggle-section="quality">
+                      <span class="tutorial-settings-row-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18.75 12.75h1.5a.75.75 0 0 0 0-1.5h-1.5a.75.75 0 0 0 0 1.5ZM12 6a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 12 6ZM12 18a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 12 18ZM3.75 6.75h1.5a.75.75 0 1 0 0-1.5h-1.5a.75.75 0 0 0 0 1.5ZM5.25 18.75h-1.5a.75.75 0 0 1 0-1.5h1.5a.75.75 0 0 1 0 1.5ZM3 12a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 3 12ZM9 3.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM12.75 12a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0ZM9 15.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Z"/></svg>
+                      </span>
+                      <span class="tutorial-settings-row-label">Quality</span>
+                      <span class="tutorial-settings-row-value" id="tutorialQualityValue">Auto</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="tutorial-settings-row-chevron"><path fill-rule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clip-rule="evenodd" /></svg>
+                    </button>
+                    <div class="tutorial-settings-options" data-section="quality" id="tutorialQualityOptions"></div>
+
+                    <button class="tutorial-settings-row tutorial-settings-toggle-row" type="button" id="tutorialSubtitlesToggleRow">
+                      <span class="tutorial-settings-row-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M9 2.25a.75.75 0 0 1 .75.75v1.506a49.384 49.384 0 0 1 5.343.371.75.75 0 1 1-.186 1.489c-.66-.083-1.323-.151-1.99-.206a18.67 18.67 0 0 1-2.97 6.323c.318.384.65.753 1 1.107a.75.75 0 0 1-1.07 1.052A18.902 18.902 0 0 1 9 13.687a18.823 18.823 0 0 1-5.656 4.482.75.75 0 0 1-.688-1.333 17.323 17.323 0 0 0 5.396-4.353A18.72 18.72 0 0 1 5.89 8.598a.75.75 0 0 1 1.388-.568A17.21 17.21 0 0 0 9 11.224a17.168 17.168 0 0 0 2.391-5.165 48.04 48.04 0 0 0-8.298.307.75.75 0 0 1-.186-1.489 49.159 49.159 0 0 1 5.343-.371V3A.75.75 0 0 1 9 2.25ZM15.75 9a.75.75 0 0 1 .68.433l5.25 11.25a.75.75 0 1 1-1.36.634l-1.198-2.567h-6.744l-1.198 2.567a.75.75 0 0 1-1.36-.634l5.25-11.25A.75.75 0 0 1 15.75 9Zm-2.672 8.25h5.344l-2.672-5.726-2.672 5.726Z" clip-rule="evenodd"/></svg>
+                      </span>
+                      <span class="tutorial-settings-row-label">Subtitles/CC</span>
+                      <span class="tutorial-toggle-switch" id="tutorialSubtitlesToggleSwitch"><span class="tutorial-toggle-knob"></span></span>
+                    </button>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordion topic menu -->
+        <div class="tutorial-video-content">
+          <div class="tutorial-menu-list" id="tutorialMenuList">
+
+            <div class="tutorial-accordion" data-section="welcome">
+              <button class="tutorial-accordion-header" type="button">
+                <span>Welcome</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="tutorial-chevron">
+                  <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              <div class="tutorial-accordion-panel">
+                <button class="tutorial-video-link" type="button" data-title="Welcome: How to Use This Tutorial" data-src="{{ url_for('static', filename='video/tutorial/Tutorial.mp4') }}">
+                  How to Use This Tutorial
+                </button>
+              </div>
+            </div>
+
+            <div class="tutorial-accordion" data-section="navigation">
+              <button class="tutorial-accordion-header" type="button">
+                <span>Navigation</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="tutorial-chevron">
+                  <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              <div class="tutorial-accordion-panel">
+                <button class="tutorial-video-link" type="button" data-title="Navigation: Sidebar &amp; Menu Overview" data-src="{{ url_for('static', filename='video/tutorial/Sidebar1.mp4') }}">
+                  Sidebar &amp; Menu Overview
+                </button>
+
+                <button class="tutorial-video-link" type="button" data-title="Navigation: Switching Between Pages" data-src="{{ url_for('static', filename='video/tutorial/Sidebar2.mp4') }}">
+                  Switching Between Pages</button>
+              </div>
+            </div>
+
+            <div class="tutorial-accordion" data-section="profile">
+              <button class="tutorial-accordion-header" type="button">
+                <span>Profile</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="tutorial-chevron">
+                  <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              <div class="tutorial-accordion-panel">
+                <button class="tutorial-video-link" type="button" data-title="Profile: Changing Your Password & Profile Picture" data-src="{{ url_for('static', filename='video/tutorial/Profile1.mp4') }}">
+                  Changing Your Password & Profile Picture
+                </button>
+              </div>
+            </div>
+
+            <div class="tutorial-accordion" data-section="fileupload">
+              <button class="tutorial-accordion-header" type="button">
+                <span>File Upload</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="tutorial-chevron">
+                  <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              <div class="tutorial-accordion-panel">
+                <button class="tutorial-video-link" type="button" data-title="File Upload: Uploading Student Data" data-src="{{ url_for('static', filename='video/tutorial/Fileupload1.mp4') }}">
+                  Uploading Student Data</button>
+              </div>
+            </div>
+
+            <div class="tutorial-accordion" data-section="admin">
+              <button class="tutorial-accordion-header" type="button">
+                <span>Admin</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="tutorial-chevron">
+                  <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              <div class="tutorial-accordion-panel">
+                <button class="tutorial-video-link" type="button" data-title="Admin: Managing User Accounts" data-src="{{ url_for('static', filename='video/tutorial/Admin1.mp4') }}">
+                  Managing User Accounts</button>
+              </div>
+            </div>
+
+            <div class="tutorial-accordion" data-section="dashboard">
+              <button class="tutorial-accordion-header" type="button">
+                <span>Dashboard</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="tutorial-chevron">
+                  <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              <div class="tutorial-accordion-panel">
+                <button class="tutorial-video-link" type="button" data-title="Dashboard: Filtering &amp; Changing Mode" data-src="{{ url_for('static', filename='video/tutorial/Dashboard1.mp4') }}">
+                  Filtering &amp; Changing Mode</button>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="tutorial-close-wrap">
+            <button id="closeTutorialBtn" class="btn btn-close" type="button">Close</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/tutorial.js') }}"></script>
+
   <footer class="footer">
     <div class="footer-content">
       <span class="page-label">Page/</span><span class="page-name">Home</span>
     </div>
   </footer> 
 </main>
+
+<!-- Floating Page Tutorial Video Modal -->
+<div id="pageTutorialModal" class="page-tutorial-overlay"
+     data-video-src="{{ url_for('static', filename='video/tutorial/Tutorial.mp4') }}"
+     data-video-title="Home: Getting Started"
+     data-video-key="home"
+     data-tutorial-seen="{{ 'true' if user and user.has_seen_tutorial('home') else 'false' }}"
+     style="display:none;">
+  <div class="page-tutorial-card">
+    <div class="page-tutorial-header">
+      <span class="page-tutorial-title" id="pageTutorialTitle"></span>
+      <button type="button" id="closePageTutorialBtn" class="page-tutorial-close" aria-label="Close tutorial">&times;</button>
+    </div>
+    <video id="pageTutorialVideo" class="page-tutorial-video" controls playsinline></video>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/page-video-modal.js') }}"></script>
 </body>
 </html>

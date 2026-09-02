@@ -491,16 +491,23 @@ footer{
 .circle {
     width: 180px;
     height: 180px;
-    background: rgba(230, 230, 230, 0.6);
+    /* Real department color (--avatar-color, from models.py's
+       ROLE_COLOR_FAMILIES / chart-helpers.js COLLEGE_COLORS), full
+       strength — not a pale tint. Falls back to the old neutral grey. */
+    background: var(--avatar-color, #94a3b8);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    /* This ring is just a border, not part of the avatar's own color —
+       it stays house maroon for every user regardless of department. */
     border: 2px solid #800000;
 }
 
-.circle svg { width: 70%; height: 70%; fill: #94a3b8; }
+/* --avatar-icon-color is picked per-shade in models.py so the icon stays
+   readable whether --avatar-color lands light or dark. */
+.circle svg { width: 70%; height: 70%; fill: var(--avatar-icon-color, #ffffff); }
 .circle img { width: 100%; height: 100%; object-fit: cover; }
 
 .plus-btn {
@@ -517,12 +524,195 @@ footer{
     align-items: center;
     font-weight: bold;
     cursor: pointer;
+    border: none;
+    font-size: 18px;
+    line-height: 1;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 
 .plus-btn:hover {
     background: #c72828;
     color: white;
+}
+
+/* Change Profile Picture modal card — sits inside .modal-overlay (defined
+   further down for Logout), so it gets the same dark backdrop + centering
+   as the Logout confirmation modal for free. This block only styles the
+   card itself. */
+.avatar-modal-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 32px;
+    width: 420px;
+    max-width: 90vw;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    font-family: var(--font-sans);
+}
+
+.avatar-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+
+.avatar-modal-header .brand-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #000000;
+    margin: 0;
+}
+
+.avatar-modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.3rem;
+    line-height: 1;
+    color: #666666;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.avatar-modal-close:hover {
+    background: #F6F4F0;
+    color: #000000;
+}
+
+.avatar-modal-preview-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 22px;
+}
+
+/* Smaller variant of .circle, scaled down for the modal header preview. */
+.avatar-modal-preview-circle {
+    width: 110px;
+    height: 110px;
+    border-width: 2px;
+}
+
+.avatar-modal-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.avatar-modal-option {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    background: #F6F4F0;
+    border: 1px solid #DCD6C9;
+    text-align: left;
+    padding: 18px 20px;
+    border-radius: 14px;
+    font-family: var(--font-sans);
+    font-size: 1.02rem;
+    font-weight: 600;
+    color: #000000;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.avatar-modal-option:hover,
+.avatar-modal-option:focus-visible {
+    background: #EFEBE3;
+    border-color: #800000;
+    outline: none;
+}
+
+.avatar-modal-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    color: #800000;
+}
+
+/* Live Camera modal */
+.camera-modal-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 32px;
+    width: 560px;
+    max-width: 90vw;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    font-family: var(--font-sans);
+}
+
+.camera-preview-wrap {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #000000;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 18px;
+}
+
+.camera-preview-wrap video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.camera-modal-actions {
+    display: flex;
+    justify-content: center;
+}
+
+/* Confirmation modal — avatar preview at the top, then Update Profile / No */
+.avatar-confirm-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 36px;
+    width: 420px;
+    max-width: 90vw;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    font-family: var(--font-sans);
+    text-align: center;
+}
+
+.avatar-confirm-preview {
+    width: 180px;
+    height: 180px;
+    margin: 0 auto 22px;
+    border-radius: 50%;
+    overflow: hidden;
+    /* Same house-maroon ring as the profile page's main avatar circle. */
+    border: 2px solid #800000;
+    background: #F6F4F0;
+}
+
+.avatar-confirm-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-confirm-card .confirmation-text {
+    margin: 0 0 20px;
+    color: #000000;
+}
+
+.avatar-confirm-card .button-group {
+    justify-content: center;
+}
+
+.avatar-upload-error {
+    display: none;
+    position: absolute;
+    top: -34px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    background: #fdecea;
+    color: #cc0000;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 8px;
 }
 
 /* Text and Links */
@@ -547,15 +737,48 @@ footer{
 /* Toggle Visibility */
 .hidden-fields { display: none; margin-top: 20px; }
 
-.input-group { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+.input-group { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
 
-#passInput {
+/* Wraps just the input + eye button, isolated from the label and any
+   mismatch message that live alongside it in .input-group. This keeps the
+   eye's absolute position anchored to a container whose width never
+   changes, so it can't drift when sibling content (e.g. the "Passwords do
+   not match" text) appears. */
+.password-field-wrapper {
+    position: relative;
+    width: 320px;
+    flex-shrink: 0;
+}
+
+#passInput,
+#confirmPassInput {
     background: rgba(128, 128, 128, 0.200);
     border: none;
     border-radius: 20px;
-    padding: 10px 20px;
-    width: 320px;
+    padding: 10px 44px 10px 20px;
+    width: 100%;
+    box-sizing: border-box;
     outline: none;
+}
+
+/* Eye toggle button: fixed at the end of the input, inside the padding
+   reserved above, so it never moves regardless of validation state,
+   sibling messages, or flex-row width changes. */
+.eye-toggle-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .button-group { display: flex; gap: 12px; }
@@ -564,6 +787,17 @@ footer{
 .blue:hover { background: #c72828; }
 .grey { background: #64748b; color: white; }
 .grey:hover { background: #89a1c6; }
+
+/* Password form Save/Back: fixed width so "Save" and "Back" render the
+   same size as each other, regardless of their text length or padding. */
+#savePwBtn,
+#cancelBtn {
+    width: 500px;
+    padding-left: 0;
+    padding-right: 0;
+    text-align: center;
+    flex-shrink: 0;
+}
 
 
 
@@ -609,14 +843,16 @@ footer{
   color: #000000;
 }
 
-/* Button Styles */
-.button-group {
+/* Button Styles (logout confirmation modal only — scoped to .logout-card so
+   this doesn't collide with the shared .button-group/.btn rules used by the
+   password Save/Back and avatar-confirm buttons elsewhere on the page). */
+.logout-card .button-group {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.btn {
+.logout-card .btn {
   padding: 15px;
   border-radius: 50px; /* Pill shape */
   border: none;

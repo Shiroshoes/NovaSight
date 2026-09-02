@@ -1,0 +1,73 @@
+/* ===== Floating Page Tutorial Video Modal =====
+   Lightweight companion to the full Tutorial hub on the Home page.
+   Auto-opens on page load to show the tutorial video for *this* page. */
+
+.page-tutorial-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    animation: pageTutorialFadeIn 0.25s ease;
+}
+
+@keyframes pageTutorialFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.page-tutorial-card {
+    background: #ffffff;
+    border-radius: 16px;
+    overflow: hidden;
+    width: min(900px, 94vw);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    animation: pageTutorialPopIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes pageTutorialPopIn {
+    from { transform: scale(0.92) translateY(10px); opacity: 0; }
+    to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.page-tutorial-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: #800000;
+}
+
+.page-tutorial-title {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    font-family: "Outfit", "Inter", sans-serif;
+    padding-right: 12px;
+}
+
+.page-tutorial-close {
+    background: none;
+    border: none;
+    color: #ffffff;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.page-tutorial-close:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.page-tutorial-video {
+    width: 100%;
+    display: block;
+    background: #000000;
+    max-height: 78vh;
+}

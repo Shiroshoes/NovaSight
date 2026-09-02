@@ -1,11 +1,11 @@
 {
-  "trained_at": "2026-08-19T08:43:32.810257Z",
-  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\2_1787129012_2024-2_Student-Performance_Dataset.xlsx",
+  "trained_at": "2026-08-31T06:30:16.812698Z",
+  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\4_1788157816_2022-1_Student-Performance_Dataset.xlsx",
   "models": {
     "dropout_risk": {
       "status": "ok",
-      "r2": 0.0354,
-      "rmse": 0.1278
+      "r2": 0.0315,
+      "rmse": 0.1281
     },
     "dropout_spike": {
       "status": "ok",
@@ -16,17 +16,17 @@
     },
     "dropout_ranking": {
       "status": "ok",
-      "r2": 0.0122,
-      "rmse": 0.1346,
-      "mse": 0.0181,
-      "mae": 0.0345
+      "r2": 0.0129,
+      "rmse": 0.1331,
+      "mse": 0.0177,
+      "mae": 0.0342
     },
     "gwa_ranking": {
       "status": "ok",
-      "r2": 0.0545,
-      "rmse": 0.641,
-      "mse": 0.4109,
-      "mae": 0.4296
+      "r2": 0.06,
+      "rmse": 0.6316,
+      "mse": 0.399,
+      "mae": 0.427
     },
     "gwa_trend": {
       "status": "ok",
@@ -44,8 +44,8 @@
     },
     "irreg_reg": {
       "status": "ok",
-      "accuracy": 0.9261,
-      "f1": 0.8258
+      "accuracy": 0.9244,
+      "f1": 0.8235
     },
     "kpi": {
       "gwa": {
@@ -69,10 +69,10 @@
     },
     "subject_grade": {
       "status": "ok",
-      "r2": 0.5754,
-      "rmse": 0.4248,
-      "mse": 0.1804,
-      "mae": 0.2574
+      "r2": 0.6208,
+      "rmse": 0.4209,
+      "mse": 0.1772,
+      "mae": 0.2404
     },
     "gender_performance_male": {
       "dropout_rate": {
@@ -106,22 +106,17 @@
   "horizon": {
     "latest_year": "2024-2025",
     "latest_year_start": 2024,
-    "completed_years": 3,
-    "bonus_years": 2,
-    "horizon_year_start": 2031,
-    "horizon_year": "2031-2032",
-    "total_steps_forward": 7,
+    "completed_years": 0,
+    "bonus_years": 0,
+    "horizon_year_start": 2026,
+    "horizon_year": "2026-2027",
+    "total_steps_forward": 2,
     "prediction_years": [
       "2025-2026",
-      "2026-2027",
-      "2027-2028",
-      "2028-2029",
-      "2029-2030",
-      "2030-2031",
-      "2031-2032"
+      "2026-2027"
     ]
   },
   "errors": [],
   "rows_in_master": 57745,
-  "elapsed_seconds": 55.8
+  "elapsed_seconds": 36.3
 }

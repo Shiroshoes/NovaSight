@@ -4,12 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CTEC Dashboard</title>
-  <link rel="icon" href="{{url_for('static', filename='image/logo2.png')}}" type="image/x-icon">
+  <link rel="icon" href="{{url_for('static', filename='image/logo3.png')}}" type="image/x-icon">
   <link rel="stylesheet" href="{{url_for('static', filename='css/registrar&saso/ctecdashboardregistrarsaso.css')}}">
   <link rel="stylesheet" href="{{url_for('static', filename='css/chart/kebabMenu.css')}}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <link rel="stylesheet" href="{{url_for('static', filename='css/chart/modelEval.css')}}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
 
   <style>.print-header { display: none; }</style>
   <!-- Print styles (shared across all dashboards) -->
@@ -167,7 +168,7 @@
         <header class="topmenu">
             <div class="brand">
               <div class="logo-sq">
-                <img src="{{url_for('static', filename='image/logo2.png')}}" alt="NovaSight Logo" class="brand-logo">
+                <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="NovaSight Logo" class="brand-logo">
               </div>
                 <div class="brand-text">
                     <h1>Bataan Peninsula State University</h1>
@@ -182,10 +183,10 @@
                     <span>{{ user.username }}</span>
 
                 {% if user.profile_image_url %}
-                    <img src="{{ user.profile_image_url }}" alt="User Avatar" class="avatar" style="background-color: rgb(143, 185, 219);">
+                    <img src="{{ user.profile_image_url }}" alt="User Avatar" class="avatar">
                     {% else %}
-                        <!-- Default SVG when logged in but NO image -->
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar" style="width: 32px; height: 32px;">
+                        <!-- Default SVG when logged in but NO image — tinted per role/user -->
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar avatar-default" style="width: 32px; height: 32px; --avatar-color: {{ user.avatar_color }}; --avatar-icon-color: {{ user.avatar_icon_color }};">
                           <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
                         </svg>
                     {% endif %}

@@ -31,7 +31,17 @@ except ImportError:
     MODEL_DIR = "Machine_Learning_Model"  # fallback for standalone CLI use
 
 STATE_FILE  = os.path.join(MODEL_DIR, "training_state.json")
-HORIZON_DEFAULT_STEPS = 5   # predict this many years beyond latest data year
+HORIZON_DEFAULT_STEPS = 3   # predict this many years beyond latest data year
+# Rule of thumb: don't extrapolate further into the future than the length
+# of real history backing the trend. With only `completed` years of actual
+# data, a damped-trend line (see forecast_series()) has already run out of
+# real signal well before year 5-9 — that's what was producing the
+# "flattens out / doesn't predict anything" forecasts. HORIZON_MAX_STEPS
+# hard-caps the total horizon so it scales with — and never wildly outruns —
+# the data actually backing it.
+HORIZON_MIN_STEPS = 2       # always show at least this many forecast years,
+                             # even with very little history
+HORIZON_MAX_STEPS_FACTOR = 1.0  # cap = completed_years * this factor
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 
@@ -158,6 +168,17 @@ def compute_horizon(df: pd.DataFrame,
     # bonus: +1 for each completed year beyond the first
     bonus        = max(0, completed - 1)
     horizon_add  = HORIZON_DEFAULT_STEPS + bonus
+
+    # Hard cap: never extrapolate further out than the real history we
+    # have (with a small floor so 1-2 forecast years always show even
+    # early on). Previously this was uncapped, e.g. 5 base + 2 bonus = 7
+    # forecast years from only 3 years of actual data — the damped trend
+    # in forecast_series() had already flattened to near-zero movement
+    # well before year 7, which is what made those far-out predictions
+    # look flat/meaningless.
+    horizon_cap  = max(HORIZON_MIN_STEPS, int(completed * HORIZON_MAX_STEPS_FACTOR))
+    horizon_add  = min(horizon_add, horizon_cap)
+
     horizon_start = latest_start + horizon_add
 
     prediction_years = [

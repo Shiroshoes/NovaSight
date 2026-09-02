@@ -1,0 +1,29 @@
+{#
+  Reusable small avatar chip — used in the MIS user list (adminpage.html) so
+  duplicate-role accounts (e.g. two CAHSdean rows) are still visually distinct,
+  and anywhere else a compact per-user avatar is needed.
+
+  Usage (inside a {% for u in users %} loop):
+    {% from 'avatar.html' import user_avatar_chip %}
+    {{ user_avatar_chip(u, size=32) }}
+
+  size must match one of the modifier classes in avatar-color.css
+  (28 / 32 / 40 / 48). Defaults to 36 (the base .mis-avatar-chip size).
+
+  Relies on AcadUser.avatar_color (models.py) — a color persisted on the user
+  row at creation time (see assign_avatar_color()), same hue family per role
+  with the shade set once and not recomputed later.
+#}
+{% macro user_avatar_chip(u, size=36) %}
+<span class="mis-avatar-chip{{ ' mis-avatar-chip--%d' % size if size != 36 else '' }}"
+      title="{{ u.username }} — {{ u.role }}"
+      style="--avatar-color: {{ u.avatar_color }};">
+  {% if u.profile_image_url %}
+    <img src="{{ u.profile_image_url }}" alt="{{ u.username }}">
+  {% else %}
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+      <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd"/>
+    </svg>
+  {% endif %}
+</span>
+{% endmacro %}

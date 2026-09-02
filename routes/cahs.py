@@ -66,6 +66,9 @@ def update_password_cahs():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
+    if user.check_password(password):
+        return jsonify({"error": "New password must be different from your current password."}), 400
+
     user.set_password(password)
     db.session.commit()
 

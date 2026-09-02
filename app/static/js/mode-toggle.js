@@ -33,6 +33,34 @@ const ModeAwareCharts = {
     currentMode: 'recent',   // 'recent' | 'prediction'
     latestRealYear: null,    // filled in by init(), used for both modes
 
+    // Canvas ids for cards that have NO real trained forecast behind
+    // them (or whose model's accuracy is too low to present as a
+    // genuine prediction — e.g. GWA Ranking's gwa_ranking_model sits at
+    // R² ≈ 0.05). These cards simply disappear in Prediction mode
+    // rather than showing stale Recent-mode content under a "Predicted
+    // Data" label, or a forecast no one should trust. Add a canvas id
+    // here any time a chart's underlying model isn't reliable enough
+    // to forecast with — no other code changes needed.
+    NON_PREDICTIVE_CHARTS: [
+        'gwaRankingChart',
+        'maleStatusGridContainer',    // Male Retention & Risk (Main Campus)
+        'femaleStatusGridContainer',  // Female Retention & Risk (Main Campus)
+        'heatmapCard',                // Dropout Rate Heatmap: Course × Year Level
+    ],
+
+    /** Hides (Prediction mode) or restores (Recent mode) the full card
+     *  wrapper — header + body, not just the canvas — for every canvas
+     *  id in NON_PREDICTIVE_CHARTS. No placeholder/note is shown; the
+     *  card is simply absent while its data can't be trusted. */
+    _applyNonPredictiveVisibility(mode) {
+        this.NON_PREDICTIVE_CHARTS.forEach(canvasId => {
+            const el = document.getElementById(canvasId);
+            if (!el) return;
+            const cardEl = el.closest('.card') || el;
+            cardEl.style.display = (mode === 'prediction') ? 'none' : '';
+        });
+    },
+
     _destroyCanvas(canvasId) {
         const existing = Chart.getChart(canvasId);
         if (existing) existing.destroy();
@@ -172,6 +200,12 @@ const ModeAwareCharts = {
             year = picked || this.latestRealYear || fallbackYear;
         }
 
+        // Hide/restore any card whose model can't support a genuine
+        // forecast BEFORE the individual render calls below, so a
+        // render function never has to special-case its own hiding —
+        // it can just bail out early if its card is already hidden.
+        this._applyNonPredictiveVisibility(mode);
+
         this._renderGwaRanking(safeCollege, semester, year);
         this._renderStatusCharts(safeCollege, semester, year);
         this._renderDropoutRanking(safeCollege, semester, year);
@@ -182,85 +216,39 @@ const ModeAwareCharts = {
     },
 
     /* ── GWA RANKING CARD ────────────────────────────────────────────
-       Recent mode:     bar chart  -> reuses your existing updateGWARanking()
-       Prediction mode: line chart -> loops get_gwa_ranking_data across
-                         several forecast years starting the year after
-                         your latest real data (that endpoint already
-                         switches into gwa_ranking_model forecasting by
-                         itself whenever the year is beyond the latest
-                         real year — no separate trend endpoint needed)
+       Recent mode:      bar chart -> reuses your existing updateGWARanking()
+       Prediction mode:  card is hidden entirely (see
+                          NON_PREDICTIVE_CHARTS / _applyNonPredictiveVisibility,
+                          called earlier in _setModeNow). gwa_ranking_model's
+                          R² is only ~0.05, so /api/get_gwa_ranking_data's
+                          forecast years aren't reliable enough to present
+                          as a genuine prediction — we no longer fetch or
+                          draw them at all rather than show a low-confidence
+                          line chart under a "Predicted Data" label.
     */
     _renderGwaRanking(college, semester, year) {
-        if (this.currentMode === 'recent') {
-            // NOTE: deliberately NOT destroying the canvas here anymore.
-            // The previous chart might be the Prediction-mode line chart
-            // (an untracked instance — see the prediction branch below),
-            // so a hard destroy is still needed for that type swap, but
-            // it now happens INSIDE updateGWARanking itself, right
-            // before drawing the replacement, once the fetch has
-            // actually succeeded. Destroying it eagerly here meant any
-            // failed/slow /api/get_gwa_ranking_data call left the
-            // canvas permanently blank, since updateGWARanking's own
-            // `if (data.error) return` had nothing left to redraw.
-            if (typeof updateGWARanking === 'function') {
-                updateGWARanking(year, semester, college);
-            }
+        if (this.currentMode === 'prediction') {
+            // Card is already hidden by _applyNonPredictiveVisibility.
+            // Just make sure nothing stale is left mounted on the
+            // canvas for when Recent mode restores the card.
+            this._destroyCanvas('gwaRankingChart');
+            this._resetOwnedVar('gwaRankingChart');
             return;
         }
 
-        this._destroyCanvas('gwaRankingChart');
-        this._resetOwnedVar('gwaRankingChart');
-
-        const forecastYears = [0, 1, 2, 3, 4].map(i => year + i);
-        const requests = forecastYears.map(y =>
-            fetch(`/api/get_gwa_ranking_data/${y}?semester=${semester}&college=${college}`)
-                .then(res => res.json())
-        );
-
-        const canvas = document.getElementById('gwaRankingChart');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: { labels: forecastYears, datasets: [] },
-            options: {
-                maintainAspectRatio: false,
-                scales: {
-                    y: { min: 1.0, max: 3.5, title: { display: true, text: 'GWA Scale (1.0 = Highest)' } },
-                },
-                plugins: {
-                    legend: { position: 'bottom' },
-                    title: { display: true, text: `Academic Performance Ranking — Predicted Data: ${forecastYears[0]}–${forecastYears[forecastYears.length - 1]}` },
-                },
-            },
-        });
-
-        Promise.all(requests).then(allYearsData => {
-            if (allYearsData.some(d => d.error)) {
-                console.warn('GWA forecast fetch returned an error for one or more years.');
-                return;
-            }
-            // Defensive: if the mode was toggled again while this fetch
-            // was in flight, bail out instead of drawing stale data.
-            if (this.currentMode !== 'prediction') return;
-
-            const colleges = [...new Set(allYearsData[0].map(d => d.college))];
-            chart.data.datasets = colleges.map(c => ({
-                label: c,
-                data: allYearsData.map(yearData => {
-                    const row = yearData.find(d => d.college === c);
-                    return row ? row.gwa : null;
-                }),
-                borderColor: getGroupColor(c),
-                backgroundColor: hexToRgba(getGroupColor(c), 0.06),
-                borderWidth: 2,
-                borderDash: [5, 4],
-                tension: 0.3,
-                pointRadius: 3,
-            }));
-            chart.update();
-        });
+        // NOTE: deliberately NOT destroying the canvas here. A previous
+        // Prediction-mode chart type no longer exists (Prediction mode
+        // hides this card instead of swapping chart types), but keeping
+        // the non-destroy here still matters for the ordinary Recent
+        // Chart.js instance mid-refresh — updateGWARanking() destroys
+        // whatever's actually on the canvas right before drawing its
+        // replacement, once its own fetch has actually succeeded. Doing
+        // that eagerly here would leave the canvas permanently blank
+        // if a slow/failed /api/get_gwa_ranking_data call left nothing
+        // for updateGWARanking's `if (data.error) return` to redraw.
+        if (typeof updateGWARanking === 'function') {
+            updateGWARanking(year, semester, college);
+        }
     },
 
     /* ── STATUS CARDS (Regular / Irregular) ──────────────────────────
@@ -474,94 +462,37 @@ const ModeAwareCharts = {
     },
 
     /* ── MALE / FEMALE RETENTION & RISK CARDS ────────────────────────
-       These do NOT get real forecast numbers from their normal endpoint
-       (/api/get_gender_status_breakdown is documented as historical-only
-       — passing it a future year just re-shows the latest real data
-       under a "Forecast" label, which would be misleading to present as
-       a genuine prediction). So Prediction mode here swaps the donut
-       grid for a real trend line per gender, fed by /api/get_status_trend
-       (Holt-style per-series forecast, same one powering the Status
-       Regular/Irregular cards) with a &gender= filter added.
+       Card is hidden entirely in Prediction mode (see
+       NON_PREDICTIVE_CHARTS / _applyNonPredictiveVisibility, called
+       earlier in _setModeNow) — Main Campus only. We no longer fetch
+       or draw the per-gender trend line at all in Prediction mode.
     */
     _renderRetentionCharts(college, semester, year) {
         const maleContainer = document.getElementById('maleStatusGridContainer');
         const femaleContainer = document.getElementById('femaleStatusGridContainer');
         if (!maleContainer && !femaleContainer) return;
 
-        if (this.currentMode === 'recent') {
-            // Hand back to the existing function — it owns rebuilding
-            // these containers' real donut content itself.
-            if (typeof updateDropoutPie === 'function') {
-                updateDropoutPie(year, college);
-            }
+        if (this.currentMode === 'prediction') {
+            // Cards are already hidden by _applyNonPredictiveVisibility.
+            // Just tear down any chart instance still mounted inside
+            // these containers so a later Recent-mode restore isn't
+            // fighting a stale Chart.js instance bound to a canvas
+            // updateDropoutPie is about to overwrite anyway.
+            [maleContainer, femaleContainer].forEach(container => {
+                if (!container) return;
+                const canvas = container.querySelector('canvas');
+                if (!canvas) return;
+                const existing = Chart.getChart(canvas);
+                if (existing) existing.destroy();
+            });
             return;
         }
 
-        // Prediction mode — genuine trend line per gender.
-        [['male', maleContainer], ['female', femaleContainer]].forEach(([gender, container]) => {
-            if (!container) return;
-
-            fetch(`/api/get_status_trend?college=${college}&semester=${semester}&gender=${gender === 'male' ? 'Male' : 'Female'}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) { console.warn(`Retention trend (${gender}) error:`, data.error); return; }
-                    if (this.currentMode !== 'prediction') return; // stale response guard
-
-                    container.innerHTML = `<canvas style="max-height: 260px;"></canvas>`;
-                    const canvas = container.querySelector('canvas');
-                    const ctx = canvas.getContext('2d');
-
-                    const labels = [...data.years, ...data.forecast_years];
-                    const historyCount = data.history_count;
-                    const dashAfterHistory = (ctx) =>
-                        (ctx.p0DataIndex >= historyCount - 1) ? [5, 4] : undefined;
-
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels,
-                            datasets: [
-                                {
-                                    label: 'Regular %',
-                                    data: [...data.regular_pct, ...data.regular_forecast],
-                                    borderColor: '#1cc88a',
-                                    backgroundColor: hexToRgba('#1cc88a', 0.08),
-                                    borderWidth: 2, tension: 0.3,
-                                    pointRadius: (c) => c.dataIndex >= historyCount ? 2 : 3,
-                                    segment: { borderDash: dashAfterHistory },
-                                },
-                                {
-                                    label: 'INC %',
-                                    data: [...data.inc_pct, ...data.inc_forecast],
-                                    borderColor: '#f6c23e',
-                                    backgroundColor: hexToRgba('#f6c23e', 0.08),
-                                    borderWidth: 2, tension: 0.3,
-                                    pointRadius: (c) => c.dataIndex >= historyCount ? 2 : 3,
-                                    segment: { borderDash: dashAfterHistory },
-                                },
-                                {
-                                    label: 'Dropped %',
-                                    data: [...data.dropped_pct, ...data.dropped_forecast],
-                                    borderColor: '#e74a3b',
-                                    backgroundColor: hexToRgba('#e74a3b', 0.08),
-                                    borderWidth: 2, tension: 0.3,
-                                    pointRadius: (c) => c.dataIndex >= historyCount ? 2 : 3,
-                                    segment: { borderDash: dashAfterHistory },
-                                },
-                            ],
-                        },
-                        options: {
-                            maintainAspectRatio: false,
-                            scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } },
-                            plugins: {
-                                legend: { position: 'bottom' },
-                                title: { display: true, text: `${gender === 'male' ? 'Male' : 'Female'} Retention Trend` },
-                            },
-                        },
-                    });
-                })
-                .catch(err => console.error(`Retention trend (${gender}) fetch failed:`, err));
-        });
+        // Recent mode — hand back to the existing function — it owns
+        // rebuilding these containers' real donut content itself.
+        if (typeof updateDropoutPie === 'function') {
+            updateDropoutPie(year, college);
+        }
     },
 
     /* ── KPI TILES (Total Enrollment / Average GWA) ──────────────────

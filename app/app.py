@@ -1,8 +1,9 @@
 from flask import Flask, render_template, redirect, session, request, flash, url_for
 from configs.config import SECRET_KEY, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS
-from database.models import db, AcadUser
+from database.models import db, AcadUser, assign_avatar_color, ensure_avatar_color, resync_avatar_colors
 from werkzeug.security import generate_password_hash
 from flask import jsonify
+from sqlalchemy import inspect, text
 from routes.admin import admin_bp
 from routes.registrar import registrar_bp
 from routes.saso import saso_bp
@@ -42,6 +43,51 @@ app.register_blueprint(upload_bp, url_prefix='')
 # ---------------- Default Admin Creation ----------------
 with app.app_context():
     db.create_all()
+
+    # db.create_all() only creates missing TABLES, not missing COLUMNS on a
+    # table that already exists. avatar_icon_color is new, so add it by
+    # hand for any database created before this column existed — a no-op
+    # once the column is present.
+    inspector = inspect(db.engine)
+    existing_cols = {c['name'] for c in inspector.get_columns('acad_user')}
+    if 'avatar_icon_color' not in existing_cols:
+        db.session.execute(text('ALTER TABLE acad_user ADD COLUMN avatar_icon_color VARCHAR(7)'))
+        db.session.commit()
+        print("Migrated: added acad_user.avatar_icon_color")
+
+    if 'seen_tutorials' not in existing_cols:
+        db.session.execute(text('ALTER TABLE acad_user ADD COLUMN seen_tutorials TEXT'))
+        db.session.commit()
+        print("Migrated: added acad_user.seen_tutorials")
+
+    # Same story as the column above: models.py declares account as
+    # unique=True, but db.create_all() never retrofits a constraint onto a
+    # table that already exists. A plain UNIQUE index is also
+    # case-sensitive, so 'Juan@bpsu.edu.ph' and 'juan@bpsu.edu.ph' would
+    # still count as two different accounts — COLLATE NOCASE fixes both
+    # problems in one index (ASCII case-insensitive comparison, enforced
+    # by SQLite itself on every insert/update from here on).
+    existing_indexes = {idx['name'] for idx in inspector.get_indexes('acad_user')}
+    if 'ix_acad_user_account_ci' not in existing_indexes:
+        try:
+            db.session.execute(text(
+                'CREATE UNIQUE INDEX ix_acad_user_account_ci '
+                'ON acad_user (account COLLATE NOCASE)'
+            ))
+            db.session.commit()
+            print("Migrated: added case-insensitive unique index on acad_user.account")
+        except Exception as e:
+            db.session.rollback()
+            print(f"WARNING: could not add case-insensitive unique index on acad_user.account: {e}")
+            dupes = db.session.execute(text(
+                'SELECT LOWER(account) AS acct, COUNT(*) AS c '
+                'FROM acad_user GROUP BY LOWER(account) HAVING c > 1'
+            )).fetchall()
+            if dupes:
+                print("These accounts only differ by case and must be manually merged/renamed first:")
+                for row in dupes:
+                    print(f"  - {row.acct}  ({row.c} accounts)")
+
     if not AcadUser.query.filter_by(account='admin@gmail.com').first():
         admin_user = AcadUser(
             first_name='Admin',
@@ -51,11 +97,19 @@ with app.app_context():
             role='admin'
         )
         admin_user.set_password('Admin123!')
+        assign_avatar_color(admin_user)
         db.session.add(admin_user)
         db.session.commit()
         print("Admin account created: admin@gmail.com / Admin123!")
     else:
         print("Admin account already exists")
+
+    # Push the "real" department colors (from ROLE_COLOR_FAMILIES, which
+    # mirrors chart-helpers.js's COLLEGE_COLORS) onto every existing user.
+    # Cheap and idempotent — only writes when a stored color has drifted
+    # from the current palette.
+    if resync_avatar_colors():
+        print("Resynced avatar colors to current ROLE_COLOR_FAMILIES palette")
 
 # ---------------- Public Routes ----------------
 @app.route('/')
@@ -75,9 +129,12 @@ def login():
         return _redirect_by_role(role)
 
     if request.method == 'POST':
-        account  = request.form.get('account')
+        account  = request.form.get('account', '').strip()
         password = request.form.get('password')
-        user = AcadUser.query.filter_by(account=account).first()
+        # Case-insensitive to match the ix_acad_user_account_ci index —
+        # otherwise a user who registered as 'Juan@bpsu.edu.ph' but types
+        # 'juan@bpsu.edu.ph' at login would get "Invalid credentials".
+        user = AcadUser.query.filter(db.func.lower(AcadUser.account) == account.lower()).first()
 
         if user and user.check_password(password):
             if user.is_archived:
@@ -86,7 +143,9 @@ def login():
 
             session['user_id'] = user.acaduser_id
             session['role']    = user.role
-            flash(f"Welcome, {user.username}!", "success")
+            # Every role's landing page shows its own once-only tutorial
+            # video instead (see each page's pageTutorialModal), so the
+            # generic welcome flash is not needed.
             return _redirect_by_role(user.role)
         else:
             flash("Invalid credentials", "error")
@@ -130,12 +189,36 @@ def update_password():
 
     try:
         user = AcadUser.query.get(session['user_id'])
+        if not user:
+            return jsonify({"success": False, "message": "User not found"}), 404
+        if user.check_password(new_password):
+            return jsonify({"success": False, "message": "New password must be different from your current password."}), 400
         user.set_password(new_password)
         db.session.commit()
         return jsonify({"success": True, "message": "Password updated successfully"})
     except Exception as e:
         print("Error updating password:", e)
         return jsonify({"success": False, "message": "Error updating password"}), 500
+
+
+# ---------------- Mark Tutorial Seen (shared across all roles) ----------------
+@app.route('/mark_tutorial_seen', methods=['POST'])
+def mark_tutorial_seen():
+    if 'user_id' not in session:
+        return jsonify({"success": False, "message": "Not logged in"}), 401
+
+    data = request.get_json(silent=True) or {}
+    key  = (data.get('key') or '').strip()
+    if not key:
+        return jsonify({"success": False, "message": "key required"}), 400
+
+    user = AcadUser.query.get(session['user_id'])
+    if not user:
+        return jsonify({"success": False, "message": "User not found"}), 404
+
+    user.mark_tutorial_seen(key)
+    db.session.commit()
+    return jsonify({"success": True})
 
 
 # ---------------- Context Processor ----------------
@@ -145,6 +228,8 @@ def inject_user():
     user = None
     if 'user_id' in session:
         user = AcadUser.query.get(session['user_id'])
+        if user:
+            ensure_avatar_color(user)
     return dict(user=user)
 
 
