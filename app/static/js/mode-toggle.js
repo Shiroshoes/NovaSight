@@ -100,13 +100,39 @@ const ModeAwareCharts = {
             .then(res => res.json())
             .then(data => {
                 this.latestRealYear = data.latest_year || new Date().getFullYear();
+                this._nextKpiTarget = this._computeNextKpiTarget(
+                    this.latestRealYear, data.latest_year_semesters || []
+                );
             })
             .catch(err => {
                 console.error('ModeAwareCharts init failed:', err);
                 // Fall back rather than leaving latestRealYear as null
                 // forever — see the recent-mode fallback in setMode().
                 this.latestRealYear = this.latestRealYear || new Date().getFullYear();
+                this._nextKpiTarget = { year: this.latestRealYear + 1, semester: '1sem' };
             });
+    },
+
+    /** KPI tiles predict ONE semester ahead, not a whole year: if the
+     *  latest real year only has its 1st semester uploaded so far, the
+     *  "next" period is that SAME year's 2nd semester — only once BOTH
+     *  semesters of the latest year are in does the next period roll
+     *  over to the following year's 1st semester. `semesterList` is
+     *  /api/get_year_semester_options's own latest_year_semesters field
+     *  (the same data initYearSemesterFilters already uses to pick the
+     *  Semester dropdown's default), so no new backend endpoint needed. */
+    _computeNextKpiTarget(latestYear, semesterList) {
+        const upper = (semesterList || []).map(s => String(s).toUpperCase());
+        const has1st = upper.some(s => s.includes('1'));
+        const has2nd = upper.some(s => s.includes('2'));
+
+        if (has1st && !has2nd) {
+            return { year: latestYear, semester: '2sem' };
+        }
+        // Both semesters already present, or only 2nd present (unusual
+        // upload order) — either way the next NEW period is next year's
+        // 1st semester.
+        return { year: Math.min(latestYear + 1, 2030), semester: '1sem' };
     },
 
     _syncToggleUI(mode) {
@@ -145,6 +171,25 @@ const ModeAwareCharts = {
         // rather than let it silently do nothing.
         const yearSelect = document.getElementById('globalYearFilter');
         if (yearSelect) yearSelect.disabled = (mode === 'prediction');
+
+        // Same reasoning for Semester (2026-09-06, per request): locked
+        // while Prediction mode is active so only the Department/Course
+        // Program filter drives what a forecast chart shows. Checked
+        // every render function before locking this — most already
+        // ignore the Semester value in Prediction mode (KPI computes its
+        // own target semester; GWA Ranking, Dropout Ranking, and the
+        // Heatmap hide their cards entirely; Year-Level Performance and
+        // INC/Irregular/Drop's forecast endpoints don't take a semester
+        // param at all), EXCEPT the Status trend chart
+        // (_renderStatusCharts) — /api/get_status_trend genuinely filters
+        // real history by semester before forecasting from it. That one
+        // chart will now always forecast from whichever semester was
+        // last selected before switching to Prediction, rather than
+        // letting it be changed live. #filterCollege (Department/Course
+        // Program) is deliberately left alone — that's the one filter
+        // Prediction mode still honors everywhere.
+        const semesterSelect = document.getElementById('filterSemester');
+        if (semesterSelect) semesterSelect.disabled = (mode === 'prediction');
 
         // Let table-view.js (or anything else) react to mode changes
         // without this file needing to know it exists.
@@ -205,6 +250,28 @@ const ModeAwareCharts = {
         // render function never has to special-case its own hiding —
         // it can just bail out early if its card is already hidden.
         this._applyNonPredictiveVisibility(mode);
+
+        // Stretch the INC Forecast card to the full grid width while in
+        // Prediction mode. .card-bottom-small-1 already exists in the
+        // CSS but is also used by another card elsewhere on the page, so
+        // reusing it here would tie this card's width to changes made
+        // for that other one — set the grid-column directly as an inline
+        // style instead (inline styles win over the class's own
+        // grid-column: span 4, no CSS file edits needed either way).
+        // This is a REAL width change, unlike the false alarm earlier in
+        // this file's history — so the chart genuinely does need a
+        // resize afterward, not a defensive one "just in case". The
+        // inline style applies synchronously, so the canvas's new parent
+        // width is already correct by the time resize() reads it; no
+        // rAF/setTimeout needed for a single, deliberate resize tied to
+        // a change we just made ourselves.
+        const incForecastCard = document.getElementById('incForecastCard');
+        if (incForecastCard) {
+            incForecastCard.style.gridColumn = (mode === 'prediction') ? 'span 10' : '';
+        }
+        if (typeof incForecastChart !== 'undefined' && incForecastChart) {
+            incForecastChart.resize();
+        }
 
         this._renderGwaRanking(safeCollege, semester, year);
         this._renderStatusCharts(safeCollege, semester, year);
@@ -511,20 +578,32 @@ const ModeAwareCharts = {
        dashboard (identical card IDs on both), so no per-page branching
        is needed here.
 
-       KPI predictions deliberately stay ONE year out only — never
-       further — and are hard-capped at 2030 regardless of how far
+       KPI predictions deliberately stay ONE semester out only — never
+       further — and are hard-capped at year 2030 regardless of how far
        latestRealYear has advanced, so the KPI tiles never extrapolate
        into a range the underlying regression models were never tuned
        for. (Other charts' own forecast horizons — e.g. GWA Ranking's
        5-year line, Status trend's 5-year line — are unaffected; this
        cap is local to the KPI tiles only.)
+
+       "One semester out" (2026-09-06): if the latest real year only has
+       its 1st semester uploaded, the next period is that SAME year's
+       2nd semester, not a whole new year — see _computeNextKpiTarget()
+       above, which init() already resolves this from before every
+       toggle. Ignores whatever the page's own Semester filter is
+       currently set to in Prediction mode, since there's only ever one
+       correct "next" semester to predict regardless of what the person
+       happens to have selected for viewing Recent data.
     */
     _renderKpiMetrics(college, semester, year) {
         if (typeof updateKPIMetrics !== 'function') return;
 
         if (this.currentMode === 'prediction') {
-            const nextYear = Math.min((this.latestRealYear || new Date().getFullYear()) + 1, 2030);
-            updateKPIMetrics(nextYear, semester, college);
+            const target = this._nextKpiTarget || {
+                year: Math.min((this.latestRealYear || new Date().getFullYear()) + 1, 2030),
+                semester: '1sem',
+            };
+            updateKPIMetrics(target.year, target.semester, college);
             return;
         }
 

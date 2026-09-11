@@ -186,8 +186,11 @@
   <section class="dashboard-grid">
   <div class="card help-card">
     <div class="help-content">
-      <h2>Help</h2>
-      <span class="role-badge">Academic Affairs</span>
+      <div class="help-header">
+        <h2>HELP CENTER</h2>
+        <span class="role-badge">Academic Affairs</span>
+      </div>
+
       <p class="help-intro">
           This Help Center covers the tools available to Academic
           Affairs: uploading student grade data and reading the
@@ -199,6 +202,19 @@
       <div class="help-columns">
         <div class="help-col">
 
+            <div class="help-topic">
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                </svg>
+              </span>
+              <h3>Profile</h3>
+            </div>
+            <p>
+                Manage your account information, update your profile
+                picture, and change your password from the Profile page.
+            </p>
+            
             <div class="help-topic">
               <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 17v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
               <h3>Upload File</h3>
@@ -212,7 +228,7 @@
 
             <h4>Accepted File</h4>
             <ul>
-                <li>.xlsx (Microsoft Excel) only — .xls, .csv, and .xlsm are not accepted</li>
+                <li>.xlsx (Microsoft Excel) only. The .xls, .csv, and .xlsm are not accepted</li>
             </ul>
 
             <h4>Required File Name Format</h4>
@@ -221,10 +237,10 @@
                 (spaces or underscores both work) or the upload will be
                 rejected before processing even starts:
             </p>
-            <p class="help-code">YYYY-N Student-Performance Dataset.xlsx</p>
+            <div class="help-code">YYYY-N Student-Performance Dataset.xlsx</div>
             <ul>
-                <li><strong>YYYY</strong> — the year the semester starts (e.g. 2024)</li>
-                <li><strong>N</strong> — <code>1</code> for 1st semester, <code>2</code> for 2nd semester</li>
+                <li><strong>YYYY</strong> - the year the semester starts (e.g. 2024)</li>
+                <li><strong>N</strong> - <code>1</code> for 1st semester, <code>2</code> for 2nd semester</li>
             </ul>
             <p>
                 Examples: <code>2024-1 Student-Performance Dataset.xlsx</code>,
@@ -242,25 +258,12 @@
                 will fail to process even if the name is correct.
             </p>
 
-            <p class="help-download">
-                <a href="{{ url_for('static', filename='templates/YEAR-SEM Student-Performance Dataset TEMPLATE.xlsx') }}"
-                   download class="help-download-btn">
-                    ⬇ Download the Dataset Template (.xlsx)
-                </a>
-                <br>
-                <span class="help-download-note">
-                    A worked reference showing the exact layout above,
-                    with a step-by-step "READ ME FIRST" sheet and one
-                    sample college sheet already filled in — it's a guide
-                    for formatting your own file, not real student data.
-                </span>
-            </p>
-
-        </div>
-        <div class="help-col">
-
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="13" y="4" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="4" y="13" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="13" y="13" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                </svg>
+              </span>
               <h3>Dashboards</h3>
             </div>
             <p>
@@ -270,12 +273,20 @@
                 has a mode toggle: <strong>Historical mode</strong> shows
                 real, already-recorded data, while
                 <strong>Prediction mode</strong> switches the same charts
-                to NovaSight's forecast for future years — look for the
+                to NovaSight's forecast for future years, look for the
                 dashed trend line and the "Predicted" label.
             </p>
 
+
+        </div>
+        <div class="help-col">
+
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1" stroke="currentColor" stroke-width="2" fill="none"/><rect x="3" y="10" width="18" height="4" rx="1" stroke="currentColor" stroke-width="2" fill="none"/><rect x="3" y="16" width="18" height="4" rx="1" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
+              <span class="help-icon-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" />
+              </svg>
+              </span>
               <h3>Chart Mode &amp; Table Mode</h3>
             </div>
             <p>
@@ -283,13 +294,17 @@
                 of the View Mode card. <strong>Chart Mode</strong> is the default
                 visual view with charts and graphs; <strong>Table Mode</strong>
                 swaps every chart for a plain data table showing the exact same
-                numbers — useful for reading precise figures or copying data out
+                numbers which is useful for reading precise figures or copying data out
                 of the dashboard. The KPI cards and the Model Performance card
                 look the same in either mode.
             </p>
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="4" y="12" width="4" height="8" rx="1" stroke="currentColor" stroke-width="2" fill="none"/><rect x="10" y="7" width="4" height="13" rx="1" stroke="currentColor" stroke-width="2" fill="none"/><rect x="16" y="3" width="4" height="17" rx="1" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                </svg>
+              </span>
               <h3>Model Performance &amp; Accuracy</h3>
             </div>
             <p>
@@ -303,13 +318,13 @@
                 read with caution.
             </p>
 
-            <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span>
-              <h3>Profile</h3>
-            </div>
             <p>
-                Manage your account information, update your profile
-                picture, and change your password from the Profile page.
+                NovaSight is built for decision support, not evaluation.
+                Predictions are meant to help flag student cohorts who
+                may benefit from additional academic support. They are not
+                a performance score for any college, department, or dean,
+                and are never used to rank or compare colleges against each
+                other.
             </p>
 
             <div class="help-topic">
@@ -341,7 +356,7 @@
                 <p>
                     Forecast charts need enough historical years to
                     detect a reliable trend. With only a few years of
-                    data, a forecast can look unusually flat or steep —
+                    data, a forecast can look unusually flat or steep. As more semesters are uploaded,
                     this smooths out as more historical data is uploaded.
                 </p>
             </details>
@@ -357,7 +372,11 @@
             </details>
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2.25c-2.429 0-4.817.178-7.152.521C2.87 3.061 1.5 4.795 1.5 6.741v6.018c0 1.946 1.37 3.68 3.348 3.97.877.129 1.761.234 2.652.316V21a.75.75 0 0 0 1.28.53l4.184-4.183a.39.39 0 0 1 .266-.112c2.006-.05 3.982-.22 5.922-.506 1.978-.29 3.348-2.023 3.348-3.97V6.741c0-1.947-1.37-3.68-3.348-3.97A49.145 49.145 0 0 0 12 2.25ZM8.25 8.625a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Zm2.625 1.125a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875-1.125a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd" fill="currentColor"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
+                  <path fill-rule="evenodd" d="M12 2.25c-2.429 0-4.817.178-7.152.521C2.87 3.061 1.5 4.795 1.5 6.741v6.018c0 1.946 1.37 3.68 3.348 3.97.877.129 1.761.234 2.652.316V21a.75.75 0 0 0 1.28.53l4.184-4.183a.39.39 0 0 1 .266-.112c2.006-.05 3.982-.22 5.922-.506 1.978-.29 3.348-2.023 3.348-3.97V6.741c0-1.947-1.37-3.68-3.348-3.97A49.145 49.145 0 0 0 12 2.25ZM8.25 8.625a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Zm2.625 1.125a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875-1.125a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd" />
+                </svg>
+              </span>
               <h3>Need Assistance?</h3>
             </div>
             <p>

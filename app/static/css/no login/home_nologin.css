@@ -397,3 +397,11 @@ footer{
     color:#6B7280;
     font-size:12px;
 }
+
+
+.brand-link{
+    text-decoration:none;
+    color:#000000;
+    font-size:14px;
+    transition:0.2s;
+}

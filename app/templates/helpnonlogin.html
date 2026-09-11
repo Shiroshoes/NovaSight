@@ -40,6 +40,7 @@
  
   <!--header -->
         <header class="topmenu">
+          <a href="{{ url_for('home') }}" class="brand-link">
             <div class="brand">
               <div class="logo-sq">
                 <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="NovaSight Logo" class="brand-logo">
@@ -49,6 +50,7 @@
                     <span>ACADEMIC PREDICTION</span>
                 </div>
             </div>
+          </a>
 
             <a href="/login" class="user-profile">
                 <span>Login</span>
@@ -62,14 +64,18 @@
   <section class="dashboard-grid">
   <div class="card help-card">
     <div class="help-content">
-      <h2>Help</h2>
-      <span class="role-badge">Public Access</span>
+
+      <div class="help-header">
+        <h2>HELP CENTER</h2>
+        <span class="role-badge">Public Access</span>
+      </div>
+
       <p class="help-intro">
           Welcome to the NovaSight Academic Affairs Help Center.
           NovaSight uses machine learning to turn uploaded grade records
           into early-warning dropout risk, GWA forecasts, and enrollment
           trends. This page covers what NovaSight is and how to get
-          access — sign in for guidance specific to your role.
+          access. Sign in for guidance specific to your role.
       </p>
 
       <hr>
@@ -78,7 +84,11 @@
         <div class="help-col">
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                </svg>
+              </span>
               <h3>Getting Started</h3>
             </div>
             <p>
@@ -89,7 +99,11 @@
             </p>
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 20V10M12 20V4M20 20V14" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
+                </svg>
+              </span>
               <h3>What This System Does</h3>
             </div>
             <p>
@@ -106,16 +120,22 @@
                 <li>Hardest subjects, ranked by historical grade difficulty</li>
             </ul>
             <p>
-                Results are organized by college — <strong>CAHS</strong>,
+                Results are organized by college <strong>CAHS</strong>,
                 <strong>CBA</strong>, <strong>CCST</strong>,
                 <strong>CEA</strong>, <strong>COAS</strong>, and
-                <strong>CTEC</strong> — so each dean can focus on their own
-                department, while Academic Affairs sees the full picture
-                across all six.
+                <strong>CTEC</strong>, so each dean can focus on their own
+                department, while Academic Affairs, Registrar, MISO, and SASO sees the full picture
+                across all six. Student records are referenced only by
+                an anonymized student ID, never by name so no individual
+                identity is exposed on any dashboard.
             </p>
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="13" y="4" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="4" y="13" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="13" y="13" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                </svg>
+              </span>
               <h3>Dashboards</h3>
             </div>
             <p>
@@ -133,7 +153,11 @@
         <div class="help-col">
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="9" cy="9" r="4" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="17" cy="13" r="3.2" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                </svg>
+              </span>
               <h3>Account Roles</h3>
             </div>
             <p>
@@ -141,8 +165,8 @@
                 tailored to what they do:
             </p>
             <ul>
-                <li><strong>MIS</strong> creates and manages user accounts for the system</li>
-                <li><strong>Academic Affairs</strong> uploads the student grade dataset that powers every prediction</li>
+                <li><strong>MISO</strong> creates and manages user accounts for the system</li>
+                <li><strong>Academic Affairs, MISO</strong> uploads the student grade dataset that powers every prediction</li>
                 <li><strong>Deans, Registrar, and SASO</strong> view dashboards and predictions for their area</li>
             </ul>
             <p>
@@ -151,7 +175,11 @@
             </p>
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                </svg>
+              </span>
               <h3>Profile</h3>
             </div>
             <p>
@@ -197,14 +225,18 @@
             <details>
                 <summary>I don't see an Upload option.</summary>
                 <p>
-                    Uploading grade data is limited to Academic Affairs
+                    Uploading grade data is limited to MISO and Academic Affairs
                     accounts. If your role needs upload access, contact
                     the system administrator.
                 </p>
             </details>
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2.25c-2.429 0-4.817.178-7.152.521C2.87 3.061 1.5 4.795 1.5 6.741v6.018c0 1.946 1.37 3.68 3.348 3.97.877.129 1.761.234 2.652.316V21a.75.75 0 0 0 1.28.53l4.184-4.183a.39.39 0 0 1 .266-.112c2.006-.05 3.982-.22 5.922-.506 1.978-.29 3.348-2.023 3.348-3.97V6.741c0-1.947-1.37-3.68-3.348-3.97A49.145 49.145 0 0 0 12 2.25ZM8.25 8.625a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Zm2.625 1.125a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875-1.125a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd" fill="currentColor"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
+                  <path fill-rule="evenodd" d="M12 2.25c-2.429 0-4.817.178-7.152.521C2.87 3.061 1.5 4.795 1.5 6.741v6.018c0 1.946 1.37 3.68 3.348 3.97.877.129 1.761.234 2.652.316V21a.75.75 0 0 0 1.28.53l4.184-4.183a.39.39 0 0 1 .266-.112c2.006-.05 3.982-.22 5.922-.506 1.978-.29 3.348-2.023 3.348-3.97V6.741c0-1.947-1.37-3.68-3.348-3.97A49.145 49.145 0 0 0 12 2.25ZM8.25 8.625a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Zm2.625 1.125a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875-1.125a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd" />
+                </svg>
+              </span>
               <h3>Need Assistance?</h3>
             </div>
 

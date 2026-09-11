@@ -125,7 +125,7 @@
     resetSteps();
 
     pipelineFilename.textContent = file.name;
-    pipelineSize.textContent = file.size ? '· ' + formatBytes(file.size) : '';
+    pipelineSize.textContent = file.size ? '- ' + formatBytes(file.size) : '';
 
     if (!file.name.toLowerCase().endsWith('.xlsx')) {
       setStepState('step-validate', 'error');
@@ -368,7 +368,7 @@
                 <span>${escapeHtml(r.row_count)}</span>
                 <span>${escapeHtml(r.uploader_name)}</span>
                 <span>${escapeHtml(r.uploaded_at)}</span>
-                <span title="${escapeHtml(r.processed_path)}">${escapeHtml(r.processed_path)}</span>
+                <span class="cell-path" title="${escapeHtml(r.processed_path)}">${escapeHtml(r.processed_path)}</span>
               </div>`).join('');
         }
 

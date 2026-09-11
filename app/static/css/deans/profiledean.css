@@ -753,12 +753,23 @@ footer{
 #passInput,
 #confirmPassInput {
     background: rgba(128, 128, 128, 0.200);
-    border: none;
+    border: 2px solid transparent;
     border-radius: 20px;
     padding: 10px 44px 10px 20px;
     width: 100%;
     box-sizing: border-box;
     outline: none;
+    font-size: 0.95rem;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+#passInput:focus,
+#confirmPassInput:focus {
+    background: rgba(128, 128, 128, 0.12);
+}
+
+#confirmPassInput {
+    margin-top: 2px;
 }
 
 /* Eye toggle button: fixed at the end of the input, inside the padding
@@ -781,6 +792,22 @@ footer{
     justify-content: center;
 }
 
+/* "Confirm Password" label sits in the same .input-group flex row as
+   "Password" — give it a fixed min-width so both rows line up instead of
+   the input shifting left/right depending on label length. */
+.input-group > label.user-text {
+    flex-shrink: 0;
+    min-width: 150px;
+}
+
+.pw-mismatch-msg {
+    display: none;
+    color: #cc0000;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-top: 6px;
+}
+
 .button-group { display: flex; gap: 12px; }
 .btn { padding: 10px 45px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer; }
 .blue { background: #800000; color: white; }
@@ -789,10 +816,12 @@ footer{
 .grey:hover { background: #89a1c6; }
 
 /* Password form Save/Back: fixed width so "Save" and "Back" render the
-   same size as each other, regardless of their text length or padding. */
+   same size as each other, regardless of their text length or padding.
+   Sized to fit inside the 400px .user-text/.password-trigger-area
+   container instead of overflowing it. */
 #savePwBtn,
 #cancelBtn {
-    width: 500px;
+    width: 250px;
     padding-left: 0;
     padding-right: 0;
     text-align: center;

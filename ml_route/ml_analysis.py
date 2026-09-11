@@ -9,6 +9,7 @@ import io
 import base64
 from flask import Blueprint, jsonify, request
 
+from database.models import UploadedDataset
 
 from configs.config import FINAL_MERGED_CSV, ML_MODEL_DIR, MODEL_DATASETS_DIR
 
@@ -69,6 +70,19 @@ def forecast_series(history_values, steps: int, y_min: float = None, y_max: floa
                        is a visual honesty signal for the chart, not a
                        hypothesis test.
 
+    FIX (2026-09-04): with only 2 real history points, this used to fall
+    into the same "too few points" branch as a single point and just
+    carry the last value forward flat — indistinguishable from "no
+    forecast at all" on charts sliced fine enough that a series often
+    only has 2 years of real data (e.g. a specific subject inside one
+    small course). 2 points is enough to fit an actual slope, so that
+    case now gets the same damped-trend treatment as 3+, just with a
+    synthetic uncertainty floor (since a line through exactly 2 points
+    has zero residual by construction, which would otherwise report a
+    falsely-confident zero-width band). Only 0 or 1 real points still
+    fall back to flat, since there's no second point to draw a slope
+    through at all.
+
     Returns: list[float] of length `steps` (return_bounds=False), or
              (values, lower, upper) — each list[float] of length `steps`
              — when return_bounds=True.
@@ -77,9 +91,10 @@ def forecast_series(history_values, steps: int, y_min: float = None, y_max: floa
 
     residual_std = 0.0
 
-    if len(clean) < 3:
-        # Too few points to fit a trend line reliably — carry the last
-        # real value forward instead of inventing a slope from 2 points.
+    if len(clean) < 2:
+        # 0 or 1 real point — there's no second point to compute a slope
+        # from, so there's nothing honest to extrapolate. Carry the last
+        # real value forward instead of inventing a trend from thin air.
         base = clean[-1] if clean else 0.0
         out = [base] * steps
     else:
@@ -88,10 +103,19 @@ def forecast_series(history_values, steps: int, y_min: float = None, y_max: floa
         last_fitted = slope * (len(clean) - 1) + intercept
 
         # How much the real history wiggles around its own trend line —
-        # this is what the uncertainty band below is built from.
+        # this is what the uncertainty band below is built from. With
+        # exactly 2 points the line passes through both exactly, so the
+        # residual is always 0 even though a 2-point trend is obviously
+        # the shakiest possible estimate — floor it at a fraction of the
+        # series' own scale (or the slope itself) instead of reporting a
+        # falsely-confident zero-width band.
         fitted_hist = slope * x + intercept
         residuals = np.array(clean) - fitted_hist
-        residual_std = float(np.std(residuals, ddof=1)) if len(residuals) > 2 else float(np.std(residuals))
+        if len(clean) > 2:
+            residual_std = float(np.std(residuals, ddof=1)) if len(residuals) > 2 else float(np.std(residuals))
+        else:
+            scale = max(abs(np.mean(clean)), 1e-6)
+            residual_std = max(abs(slope), 0.1 * scale)
 
         # Damped multi-step trend: cumulative sum of slope * phi^i,
         # added on top of the last real (fitted) value — NOT a straight
@@ -218,6 +242,23 @@ DATA_PATH = FINAL_MERGED_CSV
 MODEL_DIR = ML_MODEL_DIR
 
 print(" Loading ML Data & Models ")
+
+def _safe_int_arg(name, default):
+    """request.args.get(name, default) only falls back to `default` when
+    the key is entirely ABSENT from the query string -- if it's present
+    but blank (e.g. '?year=&semester=all', which happens whenever a
+    filter dropdown hasn't populated/selected a value yet), it returns
+    '', and int('') raises ValueError: invalid literal for int() with
+    base 10: ''. This treats blank/missing/invalid the same way: fall
+    back to `default` instead of crashing the route with a 500."""
+    raw = request.args.get(name, '')
+    if raw is None or str(raw).strip() == '':
+        return default
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
 
 def _load_data() -> pd.DataFrame:
     """
@@ -385,12 +426,6 @@ kpi_drop_features = load_model("kpi_tiles_drop_features.pkl")
 status_model = load_model("status_pie_model.pkl")
 status_features = load_model("status_pie_features.pkl")
 
-inc_model = load_model("inc_rate_chart_model.pkl")
-inc_features = load_model("inc_rate_chart_features.pkl")
-
-subj_model = load_model("hardest_subjects_chart_model.pkl")
-subj_features = load_model("hardest_subjects_chart_features.pkl")
-
 dropout_spike_model = load_model("dropout_trend_chart_model.pkl")
 dropout_spike_features = load_model("dropout_trend_chart_features.pkl")
 
@@ -411,6 +446,41 @@ female_gender_dropout_features = load_model("retention_trend_chart_female_dropou
 female_gender_inc_model = load_model("retention_trend_chart_female_inc_model.pkl")
 female_gender_inc_features = load_model("retention_trend_chart_female_inc_features.pkl")
 
+# Year-level trend models. year_level_inc_rate/irregular_rate/drop_rate
+# (auto_train.train_year_level_inc_irreg, LinearRegression as of
+# 2026-09-04) predict INC/Irregular/Drop rate directly, so
+# get_year_level_inc_irreg_forecast uses them as-is, one per metric.
+#
+# year_level_perf_* (auto_train.train_year_level_performance, RESTORED
+# 2026-09-06 as 5 INDEPENDENT LinearRegression models, one per
+# performance band) replaces the single shared-model design that was
+# removed earlier the same day for flatlining — see
+# train_year_level_performance's own docstring and
+# get_year_level_gwa_forecast's FIX comment for the full history. Each
+# band gets its own Year_Numeric coefficient this time, so
+# get_year_level_gwa_forecast's renormalize-to-100% step no longer
+# cancels out genuinely different band trends. None of these will be
+# populated until the next retrain — get_year_level_gwa_forecast falls
+# back to forecast_series() on each year level's own real GWA history
+# if any band's model isn't available yet.
+year_level_inc_rate_model = load_model("year_level_inc_rate_model.pkl")
+year_level_inc_rate_features = load_model("year_level_inc_rate_features.pkl")
+year_level_irregular_rate_model = load_model("year_level_irregular_rate_model.pkl")
+year_level_irregular_rate_features = load_model("year_level_irregular_rate_features.pkl")
+year_level_drop_rate_model = load_model("year_level_drop_rate_model.pkl")
+year_level_drop_rate_features = load_model("year_level_drop_rate_features.pkl")
+
+year_level_perf_excellent_model = load_model("year_level_perf_excellent_model.pkl")
+year_level_perf_excellent_features = load_model("year_level_perf_excellent_features.pkl")
+year_level_perf_good_model = load_model("year_level_perf_good_model.pkl")
+year_level_perf_good_features = load_model("year_level_perf_good_features.pkl")
+year_level_perf_average_model = load_model("year_level_perf_average_model.pkl")
+year_level_perf_average_features = load_model("year_level_perf_average_features.pkl")
+year_level_perf_below_average_model = load_model("year_level_perf_below_average_model.pkl")
+year_level_perf_below_average_features = load_model("year_level_perf_below_average_features.pkl")
+year_level_perf_failing_model = load_model("year_level_perf_failing_model.pkl")
+year_level_perf_failing_features = load_model("year_level_perf_failing_features.pkl")
+
 
 # ── reload_models() ──────────────────────────────────────────────────────────
 def reload_models():
@@ -423,13 +493,19 @@ def reload_models():
     global kpi_enroll_model, kpi_enroll_features
     global kpi_drop_model, kpi_drop_features
     global status_model, status_features
-    global inc_model, inc_features
-    global subj_model, subj_features
     global dropout_spike_model, dropout_spike_features
     global male_gender_dropout_model, male_gender_dropout_features
     global male_gender_inc_model, male_gender_inc_features
     global female_gender_dropout_model, female_gender_dropout_features
     global female_gender_inc_model, female_gender_inc_features
+    global year_level_inc_rate_model, year_level_inc_rate_features
+    global year_level_irregular_rate_model, year_level_irregular_rate_features
+    global year_level_drop_rate_model, year_level_drop_rate_features
+    global year_level_perf_excellent_model, year_level_perf_excellent_features
+    global year_level_perf_good_model, year_level_perf_good_features
+    global year_level_perf_average_model, year_level_perf_average_features
+    global year_level_perf_below_average_model, year_level_perf_below_average_features
+    global year_level_perf_failing_model, year_level_perf_failing_features
 
     drop_pie_model          = load_model("dropout_pie_model.pkl")
     drop_pie_features       = load_model("dropout_pie_features.pkl")
@@ -447,10 +523,6 @@ def reload_models():
     kpi_drop_features       = load_model("kpi_tiles_drop_features.pkl")
     status_model            = load_model("status_pie_model.pkl")
     status_features         = load_model("status_pie_features.pkl")
-    inc_model               = load_model("inc_rate_chart_model.pkl")
-    inc_features            = load_model("inc_rate_chart_features.pkl")
-    subj_model              = load_model("hardest_subjects_chart_model.pkl")
-    subj_features           = load_model("hardest_subjects_chart_features.pkl")
     dropout_spike_model     = load_model("dropout_trend_chart_model.pkl")
     dropout_spike_features  = load_model("dropout_trend_chart_features.pkl")
     male_gender_dropout_model    = load_model("retention_trend_chart_male_dropout_model.pkl")
@@ -461,6 +533,22 @@ def reload_models():
     female_gender_dropout_features = load_model("retention_trend_chart_female_dropout_features.pkl")
     female_gender_inc_model        = load_model("retention_trend_chart_female_inc_model.pkl")
     female_gender_inc_features     = load_model("retention_trend_chart_female_inc_features.pkl")
+    year_level_inc_rate_model         = load_model("year_level_inc_rate_model.pkl")
+    year_level_inc_rate_features      = load_model("year_level_inc_rate_features.pkl")
+    year_level_irregular_rate_model   = load_model("year_level_irregular_rate_model.pkl")
+    year_level_irregular_rate_features = load_model("year_level_irregular_rate_features.pkl")
+    year_level_drop_rate_model        = load_model("year_level_drop_rate_model.pkl")
+    year_level_drop_rate_features     = load_model("year_level_drop_rate_features.pkl")
+    year_level_perf_excellent_model      = load_model("year_level_perf_excellent_model.pkl")
+    year_level_perf_excellent_features   = load_model("year_level_perf_excellent_features.pkl")
+    year_level_perf_good_model           = load_model("year_level_perf_good_model.pkl")
+    year_level_perf_good_features        = load_model("year_level_perf_good_features.pkl")
+    year_level_perf_average_model        = load_model("year_level_perf_average_model.pkl")
+    year_level_perf_average_features     = load_model("year_level_perf_average_features.pkl")
+    year_level_perf_below_average_model    = load_model("year_level_perf_below_average_model.pkl")
+    year_level_perf_below_average_features = load_model("year_level_perf_below_average_features.pkl")
+    year_level_perf_failing_model        = load_model("year_level_perf_failing_model.pkl")
+    year_level_perf_failing_features     = load_model("year_level_perf_failing_features.pkl")
     print("[reload_models] All models reloaded from", MODEL_DIR)
     reload_data()
 
@@ -479,8 +567,7 @@ def api_reload_models():
                       "dropout_pie_model.pkl", "gwa_ranking_chart_model.pkl",
                       "college_ranking_chart_model.pkl", "gwa_trend_chart_model.pkl",
                       "kpi_tiles_gwa_model.pkl", "kpi_tiles_enrollment_model.pkl", "kpi_tiles_drop_model.pkl",
-                      "status_pie_model.pkl", "inc_rate_chart_model.pkl",
-                      "hardest_subjects_chart_model.pkl", "dropout_trend_chart_model.pkl",
+                      "status_pie_model.pkl", "dropout_trend_chart_model.pkl",
                       "retention_trend_chart_male_dropout_model.pkl",
                       "retention_trend_chart_female_dropout_model.pkl",
                   ]}
@@ -496,7 +583,7 @@ def get_dropout_pie():
     try:
 
         #  INPUTS ─
-        year = int(request.args.get('year', 2024))
+        year = _safe_int_arg('year', 2024)
         college_arg = request.args.get('college', 'all').strip()
         semester = request.args.get('semester', 'all').strip()
 
@@ -764,14 +851,14 @@ def get_year_semester_options():
 
     Behavior the frontend uses this for:
       - Default YEAR = the most recent year that has any real data.
-      - Default SEMESTER for that year:
-          * Only 1st Sem uploaded so far  -> default to "1st Sem"
-          * Only 2nd Sem uploaded so far  -> default to "2nd Sem"
-          * BOTH semesters uploaded       -> default to "All Semesters"
-        This way, right after a single semester is uploaded the dashboard
-        shows exactly that fresh partial data, and once the second
-        semester for the same year comes in it automatically switches to
-        showing the full year.
+      - Default SEMESTER for that year: whichever semester was actually
+        uploaded most recently, per UploadedDataset.uploaded_at (falls
+        back to "2nd Sem" if that lookup can't find a matching upload
+        record). This way, right after a single semester is uploaded the
+        dashboard shows exactly that fresh partial data, and once the
+        second semester for the same year comes in it automatically
+        switches to showing that newer semester — even if it's 1st Sem
+        being re-uploaded after 2nd Sem was already in.
     """
     try:
         df = df_full_loaded.copy()
@@ -799,14 +886,49 @@ def get_year_semester_options():
         has_1st = any('1' in s for s in sem_raw)
         has_2nd = any('2' in s for s in sem_raw)
 
-        if has_1st and has_2nd:
-            default_semester = 'all'
-        elif has_1st:
-            default_semester = '1sem'
-        elif has_2nd:
-            default_semester = '2sem'
-        else:
-            default_semester = 'all'
+        # The Semester filter no longer offers an "All Semesters" option
+        # (2026-09-09), so this can never return 'all' anymore — it always
+        # names one real semester the dashboard should default to.
+        #
+        # Prefer the actual upload timestamp over guessing: query the
+        # UploadedDataset table (the same table upload_routes.py writes
+        # to on every upload) for the most recently uploaded,
+        # successfully-processed dataset belonging to the latest year,
+        # and use ITS semester. This is exact, unlike assuming "2nd Sem
+        # must be newer" — a college can and does re-upload/correct 1st
+        # Sem data after 2nd Sem was already in.
+        default_semester = None
+        try:
+            latest_upload = (
+                UploadedDataset.query
+                .filter_by(status='done')
+                .filter(UploadedDataset.academic_year == f"{latest_year}-{latest_year + 1}")
+                .order_by(UploadedDataset.uploaded_at.desc())
+                .first()
+            )
+            if latest_upload and latest_upload.semester in ('1sem', '2sem'):
+                default_semester = latest_upload.semester
+        except Exception:
+            # DB unreachable from this blueprint, no matching row, schema
+            # drifted, etc. — fall back to the heuristic below rather
+            # than 500ing the whole dashboard over a "which semester
+            # defaults first" nicety.
+            default_semester = None
+
+        if default_semester is None:
+            # Fallback when the DB lookup above couldn't resolve anything
+            # (e.g. a manually-placed CSV with no matching UploadedDataset
+            # row). 2nd Sem always comes after 1st Sem within a school
+            # year, so if both are present in the data it's the one most
+            # plausibly uploaded last in normal chronological order.
+            if has_1st and has_2nd:
+                default_semester = '2sem'
+            elif has_1st:
+                default_semester = '1sem'
+            elif has_2nd:
+                default_semester = '2sem'
+            else:
+                default_semester = '1sem'
 
         # Forecast years come from the same horizon used everywhere else,
         # so the dropdown's "future" options always match what the models
@@ -830,7 +952,7 @@ def get_dropout_ranking():
     try:
 
         # 1. INPUTS
-        year = int(request.args.get('year', 2024))
+        year = _safe_int_arg('year', 2024)
         semester_arg = request.args.get('semester', 'all').strip()
 
         # 2. MODE
@@ -1092,11 +1214,111 @@ def get_gwa_scatter():
 
 
 # KPI METRICS (Actual vs Predicted)
+_KPI_TREND_POINTS = 5
+
+
+def _kpi_step_period_back(yr, sem_numeric):
+    """Returns (year, sem_numeric) for the period immediately BEFORE the
+    given one. sem_numeric is 1, 2, or None (whole-year granularity —
+    an 'All Semesters' KPI view steps back a full year at a time, a
+    single-semester view steps back one semester at a time)."""
+    if sem_numeric is None:
+        return yr - 1, None
+    if sem_numeric == 1:
+        return yr - 1, 2
+    return yr, 1
+
+
+def _kpi_period_value(scope, yr, sem_numeric):
+    """Real historical students/gwa/drop for one period — never a
+    forecast. Only ever called walking BACKWARD from the current target
+    period, and KPI Prediction mode only ever targets one semester ahead
+    (see _computeNextKpiTarget in mode-toggle.js), so every period this
+    walks back to is guaranteed to already be real, uploaded data.
+    Returns None if that period has no rows at all (e.g. walked back
+    further than any data exists)."""
+    df_scope = apply_scope_filter(df_full_loaded, scope)
+    df_scope = df_scope[df_scope['Year_Numeric'] == yr]
+    if sem_numeric is not None:
+        df_scope = df_scope[df_scope['Sem_Numeric'] == sem_numeric]
+    if df_scope.empty:
+        return None
+    students = int(df_scope['Student_ID'].nunique())
+    gwa = round(df_scope['GWA'].mean(), 2)
+    drop = int(df_scope.groupby('Student_ID')['is_drop'].max().sum()) if 'is_drop' in df_scope.columns else 0
+    return {"students": students, "gwa": gwa, "drop": drop}
+
+
+def _kpi_pct_change(series):
+    """% change from the second-to-last point to the last point. None if
+    there aren't at least 2 points, or the earlier one is 0 (nothing to
+    divide by, and a % change off zero is meaningless anyway)."""
+    if len(series) < 2 or not series[-2]:
+        return None
+    return round((series[-1] - series[-2]) / series[-2] * 100, 1)
+
+
+
+def _college_enrollment_forecast(college_code, target_year, current_year, sem_numeric=None):
+    """Real per-year(-semester) headcount for one college, extrapolated
+    with the same damped/bounded forecast_series() every other chart
+    uses, instead of trusting kpi_enroll_model's raw straight-line
+    extrapolation.
+
+    kpi_enroll_model is a plain LinearRegression over Year_Numeric (see
+    train_kpi) with no damping and no ceiling -- fine 1 year out, but
+    several years out the same undamped-slope problem forecast_series'
+    own docstring describes ("goes straight upward... implausible") shows
+    up here too, and because this number gets SUMMED across every college
+    for the 'all' scope, one runaway college can turn a normal headcount
+    into "millions of students" while a neighboring forecast year swings
+    back down -- exactly the instability reported on this KPI tile.
+    Bounding+damping each college's own real history the same way the
+    trend charts already do keeps the tile in a believable range.
+
+    FIX (2026-09-06): sem_numeric added. This used to always group real
+    history by Year_Numeric alone regardless of which semester was being
+    predicted, so a Prediction-mode request for a SINGLE semester still
+    forecasted (and returned) that college's WHOLE-YEAR unique headcount
+    -- roughly double a real single semester's enrolled count, while the
+    Recent-mode equivalent correctly narrows to just that semester's
+    students first. Pass sem_numeric (1 or 2) to forecast that specific
+    semester's own year-over-year headcount trend instead; sem_numeric=
+    None keeps the original whole-year behavior for an 'all semesters'
+    request, where deduplicating across both semesters into one number
+    is the actually-correct behavior.
+    """
+    rows = df_full_loaded[
+        df_full_loaded['College'].astype(str).str.strip().str.upper() == str(college_code).upper()
+    ]
+    if sem_numeric is not None and 'Sem_Numeric' in rows.columns:
+        rows = rows[rows['Sem_Numeric'] == sem_numeric]
+    yearly = (
+        rows[rows['Year_Numeric'] <= current_year]
+        .groupby('Year_Numeric')['Student_ID'].nunique()
+        .sort_index()
+    )
+    if yearly.empty:
+        return None
+
+    hist_values = [float(v) for v in yearly.tolist()]
+    steps_out = target_year - int(yearly.index.max())
+    if steps_out <= 0:
+        return hist_values[-1]
+
+    # Ceiling: 3x this college's largest real headcount on record -- room
+    # for genuine growth, but rules out an extrapolation blowing past
+    # anything the actual enrollment history could plausibly support.
+    y_max = max(hist_values) * 3
+    forecast_vals = forecast_series(hist_values, steps_out, y_min=0, y_max=y_max)
+    return forecast_vals[-1]
+
+
 @ml_bp.route('/api/get_kpi_metrics')
 def get_kpi_metrics():
     try:
         # Parse Inputs
-        year = int(request.args.get('year', 2024))
+        year = _safe_int_arg('year', 2024)
         semester = request.args.get('semester', 'all')
         college = request.args.get('college', 'all')
         
@@ -1130,7 +1352,11 @@ def get_kpi_metrics():
                 df_scope = df_scope[df_scope['Sem_Numeric'] == sem_val]
 
             if df_scope.empty:
-                return jsonify({"students": 0, "gwa": 0, "drop": 0, "is_prediction": False})
+                return jsonify({
+                    "students": 0, "gwa": 0, "drop": 0, "is_prediction": False,
+                    "trend": {"students": [], "gwa": [], "drop": []},
+                    "pct_change": {"students": None, "gwa": None, "drop": None},
+                })
             
             total_students = int(df_scope['Student_ID'].nunique())
             avg_gwa = round(df_scope['GWA'].mean(), 2)
@@ -1186,18 +1412,44 @@ def get_kpi_metrics():
             gwa_accum = []
             total_drops_accum = 0
 
+            # Same 'all'/'1'/'2' parsing sem_loop below already uses for
+            # GWA — reused here (2026-09-06) so enrollment forecasts THAT
+            # semester's own headcount trend instead of always forecasting
+            # the whole year regardless of what was actually requested.
+            # None means 'all semesters', which keeps the original
+            # whole-year-deduplicated behavior — that IS the correct
+            # number for an 'all' request, just not for a single semester.
+            sem_for_enrollment = None if semester == 'all' else (1 if '1' in semester else 2)
+
             for col_name in colleges_to_process:
-                # A. Predict Enrollment
-                # Build Feature Vector
-                X_enroll = pd.DataFrame(np.zeros((1, len(kpi_enroll_features))), columns=kpi_enroll_features)
-                X_enroll['Year_Numeric'] = year
-                
-                # Set College Bit
+                # A. Predict Enrollment — damped/bounded from this
+                # college's own real history for the REQUESTED semester
+                # (see _college_enrollment_forecast above), not a raw
+                # straight-line model extrapolation, and not silently a
+                # whole-year total when only one semester was asked for.
+                pred_count_f = _college_enrollment_forecast(col_name, year, CURRENT_YEAR, sem_for_enrollment)
+                if pred_count_f is None:
+                    # No real history at all for this college/semester --
+                    # only real fallback left is the trained model for a
+                    # single point. kpi_enroll_model has no Sem_Numeric
+                    # feature at all (trained on whole-year totals only),
+                    # so it can only ever produce a whole-year number --
+                    # halve it as a rough single-semester approximation
+                    # rather than silently showing the whole year's count.
+                    X_enroll = pd.DataFrame(np.zeros((1, len(kpi_enroll_features))), columns=kpi_enroll_features)
+                    X_enroll['Year_Numeric'] = year
+                    col_feat = f"College_{col_name}"
+                    if col_feat in kpi_enroll_features:
+                        X_enroll[col_feat] = 1
+                    try:
+                        pred_count_f = max(0.0, float(kpi_enroll_model.predict(X_enroll)[0]))
+                        if sem_for_enrollment is not None:
+                            pred_count_f /= 2.0
+                    except Exception:
+                        pred_count_f = 0.0
+
                 col_feat = f"College_{col_name}"
-                if col_feat in kpi_enroll_features:
-                    X_enroll[col_feat] = 1
-                
-                pred_count = int(kpi_enroll_model.predict(X_enroll)[0])
+                pred_count = int(round(pred_count_f))
                 if scope["type"] == "course":
                     pred_count = int(round(pred_count * course_share))
                 total_students_accum += max(0, pred_count) # Add to total
@@ -1215,6 +1467,7 @@ def get_kpi_metrics():
                         X_gwa[col_feat] = 1
                     
                     pred_grade = float(kpi_gwa_model.predict(X_gwa)[0])
+                    pred_grade = max(1.0, min(5.0, pred_grade))
                     gwa_accum.append(pred_grade)
 
                 # C. Predict Total Drop — dedicated model (kpi_drop_model),
@@ -1237,6 +1490,9 @@ def get_kpi_metrics():
 
                         try:
                             pred_drop = max(0.0, float(kpi_drop_model.predict(X_drop)[0]))
+                            # Can't have more drops than students -- same
+                            # runaway-extrapolation risk as enrollment above.
+                            pred_drop = min(pred_drop, pred_count_f)
                         except Exception:
                             pred_drop = 0.0
 
@@ -1249,12 +1505,44 @@ def get_kpi_metrics():
             avg_gwa = round(sum(gwa_accum) / len(gwa_accum), 2) if gwa_accum else 0
             total_drops = int(round(total_drops_accum))
 
+        # TREND (2026-09-06): short chronological series (up to
+        # _KPI_TREND_POINTS) ending at the CURRENT target period, for the
+        # KPI cards' mini sparkline + %-change-vs-previous-period badge.
+        # Every period walked back to here is guaranteed real/historical
+        # data, even when the CURRENT period itself is a prediction —
+        # Prediction mode only ever targets one semester ahead (see
+        # _computeNextKpiTarget in mode-toggle.js), so there's never a
+        # second forecasted point to chain off of.
+        sem_numeric = None if semester == 'all' else (1 if '1' in semester else 2)
+        periods = [{"students": total_students, "gwa": avg_gwa, "drop": total_drops}]
+        cy, cs = year, sem_numeric
+        for _ in range(_KPI_TREND_POINTS - 1):
+            cy, cs = _kpi_step_period_back(cy, cs)
+            prior = _kpi_period_value(scope, cy, cs)
+            if prior is None:
+                break
+            periods.append(prior)
+        periods.reverse()  # oldest -> newest (current period last)
+
+        trend = {
+            "students": [p["students"] for p in periods],
+            "gwa":      [p["gwa"] for p in periods],
+            "drop":     [p["drop"] for p in periods],
+        }
+        pct_change = {
+            "students": _kpi_pct_change(trend["students"]),
+            "gwa":      _kpi_pct_change(trend["gwa"]),
+            "drop":     _kpi_pct_change(trend["drop"]),
+        }
+
         return jsonify({
             "students": total_students,
             "gwa": avg_gwa,
             "drop": total_drops,
             "is_prediction": is_prediction,
-            "year": year
+            "year": year,
+            "trend": trend,
+            "pct_change": pct_change,
         })
 
     except Exception as e:
@@ -1276,7 +1564,7 @@ def get_kpi_metrics():
 def get_status_distribution():
     try:
         # Inputs
-        year = int(request.args.get('year', 2024))
+        year = _safe_int_arg('year', 2024)
         semester = request.args.get('semester', 'all')
         college = request.args.get('college', 'all')
 
@@ -1411,6 +1699,24 @@ def get_inc_forecast():
             global_forecast_years = [int(y.split('-')[0]) for y in _hs.get('prediction_years', [])]
         except Exception:
             global_forecast_years = []
+
+        # INC Rate Forecast (Incomplete Grades) spans 3 forecast years,
+        # independent of the shared horizon every other chart uses.
+        # compute_horizon() caps the shared horizon based on how many full
+        # school years have been uploaded so far, which is often fewer
+        # than 3 early on — this chart specifically wants the full 3
+        # regardless. Anchored on the same starting year as the shared
+        # horizon (or the year right after the latest real data if the
+        # shared horizon isn't available yet) so it still lines up with
+        # every other forecast chart's first predicted year.
+        _INC_FORECAST_YEARS = 3
+        if global_forecast_years:
+            _inc_start_year = global_forecast_years[0]
+        elif 'Year_Numeric' in df_full_loaded.columns and not df_full_loaded.empty:
+            _inc_start_year = int(df_full_loaded['Year_Numeric'].max()) + 1
+        else:
+            _inc_start_year = 2025
+        global_forecast_years = [_inc_start_year + i for i in range(_INC_FORECAST_YEARS)]
 
         df_base = df_full_loaded.copy()
 
@@ -1669,8 +1975,10 @@ def get_hardest_subjects_by_course():
     /api/training-state (training_state.json's 'horizon' block) — so as
     more years get trained, this chart's prediction years automatically
     grow too, exactly like the global year filter (yearUpdate.js) does.
-    The forecast values themselves reuse subj_model (Subject + College
-    level — there's no Course-level model). In per-course mode, each
+    The forecast values themselves come from forecast_series() applied
+    directly to each subject's own grade history (subj_model/hardest_
+    subjects_chart_model.pkl was removed 2026-09-06 — see the FIX
+    comment further down for why). In per-course mode, each
     course's line still starts its forecast from THAT course's own last
     real data point (but uses its parent college for the College_
     feature) so the projected trend stays anchored to what that course
@@ -1963,7 +2271,7 @@ def get_dropout_spike():
 def get_status_pie():
     try:
         # 1. INPUTS
-        year = int(request.args.get('year', 2024))
+        year = _safe_int_arg('year', 2024)
         college_arg = request.args.get('college', 'all').strip()
         semester_arg = request.args.get('semester', 'all').strip()
 
@@ -2383,7 +2691,7 @@ def get_status_by_course():
     per-course forecast model.
     """
     try:
-        year = int(request.args.get('year', get_latest_real_year()))
+        year = _safe_int_arg('year', get_latest_real_year())
         college_arg = request.args.get('college', 'all').strip()
         semester_arg = request.args.get('semester', 'all').strip()
 
@@ -2491,12 +2799,12 @@ def get_year_level_distribution():
     """
     try:
         latest_real_year = get_latest_real_year()
-        year = int(request.args.get('year', latest_real_year))
+        year = _safe_int_arg('year', latest_real_year)
         is_forecast = year > latest_real_year
         college_arg = request.args.get('college', 'all').strip()
         semester_arg = request.args.get('semester', 'all').strip()
 
-        yl_csv_path = os.path.join(MODEL_DATASETS_DIR, "13_year_level_performance_unused_year_level_chart.csv")
+        yl_csv_path = os.path.join(MODEL_DATASETS_DIR, "13_year_level_performance.csv")
         if not os.path.exists(yl_csv_path):
             return jsonify({"error": "Year-level dataset not found. Upload a dataset to generate it."}), 200
 
@@ -2796,7 +3104,7 @@ def get_year_level_inc_irreg():
     HIGHER behavioral irregularity rate than regular-year students).
     """
     try:
-        year = int(request.args.get('year', get_latest_real_year()))
+        year = _safe_int_arg('year', get_latest_real_year())
         college_arg = request.args.get('college', 'all').strip()
         semester_arg = request.args.get('semester', 'all').strip()
         # Which single metric to break down by College/Course when a
@@ -2807,7 +3115,7 @@ def get_year_level_inc_irreg():
         # in the UI to flip between INC / Irregular / Drop.
         metric_arg = request.args.get('metric', 'inc').strip().lower()
 
-        csv_path = os.path.join(MODEL_DATASETS_DIR, "14_year_level_inc_irreg_unused_year_level_heatmap.csv")
+        csv_path = os.path.join(MODEL_DATASETS_DIR, "14_year_level_inc_irreg.csv")
         if not os.path.exists(csv_path):
             return jsonify({"error": "Year-level INC/Irregular dataset not found. Upload a dataset to generate it."}), 200
 
@@ -2967,12 +3275,16 @@ def get_course_year_level_heatmap():
     """
     Dropout/At-Risk Rate HEATMAP: rows = COURSE/PROGRAM, columns = YEAR
     LEVEL, each cell = that course's dropout rate at that year level (%).
-    This is the same Total_Students / Drop_Count numbers
-    get_year_level_inc_irreg() already reads from
-    model_datasets/14_year_level_inc_irreg.csv — just pivoted into a
-    full Course x Year_Level grid instead of collapsed into one bar per
-    level, so a dean/admin can spot exactly which program AND which
-    cohort year is driving risk, not just which year level overall.
+
+    Backed by its own dataset, model_datasets/16_course_year_level_dropout.csv
+    (split off from 14 on 2026-09-04) — it no longer shares a file or a
+    trained model's eval with get_year_level_inc_irreg()'s INC/Irregular/
+    Drop chart, so a fit-quality issue on one no longer silently sits
+    behind the other's "accuracy" number. Same underlying Total_Students /
+    Drop_Count signal, kept at full Course x Year_Level grid instead of
+    collapsed into one bar per level, so a dean/admin can spot exactly
+    which program AND which cohort year is driving risk, not just which
+    year level overall. This chart is real-data only (no prediction mode).
 
     `college=` follows the same single "Department - Course" scope used
     everywhere else in this file:
@@ -2985,13 +3297,13 @@ def get_course_year_level_heatmap():
         sibling course still shows instead of a one-row heatmap.
     """
     try:
-        year = int(request.args.get('year', get_latest_real_year()))
+        year = _safe_int_arg('year', get_latest_real_year())
         college_arg = request.args.get('college', 'all').strip()
         semester_arg = request.args.get('semester', 'all').strip()
 
-        csv_path = os.path.join(MODEL_DATASETS_DIR, "14_year_level_inc_irreg_unused_year_level_heatmap.csv")
+        csv_path = os.path.join(MODEL_DATASETS_DIR, "16_course_year_level_dropout.csv")
         if not os.path.exists(csv_path):
-            return jsonify({"error": "Year-level dataset not found. Upload a dataset to generate it."}), 200
+            return jsonify({"error": "Course/Year-level dropout dataset not found. Upload a dataset to generate it."}), 200
 
         df_scope = pd.read_csv(csv_path)
         if df_scope.empty:
@@ -3096,6 +3408,89 @@ def _forecast_horizon():
     return latest, years_pred
 
 
+def _set_scope_features(X_pred, features, yl_scope):
+    """Flip the College_*/Course_* one-hot column(s) matching this scope,
+    same substring-match convention gwa_trend_model's forecast block uses.
+    No-op (all-zero = 'all colleges') when yl_scope has no course/college."""
+    for term in (yl_scope.get("course_name"), yl_scope.get("feature_college")):
+        if not term:
+            continue
+        for col in features:
+            if (col.startswith("College_") or col.startswith("Course_")) and term.upper() in col.upper():
+                X_pred[col] = 1
+                break
+
+
+# Band midpoints on the 1.0-5.0 GWA scale, matching preprocess.py's
+# perf_band() cutoffs (<=1.5, <=2.0, <=2.5, <=3.0, >3.0). "Failing" has no
+# real upper bound in the data, so 3.25 is a stand-in point estimate (the
+# next 0.5 step), not a measured midpoint like the other four.
+_PERF_BAND_MIDPOINT = {
+    "Excellent": 1.25, "Good": 1.75, "Average": 2.25,
+    "Below Average": 2.75, "Failing": 3.25,
+}
+
+# One lambda-getter per band, same pattern _YEAR_LEVEL_INC_IRREG_MODELS
+# uses below — reads the CURRENT global at call time, so a
+# reload_models() mid-session is picked up instead of a stale reference
+# captured once at import time.
+_YEAR_LEVEL_PERF_MODELS = {
+    "Excellent":      lambda: (year_level_perf_excellent_model, year_level_perf_excellent_features),
+    "Good":           lambda: (year_level_perf_good_model, year_level_perf_good_features),
+    "Average":        lambda: (year_level_perf_average_model, year_level_perf_average_features),
+    "Below Average":  lambda: (year_level_perf_below_average_model, year_level_perf_below_average_features),
+    "Failing":        lambda: (year_level_perf_failing_model, year_level_perf_failing_features),
+}
+
+
+def _predict_yl_gwa(lv_num, yr, yl_scope):
+    """Weighted-average GWA for one (year level, year), derived from 5
+    INDEPENDENT per-band LinearRegression models' predicted % share
+    (year_level_perf_*) rather than a direct GWA target — none of them
+    were trained on GWA itself, each predicts its own band's % share.
+    Predictions are normalized to sum to 100% first since the 5 models
+    were fit separately and won't naturally add up.
+
+    FIXED VERSION (2026-09-06) of a function with the same name that
+    used to call ONE shared model with a Band_X dummy feature — that
+    design was removed the same day for flatlining (see
+    get_year_level_gwa_forecast's own FIX comment for the full
+    writeup). This version calls a genuinely separate model per band,
+    so each one contributes its own real Year_Numeric coefficient
+    instead of all 5 sharing one.
+
+    Returns None if ANY band's model isn't loaded yet (caller falls back
+    to forecast_series() in that case) — a partial band mix would silently
+    under- or over-estimate every other band once renormalized to 100%.
+    """
+    band_pcts = {}
+    for band, midpoint in _PERF_BAND_MIDPOINT.items():
+        model, features = _YEAR_LEVEL_PERF_MODELS[band]()
+        if model is None or features is None:
+            return None
+
+        X_pred = pd.DataFrame(0, index=[0], columns=features)
+        X_pred['Year_Level_Num'] = lv_num
+        X_pred['Year_Numeric']   = yr
+        X_pred['Sem_Numeric']    = 1.5  # whole-year avg, same convention gwa_trend_model uses
+
+        _set_scope_features(X_pred, features, yl_scope)
+
+        try:
+            expected = getattr(model, "feature_names_in_", None)
+            if expected is not None and list(expected) != list(X_pred.columns):
+                X_pred = X_pred.reindex(columns=list(expected), fill_value=0)
+            band_pcts[band] = max(0.0, float(model.predict(X_pred)[0]))
+        except Exception as e:
+            print(f"Year Level GWA band predict() error ({band}): {e}")
+            return None
+
+    total = sum(band_pcts.values())
+    if total <= 0:
+        return None
+    return sum((pct / total) * _PERF_BAND_MIDPOINT[band] for band, pct in band_pcts.items())
+
+
 @ml_bp.route('/api/get_year_level_gwa_forecast')
 def get_year_level_gwa_forecast():
     """
@@ -3110,6 +3505,13 @@ def get_year_level_gwa_forecast():
     Built directly off df_full_loaded (not a pre-aggregated CSV) because
     this needs one row per (Year_Level, Year_Numeric) computed fresh —
     same architecture as get_inc_forecast's per-group helpers.
+
+    Forecast years prefer _predict_yl_gwa()'s 5-independent-per-band
+    model prediction (see that function's own docstring for why this
+    replaced an earlier, since-removed shared-model design), falling
+    back to forecast_series()'s direct damped-trend extrapolation on
+    each year level's own real GWA history if any band's model isn't
+    trained yet.
     """
     try:
         college_arg = request.args.get('college', 'all').strip()
@@ -3133,6 +3535,9 @@ def get_year_level_gwa_forecast():
 
         for lv in groups:
             lv_rows = df_scope[df_scope['Year_Level'] == lv]
+            lv_num_series = lv_rows['Year_Level_Num'].dropna()
+            lv_num = float(lv_num_series.iloc[0]) if not lv_num_series.empty else 0
+
             overall_avg = lv_rows['GWA'].mean()
             data_points = []
 
@@ -3143,7 +3548,44 @@ def get_year_level_gwa_forecast():
                                     (round(float(overall_avg), 2) if pd.notna(overall_avg) else 2.5))
 
             if years_pred:
-                data_points.extend(forecast_series(data_points, len(years_pred), y_min=1.0, y_max=5.0))
+                # FIX (2026-09-06): year_level_performance_model used to
+                # be ONE shared LinearRegression across all 5 performance
+                # bands (a Band_X dummy flag said which band was being
+                # predicted, not 5 separate models) — so Year_Numeric had
+                # exactly one coefficient, applied identically no matter
+                # which band was asked for. Every band's raw prediction
+                # shifted by almost the same amount each year, and the
+                # old band-mix-to-GWA collapse step then re-normalized
+                # all 5 bands to sum to 100%, which canceled nearly all
+                # of that shared shift back out. Verified directly
+                # against the trained model: GWA moved from 1.955 (2022)
+                # to only 1.902 by 2034 — a real trend, but ~0.004/year,
+                # indistinguishable from flat over a 3-year forecast
+                # window. That model was removed entirely, and this chart
+                # ran on forecast_series() alone for a while.
+                #
+                # RESTORED (same day) as 5 INDEPENDENT per-band models
+                # instead (year_level_perf_*, see _predict_yl_gwa above) —
+                # each band now has its OWN Year_Numeric coefficient, so
+                # the renormalize-to-100% step no longer erases the trend.
+                # Tries the model path first; falls back to
+                # forecast_series() on this year level's own real GWA
+                # history if any band's model isn't trained yet (e.g.
+                # right after this fix is deployed, before the next
+                # retrain) — same safety net Hardest Subjects and INC
+                # Forecast already rely on.
+                model_points = []
+                for yr in years_pred:
+                    pred_gwa = _predict_yl_gwa(lv_num, yr, yl_scope)
+                    if pred_gwa is None:
+                        model_points = None
+                        break
+                    model_points.append(round(max(1.0, min(5.0, pred_gwa)), 2))
+
+                if model_points is not None:
+                    data_points.extend(model_points)
+                else:
+                    data_points.extend(forecast_series(data_points, len(years_pred), y_min=1.0, y_max=5.0))
 
             datasets.append({"label": lv, "data": data_points})
 
@@ -3154,7 +3596,41 @@ def get_year_level_gwa_forecast():
         return jsonify({"error": str(e)}), 500
 
 
+def _safe_predict_pct(model, X_pred, fallback):
+    """model.predict() wrapped so one bad prediction (exception, NaN, inf --
+    any of which would either 500 the endpoint or produce invalid JSON that
+    fetch().json() rejects client-side, looking identical to 'doesn't load')
+    can't take down the whole forecast response. Falls back to the last
+    known value instead.
+
+    Also re-aligns X_pred to the model's OWN recorded training columns
+    (sklearn stores this as feature_names_in_ when fit on a DataFrame) if
+    that differs from the features.pkl we loaded X_pred's columns from --
+    guards against a stale/out-of-sync features file left over from an
+    earlier training run silently causing every prediction for that
+    metric to fail.
+    """
+    try:
+        expected = getattr(model, "feature_names_in_", None)
+        if expected is not None and list(expected) != list(X_pred.columns):
+            X_pred = X_pred.reindex(columns=list(expected), fill_value=0)
+        val = float(model.predict(X_pred)[0])
+        if not np.isfinite(val):
+            return fallback
+        return max(0.0, min(100.0, val))
+    except Exception as e:
+        print(f"Year Level forecast predict() error: {e}")
+        return fallback
+
+
 #  YEAR-LEVEL INC/IRREGULAR/DROP FORECAST (Prediction mode for the grouped-bar chart)
+_YEAR_LEVEL_INC_IRREG_MODELS = {
+    "inc":       lambda: (year_level_inc_rate_model, year_level_inc_rate_features),
+    "irregular": lambda: (year_level_irregular_rate_model, year_level_irregular_rate_features),
+    "drop":      lambda: (year_level_drop_rate_model, year_level_drop_rate_features),
+}
+
+
 @ml_bp.route('/api/get_year_level_inc_irreg_forecast')
 def get_year_level_inc_irreg_forecast():
     """
@@ -3164,6 +3640,11 @@ def get_year_level_inc_irreg_forecast():
     lines on one chart would be unreadable. One line per year level for
     the chosen metric, same history+dashed-forecast-tail shape as
     get_year_level_gwa_forecast above.
+
+    Forecast years use the matching trained model (year_level_inc_rate /
+    _irregular_rate / _drop_rate_model — see auto_train.train_year_level_
+    inc_irreg) when available; falls back to forecast_series() if that
+    metric's model hasn't been trained yet.
     """
     try:
         college_arg = request.args.get('college', 'all').strip()
@@ -3190,8 +3671,13 @@ def get_year_level_inc_irreg_forecast():
         groups = _year_level_groups_present(df_scope)
         datasets = []
 
+        model, features = _YEAR_LEVEL_INC_IRREG_MODELS.get(metric, _YEAR_LEVEL_INC_IRREG_MODELS["inc"])()
+
         for lv in groups:
             lv_rows = df_scope[df_scope['Year_Level'] == lv]
+            lv_num_series = lv_rows['Year_Level_Num'].dropna()
+            lv_num = float(lv_num_series.iloc[0]) if not lv_num_series.empty else 0
+
             data_points = []
 
             for y in years_hist:
@@ -3204,7 +3690,21 @@ def get_year_level_inc_irreg_forecast():
                     data_points.append(0.0)
 
             if years_pred:
-                data_points.extend(forecast_series(data_points, len(years_pred), y_min=0, y_max=100))
+                if model is not None and features is not None:
+                    for yr in years_pred:
+                        X_pred = pd.DataFrame(0, index=[0], columns=features)
+                        X_pred['Year_Level_Num'] = lv_num
+                        X_pred['Year_Numeric']   = yr
+                        X_pred['Sem_Numeric']    = 1.5  # whole-year avg, same convention gwa_trend_model uses
+
+                        _set_scope_features(X_pred, features, yl_scope)
+
+                        fallback = data_points[-1] if data_points else 0.0
+                        pred_val = _safe_predict_pct(model, X_pred, fallback)
+                        data_points.append(round(pred_val, 2))
+                else:
+                    # Model missing (e.g. too-few-rows skip) — fall back so the chart still renders
+                    data_points.extend(forecast_series(data_points, len(years_pred), y_min=0, y_max=100))
 
             datasets.append({"label": lv, "data": data_points})
 
@@ -3262,7 +3762,7 @@ def get_gender_status_breakdown():
     Year only, no Course grain, so there's no per-course model to call.
     """
     try:
-        year = int(request.args.get('year', get_latest_real_year()))
+        year = _safe_int_arg('year', get_latest_real_year())
         college_arg = request.args.get('college', 'all').strip()
         semester_arg = request.args.get('semester', 'all').strip()
 

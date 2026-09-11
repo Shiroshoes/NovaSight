@@ -608,42 +608,6 @@ def train_gwa_trend(df_path: str) -> dict:
     return {"status": "ok", **_reg_metrics(y, y_pred)}
 
 
-def train_inc_forecast(df_path: str) -> dict:
-    """RandomForestRegressor — INC rate per college over time.
-
-    Powers: /api/get_inc_forecast -> "INC Rate Forecast (Incomplete Grades)" chart.
-
-    Restricted-candidate model_comparison.py run shows RandomForestRegressor
-    as the technical "winner" here, but at R^2=0.2762 with a fold std of
-    0.83 (UNRELIABLE) — down sharply from Ridge's R^2=0.883, which was the
-    strongest result of all 12 datasets in the original unrestricted run.
-    This is the single biggest real loss from restricting the candidate
-    pool. Note: the live chart itself uses forecast_series() in
-    ml_analysis.py (per-college/per-course linear fit computed on the fly)
-    for the actual dashboard forecast, which sidesteps the earlier bug
-    where course-level requests had no matching Course_ dummy in this
-    model's feature set — so this weaker .pkl doesn't reach students
-    directly either.
-    """
-    _log("Training inc_forecast model …")
-    df = pd.read_csv(df_path)
-
-    if len(df) < 3:
-        return {"status": "skipped", "reason": "too few cohort points"}
-
-    X = pd.get_dummies(df[["College"]], prefix="College")
-    X["Year_Numeric"] = df["Year_Numeric"]
-    y = df["INC_Rate"]
-
-    model = RandomForestRegressor(n_estimators=200, max_depth=6, random_state=42)
-    model.fit(X, y)
-    y_pred = model.predict(X)
-
-    _save(model,              "inc_rate_chart_model.pkl")
-    _save(X.columns.tolist(), "inc_rate_chart_features.pkl")
-    return {"status": "ok", **_reg_metrics(y, y_pred)}
-
-
 def train_irreg_reg(df_path: str) -> dict:
     """RandomForestClassifier — per-student behaviorally-Irregular flag.
 
@@ -797,46 +761,6 @@ def train_kpi(gwa_path: str, enroll_path: str, drop_path: str = None) -> dict:
     return results
 
 
-def train_subject_top(df_path: str) -> dict:
-    """LinearRegression — subject grade forecast.
-
-    Powers: /api/get_subject_forecast, /api/get_hardest_subjects_by_course
-    -> "Top 5 Hardest Subjects" line charts.
-
-    Restricted-candidate model_comparison.py run shows LinearRegression
-    winning at R^2=0.1082 — down from Ridge's 0.2622, the cost of
-    dropping Ridge from the pool. Still meaningfully better than
-    RandomForestRegressor, which is what caused the original flat-plateau
-    bug: RF can't extrapolate past its training year range, LinearRegression
-    can since it's linear. R^2=0.11 means College+Subject dummies only
-    explain a modest share of grade variance — consider adding features
-    like prior-semester average or enrollment count per subject to
-    improve this further.
-
-    Note: the live "Top 5 Hardest Subjects" charts use forecast_series()
-    in ml_analysis.py (a per-subject linear fit computed on the fly) for
-    the actual dashboard forecast rather than calling this model directly
-    — same reasoning as train_inc_forecast above.
-    """
-    _log("Training subject_grade model …")
-    df = pd.read_csv(df_path)
-
-    if len(df) < 20:
-        return {"status": "skipped", "reason": "too few aggregated rows"}
-
-    X = pd.get_dummies(df[["College","Subject"]], prefix=["College","Subject"])
-    X["Year_Numeric"] = df["Year_Numeric"]
-    y = df["Avg_Grade"]
-
-    model = LinearRegression()
-    model.fit(X, y)
-    y_pred = model.predict(X)
-
-    _save(model,              "hardest_subjects_chart_model.pkl")
-    _save(X.columns.tolist(), "hardest_subjects_chart_features.pkl")
-    return {"status": "ok", **_reg_metrics(y, y_pred)}
-
-
 def train_performance_band(df_path: str) -> dict:
     """RandomForestRegressor — % of students per performance band.
 
@@ -966,65 +890,92 @@ def train_gender_performance_female(df_path: str) -> dict:
 
 
 def train_year_level_performance(df_path: str) -> dict:
-    """RandomForestRegressor — % of students per performance band, by year level.
+    """5 INDEPENDENT LinearRegression models, one per performance band
+    (Excellent/Good/Average/Below Average/Failing), instead of one
+    shared model that told bands apart via a Band_X dummy feature.
 
-    Dataset: 13_year_level_performance.csv (College x Course x Year_Level x
-    Perf_Band x Year_Numeric x Sem_Numeric -> Pct). Same recipe as
-    train_performance_band (dataset 11), which scored R^2=0.9331 on the
-    college-level cut of this same shape — Course/Year_Level_Num are just
-    added here as extra features rather than a new architecture.
+    REPLACES the 2026-09-04 shared-model design, which was removed
+    entirely on 2026-09-06 after being confirmed (by directly testing the
+    trained model) to flatline: with only ONE Year_Numeric coefficient
+    shared across all 5 bands, every band's raw prediction shifted by
+    almost the same amount each year, and get_year_level_gwa_forecast's
+    band-mix-to-GWA renormalization step then canceled nearly all of that
+    shared shift back out (~0.004 GWA/year over a 12-year test span —
+    indistinguishable from flat). Training 5 separate models instead —
+    the same "one model per target" pattern that already works for
+    train_year_level_inc_irreg's 3 metrics and train_kpi's 3 tiles below
+    — gives each band its OWN Year_Numeric coefficient, so genuinely
+    different band trends stay genuinely different instead of collapsing
+    together. The 5 predictions still get renormalized to sum to 100% in
+    get_year_level_gwa_forecast (they're fit independently and won't
+    naturally add up), but that renormalization no longer erases the
+    trend since each band's slope is real and distinct going in.
+
+    Dataset: 13_year_level_performance.csv (College x Course x
+    Year_Level x Perf_Band x Year_Numeric x Sem_Numeric -> Pct).
 
     Powers: prediction-mode companion to /api/get_year_level_distribution
-    ("Performance by Year Level"). ml_analysis.py currently forecasts that
-    chart on the fly via forecast_series() instead of a trained model —
-    wiring get_year_level_gwa_forecast (or a new distribution-forecast
-    endpoint) to call this .pkl for forecast years is a follow-up step,
-    not done here; this trainer just makes the model + its eval available.
+    ("Performance by Year Level"). Falls back to forecast_series() on
+    each year level's own real GWA history (already the case since
+    2026-09-06) for any band that's skipped below, or if this trainer
+    hasn't run yet at all — see get_year_level_gwa_forecast for that
+    fallback logic.
     """
-    _log("Training year_level_performance model …")
+    _log("Training year_level_performance models (5, one per band) …")
     df = pd.read_csv(df_path)
 
     if len(df) < 10:
         return {"status": "skipped", "reason": "too few rows"}
 
-    X = pd.get_dummies(df[["College", "Course", "Perf_Band"]],
-                        prefix=["College", "Course", "Band"])
-    X["Year_Level_Num"] = df["Year_Level_Num"]
-    X["Year_Numeric"]   = df["Year_Numeric"]
-    X["Sem_Numeric"]    = df["Sem_Numeric"]
-    y = df["Pct"]
+    bands = ["Excellent", "Good", "Average", "Below Average", "Failing"]
+    results = {}
 
-    model = RandomForestRegressor(n_estimators=200, max_depth=6, random_state=42)
-    model.fit(X, y)
-    y_pred = model.predict(X)
+    for band in bands:
+        band_df = df[df["Perf_Band"] == band]
+        if len(band_df) < 5:
+            results[band] = {"status": "skipped", "reason": "too few rows for this band"}
+            continue
 
-    _save(model,              "year_level_chart_unused_model.pkl")
-    _save(X.columns.tolist(), "year_level_chart_unused_features.pkl")
-    return {"status": "ok", **_reg_metrics(y, y_pred)}
+        X = pd.get_dummies(band_df[["College", "Course"]], prefix=["College", "Course"])
+        X["Year_Level_Num"] = band_df["Year_Level_Num"]
+        X["Year_Numeric"]   = band_df["Year_Numeric"]
+        X["Sem_Numeric"]    = band_df["Sem_Numeric"]
+        y = band_df["Pct"]
+
+        model = LinearRegression()
+        model.fit(X, y)
+        y_pred = model.predict(X)
+
+        band_slug = band.lower().replace(" ", "_")
+        _save(model,              f"year_level_perf_{band_slug}_model.pkl")
+        _save(X.columns.tolist(), f"year_level_perf_{band_slug}_features.pkl")
+        results[band] = {"status": "ok", **_reg_metrics(y, y_pred)}
+
+    return results
 
 
 def train_year_level_inc_irreg(df_path: str) -> dict:
-    """RandomForestRegressor x3 — INC / Irregular(behavioral) / Drop rate, by year level.
+    """LinearRegression x3 — INC / Irregular(behavioral) / Drop rate, by year level, over time.
 
     Dataset: 14_year_level_inc_irreg.csv (College x Course x Year_Level x
-    Year_Numeric x Sem_Numeric -> INC_Rate, Irregular_Rate, Drop_Rate). Same
-    recipe as train_irreg_reg (dataset 07's college-level Irregular_Rate),
-    with Course/Year_Level_Num added as extra features, trained once per
-    target the same way train_gender_performance_male/_female trains its two targets —
-    one RandomForestRegressor per rate, returned as a nested dict so
-    _flatten_metric_block's generic sub-model detection in upload_routes.py
-    picks up all three automatically (inc_rate_r2, irregular_rate_r2, etc.).
+    Year_Numeric x Sem_Numeric -> INC_Rate, Irregular_Rate, Drop_Rate).
+    Trained once per target, same idiom as
+    train_gender_performance_male/_female — one model per rate, returned as
+    a nested dict so _flatten_metric_block's generic sub-model detection in
+    upload_routes.py picks up all three automatically (inc_rate_r2,
+    irregular_rate_r2, etc.).
 
-    The Drop_Rate half is the same signal behind the Course x Year-Level
-    Dropout Heatmap — its eval here doubles as that chart's accuracy read,
-    without a separate trainer/dataset needed for the heatmap.
+    REPLACED (2026-09-04): this used to be a RandomForestRegressor per
+    target, removed from the active trainer list on 2026-08-19 for the same
+    extrapolation problem as train_year_level_performance — the Drop_Rate
+    model specifically scored R^2=-0.63 (worse than predicting the mean)
+    when actually tested on forecasting. Re-built here as LinearRegression
+    trend models. Also no longer doubles as the Course x Year-Level Dropout
+    Heatmap's accuracy read — that chart now has its own dedicated dataset
+    (16) and trainer (train_course_year_level_dropout), so the two charts
+    don't share a model.
 
-    NOT CONSUMED BY ANY ENDPOINT YET — same status train_performance_band /
-    train_gender_performance_male/_female had before being adopted: this produces the
-    .pkl files so they're ready to wire in, but
-    get_year_level_inc_irreg_forecast and the heatmap endpoint still use
-    forecast_series() / real-data-only respectively until a follow-up
-    endpoint change swaps them over.
+    Powers: prediction-mode companion to /api/get_year_level_inc_irreg.
     """
     _log("Training year_level_inc_irreg models …")
     df = pd.read_csv(df_path)
@@ -1038,28 +989,45 @@ def train_year_level_inc_irreg(df_path: str) -> dict:
     X["Sem_Numeric"]    = df["Sem_Numeric"]
 
     targets = {
-        "inc_rate":       ("INC_Rate",       "year_level_heatmap_unused_inc_model.pkl",       "year_level_heatmap_unused_inc_features.pkl"),
-        "irregular_rate": ("Irregular_Rate", "year_level_heatmap_unused_irregular_model.pkl", "year_level_heatmap_unused_irregular_features.pkl"),
-        "drop_rate":      ("Drop_Rate",      "year_level_heatmap_unused_drop_model.pkl",      "year_level_heatmap_unused_drop_features.pkl"),
+        "inc_rate":       ("INC_Rate",       "year_level_inc_rate_model.pkl",       "year_level_inc_rate_features.pkl"),
+        "irregular_rate": ("Irregular_Rate", "year_level_irregular_rate_model.pkl", "year_level_irregular_rate_features.pkl"),
+        "drop_rate":      ("Drop_Rate",      "year_level_drop_rate_model.pkl",      "year_level_drop_rate_features.pkl"),
     }
 
+    # BUGFIX (2026-09-05): this loop used to call model.fit(X, y) with no
+    # per-target isolation. dict iteration is insertion-ordered, so a
+    # single NaN row in Irregular_Rate or Drop_Rate (LinearRegression.fit
+    # raises on NaN in y) killed the loop right there -- inc_rate (fit
+    # first) would already be saved, but whichever target the exception
+    # hit, AND every target after it, never got trained or saved at all.
+    # That's exactly why "Irregular" and "Drop" silently stopped loading
+    # on the chart while "Inc" kept working: one bad value in an unrelated
+    # column was taking down two good ones. Each target now drops its own
+    # NaN rows and is wrapped in its own try/except, so a problem with one
+    # rate can't prevent the other two from training and saving normally.
     results = {}
     for key, (col, model_file, features_file) in targets.items():
-        y = df[col]
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        ) if len(df) >= 10 else (X, X, y, y)
+        try:
+            sub = df.dropna(subset=[col])
+            if len(sub) < 10:
+                results[key] = {"status": "skipped", "reason": f"too few valid rows for {col}"}
+                continue
 
-        model = RandomForestRegressor(n_estimators=200, max_depth=6, random_state=42)
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
+            X_sub = X.loc[sub.index]
+            y     = sub[col]
 
-        _save(model,              model_file)
-        _save(X.columns.tolist(), features_file)
-        results[key] = _reg_metrics(y_test, y_pred)
+            model = LinearRegression()
+            model.fit(X_sub, y)
+            y_pred = model.predict(X_sub)
+
+            _save(model,                  model_file)
+            _save(X_sub.columns.tolist(), features_file)
+            results[key] = {"status": "ok", **_reg_metrics(y, y_pred)}
+        except Exception as e:
+            results[key] = {"status": "error", "error": str(e)}
+            _log(f"[year_level_inc_irreg] {key} failed: {e}")
 
     return results
-
 
 
 # ORCHESTRATOR
@@ -1127,6 +1095,23 @@ def run_full_pipeline(new_file: str = None) -> dict:
 
     md = MODEL_DATA_DIR   # shorthand
 
+    # Re-export model_datasets even on a plain retrain (no new_file). This
+    # used to only happen inside the `if new_file:` block above, so any
+    # aggregation fix in export_model_datasets (e.g. the Year_Level
+    # NaN-drop fix) required a full re-upload to take effect -- a manual
+    # retrain just kept re-training on the STALE, pre-fix CSVs already
+    # sitting in MODEL_DATA_DIR. Doing it here means "retrain" alone
+    # regenerates datasets 01-16 from the current master_df and picks up
+    # any preprocessing code change since the last upload.
+    if not new_file:
+        try:
+            export_model_datasets(master_df, MODEL_DATA_DIR)
+            _log("Re-exported model_datasets from existing master CSV (no new upload)")
+        except Exception as e:
+            state["errors"].append({"step": "reexport_datasets", "error": str(e)})
+            _log(f"[ERROR] Dataset re-export failed: {e}")
+            traceback.print_exc()
+
     # ── Step 3: Train all models ─────────────────────────────
     trainers = [
         ("dropout_risk",     lambda: train_dropout_risk(f"{md}/01_dropout_risk_per_student_dropout_pie_status_pie.csv")),
@@ -1134,10 +1119,25 @@ def run_full_pipeline(new_file: str = None) -> dict:
         ("dropout_ranking",  lambda: train_dropout_ranking(f"{md}/03_dropout_ranking_college_college_ranking_chart.csv")),
         ("gwa_ranking",      lambda: train_gwa_ranking(f"{md}/04_gwa_ranking_college_gwa_ranking_chart.csv")),
         ("gwa_trend",        lambda: train_gwa_trend(f"{md}/05_gwa_trend_timeseries_gwa_trend_chart.csv")),
-        ("inc_forecast",     lambda: train_inc_forecast(f"{md}/06_inc_forecast_cohort_inc_rate_chart.csv")),
+        # inc_forecast (06) REMOVED 2026-09-06 — inc_rate_chart_model was
+        # only ever trained on College-level cohort data, so per-course
+        # forecasts silently fell back to one shared baseline and
+        # collapsed into each other. get_inc_forecast in ml_analysis.py
+        # was already forecasting each group's own INC-rate history
+        # directly with forecast_series() instead (see that function's
+        # own comment) — the model was loaded but never actually called
+        # anymore. Confirmed dead via full-codebase audit and removed
+        # end-to-end (ml_analysis.py's load/reload/health-check refs
+        # dropped too).
         ("irreg_reg",        lambda: train_irreg_reg(f"{md}/01_dropout_risk_per_student_dropout_pie_status_pie.csv")),
         ("kpi",              lambda: train_kpi(f"{md}/08_kpi_gwa_student_kpi_tiles.csv", f"{md}/09_kpi_enrollment_college_kpi_tiles.csv", f"{md}/15_kpi_drop_college_kpi_tiles.csv")),
-        ("subject_grade",    lambda: train_subject_top(f"{md}/10_subject_grade_forecast_hardest_subjects_chart.csv")),
+        # subject_grade (10) REMOVED 2026-09-06 — same story as
+        # inc_forecast above: hardest_subjects_chart_model was a
+        # RandomForestRegressor that couldn't extrapolate past its
+        # training years, so get_subject_forecast/get_hardest_subjects_
+        # by_course both already bypassed it in favor of forecast_series()
+        # on each subject's own grade history. Model was loaded but never
+        # called — confirmed dead and removed end-to-end.
         ("gender_performance_male",   lambda: train_gender_performance_male(f"{md}/12_gender_performance_male_retention_trend_chart.csv")),
         ("gender_performance_female", lambda: train_gender_performance_female(f"{md}/12_gender_performance_female_retention_trend_chart.csv")),
         # 12_gender_performance.csv was previously skipped here (every
@@ -1148,33 +1148,47 @@ def run_full_pipeline(new_file: str = None) -> dict:
         # one combined dataset with a Gender dummy feature. See the
         # finalized model-choices table above for details.
         #
-        # REMOVED (2026-08-19): performance_band, year_level_performance,
-        # and year_level_inc_irreg used to train here. All three were
-        # RandomForestRegressor models whose whole job was to power a
-        # FUTURE-YEAR forecast — but RandomForestRegressor cannot
-        # extrapolate past the years it was trained on (see the bug #1
-        # writeup in forecast_series()'s docstring above — this is the
-        # exact same failure mode that was already hit and fixed once for
-        # the subject-grade forecast). Their strong-looking R^2 scores
-        # only measured fit on HISTORICAL rows, not forecasting skill,
-        # which is the one thing they were trained for.
-        #   - year_level_inc_irreg was additionally proven actively bad
-        #     (Drop_Rate R^2 = -0.63, worse than predicting the mean) AND
-        #     fully redundant: /api/get_year_level_inc_irreg_forecast
-        #     already forecasts all three rates live via forecast_series(),
-        #     which the RF model never fed.
-        #   - year_level_performance's target (/api/get_year_level_distribution)
-        #     had no forecast branch at all — see ml_analysis.py, which
-        #     now forecasts per-band % there with forecast_series() instead
-        #     of ever loading this model.
-        #   - performance_band's target chart (a "GWA Distribution"
-        #     prediction-mode view) was never built. If that chart gets
-        #     built later, use forecast_series() per band the same way,
-        #     not a re-trained RF regressor — it will hit the same
-        #     extrapolation ceiling.
-        # If reviving any of these, don't just re-add the lambda: swap the
-        # trainer to fit a per-series trend (like train_gwa_trend /
-        # forecast_series) instead of a scikit RandomForestRegressor.
+        # year_level_performance's design history (RandomForestRegressor
+        # -> shared LinearRegression -> 5 independent per-band
+        # LinearRegressions) is documented on train_year_level_performance
+        # itself and on its trainers-list entry below, not repeated here.
+        #
+        # RE-ADDED (2026-09-04): year_level_performance and
+        # year_level_inc_irreg were removed on 2026-08-19 as
+        # RandomForestRegressors that couldn't extrapolate future years.
+        # Re-added here as LinearRegression trend models instead -- same
+        # fix pattern already used by train_gwa_trend -- so they can
+        # safely power forecasts instead of only fitting historical rows.
+        # Each chart also now has its own file (13, 14, 16) and its own
+        # model(s); the heatmap no longer reuses year_level_inc_irreg's
+        # Drop_Rate eval.
+        #
+        # year_level_performance (13) RESTORED 2026-09-06 as 5
+        # INDEPENDENT per-band LinearRegression models instead of the
+        # single shared-model design that was removed earlier the same
+        # day for flatlining (see train_year_level_performance's own
+        # docstring for the full history: RandomForestRegressor ->
+        # shared LinearRegression with a Band_X dummy -> this). Each
+        # band now gets its own Year_Numeric coefficient, so
+        # get_year_level_gwa_forecast's renormalize-to-100% step no
+        # longer cancels out genuinely different band trends. Falls back
+        # to forecast_series() per year level (unchanged) if any band's
+        # model isn't available yet.
+        ("year_level_performance",    lambda: train_year_level_performance(f"{md}/13_year_level_performance.csv")),
+        #
+        # performance_band (dataset 11) stays out: its target chart was
+        # never built, so there's nothing to wire it to yet. If that chart
+        # gets built, use forecast_series() per band, not a re-trained RF
+        # regressor -- it would hit the same extrapolation ceiling.
+        ("year_level_inc_irreg",      lambda: train_year_level_inc_irreg(f"{md}/14_year_level_inc_irreg.csv")),
+        # course_year_level_dropout (16) REMOVED 2026-09-06 — trained but
+        # never actually loaded/used anywhere in ml_analysis.py at all
+        # (the Course x Year-Level Dropout Heatmap is Recent-Data-only by
+        # design, no prediction mode). Also confirmed it's a
+        # RandomForestRegressor that flatlines identically for every
+        # future year the same way the two removed above did, so it
+        # wouldn't have been usable as-is even if wired up later without
+        # the same forecast_series()-on-own-history treatment.
     ]
 
     for name, trainer_fn in trainers:

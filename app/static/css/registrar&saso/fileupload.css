@@ -271,6 +271,12 @@
   align-items: center;
   transition: background 0.15s;
 }
+/* Grid items default to min-width:auto, which lets unbreakable content
+   (long filenames/paths) blow out its track and steal space from every
+   column after it. Force tracks to actually respect their fr widths. */
+.file-table__row > span {
+  min-width: 0;
+}
 .file-table__row:hover  { background: #fdf7f7; }
 .file-table__row:nth-child(even) { background: #fdfafa; }
 .file-table__row:nth-child(even):hover { background: #fdf2f2; }
@@ -302,6 +308,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 500;
+  min-width: 0;
+}
+
+/* Output CSV / path cell — same truncate-with-tooltip treatment as
+   the filename cell, so a long absolute path can't blow out its track. */
+.cell-path {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* ── Status badges ───────────────────────────────────────── */

@@ -25,7 +25,14 @@ ROLE_COLOR_FAMILIES = {
     'Registrar':       [('#1E5AA8', '#FFFFFF'), ('#2E72C9', '#FFFFFF'), ('#5B93D8', '#FFFFFF')],  # blue
     'SASO':            [('#B8860B', '#FFFFFF'), ('#D4A017', '#FFFFFF'), ('#E6B84D', '#1F2937')],  # gold
     'Academic_Affair': [('#6A1B9A', '#FFFFFF'), ('#8E24AA', '#FFFFFF'), ('#AB47BC', '#FFFFFF')],  # purple
-    'CAHSdean':        [('#36B9CC', '#FFFFFF'), ('#62C8D7', '#1F2937'), ('#8AD6E1', '#1F2937')],  # teal — matches COLLEGE_COLORS.CAHS
+    # CAHS split into 4 roles (Nursing/PH/Midwifery deans + director), each
+    # now with its own program color instead of sharing one teal family.
+    # Shade 1 is the "official" program color; shades 2-3 are lighter tints
+    # of that same hue for telling multiple same-role users apart.
+    'NurseDean':       [('#4E73DF', '#FFFFFF'), ('#7A96E7', '#1F2937'), ('#9EB2ED', '#1F2937')],  # blue — Nursing
+    'PHdean':          [('#FFB385', '#1F2937'), ('#FFC6A4', '#1F2937'), ('#FFD5BC', '#1F2937')],  # peach — Public Health
+    'MidwifeDeaan':    [('#E83E8C', '#FFFFFF'), ('#EE6EA9', '#1F2937'), ('#F295C0', '#1F2937')],  # pink — Midwifery
+    'CAHSdirector':    [('#36B9CC', '#FFFFFF'), ('#62C8D7', '#1F2937'), ('#8AD6E1', '#1F2937')],  # teal — kept from CAHSdean (no new color given for this role)
     'CBAdean':         [('#E74A3B', '#FFFFFF'), ('#EC7266', '#FFFFFF'), ('#F1968D', '#1F2937')],  # red — matches COLLEGE_COLORS.CBA
     'CCSTdean':        [('#8A2BE2', '#FFFFFF'), ('#A45AE8', '#FFFFFF'), ('#BB84EE', '#FFFFFF')],  # purple — matches COLLEGE_COLORS.CCST
     'CEAdean':         [('#1CC88A', '#1F2937'), ('#4ED4A4', '#1F2937'), ('#7BDFBB', '#1F2937')],  # green — matches COLLEGE_COLORS.CEA

@@ -359,6 +359,11 @@ header {
   border-bottom: 3px solid #B8901F;
 }
 
+.help-header {
+  display: flex;
+  align-items: center;
+}
+
 .role-badge {
   display: inline-block;
   margin: 0 0 20px 14px;
@@ -417,7 +422,7 @@ header {
   color: #4B4B4B;
   border-left: 4px solid #800000;
   padding: 4px 0 4px 18px;
-  margin: 20px 0 28px;
+  margin: 5px 0 28px;
 }
 
 .help-content > hr {
@@ -756,4 +761,16 @@ footer{
 
 .hidden {
     display: none;
+}
+
+
+
+p {
+  color:#000000;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.help-col p {
+  text-indent: 40px;
 }

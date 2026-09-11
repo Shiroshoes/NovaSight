@@ -41,6 +41,7 @@
  
   <!--header -->
         <header class="topmenu">
+          <a href="/" class="brand-link">
             <div class="brand">
               <div class="logo-sq">
                 <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="BPSU Logo" class="brand-logo">
@@ -50,6 +51,7 @@
                     <span>ACADEMIC PREDICTION</span>
                 </div>
             </div>
+          </a>
             
             <a href="/login" class="user-profile">
                 <span>Login</span>
@@ -59,6 +61,150 @@
 
               </a>
         </header>
+
+    <!-- Flash messages (flask flash()) — e.g. "your role was updated,
+         please log in again". Same convention as adminpage.js's
+         accountCreatedModal/accountErrorModal: messages are dumped as
+         JSON into a hidden #flashData script tag, then JS pops them
+         up as a centered overlay modal (not a corner toast), with a
+         timer bar that auto-dismisses it. -->
+    <script type="application/json" id="flashData">{{ get_flashed_messages(with_categories=true) | tojson }}</script>
+
+    <div class="modal-overlay" id="flashModal" style="display:none;">
+      <div class="modal-card" id="flashModalCard">
+        <button type="button" class="modal-close" id="flashModalClose" aria-label="Close">&times;</button>
+        <p class="modal-message" id="flashModalMessage"></p>
+        <div class="modal-timer"><div class="modal-timer-fill" id="flashModalTimerFill"></div></div>
+      </div>
+    </div>
+
+    <style>
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-card {
+        position: relative;
+        background: #fff;
+        border-radius: 10px;
+        padding: 28px 24px 18px;
+        max-width: 380px;
+        align-items: center;
+        width: 90%;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+        overflow: hidden;
+        animation: modal-pop 0.2s ease-out;
+      }
+      @keyframes modal-pop {
+        from { opacity: 0; transform: scale(0.95); }
+        to   { opacity: 1; transform: scale(1); }
+      }
+      .modal-card.cat-error   { border-top-color: #785a5a; }
+      .modal-card.cat-info    { border-top-color: #800000; }
+      .modal-card.cat-success { border-top-color: #2fa361; }
+      .modal-message {
+        margin: 0 0 18px;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        color: #333;
+        text-align: center;
+      }
+      .modal-close {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 1.3rem;
+        line-height: 1;
+        cursor: pointer;
+        color: #888;
+      }
+      .modal-close:hover { color: #333; }
+      .modal-timer {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 3px;
+        width: 100%;
+        background: rgba(0,0,0,0.1);
+      }
+      .modal-timer-fill {
+        height: 100%;
+        width: 100%;
+        background: currentColor;
+        transform-origin: left;
+        transition: transform linear;
+      }
+      .cat-error   .modal-timer-fill { color: #785a5a; }
+      .cat-info    .modal-timer-fill { color: #800000; }
+      .cat-success .modal-timer-fill { color: #2fa361; }
+    </style>
+
+    <script>
+      (function () {
+        var flashDataEl = document.getElementById('flashData');
+        if (!flashDataEl) return;
+
+        var messages = [];
+        try {
+          messages = JSON.parse(flashDataEl.textContent || '[]');
+        } catch (err) {
+          console.error('Flash message parse error:', err);
+        }
+        if (!messages.length) return;
+
+        var overlay   = document.getElementById('flashModal');
+        var card      = document.getElementById('flashModalCard');
+        var messageEl = document.getElementById('flashModalMessage');
+        var closeBtn  = document.getElementById('flashModalClose');
+        var timerFill = document.getElementById('flashModalTimerFill');
+        var DURATION  = 6000; // ms — same idea as adminpage.js's 3000/4000ms auto-hides
+        var queue     = messages.slice();
+        var closeTimeoutId = null;
+
+        function showNext() {
+          if (!queue.length) {
+            overlay.style.display = 'none';
+            return;
+          }
+          var next = queue.shift();
+          var category = next[0] || 'info';
+          var message  = next[1] || '';
+
+          card.classList.remove('cat-error', 'cat-info', 'cat-success');
+          card.classList.add('cat-' + category);
+          messageEl.textContent = message;
+          overlay.style.display = 'flex';
+
+          // Reset then start the timer bar draining from full to empty.
+          timerFill.style.transition = 'none';
+          timerFill.style.transform = 'scaleX(1)';
+          // Force reflow so the transition below actually animates.
+          void timerFill.offsetWidth;
+          timerFill.style.transition = 'transform ' + DURATION + 'ms linear';
+          timerFill.style.transform = 'scaleX(0)';
+
+          closeTimeoutId = setTimeout(showNext, DURATION);
+        }
+
+        function dismissCurrent() {
+          clearTimeout(closeTimeoutId);
+          showNext();
+        }
+
+        closeBtn.addEventListener('click', dismissCurrent);
+        overlay.addEventListener('click', function (e) {
+          if (e.target === overlay) dismissCurrent();
+        });
+
+        showNext();
+      })();
+    </script>
      
 
       
@@ -77,7 +223,14 @@
     <div class="visual-placeholder"></div>
     
     <div class="dashboard-text">
-      <p>This system leverages advanced machine learning algorithms to predict student performance with a high degree of accuracy and insight. By analyzing large volumes of historical academic data such as grades, GWA, irregular, regular, male-female ratio, drop, inc the system is able to uncover hidden relationships, trends, and indicators that may not be immediately visible through traditional evaluation methods. These predictive models continuously learn and improve over time, allowing them to adapt to new data and provide increasingly reliable forecasts of a student’s academic trajectory. With access to these data-driven insights, academic administrators can make more informed decisions about their educational policy, such as improving study strategies, or academic prevention.
+      <p>This system uses machine learning models trained on historical academic data like grades, GWA, enrollment status (regular/irregular), gender distribution,
+         drops, and INCs, to surface early trends and risk indicators that manual review alone can miss. Student records are referenced only by an anonymized 
+         student ID, never by name, so no individual identity is exposed on the dashboard. Model reliability varies by prediction type, and that reliability 
+         is shown transparently on the dashboard rather than presented as one certain number, so results are meant to inform judgment, not replace it. 
+         Models are retrained as new academic data is uploaded each term, keeping forecasts current without overstating how certain any forecast of the future 
+         can be. By design, this system is built for decision support, flagging at-risk records or cohorts who may benefit from additional academic 
+         assistance, and is not intended as a performance score for any college, department, or dean, so the incentive stays on early intervention rather 
+         than on managing the numbers themselves.
       </p>
     </div>
   </div>

@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
 from database.models import AcadUser, db
 from util.utils import allowed_file, save_file
+from configs.config import CAHS_ROLES, ROLE_DISPLAY_NAMES
 
 # Create a new Blueprint for CAHS
 cahs_bp = Blueprint('cahs_bp', __name__, url_prefix='/NovaSight/cahs')
@@ -11,7 +12,7 @@ cahs_bp = Blueprint('cahs_bp', __name__, url_prefix='/NovaSight/cahs')
 @cahs_bp.route('/home')
 def home_cahs():
     # Check if user is logged in and has the 'CAHS' role
-    if 'user_id' not in session or session.get('role') != 'CAHSdean':
+    if 'user_id' not in session or session.get('role') not in CAHS_ROLES:
         return redirect(url_for('home')) 
     return render_template('deans/CAHSdean/home/html/HomeCahsdean.html') 
 
@@ -19,7 +20,7 @@ def home_cahs():
 @cahs_bp.route('/profile')
 def profile_cahs():
     # Check if user is logged in and has the 'CAHS' role
-    if 'user_id' not in session or session.get('role') != 'CAHSdean':
+    if 'user_id' not in session or session.get('role') not in CAHS_ROLES:
         return redirect(url_for('home'))
     
     user = AcadUser.query.get(session['user_id'])
@@ -27,7 +28,7 @@ def profile_cahs():
         'deans/CAHSdean/profile/html/profilecahsdean.html', 
         username=user.username,
         account=user.account,
-        role=user.role,
+        role=ROLE_DISPLAY_NAMES.get(user.role, user.role),
         user_image_url=user.profile_image_url
     )
 
@@ -35,14 +36,14 @@ def profile_cahs():
 @cahs_bp.route('/help')
 def help_cahs():
     # Check if user is logged in and has the 'CAHS' role
-    if 'user_id' not in session or session.get('role') != 'CAHSdean':
+    if 'user_id' not in session or session.get('role') not in CAHS_ROLES:
         return redirect(url_for('home'))
     return render_template('deans/CAHSdean/help/html/helpcahsdean.html') 
 
 # --- CAHS Specific Dashboards ---
 @cahs_bp.route('/cahsdashboard')
 def cahsdash_cahs():
-    if 'user_id' not in session or session.get('role') != 'CAHSdean':
+    if 'user_id' not in session or session.get('role') not in CAHS_ROLES:
         return redirect(url_for('home'))
     return render_template('deans/CAHSdean/dashboard/cahsdashboardcahsdean.html', college_type='CAHS') 
 

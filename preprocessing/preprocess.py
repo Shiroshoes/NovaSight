@@ -90,6 +90,29 @@ MAX_SNAP_DISTANCE = 0.15
 #  PARSING HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _snap_numeric_grade(f: float) -> float | None:
+    """
+    Snap a raw numeric grade to the nearest official grade point (see
+    VALID_GRADES / MAX_SNAP_DISTANCE), or return None if it's too far
+    from every official grade to plausibly be a real one (e.g. a leaked
+    GWA/average cell). Shared by the plain numeric path in parse_grade()
+    and the numeric half of combined cells like "INC/2.75".
+    """
+    # Filter out summary/GWA cells: valid subject grades are 0–5
+    if f < 0 or f > 5.0:
+        return None
+
+    # 0.0 is the drop/no-grade sentinel, not on the official scale —
+    # pass it through unchanged.
+    if f == 0.0:
+        return 0.0
+
+    nearest = min(VALID_GRADES, key=lambda g: abs(g - f))
+    if abs(nearest - f) <= MAX_SNAP_DISTANCE:
+        return nearest
+    return None
+
+
 def parse_grade(raw) -> float | None:
     """
     Convert any raw cell value to a float grade or None (skip).
@@ -105,7 +128,10 @@ def parse_grade(raw) -> float | None:
       - Dropped / no-grade: 0, DRP, NGA  → 0.0 (not on the official scale —
         this is a status sentinel, not a real grade point)
       - Incomplete: INC                  → 5.0
-      - Combined: INC/2.75, NGA/5.00     → 5.0 / 0.0 (prefix wins)
+      - Combined: INC/2.75, NGA/1.50     → 2.75 / 1.50 (the number wins —
+        it's the grade the INC/NGA was later resolved to). Only falls
+        back to the prefix's status sentinel (INC→5.0, NGA→0.0, …) when
+        whatever follows the slash isn't a usable numeric grade.
       - GWA summary cells (large floats or int > 5) → None
     """
     if raw is None:
@@ -115,9 +141,24 @@ def parse_grade(raw) -> float | None:
     if s == "" or s.lower() == "none":
         return None
 
-    # Combined grade like "INC/2.75" or "NGA/5.00"
+    # Combined cell like "INC/2.75" or "NGA/1.50". The status prefix
+    # (INC/NGA/DRP/W) just records what originally happened to the
+    # enrollment — if a real grade was later entered after the slash,
+    # that's the student's actual final grade and takes priority over
+    # the prefix's sentinel value.
     if "/" in s:
-        prefix = s.split("/")[0].strip().upper()
+        prefix, _, suffix = s.partition("/")
+        prefix = prefix.strip().upper()
+        suffix = suffix.strip()
+        if suffix:
+            try:
+                numeric = _snap_numeric_grade(float(suffix))
+            except ValueError:
+                numeric = None
+            if numeric is not None:
+                return numeric
+        # No usable number after the slash — fall back to the prefix's
+        # status sentinel (e.g. bare "INC/" or "INC/withdrawn").
         return GRADE_ENCODING.get(prefix, None)
 
     # Pure keyword
@@ -128,24 +169,7 @@ def parse_grade(raw) -> float | None:
     # Numeric
     try:
         f = float(s)
-        # Filter out summary/GWA cells: valid subject grades are 0–5
-        if f < 0 or f > 5.0:
-            return None
-
-        # 0.0 is the drop/no-grade sentinel, not on the official scale —
-        # pass it through unchanged.
-        if f == 0.0:
-            return 0.0
-
-        # Snap to the nearest official grade point, but only if it's
-        # close enough to plausibly BE that grade (rounding/entry noise).
-        # Anything farther than MAX_SNAP_DISTANCE from every valid grade
-        # gets rejected rather than forced onto the scale — that distance
-        # is a signal the cell wasn't a real grade in the first place.
-        nearest = min(VALID_GRADES, key=lambda g: abs(g - f))
-        if abs(nearest - f) <= MAX_SNAP_DISTANCE:
-            return nearest
-        return None
+        return _snap_numeric_grade(f)
     except ValueError:
         return None
 
@@ -651,7 +675,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     year_level = year_level.sort_values(
         ["College", "Course", "Year_Level_Num"]
     )
-    save(year_level, "13_year_level_performance_unused_year_level_chart.csv")
+    save(year_level, "13_year_level_performance.csv")
 
     # 14 – INC / Irregular(behavioral) / Drop rate by year level
     # Same metrics + idiom as dataset 07 (Irreg/Reg cohort), just sliced
@@ -664,8 +688,21 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     # students *labeled* Irregular by the registrar also show up as
     # behaviorally irregular this term, alongside the same question for
     # 1st/2nd/3rd/4th Year students.
+    # FIX (2026-09-04): unlike yl_df above, this block used to group the
+    # raw student_df directly, without filling NaN Year_Level/Year_Level_Num
+    # first. pandas' groupby drops any row whose key is NaN by default, so
+    # every student with an unrecognized/not-yet-classified year level
+    # (Year_Level_Num == NaN, per the "Irregular=-1, Unknown=None->0"
+    # convention above) silently vanished from this dataset — most visible
+    # right after a fresh upload, when the newest cohort hasn't been fully
+    # registrar-classified yet, which is exactly when "no data" showed up on
+    # the INC/Irregular/Drop chart and the dropout heatmap for recent years.
+    yl_inc_src = student_df.copy()
+    yl_inc_src["Year_Level"] = yl_inc_src["Year_Level"].fillna("Unknown")
+    yl_inc_src["Year_Level_Num"] = yl_inc_src["Year_Level_Num"].fillna(0).astype(int)
+
     yl_inc = (
-        student_df.groupby(["Year_Numeric", "Sem_Numeric", "College", "Course",
+        yl_inc_src.groupby(["Year_Numeric", "Sem_Numeric", "College", "Course",
                              "Year_Level", "Year_Level_Num"])
         .agg(
             Total_Students  = ("Student_ID", "nunique"),
@@ -679,7 +716,19 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     yl_inc["Drop_Rate"]      = (yl_inc["Drop_Count"]      / yl_inc["Total_Students"] * 100).round(2)
     yl_inc["INC_Rate"]       = (yl_inc["INC_Count"]       / yl_inc["Total_Students"] * 100).round(2)
     yl_inc = yl_inc.sort_values(["College", "Course", "Year_Level_Num"])
-    save(yl_inc, "14_year_level_inc_irreg_unused_year_level_heatmap.csv")
+    save(yl_inc, "14_year_level_inc_irreg.csv")
+
+    # 16 – Course x Year-Level dropout heatmap. Split off from 14
+    # (2026-09-04) so the heatmap has its own file and its own trainer
+    # instead of sharing 14's file and borrowing the Drop_Rate sub-model's
+    # eval from train_year_level_inc_irreg. Same source rows, Course grain
+    # kept (not collapsed) since the heatmap needs a value per course.
+    course_yl_dropout = yl_inc[[
+        "Year_Numeric", "Sem_Numeric", "College", "Course",
+        "Year_Level", "Year_Level_Num",
+        "Total_Students", "Drop_Count", "Drop_Rate",
+    ]].copy()
+    save(course_yl_dropout, "16_course_year_level_dropout.csv")
 
     # 12 – Gender performance
     gender = (

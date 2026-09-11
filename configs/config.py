@@ -56,11 +56,38 @@ DATASET_FILENAME_REGEX = re.compile(
 )
 
 # ── Roles ─────────────────────────────────────────────────────
+# CAHS used to be one role (CAHSdean). It's now split into four
+# program-level dean/director roles that all share the same CAHS pages
+# (routes/cahs.py) and dashboard — CAHS_ROLES is the group used wherever
+# code needs to check "is this a CAHS-side account" instead of a single
+# hardcoded role string.
+CAHS_ROLES = ['NurseDean', 'PHdean', 'MidwifeDeaan', 'CAHSdirector']
+
 ALLOWED_ROLES = [
     'admin', 'Registrar', 'SASO', 'Academic_Affair',
-    'CAHSdean', 'CBAdean', 'CCSTdean', 'CEAdean',
+    *CAHS_ROLES, 'CBAdean', 'CCSTdean', 'CEAdean',
     'CoASdean', 'CTECdean',
 ]
+
+# Human-readable label for each role code — same wording as the <option>
+# labels in adminpage.html. Role codes (e.g. 'PHdean') are what's stored in
+# the DB/session; this is only for displaying a role to a user (profile
+# pages, etc). Falls back to the raw code for anything not listed here.
+ROLE_DISPLAY_NAMES = {
+    'admin':           'Admin',
+    'Registrar':       'Registrar',
+    'SASO':            'SASO',
+    'Academic_Affair': 'Academic Affair',
+    'NurseDean':       'Nursing Dean',
+    'PHdean':          'Public Health Dean',
+    'MidwifeDeaan':    'Midwifery Dean',
+    'CAHSdirector':    'CAHS Director',
+    'CBAdean':         'CBA Dean',
+    'CCSTdean':        'CCST Dean',
+    'CEAdean':         'CEA Dean',
+    'CoASdean':        'CoAS Dean',
+    'CTECdean':        'CTEC Dean',
+}
 
 # Roles that are allowed to upload grade-sheet datasets
 UPLOAD_ALLOWED_ROLES = {'Academic_Affair', 'admin'}

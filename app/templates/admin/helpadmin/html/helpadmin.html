@@ -193,12 +193,14 @@
   <section class="dashboard-grid">
   <div class="card help-card">
     <div class="help-content">
-      <h2>Help</h2>
-      <span class="role-badge">Admin</span>
+      <div class="help-header">
+        <h2>HELP CENTER</h2>
+        <span class="role-badge">Admin</span>
+      </div>
       <p class="help-intro">
           This Help Center covers the Admin tools: creating and managing
           user accounts for NovaSight. Admin accounts do not upload grade
-          data — that's handled by Academic Affairs.
+          data that's handled by Academic Affairs.
       </p>
 
       <hr>
@@ -207,7 +209,11 @@
         <div class="help-col">
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M3.5 20c0-3.3 2.5-5.8 5.5-5.8s5.5 2.5 5.5 5.8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M18 9v6M15 12h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+                </svg>
+              </span>
               <h3>Adding a User</h3>
             </div>
             <p>
@@ -218,7 +224,7 @@
 
             <h4>Password Requirements</h4>
             <ul>
-                <li>8–16 characters</li>
+                <li>8-16 characters</li>
                 <li>At least one uppercase letter</li>
                 <li>At least one number</li>
                 <li>At least one special character (e.g. <code>!@#$%^&amp;*</code>)</li>
@@ -226,7 +232,7 @@
             <p>
                 Use the <strong>Generate</strong> button next to the
                 password field to create a password that already meets
-                all requirements — it's revealed on screen so you can
+                all requirements, it's revealed on screen so you can
                 copy it before saving.
             </p>
 
@@ -237,7 +243,7 @@
             <p>
                 Click <strong>Edit</strong> on any user row to open their
                 details. You can update their name, account, or role, and
-                optionally set a new password — leave the password field
+                optionally set a new password, leave the password field
                 blank to keep their current one.
             </p>
 
@@ -247,69 +253,90 @@
             </div>
             <p>
                 Open a user's Edit form to <strong>Deactivate</strong>
-                their account — they won't be able to log in until an
+                their account, they won't be able to log in until an
                 admin <strong>Activates</strong> it again. Deactivated
                 users are listed separately and can be restored the same
                 way.
             </p>
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
-              <h3>Dataset Format Reference</h3>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+              </span>
+              <h3>Dataset Format Reference &amp; Upload Guidelines</h3>
             </div>
             <p>
-                Admin accounts don't upload grade data themselves, but
-                can view and download the required format below — useful
-                for verifying a file before it goes to Academic Affairs,
-                or helping troubleshoot a failed upload.
+                Upload the official student grade Excel file from the
+                <strong>Upload File</strong> page. NovaSight automatically
+                processes the dataset, updates the database, and
+                regenerates prediction results across every dashboard.
             </p>
 
-            <h4>Required File Name Format</h4>
-            <p class="help-code">YYYY-N Student-Performance Dataset.xlsx</p>
+            <h4>Accepted File</h4>
             <ul>
-                <li><strong>YYYY</strong> — the year the semester starts (e.g. 2024)</li>
-                <li><strong>N</strong> — <code>1</code> for 1st semester, <code>2</code> for 2nd semester</li>
+                <li>.xlsx (Microsoft Excel) only. The .xls, .csv, and .xlsm are not accepted</li>
+            </ul>
+
+            <h4>Required File Name Format</h4>
+            <div class="help-code">YYYY-N Student-Performance Dataset.xlsx</div>
+            <ul>
+                <li><strong>YYYY</strong> - the year the semester starts (e.g. 2024)</li>
+                <li><strong>N</strong> - <code>1</code> for 1st semester, <code>2</code> for 2nd semester</li>
             </ul>
             <p>
-                Only <code>.xlsx</code> files are accepted — .xls, .csv,
+                Only <code>.xlsx</code> files are accepted .xls, .csv,
                 and .xlsm are not. Each sheet tab is one college, laid
                 out as a program name, a semester/year header, and a
                 repeating block per student: a row of subject codes
                 followed by that student's row of grades.
             </p>
 
-            <p class="help-download">
-                <a href="{{ url_for('static', filename='templates/YEAR-SEM Student-Performance Dataset TEMPLATE.xlsx') }}"
+            <div class="help-download">
+                <a href="{{ url_for('static', filename='templates/YYYY-N Student-Performance Dataset TEMPLATE.xlsx') }}"
                    download class="help-download-btn">
-                    ⬇ Download the Dataset Template (.xlsx)
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
+                      <path fill-rule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+                    </svg>
+
+                   Download the Dataset Template (.xlsx)
                 </a>
                 <br>
                 <span class="help-download-note">
                     A worked reference showing the exact layout, with a
                     step-by-step "READ ME FIRST" sheet and one sample
-                    college sheet already filled in — not real student
+                    college sheet already filled in. Not real student
                     data.
                 </span>
-            </p>
+              </div>
 
         </div>
         <div class="help-col">
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="13" y="4" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="4" y="13" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="13" y="13" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                </svg>
+              </span>
               <h3>Dashboards</h3>
             </div>
             <p>
                 Admin accounts can also view the Main Dashboard and each
                 college dashboard. Every dashboard has a mode toggle:
-                <strong>Historical mode</strong> shows real, already-
+                <strong>Historical mode</strong> shows real, already
                 recorded data, while <strong>Prediction mode</strong>
                 switches the same charts to NovaSight's forecast for
                 future years.
             </p>
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1" stroke="currentColor" stroke-width="2" fill="none"/><rect x="3" y="10" width="18" height="4" rx="1" stroke="currentColor" stroke-width="2" fill="none"/><rect x="3" y="16" width="18" height="4" rx="1" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" />
+                </svg>
+              </span>
               <h3>Chart Mode &amp; Table Mode</h3>
             </div>
             <p>
@@ -317,13 +344,17 @@
                 of the View Mode card. <strong>Chart Mode</strong> is the default
                 visual view with charts and graphs; <strong>Table Mode</strong>
                 swaps every chart for a plain data table showing the exact same
-                numbers — useful for reading precise figures or copying data out
+                numbers which is useful for reading precise figures or copying data out
                 of the dashboard. The KPI cards and the Model Performance card
                 look the same in either mode.
             </p>
 
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="4" y="12" width="4" height="8" rx="1" stroke="currentColor" stroke-width="2" fill="none"/><rect x="10" y="7" width="4" height="13" rx="1" stroke="currentColor" stroke-width="2" fill="none"/><rect x="16" y="3" width="4" height="17" rx="1" stroke="currentColor" stroke-width="2" fill="none"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                </svg>
+              </span>
               <h3>Model Performance &amp; Accuracy</h3>
             </div>
             <p>
@@ -337,8 +368,21 @@
                 read with caution.
             </p>
 
+            <p>
+                NovaSight is built for decision support, not evaluation.
+                Predictions are meant to help flag student cohorts who
+                may benefit from additional academic support. They are not
+                a performance score for any college, department, or dean,
+                and are never used to rank or compare colleges against each
+                other.
+            </p>
+
             <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span>
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                </svg>
+              </span>
               <h3>Profile</h3>
             </div>
             <p>
@@ -354,7 +398,7 @@
             <details>
                 <summary>The password field won't accept my input.</summary>
                 <p>
-                    Passwords must be 8–16 characters and include at
+                    Passwords must be 8-16 characters and include at
                     least one uppercase letter, one number, and one
                     special character. The field border turns red when a
                     requirement isn't met yet, and green once it is.

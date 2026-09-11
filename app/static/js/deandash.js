@@ -1,12 +1,17 @@
-let statusRegularChart;
-let statusIrregularChart;
-let incForecastChart;
-let hardestSubjectCharts = {}; // one line chart per course, keyed by course name
-let dropoutSpikeChart;
-let maleStatusGridDonuts = {};   // one Regular/INC/Dropped donut per COURSE, Male grid, keyed by course name
-let femaleStatusGridDonuts = {}; // same as above, Female grid, keyed by course name
-let gwaScatterChart;
-let courseStatusGenderDonuts = {}; // two Regular/Irregular donuts (Male + Female) per course, keyed by `${course}_male` / `${course}_female`
+// var (not let/const) deliberately here: let/const share one global scope
+// across every <script> tag on a page and throw a hard, whole-file-killing
+// SyntaxError if this script ever ends up parsed twice (stale cached
+// response under the same URL after a deploy, a duplicate <script>
+// include, etc.). var tolerates redeclaration silently.
+var statusRegularChart;
+var statusIrregularChart;
+var incForecastChart;
+var hardestSubjectCharts = {}; // one line chart per course, keyed by course name
+var dropoutSpikeChart;
+var maleStatusGridDonuts = {};   // one Regular/INC/Dropped donut per COURSE, Male grid, keyed by course name
+var femaleStatusGridDonuts = {}; // same as above, Female grid, keyed by course name
+var gwaScatterChart;
+var courseStatusGenderDonuts = {}; // two Regular/Irregular donuts (Male + Female) per course, keyed by `${course}_male` / `${course}_female`
 
 /* ── Chart loading / empty-state helper ───────────────────────────
    A handful of bare <canvas> charts (GWA Scatter, INC Forecast,
@@ -92,19 +97,16 @@ document.addEventListener("DOMContentLoaded", function() {
 
         console.log(` Fetching Data for: ${college} | Year: ${year} | Sem: ${semester}`);
 
+        // Charts that always render their own full real+forecast
+        // horizon regardless of which mode pill is active — safe to
+        // refresh unconditionally here no matter what.
         // Scatter no longer needs `year` — it always shows every real
         // year plus the forecast horizon as its own columns.
         if (typeof updateGwaScatter === 'function') updateGwaScatter(college, semester);
-        if (typeof updateDropoutPie === 'function') updateDropoutPie(year, college);
-        
-        if (typeof updateKPIMetrics === 'function') updateKPIMetrics(year, semester, college);
-        if (typeof updateStatusChart === 'function') updateStatusChart(year, semester, college);
-        if (typeof updateKPIMetrics === 'function') updateIncForecast(college);
+        if (typeof updateIncForecast === 'function') updateIncForecast(college);
         if (typeof updateDropoutSpike === 'function') updateDropoutSpike(college);
         if (typeof updateHardestSubjectsByCourse === 'function') updateHardestSubjectsByCourse(college);
         if (typeof updateStatusByCourse === 'function') updateStatusByCourse(year, semester, college);
-        if (typeof updateYearLevelChart === 'function') updateYearLevelChart(year, semester, college);
-        if (typeof updateYearLevelIncIrregChart === 'function') updateYearLevelIncIrregChart(year, semester, college);
         // 4th arg syncs the heatmap's own "Course:" filter to match this
         // same course dropdown — 'all' when the whole college is
         // selected, so the heatmap's local filter always mirrors what's
@@ -112,6 +114,22 @@ document.addEventListener("DOMContentLoaded", function() {
         if (typeof updateCourseYearLevelHeatmap === 'function') {
             const heatmapCourse = (courseValue && courseValue !== wholeCollege) ? courseValue : 'all';
             updateCourseYearLevelHeatmap(year, semester, college, heatmapCourse);
+        }
+
+        // Charts whose look flips between Recent/Predicted — ModeAwareCharts
+        // (mode-toggle.js) owns these while Prediction mode is active.
+        // Only render their plain Recent-mode version here when Prediction
+        // ISN'T active; otherwise picking a course would silently repaint
+        // them back to Recent-looking data while the pill still says
+        // "Prediction" (see the course-filter change listener below,
+        // which calls ModeAwareCharts.setMode('prediction', ...) instead
+        // whenever this guard skips them).
+        if (typeof ModeAwareCharts === 'undefined' || ModeAwareCharts.currentMode !== 'prediction') {
+            if (typeof updateDropoutPie === 'function') updateDropoutPie(year, college);
+            if (typeof updateKPIMetrics === 'function') updateKPIMetrics(year, semester, college);
+            if (typeof updateStatusChart === 'function') updateStatusChart(year, semester, college);
+            if (typeof updateYearLevelChart === 'function') updateYearLevelChart(year, semester, college);
+            if (typeof updateYearLevelIncIrregChart === 'function') updateYearLevelIncIrregChart(year, semester, college);
         }
 
         // Keep Table Mode (table-view.js) in sync too — no-op if Chart
@@ -132,6 +150,29 @@ document.addEventListener("DOMContentLoaded", function() {
         .then(res => res.json())
         .then(info => {
             if (info && info.latest_year) LATEST_REAL_YEAR_FALLBACK = info.latest_year;
+
+            // FIX (2026-09-05): same root cause as maindash.js -- see the
+            // note there. #globalYearFilter had no <option> children, so
+            // its .value was always '', which every chart request sent as
+            // a blank `year=` regardless of LATEST_REAL_YEAR_FALLBACK.
+            if (yearSelector && info && Array.isArray(info.years) && info.years.length) {
+                yearSelector.innerHTML = info.years
+                    .slice()
+                    .sort((a, b) => b - a) // newest first
+                    .map(y => `<option value="${y}"${y === info.latest_year ? ' selected' : ''}>${y}</option>`)
+                    .join('');
+            }
+
+            // FIX (2026-09-09): same root cause as maindash.js — see the
+            // note there. initYearSemesterFilters() doesn't exist
+            // anywhere in this codebase, so the Semester dropdown was
+            // silently sitting on the HTML's first <option> (1st Sem)
+            // instead of the semester actually most recently uploaded.
+            if (semSelector && info && info.default_semester) {
+                const hasOption = Array.from(semSelector.options)
+                    .some(o => o.value === info.default_semester);
+                if (hasOption) semSelector.value = info.default_semester;
+            }
         })
         .catch(err => console.error('Failed to fetch latest uploaded year:', err))
         .finally(() => {
@@ -158,7 +199,23 @@ document.addEventListener("DOMContentLoaded", function() {
     if (semSelector) semSelector.addEventListener('change', triggerUpdate);
     if (courseSelector) courseSelector.addEventListener('change', function() {
         _initFired = true;        // cancel the timeout fallback
+
+        // Always refresh the charts triggerUpdate owns outright (the
+        // always-on ones, and — when Recent mode is active — the
+        // mode-owned ones too, per the guard inside triggerUpdate).
         triggerUpdate();
+
+        // If Prediction mode is active, triggerUpdate's guard just
+        // skipped the mode-owned charts rather than repainting them as
+        // Recent data. Hand those back to ModeAwareCharts so they
+        // re-render as Predicted Data for the newly-selected course,
+        // instead of sitting stale on whatever course was selected
+        // before.
+        if (typeof ModeAwareCharts !== 'undefined' && ModeAwareCharts.currentMode === 'prediction') {
+            const courseVal = courseSelector.value;
+            const semVal = semSelector ? semSelector.value : 'all';
+            ModeAwareCharts.setMode('prediction', courseVal, semVal);
+        }
     });
 });
 
@@ -231,7 +288,7 @@ function updateGwaScatter(college, semester) {
             });
 
             const scatterDatasets = Object.keys(groupsPresent).sort().map(g => {
-                const color = getGroupColor(g);
+                const color = getGroupColor(g, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
                 return {
                     label: g,
                     data: groupsPresent[g],
@@ -343,7 +400,7 @@ function updateGwaScatter(college, semester) {
 
             if (typeof renderColorLegend === 'function') {
                 renderColorLegend('scatterColorLegend', Object.keys(groupsPresent).sort().map(g => ({
-                    label: g, color: getGroupColor(g)
+                    label: g, color: getGroupColor(g, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null)
                 })));
             }
         })
@@ -432,8 +489,11 @@ function updateDropoutPie(year, college) {
                 console.error("Gender Status Breakdown API error:", data.error);
             }
             const rows = data.rows || [];
-            renderGenderStatusGrid(maleContainer, maleStatusGridDonuts, rows, 'male', data.group_by);
-            renderGenderStatusGrid(femaleContainer, femaleStatusGridDonuts, rows, 'female', data.group_by);
+            const genderCollegeHint = (college && college !== 'all' && college !== '' && college !== 'Overall')
+                ? college.toUpperCase()
+                : null;
+            renderGenderStatusGrid(maleContainer, maleStatusGridDonuts, rows, 'male', data.group_by, genderCollegeHint);
+            renderGenderStatusGrid(femaleContainer, femaleStatusGridDonuts, rows, 'female', data.group_by, genderCollegeHint);
 
             // Forecast/Actual badge for the two Retention & Risk donuts —
             // only meaningful for the per-college grain (the gender
@@ -469,7 +529,7 @@ function updateDropoutPie(year, college) {
  * The header above the donut totals ONLY this gender's students (not
  * a combined all-gender total).
  */
-function renderGenderStatusGrid(container, chartStore, rows, gender, groupBy) {
+function renderGenderStatusGrid(container, chartStore, rows, gender, groupBy, collegeHint) {
     if (!container) return;
     const groupLabel = groupBy === 'course' ? 'course' : 'college';
 
@@ -505,9 +565,9 @@ function renderGenderStatusGrid(container, chartStore, rows, gender, groupBy) {
     const legendEntries = [];
     nonZero.forEach(r => {
         const name = r.group;
-        const base = getGenderShade(getGroupColor(name), isFemale);
-        const inc = getGenderShade(getIncColor(name), isFemale);
-        const risk = getGenderShade(getRiskColor(name), isFemale);
+        const base = getGenderShade(getGroupColor(name, collegeHint), isFemale);
+        const inc = getGenderShade(getIncColor(name, collegeHint), isFemale);
+        const risk = getGenderShade(getRiskColor(name, collegeHint), isFemale);
 
         const regular = r[`${gender}_regular`];
         const incVal = r[`${gender}_inc`];
@@ -663,8 +723,8 @@ function updateKPIMetrics(year, semester, college) {
             // 3. Dynamic Styling (Blue = History, Orange = AI Prediction)
             
             // Colors
-            const colorPrimary = isPred ? '#f6ad55' : '#4e73df'; // Orange vs Blue
-            const colorSecondary = isPred ? '#f6ad55' : '#1cc88a'; // Orange vs Green
+            const colorPrimary = isPred ? '#f6ad55' : '#6B7280'; // Orange vs Blue
+            const colorSecondary = isPred ? '#f6ad55' : '#6B7280'; // Orange vs Green
             const suffix = isPred ? `(Predicted Data — ${year})` : `(${year})`;
             // Same predicted headcount as before — just a clearer label
             // while in Prediction mode, since "Total Enrollment" reads
@@ -690,7 +750,26 @@ function updateKPIMetrics(year, semester, college) {
             // of Actual vs Predicted, unlike the blue/orange history-vs-
             // forecast split used for the other two cards)
             const dropLabel = isPred ? 'Projected Drop' : 'Total Drop';
-            if(titleDrop) titleDrop.innerText = `${dropLabel} ${suffix}`;
+            if(cardDrop) cardDrop.style.borderLeftColor = '#800000';
+            if(titleDrop) {
+                titleDrop.style.color = isPred ? '#800000' : '#6B7280';
+                titleDrop.innerText = `${dropLabel} ${suffix}`;
+            }
+
+            // 4. Trend indicator (%-change badge + mini sparkline),
+            // 2026-09-06 — same call regardless of Recent vs Prediction
+            // mode, since the backend's trend/pct_change fields are
+            // always built the same way either way (see get_kpi_metrics'
+            // TREND comment: every period walked back to is guaranteed
+            // real data, even when the CURRENT period itself is a
+            // forecast).
+            if (typeof renderKpiTrend === 'function') {
+                const trend = data.trend || {};
+                const pctChange = data.pct_change || {};
+                renderKpiTrend('students', trend.students, pctChange.students, 'up');
+                renderKpiTrend('gwa', trend.gwa, pctChange.gwa, 'down');
+                renderKpiTrend('drop', trend.drop, pctChange.drop, 'down');
+            }
         })
         .catch(err => console.error("KPI Error:", err));
 }
@@ -843,7 +922,7 @@ function updateStatusChart(year, semester, college) {
             } else {
                 const regLabels = regRows.map(c => c.course);
                 const regValues = regRows.map(c => c.regular);
-                const regColors = regRows.map(c => getGroupColor(c.course));
+                const regColors = regRows.map(c => getGroupColor(c.course, entityLabel));
 
                 statusRegularChart = renderDonut(statusRegularChart, regCtx, regLabels, regValues, regColors, (context) => {
                     const row = regRows[context.dataIndex];
@@ -852,7 +931,7 @@ function updateStatusChart(year, semester, college) {
                 });
 
                 if (typeof renderColorLegend === 'function') {
-                    renderColorLegend('status-plain-summary-legend', regLabels.map(l => ({ label: l, color: getGroupColor(l) })));
+                    renderColorLegend('status-plain-summary-legend', regLabels.map(l => ({ label: l, color: getGroupColor(l, entityLabel) })));
                 }
             }
 
@@ -864,7 +943,7 @@ function updateStatusChart(year, semester, college) {
             } else {
                 const irrLabels = irrRows.map(c => c.course);
                 const irrValues = irrRows.map(c => c.irregular);
-                const irrColors = irrRows.map(c => getGroupColor(c.course));
+                const irrColors = irrRows.map(c => getGroupColor(c.course, entityLabel));
 
                 statusIrregularChart = renderDonut(statusIrregularChart, irrCtx, irrLabels, irrValues, irrColors, (context) => {
                     const row = irrRows[context.dataIndex];
@@ -873,7 +952,7 @@ function updateStatusChart(year, semester, college) {
                 });
 
                 if (typeof renderColorLegend === 'function') {
-                    renderColorLegend('status-irregular-legend', irrLabels.map(l => ({ label: l, color: getGroupColor(l) })));
+                    renderColorLegend('status-irregular-legend', irrLabels.map(l => ({ label: l, color: getGroupColor(l, entityLabel) })));
                 }
             }
         })
@@ -919,7 +998,7 @@ function updateIncForecast(college) {
 
             const datasets = [];
             (data.series || []).forEach(s => {
-                const color = getGroupColor(s.label);
+                const color = getGroupColor(s.label, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
                 datasets.push({
                     label: s.label,
                     data: s.history,
@@ -992,7 +1071,7 @@ function updateIncForecast(college) {
 
             if (typeof renderColorLegend === 'function') {
                 renderColorLegend('incForecastLegend', (data.series || []).map(s => ({
-                    label: s.label, color: getGroupColor(s.label)
+                    label: s.label, color: getGroupColor(s.label, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null)
                 })));
             }
         })
@@ -1083,7 +1162,7 @@ function drawHardestSubjectChart(course, canvas, legendEl) {
     const historyCount = course.history_count != null ? course.history_count : years.length;
 
     const datasets = subjects.map(s => {
-        const color = getGroupColor(s.subject);
+        const color = getGroupColor(s.subject, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
         return {
             label: s.subject,
             data: s.data,
@@ -1149,7 +1228,7 @@ function drawHardestSubjectChart(course, canvas, legendEl) {
     if (legendEl && typeof renderColorLegend === 'function') {
         renderColorLegend(legendEl.id, subjects.map(s => ({
             label: s.subject,
-            color: getGroupColor(s.subject),
+            color: getGroupColor(s.subject, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null),
             // Fail count front-and-center in the legend, not just on
             // hover — the easiest place to spot it at a glance.
             subtitle: s.failCount ? `${s.failCount.toLocaleString()} failed` : null
@@ -1199,8 +1278,8 @@ function renderHardestSubjectsShared(courses, container) {
     // Build one card + canvas + legend div per course (only once — reuse on updates)
     container.innerHTML = courses.map(c => `
         <div style="flex: 1 1 300px; max-width: 380px; background:#fff; border:1px solid #e3e6f0; border-radius: 0.5rem; padding: 0.85rem; margin: 0.4rem;">
-            <h6 style="margin:0 0 0.5rem 0; font-size:0.85rem; font-weight:700; color:${getGroupColor(c.course)};">
-                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:${getGroupColor(c.course)}; margin-right:6px;"></span>
+            <h6 style="margin:0 0 0.5rem 0; font-size:0.85rem; font-weight:700; color:${getGroupColor(c.course, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null)};">
+                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:${getGroupColor(c.course, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null)}; margin-right:6px;"></span>
                 ${c.course} — Top 5 Hardest Subjects
             </h6>
             <div style="position:relative; height:220px;">
@@ -1250,7 +1329,7 @@ function updateStatusByCourse(year, semester, college) {
             // Build one card per course, with TWO canvases inside (Male / Female)
             container.innerHTML = courses.map(c => {
                 const id = c.course.replace(/[^a-zA-Z0-9]/g, '_');
-                const color = getGroupColor(c.course);
+                const color = getGroupColor(c.course, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
                 const courseTotal = (c.male_safe + c.male_risk) + (c.female_safe + c.female_risk);
                 return `
                 <div style="flex: 1 1 420px; max-width: 480px; background:#fff; border:1px solid #e3e6f0; border-radius: 0.5rem; padding: 1rem; margin: 0.5rem;">
@@ -1298,8 +1377,8 @@ function updateStatusByCourse(year, semester, college) {
                 const maleTotal = c.male_safe + c.male_risk;
                 const femaleTotal = c.female_safe + c.female_risk;
 
-                const courseColor = getGroupColor(c.course);
-                const courseRisk = getRiskColor(c.course);
+                const courseColor = getGroupColor(c.course, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
+                const courseRisk = getRiskColor(c.course, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
 
                 const donutOptions = (total) => ({
                     maintainAspectRatio: false,
@@ -1467,7 +1546,7 @@ function updateDropoutSpike(college) {
             const datasets = [];
             const allSpikes = [];
             (data.series || []).forEach(s => {
-                const color = getGroupColor(s.label);
+                const color = getGroupColor(s.label, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
                 const combined = (s.history || []).map((v, i) => (v != null ? v : (s.forecast || [])[i]));
                 const spikes = s.spikes || [];
                 allSpikes.push(spikes);
@@ -1502,7 +1581,7 @@ function updateDropoutSpike(college) {
 
             if (typeof renderColorLegend === 'function') {
                 renderColorLegend('dropoutSpikeLegend', (data.series || []).map(s => ({
-                    label: s.label, color: getGroupColor(s.label)
+                    label: s.label, color: getGroupColor(s.label, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null)
                 })));
             }
         })

@@ -1,58 +1,51 @@
 {
-  "trained_at": "2026-08-31T06:30:16.812698Z",
-  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\4_1788157816_2022-1_Student-Performance_Dataset.xlsx",
+  "trained_at": "2026-09-10T07:13:21.083280Z",
+  "triggered_by": "C:\\Users\\ARCH. ABRAHAM PERDIO\\OneDrive\\Desktop\\JeoPerdio\\Capstone\\Novasight\\Unprocessed_Datasets\\1_1789024401_2024-2_Student-Performance_Dataset.xlsx",
   "models": {
     "dropout_risk": {
       "status": "ok",
-      "r2": 0.0315,
-      "rmse": 0.1281
+      "r2": 0.0229,
+      "rmse": 0.1197
     },
     "dropout_spike": {
       "status": "ok",
-      "r2": 0.8868,
-      "rmse": 0.3605,
-      "mse": 0.13,
-      "mae": 0.293
+      "r2": 0.9062,
+      "rmse": 0.2737,
+      "mse": 0.0749,
+      "mae": 0.1831
     },
     "dropout_ranking": {
       "status": "ok",
-      "r2": 0.0129,
-      "rmse": 0.1331,
-      "mse": 0.0177,
-      "mae": 0.0342
+      "r2": 0.0086,
+      "rmse": 0.1233,
+      "mse": 0.0152,
+      "mae": 0.0296
     },
     "gwa_ranking": {
       "status": "ok",
-      "r2": 0.06,
-      "rmse": 0.6316,
-      "mse": 0.399,
-      "mae": 0.427
+      "r2": 0.0558,
+      "rmse": 0.5999,
+      "mse": 0.3599,
+      "mae": 0.3851
     },
     "gwa_trend": {
       "status": "ok",
-      "r2": 0.8875,
-      "rmse": 0.055,
-      "mse": 0.003,
-      "mae": 0.0459
-    },
-    "inc_forecast": {
-      "status": "ok",
-      "r2": 0.891,
-      "rmse": 2.8604,
-      "mse": 8.1818,
-      "mae": 2.4334
+      "r2": 0.8924,
+      "rmse": 0.0509,
+      "mse": 0.0026,
+      "mae": 0.0403
     },
     "irreg_reg": {
       "status": "ok",
-      "accuracy": 0.9244,
-      "f1": 0.8235
+      "accuracy": 0.9404,
+      "f1": 0.7778
     },
     "kpi": {
       "gwa": {
-        "r2": 0.0591,
-        "rmse": 0.6351,
-        "mse": 0.4033,
-        "mae": 0.426
+        "r2": 0.0618,
+        "rmse": 0.594,
+        "mse": 0.3529,
+        "mae": 0.3817
       },
       "enrollment": {
         "r2": 0.9868,
@@ -61,62 +54,116 @@
         "mae": 87.1204
       },
       "drop": {
-        "r2": 0.6062,
-        "rmse": 22.6982,
-        "mse": 515.206,
-        "mae": 14.662
+        "r2": 0.6637,
+        "rmse": 19.5308,
+        "mse": 381.4529,
+        "mae": 12.7006
       }
-    },
-    "subject_grade": {
-      "status": "ok",
-      "r2": 0.6208,
-      "rmse": 0.4209,
-      "mse": 0.1772,
-      "mae": 0.2404
     },
     "gender_performance_male": {
       "dropout_rate": {
-        "r2": 0.9009,
-        "rmse": 0.3556,
-        "mse": 0.1265,
-        "mae": 0.2928
+        "r2": 0.9046,
+        "rmse": 0.2857,
+        "mse": 0.0816,
+        "mae": 0.2063
       },
       "inc_rate": {
-        "r2": 0.946,
-        "rmse": 1.9744,
-        "mse": 3.8982,
-        "mae": 1.5824
+        "r2": 0.981,
+        "rmse": 0.8061,
+        "mse": 0.6498,
+        "mae": 0.7218
       }
     },
     "gender_performance_female": {
       "dropout_rate": {
-        "r2": 0.8613,
-        "rmse": 0.3912,
-        "mse": 0.153,
-        "mae": 0.3033
+        "r2": 0.903,
+        "rmse": 0.2827,
+        "mse": 0.0799,
+        "mae": 0.1816
       },
       "inc_rate": {
-        "r2": 0.9262,
-        "rmse": 1.9372,
-        "mse": 3.7528,
-        "mae": 1.3849
+        "r2": 0.9689,
+        "rmse": 0.9137,
+        "mse": 0.8348,
+        "mae": 0.7296
+      }
+    },
+    "year_level_performance": {
+      "Excellent": {
+        "status": "ok",
+        "r2": 0.3426,
+        "rmse": 19.1037,
+        "mse": 364.9498,
+        "mae": 14.7462
+      },
+      "Good": {
+        "status": "ok",
+        "r2": 0.1708,
+        "rmse": 18.2705,
+        "mse": 333.8098,
+        "mae": 14.6968
+      },
+      "Average": {
+        "status": "ok",
+        "r2": 0.3759,
+        "rmse": 12.3743,
+        "mse": 153.1222,
+        "mae": 9.065
+      },
+      "Below Average": {
+        "status": "ok",
+        "r2": 0.2757,
+        "rmse": 7.2787,
+        "mse": 52.9794,
+        "mae": 4.5759
+      },
+      "Failing": {
+        "status": "ok",
+        "r2": 0.3873,
+        "rmse": 5.9335,
+        "mse": 35.2061,
+        "mae": 4.1844
+      }
+    },
+    "year_level_inc_irreg": {
+      "inc_rate": {
+        "status": "ok",
+        "r2": 0.4032,
+        "rmse": 10.5068,
+        "mse": 110.3927,
+        "mae": 7.4811
+      },
+      "irregular_rate": {
+        "status": "ok",
+        "r2": 0.4142,
+        "rmse": 10.6759,
+        "mse": 113.9753,
+        "mae": 7.6082
+      },
+      "drop_rate": {
+        "status": "ok",
+        "r2": 0.1365,
+        "rmse": 2.835,
+        "mse": 8.037,
+        "mae": 1.6753
       }
     }
   },
   "horizon": {
     "latest_year": "2024-2025",
     "latest_year_start": 2024,
-    "completed_years": 0,
-    "bonus_years": 0,
-    "horizon_year_start": 2026,
-    "horizon_year": "2026-2027",
-    "total_steps_forward": 2,
+    "completed_years": 3,
+    "bonus_years": 2,
+    "horizon_year_start": 2027,
+    "horizon_year": "2027-2028",
+    "total_steps_forward": 3,
     "prediction_years": [
       "2025-2026",
-      "2026-2027"
+      "2026-2027",
+      "2027-2028"
     ]
   },
   "errors": [],
   "rows_in_master": 57745,
-  "elapsed_seconds": 36.3
+  "elapsed_seconds": 32.2
 }

@@ -114,6 +114,28 @@ function splitMetrics(metrics) {
 // if the backend already supplies it — this map only covers the gap.
 const CHART_LABELS = [
   { match: /dropout.*risk|risk.*dropout/i, label: 'Dropout Risk (Donut)' },
+  // year_level_performance (RESTORED 2026-09-06 as 5 independent
+  // per-band LinearRegression models — Excellent/Good/Average/Below
+  // Average/Failing) powers the Prediction-mode LINE view of
+  // "Performance by Year Level". Matches both possible card-naming
+  // conventions: one card named "year_level_performance", or 5
+  // separate cards named after each band directly — whichever the
+  // backend's flattening does, this still labels correctly. Checked
+  // before the generic /year.*level/i fallback below (a band name alone
+  // wouldn't match that pattern anyway, but keeping the specific rule
+  // first makes the precedence explicit) and before /irreg/i, /gwa.*
+  // trend/, etc., which a bare band name wouldn't collide with, but
+  // "year_level_performance" as a whole string could partially overlap
+  // with in principle.
+  { match: /year_level_performance|^(excellent|good|average|below average|failing)$/i,
+    label: 'Performance by Year Level (Line)' },
+  // Year-level INC/Irregular/Drop Rate sub-metrics (inc_rate,
+  // irregular_rate, drop_rate under year_level_inc_irreg) need to be
+  // checked BEFORE the generic /irreg/i rule below, or the
+  // irregular_rate sub-metric would incorrectly get labeled a Donut
+  // (from the /irreg/i match) instead of the bar chart it actually
+  // powers.
+  { match: /year.*level.*(inc|irreg|drop)|(inc|irreg|drop).*year.*level/i, label: 'INC/Irregular/Drop Rate by Year Level (Bar)' },
   { match: /irreg/i,                       label: 'Irregular Students (Donut)' },
   { match: /dropout.*spike|spike/i,        label: 'Dropout Trend (Line)' },
   { match: /gwa.*trend|trend.*gwa/i,       label: 'GWA Trend (Line)' },
@@ -122,7 +144,15 @@ const CHART_LABELS = [
   { match: /gender/i,                      label: 'Gender Performance (Line)' },
   { match: /ranking/i,                     label: 'Ranking (Bar)' },
   { match: /^kpi$|kpi/i,                   label: 'KPI Tile' },
-  { match: /year.*level/i,                 label: 'Year Level (Heatmap)' },
+  // FIX (2026-09-06): course_year_level_dropout (the only model that
+  // was ever actually meant to power a heatmap, but never got wired up)
+  // was removed as dead code. Nothing that can still reach this
+  // fallback is confirmed to be any specific chart type — kept only as
+  // a safety net for a year-level model name that doesn't match either
+  // more specific rule above, so the label stays generic ('Year Level')
+  // instead of asserting a chart type ('Bar'/'Heatmap') that might be
+  // wrong for whatever unexpected name lands here.
+  { match: /year.*level/i,                 label: 'Year Level' },
 ];
 
 function chartLabelFor(model) {

@@ -238,7 +238,6 @@
       <div class="card card-mini no-print">
         <label>Semester</label>
         <select id="filterSemester" class="form-select">
-            <option value="all">All Semesters</option>
             <option value="1sem">1st Sem</option>
             <option value="2sem">2nd Sem</option>
         </select>
@@ -273,22 +272,19 @@
 
       <!-- Table Mode renders here instead of the charts below (see table-view.js) -->
       <div id="chartViewContainer" style="display:contents;">
-      <div class="card card-mini1">
-        <div id="kpi-card-students" style="border-radius: 10px; background: white; padding: 10px; height: 50px;">
+      <div class="card card-mini2">
+        <div id="kpi-card-students" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
             <div style="align-items: center; display: flex; justify-content: space-between;" >
                 <div>
-                    <div style="font-size: small; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: rgb(78, 115, 223);" id="kpi-title-students">
+                    <div style="font-size: smaller; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #6B7280;" id="kpi-title-students">
                         Total Enrollment
                     </div>
-                    <div style="font-weight: 800;" id="kpi-val-students">
+                    <div style="font-weight: 800; font-size: x-large;" id="kpi-val-students">
                         ---
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(78, 115, 223); width: 38px; height: 38px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" style="color: #ffffff" viewBox="0 0 24 24" fill="currentColor" class="size-6">
-                        <path fill-rule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clip-rule="evenodd" />
-                        <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
-                    </svg>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; min-width: 58px;">
+                    <span id="kpi-pct-students" style="font-size: 1.2rem; font-weight: 700; white-space: nowrap;"></span>
                 </div>
             </div>
         </div>
@@ -296,43 +292,36 @@
 
 
       <div class="card card-mini1">
-        <div id="kpi-card-gwa" style="border-radius: 10px; background: white; padding: 10px; height: 50px;">
+        <div id="kpi-card-gwa" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
             <div style="align-items: center; display: flex; justify-content: space-between;">
                 <div>
-                    <div style="font-size: small; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: rgb(28, 200, 138);" id="kpi-title-gwa">
+                    <div style="font-size: smaller; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #6B7280" id="kpi-title-gwa">
                         Average GWA
                     </div>
-                    <div style="font-weight: 800;" id="kpi-val-gwa">
+                    <div style="font-weight: 800; font-size: x-large;" id="kpi-val-gwa">
                         ---
                     </div>
                 </div>
-                <!-- Icon -->
-                <div style="display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(28, 200, 138); width: 38px; height: 38px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" style="color: #ffffff" viewBox="0 0 24 24" fill="currentColor" class="size-6">
-                        <path fill-rule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 17.25a.75.75 0 0 0-1.5 0V18a.75.75 0 0 0 1.5 0v-.75Zm2.25-3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3a.75.75 0 0 1 .75-.75Zm3.75-1.5a.75.75 0 0 0-1.5 0V18a.75.75 0 0 0 1.5 0v-5.25Z" clip-rule="evenodd" />
-                        <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
-                    </svg>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; min-width: 58px;">
+                    <span id="kpi-pct-gwa" style="font-size: 1.2rem; font-weight: 700; white-space: nowrap;"></span>
                 </div>
             </div>
         </div>
       </div>
 
-      <div class="card card-mini2">
-        <div id="kpi-card-drop" style="border-radius: 10px; background: white; padding: 10px; height: 50px;">
+      <div class="card card-mini1">
+        <div id="kpi-card-drop" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
             <div style="align-items: center; display: flex; justify-content: space-between;">
                 <div>
-                    <div style="font-size: small; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #800000;" id="kpi-title-drop">
+                    <div style="font-size: smaller; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #6B7280;" id="kpi-title-drop">
                         Total Drop
                     </div>
-                    <div style="font-weight: 800;" id="kpi-val-drop">
+                    <div style="font-weight: 800; font-size: x-large;" id="kpi-val-drop">
                         ---
                     </div>
                 </div>
-                <!-- Icon -->
-                <div style="display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #800000; width: 34px; height: 34px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="size-6" style="color: #ffffff;">
-                        <path fill-rule="evenodd" d="M1.72 5.47a.75.75 0 0 1 1.06 0L9 11.69l3.756-3.756a.75.75 0 0 1 .985-.066 12.698 12.698 0 0 1 4.575 6.832l.308 1.149 2.277-3.943a.75.75 0 1 1 1.299.75l-3.182 5.51a.75.75 0 0 1-1.025.275l-5.511-3.181a.75.75 0 0 1 .75-1.3l3.943 2.277-.308-1.149a11.194 11.194 0 0 0-3.528-5.617l-3.809 3.81a.75.75 0 0 1-1.06 0L1.72 6.53a.75.75 0 0 1 0-1.061Z" clip-rule="evenodd" />
-                    </svg>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; min-width: 58px;">
+                    <span id="kpi-pct-drop" style="font-size: 1.2rem; font-weight: 700; white-space: nowrap;"></span>
                 </div>
             </div>
         </div>
@@ -372,7 +361,7 @@
           <div style="background-color: #fff; border-radius: 0.35rem; margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
               <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
                   <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                      <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:#4e73df; margin-right:6px;" id="dp-dot-m"></span>
+                      <span style="display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px;"></span>
                       Male Retention & Risk: <span id="dp-college-name-m" style="color: #5a5c69;">CCST</span>
                   </h6>
                   <span id="drop-pie-badge-m" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>
@@ -392,7 +381,7 @@
           <div style="background-color: #fff; border-radius: 0.35rem; margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
               <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
                   <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                      <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:#e83e8c; margin-right:6px;" id="dp-dot-f"></span>
+                      <span style="display:inline-block; width:10px; height:10px; border-radius:50%;margin-right:6px;"></span>
                       Female Retention & Risk: <span id="dp-college-name-f" style="color: #5a5c69;">CCST</span>
                   </h6>
                   <span id="drop-pie-badge-f" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>

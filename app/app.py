@@ -1,5 +1,5 @@
 from flask import Flask, render_template, redirect, session, request, flash, url_for
-from configs.config import SECRET_KEY, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS
+from configs.config import SECRET_KEY, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS, CAHS_ROLES
 from database.models import db, AcadUser, assign_avatar_color, ensure_avatar_color, resync_avatar_colors
 from werkzeug.security import generate_password_hash
 from flask import jsonify
@@ -124,9 +124,10 @@ def help():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if 'user_id' in session:
-        flash("You are already logged in.", "info")
-        role = session.get('role')
-        return _redirect_by_role(role)
+        # Clicking Login while already logged in (e.g. from the public
+        # home page in a different tab) goes straight to that user's
+        # own dashboard landing page — no detour through home.
+        return _redirect_by_role(session.get('role'))
 
     if request.method == 'POST':
         account  = request.form.get('account', '').strip()
@@ -160,13 +161,15 @@ def _redirect_by_role(role):
         'Registrar':      '/NovaSight/registrar/home',
         'SASO':           '/NovaSight/saso/home',
         'Academic_Affair': '/NovaSight/academicaffair/home',
-        'CAHSdean':       '/NovaSight/cahs/home',
         'CBAdean':        '/NovaSight/cba/home',
         'CCSTdean':       '/NovaSight/ccst/home',
         'CEAdean':        '/NovaSight/cea/home',
         'CoASdean':       '/NovaSight/coas/home',
         'CTECdean':       '/NovaSight/ctec/home',
     }
+    # All four CAHS roles (Nursing/PH/Midwifery deans + CAHS director) land
+    # on the same CAHS home page.
+    routes.update({r: '/NovaSight/cahs/home' for r in CAHS_ROLES})
     return redirect(routes.get(role, '/NovaSight'))
 
 
@@ -174,6 +177,25 @@ def _redirect_by_role(role):
 def logout():
     session.clear()
     return redirect('/')
+
+
+# ---------------- No-Cache Headers (fix: Back button after logout) --------
+@app.after_request
+def add_no_cache_headers(response):
+    """
+    Without this, clicking the browser's Back button after /logout can
+    redisplay the last dashboard page exactly as it looked while still
+    logged in — not because the session is still valid (session.clear()
+    in logout() already wiped it), but because the browser served the
+    page straight from its cache/back-forward-cache instead of asking
+    the server again. These headers tell the browser never to do that,
+    so Back always triggers a fresh request, which then correctly hits
+    the @login_required-style checks and bounces to /login.
+    """
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 # ---------------- Change Password (generic) ----------------
 @app.route('/update-password', methods=['POST'])
@@ -219,6 +241,74 @@ def mark_tutorial_seen():
     user.mark_tutorial_seen(key)
     db.session.commit()
     return jsonify({"success": True})
+
+
+# ---------------- Keep session in sync with the DB ----------------
+@app.before_request
+def sync_session_with_db():
+    """
+    session['role'] is only ever written once, at login — every page
+    guard in this app (session.get('role') != 'admin', etc.) checks
+    THAT stashed value, never the database. So if an admin changes a
+    user's role (or deactivates them) while that user is still logged
+    in, the DB updates immediately but their session keeps the OLD role
+    until they manually log out and back in.
+
+    Re-checking the user's current role/archived status against the DB
+    on every request catches that drift and forces them out (session
+    cleared) the moment it's detected, instead of leaving them logged
+    in under a role that no longer matches the database. On their next
+    full-page navigation they're sent to the public home page (same as
+    every other role guard in this app — admin.py, cahs.py, cba.py,
+    etc. — which all redirect unauthorized access to url_for('home'),
+    not to /login) with a message explaining why, so they can log back
+    in from there and land on the dashboard for their new role. Skipped
+    for static files — nothing to sync there.
+    """
+    if request.endpoint == 'static':
+        return
+    if 'user_id' not in session:
+        return
+
+    user = AcadUser.query.get(session['user_id'])
+    if not user or user.is_archived:
+        # Account was deleted or deactivated while logged in.
+        session.clear()
+        # Always queue the flash the moment we detect this, even if
+        # THIS particular request is a background fetch() (chart data
+        # polling, etc.) rather than a real page load — flash() writes
+        # into the session cookie, which persists into whatever request
+        # comes next. If we only flashed inside the GET/html branch
+        # below, a background request catching the mismatch first would
+        # clear the session with no message queued, and the user's next
+        # real click would land on home with nothing to show (this was
+        # the actual bug — the modal never appeared).
+        flash("Your account has been deactivated. If this wasn't authorized, please contact the administrator.", "error")
+        if request.method == 'GET' and request.accept_mimetypes.best == 'text/html':
+            return redirect(url_for('home'))
+        return
+
+    if session.get('role') != user.role:
+        # Role changed while the user was logged in — kick them out
+        # entirely rather than silently swapping them into the new
+        # role's dashboard mid-session.
+        session.clear()
+        flash("Your role was updated by an admin. Please log in again.", "info")
+
+        # Same reasoning as the deactivated-account case above: flash
+        # first (unconditionally), THEN only take over the response
+        # for full-page navigations. request.accept_mimetypes.best is
+        # 'text/html' for a clicked link/refresh, but '*/*' or
+        # 'application/json' for the page's own background fetch()
+        # calls (chart data, etc.) — redirecting one of THOSE to an
+        # HTML page would hand the JS markup it can't parse as JSON,
+        # so we leave those alone and let whatever 401/403 the specific
+        # endpoint already returns handle it. The flash is already
+        # queued in the session cookie by this point regardless, so the
+        # next real page load still shows it even if this exact request
+        # wasn't one.
+        if request.method == 'GET' and request.accept_mimetypes.best == 'text/html':
+            return redirect(url_for('home'))
 
 
 # ---------------- Context Processor ----------------

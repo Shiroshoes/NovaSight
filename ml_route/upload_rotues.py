@@ -362,23 +362,16 @@ def api_training_state():
 
 
 # ── Human-readable labels for each trained model ────────────────
-# For models that train several sub-models at once (kpi, gender_performance_*),
-# this is the SHARED prefix — the actual sub-model name comes from
-# _SUBMODEL_LABELS below and each sub-model gets rendered as its own
-# dashboard card instead of one bundled card.
+# For models that train several sub-models at once (kpi, gender_performance_*,
+# year_level_performance, year_level_inc_irreg), this is the SHARED prefix —
+# the actual sub-model name comes from _SUBMODEL_LABELS below and each
+# sub-model gets rendered as its own dashboard card instead of one bundled
+# card.
 #
-# performance_band, year_level_performance, and year_level_inc_irreg were
-# REMOVED (2026-08-19) from auto_train.py's trainer list — all three were
-# RandomForestRegressor models trained to eventually power a forecast, but
-# RF can't extrapolate past the years it was trained on (see forecast_series()'s
-# docstring in ml_analysis.py — the same failure mode already hit and fixed
-# once for the subject-grade forecast). year_level_inc_irreg was additionally
-# measurably harmful (Drop_Rate R^2 = -0.63) and fully redundant with
-# /api/get_year_level_inc_irreg_forecast, which already forecasts all three
-# rates live via forecast_series(). Deliberately not listed here anymore —
-# if a stale training_state.json still has them, they'll fall back to a
-# Title-Cased key and an unwired "chart_used" badge, which is the correct
-# signal to retrain and drop them for good.
+# performance_band was never built into a chart, so it's deliberately not
+# listed here — if it ever shows up in training_state.json, the
+# Title-Cased-key + "Not Used in Any Chart Yet" fallback is the correct
+# signal that nothing consumes it yet.
 _MODEL_LABELS = {
     'dropout_risk':       'Dropout Risk (per Student)',
     'dropout_spike':      'Dropout Spike (Cohort Trend)',
@@ -391,6 +384,20 @@ _MODEL_LABELS = {
     'subject_grade':      'Subject Grade Forecast',
     'gender_performance_male':   'Gender Performance — Male',
     'gender_performance_female': 'Gender Performance — Female',
+    # RESTORED 2026-09-06: year_level_performance came back the same day
+    # it was removed, this time as 5 INDEPENDENT per-band LinearRegression
+    # models (Excellent/Good/Average/Below Average/Failing) instead of the
+    # one-shared-model design that flatlined — see
+    # auto_train.train_year_level_performance's docstring for the full
+    # history. year_level_inc_irreg was never actually harmful in its
+    # current (2026-09-04+) form — the "-0.63 R^2" note above described
+    # the OLD RandomForestRegressor version; the LinearRegression
+    # replacement has 3 genuinely separate per-metric models with real,
+    # non-cancelling Year_Numeric coefficients (verified directly against
+    # the trained models), and IS what /api/get_year_level_inc_irreg_forecast
+    # actually calls — it just never got a label/chart-usage entry here.
+    'year_level_performance': 'Performance by Year Level',
+    'year_level_inc_irreg':   'INC / Irregular / Drop Rate by Year Level',
 }
 
 # Sub-model display names, keyed by parent model key -> {sub_name: label}.
@@ -399,6 +406,18 @@ _SUBMODEL_LABELS = {
     'kpi': {'gwa': 'GWA', 'enrollment': 'Enrollment', 'drop': 'Drop Rate'},
     'gender_performance_male':   {'dropout_rate': 'Dropout Rate', 'inc_rate': 'INC Rate'},
     'gender_performance_female': {'dropout_rate': 'Dropout Rate', 'inc_rate': 'INC Rate'},
+    # Keys here must match auto_train.train_year_level_performance's band
+    # names EXACTLY (including the space in "Below Average") since
+    # _flatten_metric_block builds sub_key as f"{key}_{sub_name}" straight
+    # from the trainer's own result dict keys, not a normalized/lowercased
+    # version of them.
+    'year_level_performance': {
+        'Excellent': 'Excellent', 'Good': 'Good', 'Average': 'Average',
+        'Below Average': 'Below Average', 'Failing': 'Failing',
+    },
+    'year_level_inc_irreg': {
+        'inc_rate': 'INC Rate', 'irregular_rate': 'Irregular Rate', 'drop_rate': 'Drop Rate',
+    },
 }
 
 # Which chart/endpoint actually consumes each model's predictions, keyed by
@@ -427,6 +446,19 @@ _CHART_USAGE = {
     'gender_performance_male_inc_rate':       'Retention & Risk Donut (Male, per-college)',
     'gender_performance_female_dropout_rate': 'Retention & Risk Donut (Female, per-college)',
     'gender_performance_female_inc_rate':     'Retention & Risk Donut (Female, per-college)',
+    # ADDED 2026-09-06 — both models existed and were genuinely consumed
+    # by their charts already; they'd just never been given entries here,
+    # which is exactly why every card from either one showed "Not Used in
+    # Any Chart Yet" despite /api/get_year_level_gwa_forecast and
+    # /api/get_year_level_inc_irreg_forecast actively calling them.
+    'year_level_performance_Excellent':      'Performance by Year Level Chart (Forecast Mode)',
+    'year_level_performance_Good':           'Performance by Year Level Chart (Forecast Mode)',
+    'year_level_performance_Average':        'Performance by Year Level Chart (Forecast Mode)',
+    'year_level_performance_Below Average':  'Performance by Year Level Chart (Forecast Mode)',
+    'year_level_performance_Failing':        'Performance by Year Level Chart (Forecast Mode)',
+    'year_level_inc_irreg_inc_rate':         'INC / Irregular / Drop Rate by Year Level Chart (Forecast Mode)',
+    'year_level_inc_irreg_irregular_rate':   'INC / Irregular / Drop Rate by Year Level Chart (Forecast Mode)',
+    'year_level_inc_irreg_drop_rate':        'INC / Irregular / Drop Rate by Year Level Chart (Forecast Mode)',
 }
 
 
