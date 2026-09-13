@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prediction Analysis</title>
+  <link rel="icon" href="{{url_for('static', filename='image/logo3.png')}}" type="image/x-icon">
+  <link rel="stylesheet" href="{{url_for('static', filename='css/registrar&saso/preddashregisSASO.css')}}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <link rel="stylesheet" href="{{url_for('static', filename='css/shared/dashboard-shared.css')}}">
+  <style>.print-header { display: none; }</style>
+  <link rel="stylesheet" href="{{url_for('static', filename='css/print/dashboard-print.css')}}">
+
+  <style>
+    .prediction-banner {
+      grid-column: 1 / -1;
+      background: #fff7e6;
+      border: 1px solid #ffc107;
+      border-radius: 10px;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.85rem;
+      color: #7a5c00;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+  </style>
+    <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/logout/logout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
+</head>
+<body>
+  <!-- fixed side bar -->
+  <aside class="sidebar">
+    <nav class="pad">
+      <a href="{{url_for('registrar_bp.home_registrar')}}" class="menu-btn">
+        <div class="non-active-bordericon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
+            <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
+            <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
+          </svg>
+        </div>
+        <span>Home</span>
+      </a>
+  <!-- drop down dashboard -->
+      <a href="javascript:void(0)" class="menu-btn" id="dashboardToggle">
+        <div class="non-active-bordericon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
+            <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.035-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z"/>
+          </svg>
+        </div>
+        <span>Data & Analysis</span>
+        <svg id="dashboardChevronIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6" style="width:16px;margin-left:auto;">
+          <path id="dashboardChevronPath" fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+        </svg>
+        <script src="{{ url_for('static', filename='js/sidebaractive.js') }}"></script>
+      </a>
+
+<div class="submenu-container" id="dashboardSubmenu">
+
+      <div>
+        <hr class="sidebardivider">
+      </div>
+  <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Overview</p>
+
+    <a href="{{url_for('registrar_bp.maindash_registrar')}}" class="dash-btn">
+    <div class="non-active-bordericondash">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+      </svg>
+    </div>
+    <span>Dashboard</span>
+    </a>
+
+    <a href="{{url_for('registrar_bp.deptdash_registrar')}}" class="dash-btn">
+    <div class="non-active-bordericondash">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+      </svg>
+    </div>
+
+      
+    <span>Department Dashboard</span></a>
+
+
+      <div>
+        <hr class="sidebardivider">
+      </div>
+
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Machine Learning & Prediction</p>
+
+    <a href="{{url_for('registrar_bp.preddash_registrar')}}" class="dash-active">
+    <div  class="active-bordericondash">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="active-icondash">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+    </svg>
+    </div>
+
+    <span>Prediction Analysis</span></a>
+
+    <a href="{{url_for('registrar_bp.modeldash_registrar')}}" class="dash-btn">
+    <div class="non-active-bordericondash">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
+      </svg>
+    </div>
+
+    <span>Model Performance</span></a>
+
+</div>
+      <div>
+        <hr class="sidebardivider">
+      </div>
+
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Account Panel</p>
+      
+      <a href="{{url_for('registrar_bp.profile_registrar')}}" class="menu-btn">
+        <div class="non-active-bordericon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
+            <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <span>Profile</span>
+      </a>
+
+        <a href="{{url_for('registrar_bp.help_registrar')}}" class="menu-btn">
+        <div class="non-active-bordericon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
+            <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <span>Help</span>
+        </a>
+
+      <div>
+        <hr class="sidebardivider">
+      </div>
+
+        <a href="#" id="logoutLink" class="menu-btn">
+          <div class="non-active-bordericon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
+              <path fill-rule="evenodd" d="M16.5 3.75a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5V15a.75.75 0 0 0-1.5 0v3.75a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5.25a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3V9A.75.75 0 1 0 9 9V5.25a1.5 1.5 0 0 1 1.5-1.5h6ZM5.78 8.47a.75.75 0 0 0-1.06 0l-3 3a.75.75 0 0 0 0 1.06l3 3a.75.75 0 0 0 1.06-1.06l-1.72-1.72H15a.75.75 0 0 0 0-1.5H4.06l1.72-1.72a.75.75 0 0 0 0-1.06Z" clip-rule="evenodd" />
+            </svg>
+          </div>
+
+          <span>Logout</span>
+        </a>
+
+      <div class="sidebar-footer">
+        <a href="{{ url_for('registrar_bp.privacy_pol_regis') }}" class="btn-privacy">
+          &bull; Privacy Policy
+        </a>
+
+        <p class="copyright">
+          &copy; 2026 NovaSight Dev Team. All rights reserved.
+        </p>
+      </div>
+    </nav>
+  </aside>
+<main>
+
+  <!-- Print-only header: shown only when the Print Dashboard button is used -->
+  <div class="print-header">
+    <img src="{{url_for('static', filename='image/logo2.png')}}" alt="BPSU Logo" class="print-header-logo">
+    <div class="print-header-text">
+      <h2>Bataan Peninsula State University - Main Campus</h2>
+      <h3>Department Dashboard</h3>
+    </div>
+    <img src="{{url_for('static', filename='image/logo.png')}}" alt="NovaSight Logo" class="print-header-logo">
+  </div>
+ 
+  <!--header -->
+        <header class="topmenu">
+            <div class="brand">
+              <div class="logo-sq">
+                <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="NovaSight Logo" class="brand-logo">
+              </div>
+                <div class="brand-text">
+                    <h1>Bataan Peninsula State University</h1>
+                    <span>ACADEMIC PREDICTION</span>
+                </div>
+            </div>
+
+            <!-- user-profile section -->
+            <a href="{% if user %}{{ url_for('admin_bp.profile') }}{% else %}{{ url_for('login') }}{% endif %}" class="user-profile">
+                {% if user %}
+                    <!-- Logged-in user -->
+                    <span>{{ user.username }}</span>
+
+                {% if user.profile_image_url %}
+                    <img src="{{ user.profile_image_url }}" alt="User Avatar" class="avatar">
+                    {% else %}
+                        <!-- Default SVG when logged in but NO image — tinted per role/user -->
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar avatar-default" style="width: 32px; height: 32px; --avatar-color: {{ user.avatar_color }}; --avatar-icon-color: {{ user.avatar_icon_color }};">
+                          <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
+                        </svg>
+                    {% endif %}
+
+                {% else %}
+                    <!-- Not logged in -->
+                    <span>Login</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar" style="width: 32px; height: 32px;">
+                      <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
+                    </svg>
+                {% endif %}
+            </a>
+        </header>
+  
+    <section class="dashboard-grid">
+      <script>
+          // Same Department + Course pattern as the Department Dashboard
+          // (js/deptdashboardadmin.js's DEPARTMENT_COURSES, duplicated
+          // here since this is a separate page/route — worth moving to
+          // one shared included <script> if both pages keep evolving
+          // together).
+          let COLLEGE_NAME = "Main Campus";
+
+          window.DEPARTMENT_COURSES = {
+              CAHS: ["Bachelor of Science in Nursing", "Bachelor of Science in Midwifery", "Bachelor of Science in Public Health"],
+              CBA: ["Bachelor of Science in Tourism Management", "Bachelor of Science in Hospitality Management"],
+              CCST: ["Bachelor of Science in Information Technology", "Bachelor of Science in Data Science", "Bachelor of Science in Computer Science", "Bachelor of Science in Entertainment and Multimedia Computing"],
+              CEA: ["Bachelor of Science in Civil Engineering", "Bachelor of Science in Mechanical Engineering", "Bachelor of Science in Architecture", "Bachelor of Science in Electrical Engineering", "Bachelor of Science in Industrial Engineering", "Bachelor of Science in Computer Engineering", "Bachelor of Science in Electronics Engineering"],
+              COAS: ["Bachelor of Arts in Communication"],
+              CTEC: ["Bachelor of Science in Industrial Technology", "Bachelor of Technical-Vocational Teacher Education"]
+          };
+
+          function shortCourseLabel(course) {
+              return course.replace(/^Bachelor of Science in /, 'BS in ').replace(/^Bachelor of Arts in /, 'BA in ').replace(/^Bachelor of /, 'B ');
+          }
+
+          function populateCourseDropdown(department) {
+              const sel = document.getElementById('filterCollege');
+              if (!sel) return;
+              if (department === 'Main Campus') {
+                  sel.innerHTML = `<option value="Main Campus">All Colleges</option>`;
+                  return;
+              }
+              const courses = window.DEPARTMENT_COURSES[department] || [];
+              sel.innerHTML = `<option value="${department}">All Courses</option>` +
+                  courses.map(c => `<option value="${c}">${shortCourseLabel(c)}</option>`).join('');
+          }
+
+          function refreshPredictionCharts() {
+              const college = document.getElementById('filterCollege').value;
+              const semester = document.getElementById('filterSemester').value;
+              // These 3 already always render their full real+forecast
+              // horizon regardless of mode — no Recent/Prediction toggle
+              // needed on this page at all.
+              if (typeof updateGwaScatter === 'function') updateGwaScatter(college, semester);
+              if (typeof updateIncForecast === 'function') updateIncForecast(college);
+              if (typeof updateDropoutSpike === 'function') updateDropoutSpike(college);
+              // KPI tiles: always render in Prediction styling here via
+              // ModeAwareCharts, forced to the 'prediction' mode this
+              // whole page represents.
+              if (typeof ModeAwareCharts !== 'undefined') {
+                  ModeAwareCharts.init(college, semester);
+                  ModeAwareCharts.setMode('prediction', college, semester);
+              }
+
+              // Top 5 Hardest Subjects by Course: /api/get_hardest_subjects_
+              // by_course now pools by DEPARTMENT (not raw course) at
+              // "All Colleges" scope — same as the Main dashboard's own
+              // per-department cards — so this no longer needs to be
+              // hidden at Main Campus; it always renders (one card per
+              // department at "All Colleges", one card per course once a
+              // specific department is picked).
+              const hardestCard = document.getElementById('hardestSubjectsByCourseContainer');
+              if (hardestCard) hardestCard.style.display = '';
+              if (typeof updateHardestSubjectsByCourse === 'function') updateHardestSubjectsByCourse(college);
+          }
+
+          function handleDepartmentChange() {
+              const dept = document.getElementById('filterDepartment').value;
+              COLLEGE_NAME = dept;
+              populateCourseDropdown(dept);
+              refreshPredictionCharts();
+          }
+
+          document.addEventListener('DOMContentLoaded', () => {
+              populateCourseDropdown(COLLEGE_NAME);
+              refreshPredictionCharts();
+          });
+      </script>
+
+      <div class="prediction-banner no-print">
+        <i class="fas fa-triangle-exclamation"></i>
+        Every chart on this page is a forecast, not recorded data — see each card's "Learn more" for what's being predicted and how confident to be in it.
+      </div>
+
+      <div class="card card-mini no-print">
+        <label>Department</label>
+        <select id="filterDepartment" class="form-select" onchange="handleDepartmentChange()">
+            <option value="Main Campus">All Colleges</option>
+            <option value="CAHS">CAHS</option>
+            <option value="CBA">CBA</option>
+            <option value="CCST">CCST</option>
+            <option value="CEA">CEA</option>
+            <option value="COAS">COAS</option>
+            <option value="CTEC">CTEC</option>
+        </select>
+      </div>
+
+      <div class="card card-mini no-print">
+        <label>Semester</label>
+        <select id="filterSemester" class="form-select" onchange="refreshPredictionCharts()">
+            <option value="1sem">1st Sem</option>
+            <option value="2sem">2nd Sem</option>
+        </select>
+      </div>
+
+      <div class="card card-mini no-print">
+        <label>Course</label>
+        <select id="filterCollege" class="form-select" onchange="refreshPredictionCharts()">
+            <option value="Main Campus">All Colleges</option>
+        </select>
+      </div>
+
+      <div class="card card-mini no-print">
+        <label>Print Dashboard</label>
+        <div class="print-btn-wrap no-print">
+            <button type="button" class="print-dashboard-btn" onclick="window.print()">
+            <i class="fas fa-print"></i> Print Dashboard
+            </button>
+        </div>
+      </div>
+
+      <nav class="dash-tabs no-print" id="dashTabs" role="tablist" aria-label="Prediction categories">
+        <button type="button" class="dash-tab-btn" data-tab="overview" role="tab">
+          Overview <span class="dash-tab-count">10</span>
+        </button>
+        <button type="button" class="dash-tab-btn" data-tab="enrollment" role="tab">
+          Enrollment &amp; Retention <span class="dash-tab-count">2</span>
+        </button>
+        <button type="button" class="dash-tab-btn" data-tab="academic" role="tab">
+          Academic Performance <span class="dash-tab-count">2 + Course</span>
+        </button>
+        <button type="button" class="dash-tab-btn" data-tab="risk" role="tab">
+          Risk &amp; Dropout <span class="dash-tab-count">3</span>
+        </button>
+      </nav>
+
+      <div id="chartViewContainer" style="display:contents;">
+      <div class="card card-mini2" data-tab-category="overview">
+        <div id="kpi-card-students" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
+            <div style="align-items: center; display: flex; justify-content: space-between;" >
+                <div>
+                    <div style="font-size: smaller; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #6B7280;" id="kpi-title-students">
+                        Total Enrollment
+                    </div>
+                    <div style="font-weight: 800; font-size: x-large;" id="kpi-val-students">
+                        ---
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; min-width: 58px;">
+                    <span id="kpi-pct-students" style="font-size: 1.2rem; font-weight: 700; white-space: nowrap;"></span>
+                </div>
+            </div>
+        </div>
+      </div>
+
+
+      <div class="card card-mini1" data-tab-category="overview">
+        <div id="kpi-card-gwa" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
+            <div style="align-items: center; display: flex; justify-content: space-between;">
+                <div>
+                    <div style="font-size: smaller; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #6B7280" id="kpi-title-gwa">
+                        Average GWA
+                    </div>
+                    <div style="font-weight: 800; font-size: x-large;" id="kpi-val-gwa">
+                        ---
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; min-width: 58px;">
+                    <span id="kpi-pct-gwa" style="font-size: 1.2rem; font-weight: 700; white-space: nowrap;"></span>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      <div class="card card-mini1" data-tab-category="overview">
+        <div id="kpi-card-drop" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
+            <div style="align-items: center; display: flex; justify-content: space-between;">
+                <div>
+                    <div style="font-size: smaller; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #6B7280;" id="kpi-title-drop">
+                        Total Drop
+                    </div>
+                    <div style="font-weight: 800; font-size: x-large;" id="kpi-val-drop">
+                        ---
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; min-width: 58px;">
+                    <span id="kpi-pct-drop" style="font-size: 1.2rem; font-weight: 700; white-space: nowrap;"></span>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      <div class="card card-full-width-bar1" data-tab-category="academic">
+        <div style="border-radius: 10px; background-color: white;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Performance by Year Level
+              </h6>
+          </div>
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+              <div style="position: relative; height: 350px; width: 100%;">
+                  <canvas id="yearLevelChart"></canvas>
+              </div>
+              <details class="chart-learn-more">
+                <summary>Learn more</summary>
+                <dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Each bar is one year level (1st–4th Year, etc.), segmented by college. Hover a segment for exact headcount and its performance-band breakdown. Reflects Main Campus by default, or the selected college/course from the filter above.</dd>
+                  <dt>What to expect</dt>
+                  <dd>Bar heights (total headcount per year level) naturally shrink from 1st to 4th year as some students drop or stop out along the way — that funnel shape is expected, not itself a red flag.</dd>
+                  <dt>What it means</dt>
+                  <dd>Watch the performance-band mix inside each segment rather than just the bar height: a year level where a college's "Below Average"/"Failing" bands grow noticeably wider than its own earlier years is the more meaningful signal.</dd>
+                </dl>
+              </details>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full-width-bar" data-tab-category="risk">
+        <div style="border-radius: 10px; background-color: white;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  INC / Irregular / Drop Rate by Year Level
+              </h6>
+          </div>
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+              <div class="inc-irreg-metric-selector" style="display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 0.75rem;">
+                  <button type="button" class="inc-irreg-metric-btn active" data-metric="inc" data-color="#f6c23e" onclick="setIncIrregMetric('inc')"
+                      style="border: 1px solid #f6c23e; background: #f6c23e; color: #fff; border-radius: 20px; padding: 0.3rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">INC Rate</button>
+                  <button type="button" class="inc-irreg-metric-btn" data-metric="irregular" data-color="#6f42c1" onclick="setIncIrregMetric('irregular')"
+                      style="border: 1px solid #6f42c1; background: #fff; color: #6f42c1; border-radius: 20px; padding: 0.3rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">Irregular Rate</button>
+                  <button type="button" class="inc-irreg-metric-btn" data-metric="drop" data-color="#e74a3b" onclick="setIncIrregMetric('drop')"
+                      style="border: 1px solid #e74a3b; background: #fff; color: #e74a3b; border-radius: 20px; padding: 0.3rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">Drop Rate</button>
+              </div>
+              <div style="position: relative; height: 350px; width: 100%;">
+                  <canvas id="yearLevelIncIrregChart"></canvas>
+              </div>
+              <details class="chart-learn-more">
+                <summary>Learn more</summary>
+                <dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>One rate at a time (pick INC / Irregular / Drop with the buttons above), broken down by year level and college. "Irregular Rate" here is behavioral (had an INC or dropped a subject this term) — separate from the "Irregular" registrar classification used elsewhere. Each college always uses the same color across this whole dashboard.</dd>
+                  <dt>What to expect</dt>
+                  <dd>All three rates are usually a small minority of students per year level; Drop Rate is typically the smallest of the three, INC Rate the largest.</dd>
+                  <dt>What it means</dt>
+                  <dd>A year level/college combination where any of these rates climbs well above its usual range is worth investigating — it often lines up with the same courses flagged in the Dropout Rate Heatmap.</dd>
+                </dl>
+              </details>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student Regular -->
+      <div class="card third-square" data-tab-category="enrollment">
+        <div style="background-color: white; border-radius: 10px; margin-top: 10px;">
+          
+
+          <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
+
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Student Status Overview (Regular)
+              </h6>
+              <h6 id="status-chart-title" style="margin: 0; color: #000000; font-size: 1rem;">
+                  Student Status Overview
+              </h6>
+              <span id="status-badge" data-mode-badge style="display: inline-block; padding: 0.25rem 0.5rem; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.35rem; color: #fff; background-color: #858796;">Loading...</span>
+          </div>
+
+
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+
+              <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+                  <div style="flex: 1 1 200px; text-align: center;">
+                      <div style="position: relative; height: 220px; width: 100%;">
+                          <canvas id="statusRegularChart"></canvas>
+                      </div>
+                      <div style="margin-top: 0.75rem;">
+                          <i id="status-dot-regular" class="fas fa-circle" style="color: #1cc88a;"></i>
+                          <span id="status-label-regular">Regular</span>
+                          <div id="val-regular" style="font-weight: 700; font-size: 1.25rem; margin-top: 0.25rem; color: #5a5c69;">0</div>
+                      </div>
+                  </div>
+             </div>
+
+              <div id="status-plain-summary-legend" style="margin-top: 0.5rem; text-align: center;"></div>
+
+              <div style="text-align: center; margin-top: 0.5rem;">
+                  <small style="color: #858796; font-style: italic;">
+                      *Irregular = Students with ≥1 Failed (5.0) or Dropped subject.
+                  </small>
+              </div>
+
+             <details class="chart-learn-more">
+               <summary>Learn more</summary>
+               <dl class="learn-more-body">
+                 <dt>What it shows</dt>
+                 <dd>The count/share of students who are "Regular" — no failed (5.0) or dropped subject on record.</dd>
+                 <dt>What to expect</dt>
+                 <dd>This should be the large majority of the student body most terms.</dd>
+                 <dt>What it means</dt>
+                 <dd>Read this alongside its Irregular counterpart card — together they always add up to the full population, so a dip here is a mirror-image rise there.</dd>
+               </dl>
+             </details>
+            </div>
+        </div>
+      </div>
+
+      <!-- Student Irregular -->
+      <div class="card third-square1" data-tab-category="enrollment">
+        <div style="background-color: white; border-radius: 10px; margin-top: 10px;">
+          
+
+          <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
+
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                  Student Status Overview (Irregular)
+              </h6>
+              <h6 id="status-chart-title" style="margin: 0; color: #000000; font-size: 1rem;">
+                  Student Status Overview
+              </h6>
+              <span id="status-badge" data-mode-badge style="display: inline-block; padding: 0.25rem 0.5rem; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.35rem; color: #fff; background-color: #858796;">Loading...</span>
+          </div>
+
+
+          <div style="padding: 1.25rem; flex: 1 1 auto;">
+
+              <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+
+                  <div style="flex: 1 1 200px; text-align: center;">
+                      <div style="position: relative; height: 220px; width: 100%;">
+                          <canvas id="statusIrregularChart"></canvas>
+                      </div>
+                      <div style="margin-top: 0.75rem;">
+                          <i id="status-dot-irregular" class="fas fa-circle" style="color: #e74a3b;"></i>
+                          <span id="status-label-irregular">Irregular</span>
+                          <div id="val-irregular" style="font-weight: 700; font-size: 1.25rem; margin-top: 0.25rem; color: #5a5c69;">0</div>
+                      </div>
+                  </div>
+              </div>
+
+              <div id="status-irregular-legend" style="margin-top: 0.5rem; text-align: center;"></div>
+
+              <div style="text-align: center; margin-top: 0.5rem;">
+                  <small style="color: #858796; font-style: italic;">
+                      *Irregular = Students with ≥1 Failed (5.0) or Dropped subject.
+                  </small>
+              </div>
+              <details class="chart-learn-more">
+                <summary>Learn more</summary>
+                <dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>The count/share of students flagged Irregular — at least one failed (5.0) or dropped subject on record.</dd>
+                  <dt>What to expect</dt>
+                  <dd>This is normally the smaller of the two Regular/Irregular groups; a sudden jump term over term is the thing to watch for, not the raw number alone.</dd>
+                  <dt>What it means</dt>
+                  <dd>A rising Irregular share is an early academic-risk signal worth cross-checking against the INC/Irregular/Drop Rate by Year Level and Dropout Risk Ranking charts to see where it's concentrated.</dd>
+                </dl>
+              </details>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full-width1" data-tab-category="academic">
+        <div style="border-radius: 10px; background-color: white;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">GWA Distribution (Student Scatter)</h6>
+          </div>
+          <div style="padding: 1.25rem;">
+              <div style="position: relative; height: 400px; width: 100%;">
+                  <canvas id="gwaScatterChart"></canvas>
+              </div>
+              <div id="scatterColorLegend" style="margin-top: 0.75rem; text-align: center;"></div>
+              <details class="chart-learn-more">
+                <summary>Learn more</summary>
+                <dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Each dot is one student's GWA. Solid-colored dots are real historical terms; hollow crosshair dots are the model's forecast for future terms — see prediction-mode-visuals.js's scatter styling.</dd>
+                  <dt>What to expect</dt>
+                  <dd>Forecast dots should sit close to where the real-data trend was already heading — a big jump right at the real/forecast boundary is worth a second look.</dd>
+                  <dt>What it means</dt>
+                  <dd>A college whose forecast dots trend downward (toward 5.0) is projected to see grades slip if current patterns continue.</dd>
+                </dl>
+              </details>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top 5 Hardest Subjects by Course — one real, separate
+           full-width .card PER GROUP (matches the Main dashboard's
+           per-department card style), built dynamically.
+           data-card-layout="separate" tells deandash.js's
+           updateHardestSubjectsByCourse() to use
+           renderHardestSubjectsSeparateCards() instead of the legacy
+           shared-wrapper layout (the bug that was showing every course
+           squeezed into one card).
+
+           At "All Colleges" scope, /api/get_hardest_subjects_by_course
+           now pools by DEPARTMENT (6 cards, one per college) instead of
+           by raw course — same convention the Main dashboard already
+           uses — so this always renders, no hide/show guard needed.
+           Once a specific department is picked, it drills down to one
+           card per course inside it. preddashAdmin.css gives this
+           display:contents as its default so every generated .card
+           below becomes its own direct sibling in .dashboard-grid,
+           not nested inside one big wrapper card. -->
+      <div id="hardestSubjectsByCourseContainer" data-card-layout="separate">
+        <div class="card card-full-width" data-tab-category="academic">
+          <div style="padding: 1.25rem; text-align:center; color:#858796;">Loading subject difficulty…</div>
+        </div>
+      </div>
+
+      <div class="card card-full-width1" data-tab-category="risk">
+        <div style="border-radius: 10px; background-color: white;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;"><i class="fas fa-clock" style="margin-right: 0.25rem;"></i> INC Rate Forecast (Incomplete Grades)</h6>
+
+          </div>
+          <div style="padding: 1.25rem;">
+              <div style="position: relative; height: 350px; width: 100%;">
+                  <canvas id="incForecastChart"></canvas>
+              </div>
+              <div id="incForecastLegend" style="margin-top: 0.5rem; text-align: center;"></div>
+              <details class="chart-learn-more">
+                <summary>Learn more</summary>
+                <dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Projected percentage of students who will receive an 'INC' status. Solid line = real history; dashed line = forecast.</dd>
+                  <dt>What to expect</dt>
+                  <dd>INC rates tend to drift gradually rather than spike suddenly.</dd>
+                  <dt>What it means</dt>
+                  <dd>A college whose dashed line trends sharply upward is projected to see more Incomplete grades in the coming term(s) if current patterns hold.</dd>
+                </dl>
+              </details>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-full-width1" data-tab-category="risk">
+        <div style="border-radius: 10px; background-color: white;">
+          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;"><i class="fas fa-chart-line" style="margin-right: 0.25rem;"></i> Dropout Trend & Spike Detection</h6>
+          </div>
+          <div style="padding: 1.25rem;">
+              <div style="position: relative; height: 350px; width: 100%;">
+                  <canvas id="dropoutSpikeChart"></canvas>
+              </div>
+              <div id="dropoutSpikeLegend" style="margin-top: 0.5rem; text-align: center;"></div>
+              <details class="chart-learn-more">
+                <summary>Learn more</summary>
+                <dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Dropout rate per college/course over time, with a dashed forecast tail and a red dot flagging any term where the rate spiked well above its own normal range.</dd>
+                  <dt>What to expect</dt>
+                  <dd>Lines should move gradually; red spike dots should be rare.</dd>
+                  <dt>What it means</dt>
+                  <dd>A dashed line trending sharply upward, or a spike dot right at the forecast boundary, marks a college/course worth investigating.</dd>
+                </dl>
+              </details>
+          </div>
+        </div>
+      </div>
+
+      </div><!-- /#chartViewContainer -->
+    </section>
+
+    <script src="{{url_for('static', filename='js/chart-helpers.js')}}"></script>
+    <script src="{{url_for('static', filename='js/prediction-mode-visuals.js')}}"></script>
+    <script src="{{url_for('static', filename='js/deandash.js')}}"></script>
+    <script src="{{url_for('static', filename='js/mode-toggle.js')}}"></script>
+    <script src="{{url_for('static', filename='js/dashboard-tabs.js')}}?v=1"></script>
+
+
+  <!-- Logout Modal Structure -->
+  <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
+    <div class="logout-card">
+      <h1 class="brand-name">NovaSight</h1>
+      <p class="confirmation-text">Are you sure you want to logout?</p>
+      <div class="button-group">
+        <button id="confirmLogoutBtn" class="btn btn-primary">Logout</button>
+        <button id="cancelLogoutBtn" class="btn btn-primary">Back</button>
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+
+  <div class="footer-brand">
+      <hr class="footer-divider">
+
+      <div class="footer-brand-content">
+          <img src="{{ url_for('static', filename='image/logo.png') }}"
+              alt="NovaSight Logo"
+              class="footer-logo">
+
+          <div class="footer-brand-text">
+              <h3>NovaSight</h3>
+              <p>Machine Learning-Based Student Performance Prediction System</p>
+              <small>2026 Bataan Peninsula State University</small>
+          </div>
+      </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-content">
+        <span class="page-label">Page/</span><span class="page-name">Help</span>
+    </div>
+  </footer> 
+  </main>
+</body>
+</html>

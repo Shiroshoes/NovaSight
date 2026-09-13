@@ -41,6 +41,13 @@ def help_academicaffair():
     return render_template('academicaffair/help/html/sahelp.html')
 
 
+# privacy policy
+@academicaffair_bp.route('/privacy-policyAA')
+def privacy_policy_academicaffair():
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
+        return redirect(url_for('home'))
+    return render_template('academicaffair/privacypolaa/privacypolicyAA.html')
+
 # dashbooaddd 
 #main dash
 @academicaffair_bp.route('/maindashboard')
@@ -49,47 +56,26 @@ def maindash_academicaffair():
         return redirect(url_for('home'))
     return render_template('academicaffair/dashboard/maindashboardacademicaffair/html/maindashboardacademicaffair.html', college_type='all')
 
-# cahs dash
-@academicaffair_bp.route('/cahsdashboard')
-def cahsdash_academicaffair():
+# dept dash
+@academicaffair_bp.route('/deptdashboard')
+def deptdash_academicaffair():
     if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
-    return render_template('academicaffair/dashboard/cahsdashboardacademicaffair/html/cahsdashboardacademicaffair.html', college_type='CAHS')
+    return render_template('academicaffair/dashboard/deptdashAA/deptdashAA.html', college_type='CAHS')
 
-# cba dash
-@academicaffair_bp.route('/cbadashboard')
-def cbadash_academicaffair():
+# pred dash
+@academicaffair_bp.route('/predictivedashboard')
+def preddash_academicaffair():
     if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
-    return render_template('academicaffair/dashboard/cbadashboardacademicaffair/html/cbadashboardacademicaffair.html', college_type='CBA')
+    return render_template('academicaffair/dashboard/predictiondashboardAA/predictiondashboardAA.html', college_type='all')
 
-# ccst dash
-@academicaffair_bp.route('/ccstdashboard')
-def ccstdash_academicaffair():
+# modal dash
+@academicaffair_bp.route('/modaldashboard')
+def modeldash_academicaffair():
     if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
-    return render_template('academicaffair/dashboard/ccstdashboardacademicaffair/html/ccstdashboardacademicaffair.html', college_type='CCST')
-
-#cea dash
-@academicaffair_bp.route('/ceadashboard')
-def ceadash_academicaffair():
-    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
-        return redirect(url_for('home'))
-    return render_template('academicaffair/dashboard/ceadashboardacademicaffair/html/ceadashboardacademicaffair.html', college_type='CEA')
-
-#coas dash
-@academicaffair_bp.route('/coasdashboard')
-def coasdash_academicaffair():
-    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
-        return redirect(url_for('home'))
-    return render_template('academicaffair/dashboard/coasdashboardacademicaffair/html/coasdashboardacademicaffair.html', college_type='COAS')
-
-#ctec dash
-@academicaffair_bp.route('/ctecdashboard')
-def ctecdash_academicaffair():
-    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
-        return redirect(url_for('home'))
-    return render_template('academicaffair/dashboard/ctecdashboardacademicaffair/html/ctecdashboardacademicaffair.html', college_type='CTEC')
+    return render_template('academicaffair/dashboard/modelperformancedashAA/modelperformancedashAA.html', college_type='all')
 
 
 # Update Password

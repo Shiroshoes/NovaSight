@@ -49,7 +49,7 @@
             <div class="form-container">
                 <header class="form-header">
                     <h2>Welcome to NovaSight</h2>
-                    <p>Please enter your email and password to login</p>
+                    <p>Please enter your BPSU Email and Password to Login</p>
                 </header>
 
                 <!-- alert mmessages -->
@@ -66,7 +66,7 @@
                 <form action="/login" method="POST" class="login-form">
                     <div class="input-field">
                         <label>Email</label>
-                        <input type="email" name="account" placeholder="Your email address" required>
+                        <input type="email" name="account" placeholder="Account@bpsu.edu.ph" required>
                     </div>
 
                     <div class="input-field">
@@ -93,13 +93,19 @@
                     <script src="{{ url_for('static', filename='js/togglePassword.js') }}"></script>
 
                     <button type="submit" class="login-btn">LOGIN</button>
-                    
+
+                    <p style="color: #666; font-size: 0.8rem; margin-top: 10px; text-align: center;">
+                        If you don't have an Account, <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=miso@bpsu.edu.ph" target="_blank" >Please Contact the MISO</a>.
+                    </p>
                 </form> 
             </div>
 
             <div class="bottom-info">
                 <div class="page-indicator">Page/<strong>Login</strong></div>
-                <p class="group-credits">Thesis 2025-2026 Made by BPSU Data Science Student - Group 5</p>
+                <p class="group-credits">&copy; 2026 NovaSight Dev Team. All rights reserved.</p>
+                <a href="/privacy-policy" class="btn-privacy">
+                &bull; Privacy Policy
+                </a>
             </div>
         </div>
     </div>

@@ -35,6 +35,16 @@
         </div>
         <span>Help</span>
         </a>
+
+      <div class="sidebar-footer">
+        <a href="/privacy-policy" class="btn-privacy">
+          &bull; Privacy Policy
+        </a>
+
+        <p class="copyright">
+          &copy; 2026 NovaSight Dev Team. All rights reserved.
+        </p>
+      </div>
     </nav>
   </aside>
 <main>
@@ -143,6 +153,36 @@
       .cat-error   .modal-timer-fill { color: #785a5a; }
       .cat-info    .modal-timer-fill { color: #800000; }
       .cat-success .modal-timer-fill { color: #2fa361; }
+
+      /* Cookie consent modal — reuses .modal-overlay/.modal-card above,
+         with its own scrollable text area and Accept button. */
+      .cookie-consent-scroll {
+        max-height: 140px;
+        overflow-y: auto;
+        text-align: left;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        color: #444;
+        background: #f7f7f7;
+        border: 1px solid #e4e4e4;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+      }
+      .cookie-consent-scroll a { color: #800000; }
+      .cookie-consent-accept {
+        display: inline-block;
+        width: 100%;
+        background: #800000;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .cookie-consent-accept:hover { background: #6b0000; }
     </style>
 
     <script>
@@ -203,6 +243,73 @@
         });
 
         showNext();
+      })();
+    </script>
+
+    <!-- Cookie consent modal — shown once, on first visit, and
+         remembered via an actual cookie (fitting, since that's what
+         it's asking about) rather than localStorage. Re-shows if that
+         cookie is ever cleared or expires (set for 1 year below). -->
+    <div class="modal-overlay" id="cookieConsentModal" style="display:none;">
+      <div class="modal-card">
+        <h3 style="margin:0 0 10px; font-size:1.05rem; color:#333;">Cookie Notice</h3>
+        <div class="cookie-consent-scroll">
+          <p style="margin:0 0 8px;">
+            NovaSight uses only one cookie: a session cookie that keeps
+            you signed in once you log in. It does not track you, does
+            not collect analytics, and is never shared with or sold to
+            third parties.
+          </p>
+          <p style="margin:0;">
+            By continuing to use this site, you're okay with that one
+            functional cookie. See our
+            <a href="{{ url_for('privacy_policy') }}">Privacy Policy</a>
+            for full details on what information NovaSight collects and
+            how it's used.
+          </p>
+        </div>
+        <button type="button" class="cookie-consent-accept" id="cookieConsentAccept">Accept Cookies</button>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var COOKIE_NAME = 'novasight_cookie_consent';
+
+        function getCookie(name) {
+          var match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+          return match ? decodeURIComponent(match[1]) : null;
+        }
+
+        function setCookie(name, value, days) {
+          var expires = '';
+          if (days) {
+            var date = new Date();
+            date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+            expires = '; expires=' + date.toUTCString();
+          }
+          document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/; SameSite=Lax';
+        }
+
+        if (getCookie(COOKIE_NAME) === 'accepted') return;
+
+        var overlay = document.getElementById('cookieConsentModal');
+        var acceptBtn = document.getElementById('cookieConsentAccept');
+        if (!overlay || !acceptBtn) return;
+
+        // Don't stack on top of a flash modal that's already showing —
+        // wait a beat so the flash message (if any) is seen first.
+        var flashOverlay = document.getElementById('flashModal');
+        var delay = (flashOverlay && flashOverlay.style.display !== 'none') ? 400 : 0;
+
+        setTimeout(function () {
+          overlay.style.display = 'flex';
+        }, delay);
+
+        acceptBtn.addEventListener('click', function () {
+          setCookie(COOKIE_NAME, 'accepted', 365);
+          overlay.style.display = 'none';
+        });
       })();
     </script>
      

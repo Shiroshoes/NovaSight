@@ -39,6 +39,14 @@ def help_saso():
         return redirect(url_for('home'))
     return render_template('saso/help/html/sasohelp.html') # Assuming a template path for SASO help
 
+
+# privacy
+@saso_bp.route('/privacy-policy')
+def privacy_saso():
+    if 'user_id' not in session or session.get('role') != 'SASO':
+        return redirect(url_for('home'))
+    return render_template('saso/privacypolsaso/privacypolicySASO.html')
+
 # --- SASO Dashboards ---
 # Main Dashboard (SASO)
 @saso_bp.route('/maindashboard')
@@ -47,47 +55,26 @@ def maindash_saso():
         return redirect(url_for('home'))
     return render_template('saso/dashboard/maindashboardsaso/html/maindashboardsaso.html', college_type='all')
 
-# CAHS Dashboard (SASO)
-@saso_bp.route('/cahsdashboard')
-def cahsdash_saso():
+# deptDashboard (SASO)
+@saso_bp.route('/deptdashboard')
+def deptdash_saso():
     if 'user_id' not in session or session.get('role') != 'SASO':
         return redirect(url_for('home'))
-    return render_template('saso/dashboard/cahsdashboardsaso/html/cahsdashboardsaso.html', college_type='CAHS')
+    return render_template('saso/dashboard/deptdashSASO/deptdashSASO.html', college_type='CAHS')
 
-# CBA Dashboard (SASO)
-@saso_bp.route('/cbadashboard')
-def cbadash_saso():
+# prped Dashboard (SASO)
+@saso_bp.route('/predictivedashboard')
+def preddash_saso():
     if 'user_id' not in session or session.get('role') != 'SASO':
         return redirect(url_for('home'))
-    return render_template('saso/dashboard/cbadashboardsaso/html/cbadashboardsaso.html', college_type='CBA')
+    return render_template('saso/dashboard/predictiondashboardSASO/predictiondashboardSASO.html', college_type='all')
 
-# CCST Dashboard (SASO)
-@saso_bp.route('/ccstdashboard')
-def ccstdash_saso():
+# model Dashboard (SASO)
+@saso_bp.route('/modeldashboard')
+def modeldash_saso():
     if 'user_id' not in session or session.get('role') != 'SASO':
         return redirect(url_for('home'))
-    return render_template('saso/dashboard/ccstdashboardsaso/html/ccstdashboardsaso.html', college_type='CCST')
-
-# CEA Dashboard (SASO)
-@saso_bp.route('/ceadashboard')
-def ceadash_saso():
-    if 'user_id' not in session or session.get('role') != 'SASO':
-        return redirect(url_for('home'))
-    return render_template('saso/dashboard/ceadashboardsaso/html/ceadashboardsaso.html', college_type='CEA')
-
-# COAS Dashboard (SASO)
-@saso_bp.route('/coasdashboard')
-def coasdash_saso():
-    if 'user_id' not in session or session.get('role') != 'SASO':
-        return redirect(url_for('home'))
-    return render_template('saso/dashboard/coasdashboardsaso/html/coasdashboardsaso.html', college_type='COAS')
-
-# CTEC Dashboard (SASO)
-@saso_bp.route('/ctecdashboard')
-def ctecdash_saso():
-    if 'user_id' not in session or session.get('role') != 'SASO':
-        return redirect(url_for('home'))
-    return render_template('saso/dashboard/ctecdashboardsaso/html/ctecdashboardsaso.html', college_type='CTEC')
+    return render_template('saso/dashboard/modelperformancedashSASO/modelperformancedashSASO.html', college_type='all')
 
 
 # --- Common Routes (Password Update, Image Upload) ---

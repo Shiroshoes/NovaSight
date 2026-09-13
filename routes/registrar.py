@@ -33,6 +33,12 @@ def help_registrar():
         return redirect(url_for('home'))
     return render_template('registrar/help/html/registrarhelp.html')
 
+# privacy
+@registrar_bp.route('/privacy-policy')
+def privacy_pol_regis():
+    if 'user_id' not in session or session.get('role') != 'Registrar':
+        return redirect(url_for('home'))
+    return render_template('registrar/privacypolregis/privacypolicyRegis.html')
 
 # dashbooaddd 
 #main dash
@@ -42,47 +48,26 @@ def maindash_registrar():
         return redirect(url_for('home'))
     return render_template('registrar/dashboard/maindashboardregistrar/html/maindashboardregistrar.html', college_type='all')
 
-# cahs dash
-@registrar_bp.route('/cahsdashboard')
-def cahsdash_registrar():
+# dept dash
+@registrar_bp.route('/deptdashboard')
+def deptdash_registrar():
     if 'user_id' not in session or session.get('role') != 'Registrar':
         return redirect(url_for('home'))
-    return render_template('registrar/dashboard/cahsdashboardregistrar/html/cahsdashboardregistrar.html', college_type='CAHS')
+    return render_template('registrar/dashboard/deptdashregistrar/deptdashregistrar.html', college_type='CAHS')
 
-# cba dash
-@registrar_bp.route('/cbadashboard')
-def cbadash_registrar():
+# prwd dash
+@registrar_bp.route('/predictivedashboard')
+def preddash_registrar():
     if 'user_id' not in session or session.get('role') != 'Registrar':
         return redirect(url_for('home'))
-    return render_template('registrar/dashboard/cbadashboardregistrar/html/cbadashboardregistrar.html', college_type='CBA')
+    return render_template('registrar/dashboard/predictiondashboardregistrar/predictiondashboardregistrar.html', college_type='all')
 
-# ccst dash
-@registrar_bp.route('/ccstdashboard')
-def ccstdash_registrar():
+# model dash
+@registrar_bp.route('/modeldashboard')
+def modeldash_registrar():
     if 'user_id' not in session or session.get('role') != 'Registrar':
         return redirect(url_for('home'))
-    return render_template('registrar/dashboard/ccstdashboardregistrar/html/ccstdashboardregistrar.html', college_type='CCST')
-
-#cea dash
-@registrar_bp.route('/ceadashboard')
-def ceadash_registrar():
-    if 'user_id' not in session or session.get('role') != 'Registrar':
-        return redirect(url_for('home'))
-    return render_template('registrar/dashboard/ceadashboardregistrar/html/ceadashboardregistrar.html', college_type='CEA')
-
-#coas dash
-@registrar_bp.route('/coasdashboard')
-def coasdash_registrar():
-    if 'user_id' not in session or session.get('role') != 'Registrar':
-        return redirect(url_for('home'))
-    return render_template('registrar/dashboard/coasdashboardregistrar/html/coasdashboardregistrar.html', college_type='COAS')
-
-#ctec dash
-@registrar_bp.route('/ctecdashboard')
-def ctecdash_registrar():
-    if 'user_id' not in session or session.get('role') != 'Registrar':
-        return redirect(url_for('home'))
-    return render_template('registrar/dashboard/ctecdashboardregistrar/html/ctecdashboardregistrar.html', college_type='CTEC')
+    return render_template('registrar/dashboard/modelperformancedashregistrar/modelperformancedashregistrar.html', college_type='all')
 
 
 # Update Password

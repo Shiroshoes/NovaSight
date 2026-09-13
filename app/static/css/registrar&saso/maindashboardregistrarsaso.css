@@ -42,7 +42,26 @@ body {
   overflow-x: hidden;
   padding: 20px;
   box-sizing: border-box;
+  margin-bottom: 20%;
 }
+
+.sidebardivider {
+  border: none;
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.15);
+  width: 100%;
+  margin: 8px 0;
+}
+
+.sidebar-section-label {
+  margin: 0 0 4px 0;
+}
+
+.sidebar-section-label + .dash-btn,
+.sidebar-section-label + .menu-btn {
+  margin-top: 0;
+}
+
 
 .pad::-webkit-scrollbar {
     width: 5px;
@@ -118,8 +137,8 @@ body {
 }
 
 .menu-btn:hover {
-  background: #785a5a64;
   margin-bottom: 10px;
+  background: #785a5a64;
   color: #000000;
   width: 210px;
   font-weight: bold;
@@ -244,7 +263,14 @@ header {
     backdrop-filter: blur(15px);
     padding: 20px 40px;
     margin-left: 24px;
-    width: 1320px;
+    /* FIX: was a hardcoded width: 1320px, which never shrank as the
+       browser window narrowed -- it just overflowed main's actual
+       available width instead of resizing with it. margin-right
+       mirrors margin-left so it keeps the same inset on both sides
+       at any window size. */
+    margin-right: 24px;
+    width: auto;
+    box-sizing: border-box;
     border-radius: 20px;
     margin-top: 15px;
 }
@@ -256,7 +282,6 @@ header {
 .logo-sq {
     width: 80px;
     height: 80px;
-    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -311,15 +336,12 @@ header {
   grid-template-columns: repeat(2, 1fr); 
   gap: 30px; /* Space between the cards */
   padding-bottom: 60px; /* Space for the breadcrumb at the bottom */
-  padding-right: 10px;
+  padding-right: 10px; /* Add right padding to prevent content from touching the edge */
   align-items: flex-start; /* Prevents cards from stretching vertically */
 }
 
 /* --- Common Card Styling (Glassmorphism Effect) --- */
 .card {
-  background: rgb(255, 255, 255); /* Translucent dark bg */
-  border-radius: 20px;
-  border: 1px solid #DCD6C9; /* Soft border */
   overflow: hidden;
 }
 
@@ -338,7 +360,7 @@ header {
 }
 
 .welcome-content h2 {
-  color: white;
+  color: rgb(0, 0, 0);
   font-size: 2.2rem;
   margin-bottom: 20px;
   margin-top: 0;
@@ -346,7 +368,7 @@ header {
 }
 
 .welcome-content p {
-  color: #94a3b8; /* Muted text color */
+  color: #000000; /* Muted text color */
   font-size: 1.1rem;
   line-height: 1.6;
   margin-bottom: 40px; /* Space before the button */
@@ -371,7 +393,7 @@ header {
 }
 
 .dashboard-text p {
-  color: white;
+  color: rgb(0, 0, 0);
   text-align: justify;
   text-indent: 40px;
   font-size: 1rem;
@@ -380,13 +402,15 @@ header {
   margin: 0 auto;
 }
 
-/* --- Responsive Layout (Phones/Tablets) --- */
-@media (max-width: 1024px) {
-    .dashboard-grid {
-        grid-template-columns: 1fr; /* Stack cards vertically on smaller screens */
-        gap: 20px;
-    }
-}
+
+/* --- Responsive Layout (Phones/Tablets) ---
+   NOTE: this used to live here, but a later unconditional
+   `.dashboard-grid { grid-template-columns: ... }` rule further down
+   this file has the same selector and always came AFTER this in
+   source order, so it silently won at every window size, even when
+   this @media query matched -- the stacking below never actually ran.
+   Moved down to right after that later rule, in the real "Grid
+   Proportions" section, so it actually wins when it matches. --- */
 
 /*drop down 
 dashboard*/
@@ -409,7 +433,7 @@ dashboard*/
 }
 
 .submenu-item {
-    color: #94a3b8;
+    color: #000000;
     text-decoration: none;
     font-size: 14px;
     padding: 10px 0;        /* Slightly more padding for easier clicking */
@@ -417,7 +441,7 @@ dashboard*/
 }
 
 .submenu-item:hover {
-    color: #2A86FD;
+    color: #fd2a2a;
 }
 
 /* paa ni rod --- */
@@ -455,7 +479,11 @@ footer{
 .footer {
   background-color: none;
   margin-left: 10px;
-  width: 1416px;
+  /* FIX: was a hardcoded width: 1416px -- same overflow issue as
+     .topmenu above, just for the footer bar. */
+  margin-right: 10px;
+  width: auto;
+  box-sizing: border-box;
 }
 
 
@@ -508,7 +536,16 @@ footer{
 
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(10, 1fr);
+    /* FIX: a bare `1fr` track has an implicit min-width of `auto`,
+       meaning it refuses to shrink below its content's min-content
+       size. On a narrower window, any card whose content (a wide
+       Chart.js canvas, a long legend) needed more room than that
+       narrower column had, forced the grid to overflow horizontally
+       instead of resizing -- that's what made the layout "stay in
+       that size" and let card content spill into neighboring cards.
+       minmax(0, 1fr) removes that floor so tracks (and the cards
+       inside them) actually shrink with the window. */
+    grid-template-columns: repeat(10, minmax(0, 1fr));
     grid-gap: 20px;
     padding-bottom: 80px;
     margin-left: 24px;
@@ -518,27 +555,44 @@ footer{
     background: #ffffff;
     border-radius: 12px;
     border: 1px solid #DCD6C9;
+    /* FIX: pairs with minmax(0, 1fr) above -- without this, a grid
+       item's default min-width: auto can still force its own track
+       wider than the space actually given to it (e.g. a canvas or
+       wide legend inside), which is what let charts overlap the
+       card/column next to them instead of wrapping or scaling down. */
+    min-width: 0;
+}
+
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr; /* Stack cards vertically on smaller screens */
+        gap: 20px;
+    }
+    /* Card span classes below assume a 10-column grid; on the
+       single-column stack above every card should just take the
+       full row instead of clamping to whatever span it was given. */
+    .card { grid-column: 1 / -1 !important; }
 }
 
 /* Precise Sizing Classes */
-.card-mini { grid-column: span 2; height: 65px; padding: 15px;}
-.card-mini1 { grid-column: span 3; height: 65px; padding: 15px;}
-.card-mini2 { grid-column: span 4; height: 65px; padding: 15px;}
-.card-wide { grid-column: span 5; height: 470px; padding: 20px; padding-bottom: 70px;}
-.card-wide1 { grid-column: span 6; height: 500px; padding: 20px; padding-bottom: 70px;}
-.card-square { grid-column: span 2; height: 350px; padding: 20px; }
-.card-full-width-bar { grid-column: span 6; height: 530px; padding: 10px; }
-.card-full-width-bar1 { grid-column: span 10; height: 500px; padding: 10px; }
-.card-full-width-bar2 { grid-column: span 10; height: 860px; padding: 10px; }
-.card-full-width { grid-column: span 5; height: 490px; padding: 10px; }
+.card-mini { grid-column: span 2; min-height: 65px; padding: 15px;}
+.card-mini1 { grid-column: span 3; min-height: 65px; padding: 15px;}
+.card-mini2 { grid-column: span 4; min-height: 65px; padding: 15px;}
+.card-wide { grid-column: span 5; min-height: 510px; padding: 20px 0 0 0;}
+.card-wide1 { grid-column: span 10; min-height: 490px; padding: 20px 0 0 0;}
+.card-square { grid-column: span 2; min-height: 350px; padding: 20px; }
+.card-full-width-bar { grid-column: span 10; min-height: 530px; padding: 10px; }
+.card-full-width-bar1 { grid-column: span 10; min-height: 500px; padding: 10px; }
+.card-full-width-bar2 { grid-column: span 10; min-height: 860px; padding: 10px; }
+.card-full-width { grid-column: span 5; min-height: 490px; padding: 10px; }
 
 /* Applied via JS when a single department is selected in the filter,
    so that department's "Top 5 Hardest Subjects" card stretches across
    the full 10-column grid instead of sitting at half width with an
    empty gap next to it. */
 .card-full-width.dept-card-focused { grid-column: span 10; }
-.third-square { grid-column: span 4; height: 530px; padding: 10px; }
-.third-square1 { grid-column: span 4; height: 570px; padding: 10px; }
+.third-square { grid-column: span 5; min-height: 585px; padding: 10px; }
+.third-square1 { grid-column: span 5; min-height: 570px; padding: 10px; }
 
 .card-ranking {
   border-radius: 10px;
@@ -546,9 +600,9 @@ footer{
 }
 
 /* Bottom Row Proportions */
-.card-bottom-large { grid-column: span 6; height: 510px; padding: 10px;}
-.card-bottom-small { grid-column: span 4; height: 510px; padding: 10px;}
-.card-bottom-small-1 { grid-column: span 10; height: 1160px; padding: 10px;}
+.card-bottom-large { grid-column: span 10; min-height: 500px; padding: 10px;}
+.card-bottom-small { grid-column: span 10; min-height: 520px; padding: 10px;}
+.card-bottom-small-1 { grid-column: span 10; min-height: 1160px; padding: 10px;}
 
 /* --- Custom Select Styling --- */
 select.form-select {
@@ -559,7 +613,7 @@ select.form-select {
     background-position: right 12px center;
     background-size: 16px;
     color: #000000;
-    border: 1px solid rgba(148, 163, 184, 0.3);
+    border: 1px solid rgba(184, 148, 148, 0.3);
     border-radius: 10px;
     padding: 10px 40px 10px 15px;
     font-family: var(--font-sans);
@@ -600,6 +654,9 @@ select.form-select option {
     display: block;
 }
 
+
+
+
 /* UI Elements */
 .topmenu {
     display: flex;
@@ -609,82 +666,10 @@ select.form-select option {
 
 
 
-/* Logout oe;bgoeg */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.6); /* Dims the background */
-  backdrop-filter: blur(4px);           /* Optional: blurs background */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;                        /* Ensures it stays on top */
-}
-
-/* The Modal Card */
-.logout-card {
-  background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
-  width: 90%;
-  max-width: 450px;
-  padding: 40px;
-  border-radius: 25px;
-  text-align: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  color: white;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.brand-name {
-  font-size: 2.5rem;
-  margin-bottom: 10px;
-  font-weight: 700;
-  color: #000000;
-}
-
-.confirmation-text {
-  font-size: 1.1rem;
-  margin-bottom: 35px;
-  opacity: 0.9;
-  color: #000000;
-}
-
-/* Button Styles */
-.button-group {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.btn {
-  padding: 15px;
-  border-radius: 50px; /* Pill shape */
-  border: none;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s, background-color 0.2s;
-}
-
-.btn-primary {
-  background-color: #800000 ; /* Modern Blue */
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #c72828;
-  transform: translateY(-2px);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-}
-
 .hidden {
     display: none;
 }
+
 /* --- Table Mode (table-view.js) --- */
 #chartViewContainer.df-table-active .card:not(.card-mini):not(.card-mini1) {
     height: auto;
@@ -693,4 +678,75 @@ select.form-select option {
 
 .dashboard-grid:has(#chartViewContainer.df-table-active) {
     align-items: stretch;
+}
+
+
+.sidebar-footer{
+    position: absolute;
+    background-color: #ffffff;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 3px 0 0 0;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+    border-top: 1px solid #DCD6C9;
+}
+
+.copyright {
+    font-size: 10px;
+    color: #666;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.btn-privacy{
+    color:#666;
+    text-decoration: none;
+    padding: 10px 10px 0 0; /* Horizontal wide button */
+    border-radius: 9999px; /* Fully rounded */
+    font-size: .8rem;
+    display: inline-block;
+    transition: 0.3s ease;
+}
+
+.btn-privacy:hover {
+    color: #800000; /* Darker blue on hover */
+    transform: translateY(-2px);
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+/* --- Chart explanation blocks (formerly collapsible "Learn more") ---
+   Always visible now — no <details>/<summary> toggle, just a quiet
+   inline explainer under each chart. */
+.chart-explanation {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed #e3e6f0;
+}
+
+.chart-explanation .learn-more-body {
+    margin: 0;
+}
+
+.chart-explanation .learn-more-body dt {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #800000;
+    margin-top: 0.6rem;
+}
+
+.chart-explanation .learn-more-body dt:first-child {
+    margin-top: 0;
+}
+
+.chart-explanation .learn-more-body dd {
+    margin: 0.15rem 0 0 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #5a5c69;
 }

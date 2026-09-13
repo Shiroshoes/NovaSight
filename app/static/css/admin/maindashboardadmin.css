@@ -42,7 +42,26 @@ body {
   overflow-x: hidden;
   padding: 20px;
   box-sizing: border-box;
+  margin-bottom: 20%;
 }
+
+.sidebardivider {
+  border: none;
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.15);
+  width: 100%;
+  margin: 8px 0;
+}
+
+.sidebar-section-label {
+  margin: 0 0 4px 0;
+}
+
+.sidebar-section-label + .dash-btn,
+.sidebar-section-label + .menu-btn {
+  margin-top: 0;
+}
+
 
 .pad::-webkit-scrollbar {
     width: 5px;
@@ -244,7 +263,14 @@ header {
     backdrop-filter: blur(15px);
     padding: 20px 40px;
     margin-left: 24px;
-    width: 1320px;
+    /* FIX: was a hardcoded width: 1320px, which never shrank as the
+       browser window narrowed -- it just overflowed main's actual
+       available width instead of resizing with it. margin-right
+       mirrors margin-left so it keeps the same inset on both sides
+       at any window size. */
+    margin-right: 24px;
+    width: auto;
+    box-sizing: border-box;
     border-radius: 20px;
     margin-top: 15px;
 }
@@ -377,13 +403,14 @@ header {
 }
 
 
-/* --- Responsive Layout (Phones/Tablets) --- */
-@media (max-width: 1024px) {
-    .dashboard-grid {
-        grid-template-columns: 1fr; /* Stack cards vertically on smaller screens */
-        gap: 20px;
-    }
-}
+/* --- Responsive Layout (Phones/Tablets) ---
+   NOTE: this used to live here, but a later unconditional
+   `.dashboard-grid { grid-template-columns: ... }` rule further down
+   this file has the same selector and always came AFTER this in
+   source order, so it silently won at every window size, even when
+   this @media query matched -- the stacking below never actually ran.
+   Moved down to right after that later rule, in the real "Grid
+   Proportions" section, so it actually wins when it matches. --- */
 
 /*drop down 
 dashboard*/
@@ -452,7 +479,11 @@ footer{
 .footer {
   background-color: none;
   margin-left: 10px;
-  width: 1416px;
+  /* FIX: was a hardcoded width: 1416px -- same overflow issue as
+     .topmenu above, just for the footer bar. */
+  margin-right: 10px;
+  width: auto;
+  box-sizing: border-box;
 }
 
 
@@ -505,7 +536,16 @@ footer{
 
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(10, 1fr);
+    /* FIX: a bare `1fr` track has an implicit min-width of `auto`,
+       meaning it refuses to shrink below its content's min-content
+       size. On a narrower window, any card whose content (a wide
+       Chart.js canvas, a long legend) needed more room than that
+       narrower column had, forced the grid to overflow horizontally
+       instead of resizing -- that's what made the layout "stay in
+       that size" and let card content spill into neighboring cards.
+       minmax(0, 1fr) removes that floor so tracks (and the cards
+       inside them) actually shrink with the window. */
+    grid-template-columns: repeat(10, minmax(0, 1fr));
     grid-gap: 20px;
     padding-bottom: 80px;
     margin-left: 24px;
@@ -515,27 +555,44 @@ footer{
     background: #ffffff;
     border-radius: 12px;
     border: 1px solid #DCD6C9;
+    /* FIX: pairs with minmax(0, 1fr) above -- without this, a grid
+       item's default min-width: auto can still force its own track
+       wider than the space actually given to it (e.g. a canvas or
+       wide legend inside), which is what let charts overlap the
+       card/column next to them instead of wrapping or scaling down. */
+    min-width: 0;
+}
+
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr; /* Stack cards vertically on smaller screens */
+        gap: 20px;
+    }
+    /* Card span classes below assume a 10-column grid; on the
+       single-column stack above every card should just take the
+       full row instead of clamping to whatever span it was given. */
+    .card { grid-column: 1 / -1 !important; }
 }
 
 /* Precise Sizing Classes */
-.card-mini { grid-column: span 2; height: 65px; padding: 15px;}
-.card-mini1 { grid-column: span 3; height: 65px; padding: 15px;}
-.card-mini2 { grid-column: span 4; height: 65px; padding: 15px;}
-.card-wide { grid-column: span 5; height: 470px; padding: 20px; padding-bottom: 70px;}
-.card-wide1 { grid-column: span 6; height: 500px; padding: 20px; padding-bottom: 70px;}
-.card-square { grid-column: span 2; height: 350px; padding: 20px; }
-.card-full-width-bar { grid-column: span 6; height: 530px; padding: 10px; }
-.card-full-width-bar1 { grid-column: span 10; height: 500px; padding: 10px; }
-.card-full-width-bar2 { grid-column: span 10; height: 860px; padding: 10px; }
-.card-full-width { grid-column: span 5; height: 490px; padding: 10px; }
+.card-mini { grid-column: span 2; min-height: 65px; padding: 15px;}
+.card-mini1 { grid-column: span 3; min-height: 65px; padding: 15px;}
+.card-mini2 { grid-column: span 4; min-height: 65px; padding: 15px;}
+.card-wide { grid-column: span 5; min-height: 510px; padding: 20px 0 0 0;}
+.card-wide1 { grid-column: span 10; min-height: 490px; padding: 20px 0 0 0;}
+.card-square { grid-column: span 2; min-height: 350px; padding: 20px; }
+.card-full-width-bar { grid-column: span 10; min-height: 530px; padding: 10px; }
+.card-full-width-bar1 { grid-column: span 10; min-height: 500px; padding: 10px; }
+.card-full-width-bar2 { grid-column: span 10; min-height: 860px; padding: 10px; }
+.card-full-width { grid-column: span 5; min-height: 490px; padding: 10px; }
 
 /* Applied via JS when a single department is selected in the filter,
    so that department's "Top 5 Hardest Subjects" card stretches across
    the full 10-column grid instead of sitting at half width with an
    empty gap next to it. */
 .card-full-width.dept-card-focused { grid-column: span 10; }
-.third-square { grid-column: span 4; height: 530px; padding: 10px; }
-.third-square1 { grid-column: span 4; height: 570px; padding: 10px; }
+.third-square { grid-column: span 5; min-height: 585px; padding: 10px; }
+.third-square1 { grid-column: span 5; min-height: 570px; padding: 10px; }
 
 .card-ranking {
   border-radius: 10px;
@@ -543,9 +600,9 @@ footer{
 }
 
 /* Bottom Row Proportions */
-.card-bottom-large { grid-column: span 6; height: 510px; padding: 10px;}
-.card-bottom-small { grid-column: span 4; height: 510px; padding: 10px;}
-.card-bottom-small-1 { grid-column: span 10; height: 1160px; padding: 10px;}
+.card-bottom-large { grid-column: span 10; min-height: 500px; padding: 10px;}
+.card-bottom-small { grid-column: span 10; min-height: 520px; padding: 10px;}
+.card-bottom-small-1 { grid-column: span 10; min-height: 1160px; padding: 10px;}
 
 /* --- Custom Select Styling --- */
 select.form-select {
@@ -621,4 +678,75 @@ select.form-select option {
 
 .dashboard-grid:has(#chartViewContainer.df-table-active) {
     align-items: stretch;
+}
+
+
+.sidebar-footer{
+    position: absolute;
+    background-color: #ffffff;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 3px 0 0 0;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+    border-top: 1px solid #DCD6C9;
+}
+
+.copyright {
+    font-size: 10px;
+    color: #666;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.btn-privacy{
+    color:#666;
+    text-decoration: none;
+    padding: 10px 10px 0 0; /* Horizontal wide button */
+    border-radius: 9999px; /* Fully rounded */
+    font-size: .8rem;
+    display: inline-block;
+    transition: 0.3s ease;
+}
+
+.btn-privacy:hover {
+    color: #800000; /* Darker blue on hover */
+    transform: translateY(-2px);
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+/* --- Chart explanation blocks (formerly collapsible "Learn more") ---
+   Always visible now — no <details>/<summary> toggle, just a quiet
+   inline explainer under each chart. */
+.chart-explanation {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed #e3e6f0;
+}
+
+.chart-explanation .learn-more-body {
+    margin: 0;
+}
+
+.chart-explanation .learn-more-body dt {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #800000;
+    margin-top: 0.6rem;
+}
+
+.chart-explanation .learn-more-body dt:first-child {
+    margin-top: 0;
+}
+
+.chart-explanation .learn-more-body dd {
+    margin: 0.15rem 0 0 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #5a5c69;
 }

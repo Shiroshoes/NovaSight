@@ -42,6 +42,25 @@ FINAL_MERGED_CSV = os.path.join(PROCESSED_DATASETS_DIR, 'Final_Merged_Student_Da
 # physical folder no matter what directory the process is launched from.
 ML_MODEL_DIR = os.path.join(BASE_DIR, 'Machine_Learning_Model')
 
+# ── One-step-back backup snapshot (delete-most-recent-upload feature) ──
+# Right before a new semester file is merged into the shared master
+# CSV/models, auto_train.py copies the CURRENT ("Recent") state of the
+# master CSV, the long-form CSV, every model_datasets/*.csv, and every
+# trained .pkl + training_state.json into this folder, OVERWRITING
+# whatever backup was there before. This means there is only ever ONE
+# backup slot (the state right before the most recent upload) — deleting
+# the most recent upload restores this snapshot and then the slot is
+# empty again until the next upload creates a fresh one.
+BACKUP_DIR                 = os.path.join(BASE_DIR, 'Backup')
+BACKUP_MODEL_DATASETS_DIR  = os.path.join(BACKUP_DIR, 'model_datasets')
+BACKUP_ML_MODEL_DIR        = os.path.join(BACKUP_DIR, 'Machine_Learning_Model')
+BACKUP_FINAL_MERGED_CSV    = os.path.join(BACKUP_DIR, 'Final_Merged_Student_Data.csv')
+BACKUP_LONGFORM_CSV        = os.path.join(BACKUP_DIR, 'Final_LongForm_Student_Grades.csv')
+
+# Soft-deleted upload records (Recently Deleted table) are permanently
+# purged after this many days.
+SOFT_DELETE_EXPIRY_DAYS = 30
+
 # ── Dataset file validation ───────────────────────────────────
 DATASET_ALLOWED_EXTENSIONS = {'xlsx'}
 DATASET_MAX_SIZE_MB = None  # No file size limit
@@ -93,5 +112,6 @@ ROLE_DISPLAY_NAMES = {
 UPLOAD_ALLOWED_ROLES = {'Academic_Affair', 'admin'}
 
 # ── Auto-create folders on import ─────────────────────────────
-for _d in (UNPROCESSED_DATASETS_DIR, PROCESSED_DATASETS_DIR, MODEL_DATASETS_DIR, ML_MODEL_DIR):
+for _d in (UNPROCESSED_DATASETS_DIR, PROCESSED_DATASETS_DIR, MODEL_DATASETS_DIR, ML_MODEL_DIR,
+           BACKUP_DIR, BACKUP_MODEL_DATASETS_DIR, BACKUP_ML_MODEL_DIR):
     os.makedirs(_d, exist_ok=True)

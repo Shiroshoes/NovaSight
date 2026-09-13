@@ -15,6 +15,20 @@ def home_cea():
         return redirect(url_for('home')) 
     return render_template('deans/CEADean/home/html/ceadeanhome.html')
 
+# prwd dash
+@cea_bp.route('/predictivedashboard')
+def preddash_cea():
+    if 'user_id' not in session or session.get('role') != 'CEAdean':
+        return redirect(url_for('home'))
+    return render_template('deans/CEAdean/dashboard/predictiondashboardcea.html', college_type='all')
+
+# model dash
+@cea_bp.route('/modeldashboard')
+def modeldash_cea():
+    if 'user_id' not in session or session.get('role') != 'CEAdean':
+        return redirect(url_for('home'))
+    return render_template('deans/CEAdean/dashboard/modelperformancedashcea.html', college_type='all')
+
 # Profile Page (CEA Dean)
 @cea_bp.route('/profile')
 def profile_cea():
@@ -38,6 +52,13 @@ def help_cea():
     if 'user_id' not in session or session.get('role') != 'CEAdean': 
         return redirect(url_for('home'))
     return render_template('deans/CEADean/help/html/ceadeanhelp.html')
+
+# privacy policy
+@cea_bp.route('/privacy-policy')
+def privacy_policy_CEADean():
+    if 'user_id' not in session or session.get('role') != 'CEAdean':
+        return redirect(url_for('home'))
+    return render_template('deans/CEADean/privacypolCEA/privacypolicyCEA.html')
 
 # --- CEA Dean Specific Dashboards ---
 @cea_bp.route('/ceadashboard')

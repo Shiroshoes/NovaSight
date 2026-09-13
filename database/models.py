@@ -200,6 +200,13 @@ class UploadedDataset(db.Model):
     file_size_kb        Original file size in KB
     sheet_count         Number of sheets found in the workbook
     row_count           Total long-form rows produced after preprocessing
+    is_deleted          Soft-delete flag — set when a user deletes the most
+                         recent upload (rolls back to the one-step-back
+                         backup) or restores/discards it from the "Recently
+                         Deleted" trash table. The row is KEPT (not removed)
+                         until it's restored or the 30-day expiry purges it.
+    deleted_at          UTC timestamp the soft-delete happened, used to
+                         compute the 30-day expiry countdown.
     """
     __tablename__ = 'uploaded_dataset'
 
@@ -218,6 +225,8 @@ class UploadedDataset(db.Model):
     file_size_kb      = db.Column(db.Float,        nullable=True)
     sheet_count       = db.Column(db.Integer,      nullable=True)
     row_count         = db.Column(db.Integer,      nullable=True)
+    is_deleted        = db.Column(db.Boolean,      default=False, nullable=False)
+    deleted_at        = db.Column(db.DateTime,     nullable=True)
 
     def to_dict(self):
         return {
@@ -237,4 +246,6 @@ class UploadedDataset(db.Model):
             'row_count':         f"{self.row_count:,}" if self.row_count else '—',
             'raw_path':          self.raw_path,
             'processed_path':    self.processed_path or '—',
+            'is_deleted':        self.is_deleted,
+            'deleted_at':        self.deleted_at.strftime('%b %d, %Y  %I:%M %p') if self.deleted_at else None,
         }

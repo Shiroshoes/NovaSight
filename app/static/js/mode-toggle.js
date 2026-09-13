@@ -434,6 +434,30 @@ const ModeAwareCharts = {
                         label: s.label, color: getGroupColor(s.label),
                     })));
                 }
+
+                // "Total Regular" / "Total Irregular" numbers under the
+                // two charts — Recent mode fills these in from
+                // updateStatusChart's own fetch, but this Prediction-mode
+                // branch never touched val-regular/val-irregular at all,
+                // so they stayed frozen at whatever Recent mode last
+                // wrote there (0 on first load). /api/get_status_trend
+                // now also returns a predicted headcount total for the
+                // furthest forecast year, summed across every line —
+                // show that here, "Est." prefixed to match every other
+                // Prediction-mode number on the dashboard.
+                const elReg = document.getElementById('val-regular');
+                const elIrr = document.getElementById('val-irregular');
+                if (elReg) elReg.innerText = `Est. ${(data.regular_total_forecast || 0).toLocaleString()}`;
+                if (elIrr) elIrr.innerText = `Est. ${(data.irregular_total_forecast || 0).toLocaleString()}`;
+
+                const badges = document.querySelectorAll('[id="status-badge"]');
+                if (badges.length && data.forecast_year) {
+                    badges.forEach(badge => {
+                        badge.innerText = `${data.forecast_year} Forecast`;
+                        badge.style.backgroundColor = "#f6c23e";
+                        badge.style.color = "#fff";
+                    });
+                }
             })
             .catch(err => console.error('Status trend fetch failed:', err));
     },

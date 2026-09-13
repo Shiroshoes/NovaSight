@@ -71,41 +71,31 @@ def maindash_admin():
         return redirect(url_for('home'))
     return render_template('admin/dashboard/maindashboardadmin/html/maindashboardadmin.html', college_type='all')
 
-@admin_bp.route('/cahsdashboard')
-def cahsdash_admin():
+@admin_bp.route('/deptdash')
+def deptdash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    return render_template('admin/dashboard/cahsdashboardadmin/html/cahsdashboardadmin.html', college_type='CAHS')
+    return render_template('admin/dashboard/deptdashAdmin/deptdashAdmin.html', college_type='all')
 
-@admin_bp.route('/cbadashboard')
-def cbadash_admin():
+@admin_bp.route('/preddash')
+def preddash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    return render_template('admin/dashboard/cbadashboardadmin/html/cbadashboardadmin.html', college_type='CBA')
+    return render_template('admin/dashboard/predictiondashboardAdmin/predictiondashboardAdmin.html', college_type='all')
 
-@admin_bp.route('/ccstdashboard')
-def ccstdash_admin():
+@admin_bp.route('/modeldash')
+def modeldash_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    return render_template('admin/dashboard/ccstdashboardadmin/html/ccstdashboardadmin.html', college_type='CCST')
+    return render_template('admin/dashboard/modelperformancedashAdmin/modelperformancedashAdmin.html', college_type='all')
 
-@admin_bp.route('/ceadashboard')
-def ceadash_admin():
+# ----------------- Privacy Policy Page ----------------
+@admin_bp.route('/privacypolicyAdmin')
+def privacy_policy_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('home'))
-    return render_template('admin/dashboard/ceadashboardadmin/html/ceadashboardadmin.html', college_type='CEA')
+    return render_template('admin/privacypoladmin/privacypolicyAdmin.html')
 
-@admin_bp.route('/coasdashboard')
-def coasdash_admin():
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return redirect(url_for('home'))
-    return render_template('admin/dashboard/coasdashboardadmin/html/coasdashboardadmin.html', college_type='COAS')
-
-@admin_bp.route('/ctecdashboard')
-def ctecdash_admin():
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return redirect(url_for('home'))
-    return render_template('admin/dashboard/ctecdashboardadmin/html/ctecdashboardadmin.html', college_type='CTEC')
 
 # ---------------- Add User ----------------
 @admin_bp.route('/add_user', methods=['POST'])
@@ -118,15 +108,17 @@ def add_user():
     last_name   = request.form.get('last_name', '').strip()
     mi          = request.form.get('mi', '').strip() or None
     suffix      = request.form.get('suffix', '').strip() or None
-    # Lowercased so the same BPSU account can't be re-registered by typing
-    # it with different capitalization — this matches the case-insensitive
-    # ix_acad_user_account_ci DB index, which is the real backstop.
     account     = request.form.get('account', '').strip().lower()
     password    = request.form.get('password', '').strip()
     role        = request.form.get('role', '').strip()
 
     if not all([first_name, last_name, account, password, role]):
         flash("First name, last name, account, password, and role are required.", "error")
+        return redirect(url_for('admin_bp.admin_page'))
+
+    # BPSU account validation
+    if not account.endswith('@bpsu.edu.ph'):
+        flash("Please use a valid BPSU account ending with @bpsu.edu.ph.", "error")
         return redirect(url_for('admin_bp.admin_page'))
 
     if role not in ALLOWED_ROLES:
@@ -158,6 +150,7 @@ def add_user():
         db.session.rollback()
         flash("Account already exists", "error")
         return redirect(url_for('admin_bp.admin_page'))
+
     flash("User added successfully!", "success")
     return redirect(url_for('admin_bp.admin_page'))
 

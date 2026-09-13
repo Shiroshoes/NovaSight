@@ -137,8 +137,24 @@
     color: #000000;
     transition: color 0.25s ease;
 }
+/* 1. Set the default unselected text color to black for both options */
+.mode-switch .mode-switch-option[data-value="chart"],
+.mode-switch .mode-switch-option[data-value="table"] {
+    color: #000000 !important;
+    transition: color 0.25s ease;
+}
 
-.mode-switch:not(.is-prediction) .mode-switch-option[data-value="recent"],
-.mode-switch.is-prediction .mode-switch-option[data-value="prediction"] {
-    color: #fff;
+/* 2. When Table is NOT active (Maroon is on Chart) -> Force Chart to be White */
+.mode-switch:not(:has(#displayFormatTableBtn.active)) #displayFormatChartBtn {
+    color: #ffffff !important;
+}
+
+/* 3. When Table IS active (Maroon slides to Table) -> Force Table to be White */
+.mode-switch:has(#displayFormatTableBtn.active) #displayFormatTableBtn {
+    color: #ffffff !important;
+}
+
+/* 4. Automatically shift the maroon slider capsule right when the table button is active */
+.mode-switch:has(#displayFormatTableBtn.active) .mode-switch-thumb {
+    transform: translateX(100%);
 }

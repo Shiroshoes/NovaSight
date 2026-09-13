@@ -46,16 +46,87 @@ const COLLEGE_COLORS = {
     'all': '#800000',
 };
 
-// Fixed colors for CAHS's three named courses — checked (as a substring
-// match against the course's full name) before anything falls through
-// to the college-shade auto-generator below, so these three always
-// render as their own requested color instead of a shade of CAHS's
-// sky blue.
+// Fixed colors for every named course, checked (as a substring match
+// against the course's full name) before anything falls through to the
+// college-shade auto-generator below. Courses get their own distinct
+// hue on purpose — CAHS's 3 were the original set; the rest follow the
+// same idea (one clearly different color per course, not a tint/shade
+// of the parent college) so courses read as visually distinct from
+// each other wherever they appear together (Department Dashboard,
+// Prediction Analysis, hardest-subjects mini-cards, retention donuts).
 const COURSE_COLORS = {
-    'NURSING':        '#4e73df', // blue
-    'PUBLIC HEALTH':  '#ffb385', // peach
-    'MIDWIFERY':      '#e83e8c', // pink
+    // CAHS
+    'NURSING':                                 '#4e73df', // blue
+    'PUBLIC HEALTH':                           '#ffb385', // peach
+    'MIDWIFERY':                                '#e83e8c', // pink
+    // CBA
+    'TOURISM MANAGEMENT':                       '#f6c23e', // gold
+    'HOSPITALITY MANAGEMENT':                   '#fd7e14', // orange
+    // CCST
+    'INFORMATION TECHNOLOGY':                   '#6f42c1', // purple
+    'DATA SCIENCE':                              '#20c997', // teal
+    'COMPUTER SCIENCE':                          '#17a2b8', // cyan
+    'ENTERTAINMENT AND MULTIMEDIA COMPUTING':    '#d63384', // magenta
+    // CEA
+    'CIVIL ENGINEERING':                         '#1cc88a', // green
+    'MECHANICAL ENGINEERING':                    '#858796', // slate gray
+    'ARCHITECTURE':                              '#b8860b', // dark goldenrod
+    'ELECTRICAL ENGINEERING':                    '#dc3545', // red
+    'INDUSTRIAL ENGINEERING':                    '#6610f2', // indigo
+    'COMPUTER ENGINEERING':                      '#36b9cc', // sky blue
+    'ELECTRONICS ENGINEERING':                   '#495057', // dark gray
+    // COAS
+    'COMMUNICATION':                             '#ff6b6b', // coral
+    // CTEC
+    'INDUSTRIAL TECHNOLOGY':                     '#2e86de', // strong blue
+    'TECHNICAL-VOCATIONAL TEACHER EDUCATION':    '#a55eea', // violet
 };
+
+
+// ── ML ALGORITHM COLORS (Model Performance dashboard) ──────────────────
+// Shared by this file's mp-grid model cards and by ml_diagnostics.js's
+// Headline Score / Training Status charts, so every chart on the Model
+// Performance page colors a model by which algorithm trained it — not
+// by pass/fail status. Same 3 colors ml_eval.js's ALGO_META uses for the
+// KPI cards and the "Models by Algorithm Type" donut/bar — kept in sync
+// by hand since that file and this one don't share a module scope.
+// 1. Add your Ground-truth algorithm mapping in JS
+const ML_ALGO_META = {
+    LinearRegression:       { label: 'Linear Regression',        color: '#1cc88a' },
+    RandomForestRegressor:  { label: 'Random Forest Regression',  color: '#2A86FD' },
+    RandomForestClassifier: { label: 'Random Forest Classifier',  color: '#8e44ad' },
+};
+
+const ML_ALGO_FALLBACK = { label: 'Other', color: '#858796' };
+
+function mlAlgoMeta(algorithmKey) {
+    if (!algorithmKey) return ML_ALGO_FALLBACK;
+
+    let matchedAlgo = null;
+
+    // 1. Check for exact matches first
+    if (algorithmKey.startsWith("dropout_risk"))              matchedAlgo = "LinearRegression";
+    else if (algorithmKey.startsWith("dropout_spike"))         matchedAlgo = "RandomForestRegressor";
+    else if (algorithmKey.startsWith("dropout_ranking"))       matchedAlgo = "RandomForestRegressor";
+    else if (algorithmKey.startsWith("gwa_ranking"))           matchedAlgo = "LinearRegression";
+    else if (algorithmKey.startsWith("gwa_trend"))             matchedAlgo = "LinearRegression";
+    else if (algorithmKey.startsWith("irreg_reg"))             matchedAlgo = "RandomForestClassifier";
+    
+    // 2. Catch multi-part keys (e.g., kpi_gwa, kpi_enrollment)
+    else if (algorithmKey.startsWith("kpi"))                   matchedAlgo = "LinearRegression";
+    
+    // 3. Catch gender splits (e.g., gender_performance_male_dropout_rate)
+    else if (algorithmKey.startsWith("gender_performance_male"))   matchedAlgo = "RandomForestRegressor";
+    else if (algorithmKey.startsWith("gender_performance_female")) matchedAlgo = "RandomForestRegressor";
+    
+    // 4. Catch year level splits (e.g., year_level_performance_excellent)
+    else if (algorithmKey.startsWith("year_level_performance"))    matchedAlgo = "LinearRegression";
+    else if (algorithmKey.startsWith("year_level_inc_irreg"))      matchedAlgo = "LinearRegression";
+
+    // Return the correct metadata coordinates or default to fallback if completely unknown
+    return ML_ALGO_META[matchedAlgo] || ML_ALGO_FALLBACK;
+}
+
 
 
 // Fallback palette for labels outside the 6 colleges (specific courses,
@@ -1691,11 +1762,20 @@ function updateRiskByCollege(year, semester) {
             ? `<div class="mec-reason">${model.reason}</div>`
             : '';
 
+          // Colored by which algorithm trained the model (not its
+          // trained/skipped/error status — that's still shown by the
+          // badge text/background below) so every card visually groups
+          // with the same model's color everywhere else on this page.
+          const algoMeta = mlAlgoMeta(model.id || model.name || model.key); 
+
           return `
-            <div class="model-eval-card status-${statusKey}">
+            <div class="model-eval-card status-${statusKey}" style="border-left:5px solid ${algoMeta.color};">
               <div class="mec-header">
                 <span class="mec-label">${model.label}</span>
                 <span class="mec-badge">${palette.label}</span>
+              </div>
+              <div class="mec-algo-tag" style="color:${algoMeta.color};">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${algoMeta.color}; margin-right:5px;"></span>${algoMeta.label}
               </div>
               <div class="mec-headline">${headline}</div>
               ${model.headline_label ? `<div class="mec-headline-label">${model.headline_label}</div>` : ''}

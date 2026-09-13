@@ -23,6 +23,11 @@
         <span>Home</span>
       </a>
 
+      <div>
+        <hr class="sidebardivider">
+      </div>
+  <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Overview</p>
+
     <a href="{{url_for('ctec_bp.ctecdash_ctec')}}" class="dash-btn">
     <div class="non-active-bordericondash">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icondash">
@@ -34,12 +39,38 @@
 
     <span>CTEC Dashboard</span></a>
 
+      <div>
+        <hr class="sidebardivider">
+      </div>
+
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Machine Learning & Prediction</p>
+
+    <a href="{{url_for('ctec_bp.preddash_ctec')}}" class="menu-btn">
+    <div  class="non-active-bordericon">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icon">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+    </svg>
+    </div>
+
+    <span>Prediction Analysis</span></a>
+
+    <a href="{{url_for('ctec_bp.modeldash_ctec')}}" class="menu-btn">
+    <div class="non-active-bordericon">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icon">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
+      </svg>
+    </div>
+
+    <span>Model Performance</span></a>
+
 </div>
       <div>
         <hr class="sidebardivider">
       </div>
+
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Account Panel</p>
       
-      <a href="#" class="menu-active">
+      <a href="{{url_for('ctec_bp.profile_ctec')}}" class="menu-active">
         <div class="active-bordericon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icon">
             <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd" />
@@ -57,6 +88,10 @@
         <span>Help</span>
         </a>
 
+      <div>
+        <hr class="sidebardivider">
+      </div>
+
         <a href="#" id="logoutLink" class="menu-btn">
           <div class="non-active-bordericon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
@@ -66,6 +101,16 @@
 
           <span>Logout</span>
         </a>
+
+      <div class="sidebar-footer">
+        <a href="{{ url_for('ctec_bp.privacy_policy_CTECdean') }}" class="btn-privacy">
+          &bull; Privacy Policy
+        </a>
+
+        <p class="copyright">
+          &copy; 2026 NovaSight Dev Team. All rights reserved.
+        </p>
+      </div>
     </nav>
   </aside>
 <main>

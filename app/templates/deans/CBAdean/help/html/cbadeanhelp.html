@@ -22,20 +22,50 @@
         <span>Home</span>
       </a>
 
+      <div>
+        <hr class="sidebardivider">
+      </div>
+  <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Overview</p>
+
     <a href="{{url_for('cba_bp.cbadash_cba')}}" class="dash-btn">
     <div class="non-active-bordericondash">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icondash">
-        <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
+        <path fill-rule="evenodd" d="M6.32 1.827a49.255 49.255 0 0 1 11.36 0c1.497.174 2.57 1.46 2.57 2.93V19.5a3 3 0 0 1-3 3H6.75a3 3 0 0 1-3-3V4.757c0-1.47 1.073-2.756 2.57-2.93ZM7.5 11.25a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H8.25a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H8.25Zm-.75 3a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H8.25a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V18a.75.75 0 0 0-.75-.75H8.25Zm1.748-6a.75.75 0 0 1 .75-.75h.007a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.007a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.335.75.75.75h.007a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75h-.007Zm-.75 3a.75.75 0 0 1 .75-.75h.007a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.007a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.335.75.75.75h.007a.75.75 0 0 0 .75-.75V18a.75.75 0 0 0-.75-.75h-.007Zm1.754-6a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75h-.008Zm-.75 3a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V18a.75.75 0 0 0-.75-.75h-.008Zm1.748-6a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75h-.008Zm-8.25-6A.75.75 0 0 1 8.25 6h7.5a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-.75.75h-7.5a.75.75 0 0 1-.75-.75v-.75Zm9 9a.75.75 0 0 0-1.5 0V18a.75.75 0 0 0 1.5 0v-2.25Z" clip-rule="evenodd" />
+      </svg>
+    </div>
+      
+    <span> CBA Dashboard</a></span>
+
+      <div>
+        <hr class="sidebardivider">
+      </div>
+
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Machine Learning & Prediction</p>
+
+    <a href="{{url_for('cba_bp.preddash_cba')}}" class="menu-btn">
+    <div  class="non-active-bordericon">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icon">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+    </svg>
+    </div>
+
+    <span>Prediction Analysis</span></a>
+
+    <a href="{{url_for('cba_bp.modeldash_cba')}}" class="menu-btn">
+    <div class="non-active-bordericondash">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
       </svg>
     </div>
 
-      
-    <span>CBA Dashboard</span></a>
+    <span>Model Performance</span></a>
 
 </div>
       <div>
         <hr class="sidebardivider">
       </div>
+
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Account Panel</p>
       
       <a href="{{url_for('cba_bp.profile_cba')}}" class="menu-btn">
         <div class="non-active-bordericon">
@@ -46,7 +76,7 @@
         <span>Profile</span>
       </a>
 
-        <a href="#" class="menu-active">
+        <a href="{{url_for('cba_bp.help_cba')}}" class="menu-active">
         <div class="active-bordericon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icon">
             <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
@@ -54,6 +84,10 @@
         </div>
         <span>Help</span>
         </a>
+
+      <div>
+        <hr class="sidebardivider">
+      </div>
 
         <a href="#" id="logoutLink" class="menu-btn">
           <div class="non-active-bordericon">
@@ -64,6 +98,16 @@
 
           <span>Logout</span>
         </a>
+
+      <div class="sidebar-footer">
+        <a href="{{ url_for('cba_bp.privacy_policy_CBADean') }}" class="btn-privacy">
+          &bull; Privacy Policy
+        </a>
+
+        <p class="copyright">
+          &copy; 2026 NovaSight Dev Team. All rights reserved.
+        </p>
+      </div>
     </nav>
   </aside>
 <main>
@@ -283,8 +327,8 @@
             </div>
 
             <p>
-                If the problem persists, please contact the NovaSight
-                system administrator or the development team for further
+                If the problem persists, please contact the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=miso@bpsu.edu.ph" target="_blank">NovaSight
+                system administrator</a> or the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=jieperdio23@bpsu.edu.ph" target="_blank">development team</a> for further
                 assistance.
             </p>
 

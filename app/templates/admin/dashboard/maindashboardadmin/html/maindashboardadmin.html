@@ -16,14 +16,16 @@
   <link rel="stylesheet" href="{{url_for('static', filename='css/print/dashboard-print.css')}}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tutorial/page-video-modal.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
+
+  <link rel="stylesheet" href="{{url_for('static', filename='css/shared/dashboard-shared.css')}}">
 </head>
 <body>
   <!-- fixed side bar -->
   <aside class="sidebar">
     <nav class="pad">
-      <a href="{{url_for('admin_bp.dashboard')}}" class="menu-btn">
+      <a href="{{ url_for('admin_bp.dashboard') }}" class="menu-btn">
         <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icon">
             <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
             <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
           </svg>
@@ -37,7 +39,7 @@
             <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.035-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z"/>
           </svg>
         </div>
-        <span>Dashboard</span>
+        <span>Data & Analysis</span>
         <svg id="dashboardChevronIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6" style="width:16px;margin-left:auto;">
           <path id="dashboardChevronPath" fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
         </svg>
@@ -45,77 +47,64 @@
       </a>
 
 <div class="submenu-container" id="dashboardSubmenu">
-    <a href="#" class="dash-active">
+
+      <div>
+        <hr class="sidebardivider">
+      </div>
+  <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Overview</p>
+
+    <a href="{{url_for('admin_bp.maindash_admin')}}" class="dash-active">
     <div class="active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icondash">
-        <path fill-rule="evenodd" d="M2.25 2.25a.75.75 0 0 0 0 1.5H3v10.5a3 3 0 0 0 3 3h1.21l-1.172 3.513a.75.75 0 0 0 1.424.474l.329-.987h8.418l.33.987a.75.75 0 0 0 1.422-.474l-1.17-3.513H18a3 3 0 0 0 3-3V3.75h.75a.75.75 0 0 0 0-1.5H2.25Zm6.54 15h6.42l.5 1.5H8.29l.5-1.5Zm8.085-8.995a.75.75 0 1 0-.75-1.299 12.81 12.81 0 0 0-3.558 3.05L11.03 8.47a.75.75 0 0 0-1.06 0l-3 3a.75.75 0 1 0 1.06 1.06l2.47-2.47 1.617 1.618a.75.75 0 0 0 1.146-.102 11.312 11.312 0 0 1 3.612-3.321Z" clip-rule="evenodd" />
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="active-icondash">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
       </svg>
     </div>
-    <span>Main Dashboard</span>
+    <span>Dashboard</span>
     </a>
 
-    <a href="{{url_for('admin_bp.cahsdash_admin')}}" class="dash-btn">
+    <a href="{{url_for('admin_bp.deptdash_admin')}}" class="dash-btn">
     <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icondash">
-        <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
       </svg>
     </div>
 
       
-    <span>CAHS Dashboard</span></a>
+    <span>Department Dashboard</span></a>
 
-    <a href="{{url_for('admin_bp.cbadash_admin')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icondash">
-        <path fill-rule="evenodd" d="M6.32 1.827a49.255 49.255 0 0 1 11.36 0c1.497.174 2.57 1.46 2.57 2.93V19.5a3 3 0 0 1-3 3H6.75a3 3 0 0 1-3-3V4.757c0-1.47 1.073-2.756 2.57-2.93ZM7.5 11.25a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H8.25a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H8.25Zm-.75 3a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H8.25a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V18a.75.75 0 0 0-.75-.75H8.25Zm1.748-6a.75.75 0 0 1 .75-.75h.007a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.007a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.335.75.75.75h.007a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75h-.007Zm-.75 3a.75.75 0 0 1 .75-.75h.007a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.007a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.335.75.75.75h.007a.75.75 0 0 0 .75-.75V18a.75.75 0 0 0-.75-.75h-.007Zm1.754-6a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75h-.008Zm-.75 3a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V18a.75.75 0 0 0-.75-.75h-.008Zm1.748-6a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Zm.75 1.5a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75h-.008Zm-8.25-6A.75.75 0 0 1 8.25 6h7.5a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-.75.75h-7.5a.75.75 0 0 1-.75-.75v-.75Zm9 9a.75.75 0 0 0-1.5 0V18a.75.75 0 0 0 1.5 0v-2.25Z" clip-rule="evenodd" />
-      </svg>
-    </div>
-      
-    <span> CBA Dashboard</span></a>
 
-    <a href="{{url_for('admin_bp.ccstdash_admin')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icondash">
-        <path fill-rule="evenodd" d="M2.25 6a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V6Zm3.97.97a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 0 1 0-1.06Zm4.28 4.28a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clip-rule="evenodd" />
-      </svg>
-    </div>
-      
-      <span>CCST Dashboard</span></a>
+      <div>
+        <hr class="sidebardivider">
+      </div>
 
-    <a href="{{url_for('admin_bp.ceadash_admin')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icondash">
-        <path fill-rule="evenodd" d="M4.5 2.25a.75.75 0 0 0 0 1.5v16.5h-.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5h-.75V3.75a.75.75 0 0 0 0-1.5h-15ZM9 6a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H9Zm-.75 3.75A.75.75 0 0 1 9 9h1.5a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM9 12a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H9Zm3.75-5.25A.75.75 0 0 1 13.5 6H15a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75ZM13.5 9a.75.75 0 0 0 0 1.5H15A.75.75 0 0 0 15 9h-1.5Zm-.75 3.75a.75.75 0 0 1 .75-.75H15a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75ZM9 19.5v-2.25a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-.75.75h-4.5A.75.75 0 0 1 9 19.5Z" clip-rule="evenodd" />
-      </svg>
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Machine Learning & Prediction</p>
+
+    <a href="{{url_for('admin_bp.preddash_admin')}}" class="dash-btn">
+    <div  class="non-active-bordericondash">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+    </svg>
     </div>
 
-     <span> CEA Dashboard</span></a>
-      
-    <a href="{{url_for('admin_bp.coasdash_admin')}}" class="dash-btn">
+    <span>Prediction Analysis</span></a>
+
+    <a href="{{url_for('admin_bp.modeldash_admin')}}" class="dash-btn">
     <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icondash">
-        <path fill-rule="evenodd" d="M20.599 1.5c-.376 0-.743.111-1.055.32l-5.08 3.385a18.747 18.747 0 0 0-3.471 2.987 10.04 10.04 0 0 1 4.815 4.815 18.748 18.748 0 0 0 2.987-3.472l3.386-5.079A1.902 1.902 0 0 0 20.599 1.5Zm-8.3 14.025a18.76 18.76 0 0 0 1.896-1.207 8.026 8.026 0 0 0-4.513-4.513A18.75 18.75 0 0 0 8.475 11.7l-.278.5a5.26 5.26 0 0 1 3.601 3.602l.502-.278ZM6.75 13.5A3.75 3.75 0 0 0 3 17.25a1.5 1.5 0 0 1-1.601 1.497.75.75 0 0 0-.7 1.123 5.25 5.25 0 0 0 9.8-2.62 3.75 3.75 0 0 0-3.75-3.75Z" clip-rule="evenodd" />
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
       </svg>
     </div>
 
-    <span>CoAS Dashboard</span></a>
+    <span>Model Performance</span></a>
 
-    <a href="{{url_for('admin_bp.ctecdash_admin')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icondash">
-        <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
-        <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
-        <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
-      </svg>
-    </div>
-
-    <span>CTEC Dashboard</span></a>
 </div>
       <div>
         <hr class="sidebardivider">
       </div>
+
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Account Panel</p>
       
-      <a href="{{url_for('admin_bp.profile')}}" class="menu-btn">
+      <a href="{{ url_for('admin_bp.profile') }}" class="menu-btn">
         <div class="non-active-bordericon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
             <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd" />
@@ -124,7 +113,7 @@
         <span>Profile</span>
       </a>
 
-        <a href="{{url_for('admin_bp.help_admin')}}" class="menu-btn">
+        <a href="{{ url_for('admin_bp.help_admin')}}" class="menu-btn">
         <div class="non-active-bordericon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
             <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
@@ -133,7 +122,13 @@
         <span>Help</span>
         </a>
 
-        <a href="{{url_for('admin_bp.admin_page')}}" class="menu-btn">
+      <div>
+        <hr class="sidebardivider">
+      </div>
+
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Admin Panel</p>
+
+        <a href="{{ url_for('admin_bp.admin_page') }}" class="menu-btn">
           <div class="non-active-bordericon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
             <path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 0 0-1.032 0 11.209 11.209 0 0 1-7.877 3.08.75.75 0 0 0-.722.515A12.74 12.74 0 0 0 2.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 0 0 .374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 0 0-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08Zm3.094 8.016a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
@@ -148,6 +143,10 @@
           <span>Upload File</span>
         </a>
 
+      <div>
+        <hr class="sidebardivider">
+      </div>
+
         <a href="#" id="logoutLink" class="menu-btn">
           <div class="non-active-bordericon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
@@ -157,6 +156,16 @@
 
           <span>Logout</span>
         </a>
+
+      <div class="sidebar-footer">
+        <a href="{{ url_for('admin_bp.privacy_policy_admin') }}" class="btn-privacy">
+          &bull; Privacy Policy
+        </a>
+
+        <p class="copyright">
+          &copy; 2026 NovaSight Dev Team. All rights reserved.
+        </p>
+      </div>
     </nav>
   </aside>
 <main>
@@ -214,27 +223,15 @@
       </script>
 
       <!-- Recent Data / Prediction Mode — pill-style toggle switch -->
-      <div class="card card-mini no-print" style="position:relative;">
-        <label>View Mode</label>
 
-        <!-- 3-dot menu, top-right of the card -->
-        <button type="button" id="displayFormatKebabBtn" class="kebab-btn" aria-label="Display format options">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="kebab-icon">
-              <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
-            </svg>
-        </button>
-        <div id="displayFormatMenu" class="kebab-menu">
-            <button type="button" id="displayFormatChartBtn" class="kebab-menu-item active">Chart Mode</button>
-            <button type="button" id="displayFormatTableBtn" class="kebab-menu-item">Table Mode</button>
-        </div>
-
-        <div class="mode-switch" id="modeSwitchWrap"
-             onclick="ModeAwareCharts.toggle(document.getElementById('filterCollege').value, document.getElementById('filterSemester').value)">
-            <div class="mode-switch-thumb"></div>
-            <span class="mode-switch-option" data-value="recent">Recent</span>
-            <span class="mode-switch-option" data-value="prediction">Prediction</span>
-        </div>
-      </div>
+    <div class="card card-mini no-print" style="position:relative;">
+        <label>DATA MODE</label>
+        <div class="mode-switch" id="displayFormatSwitchWrap"> 
+            <div class="mode-switch-thumb"></div> 
+            <span type="button" id="displayFormatChartBtn" class="mode-switch-option" data-value="recent" data-value="chart">Chart</span> 
+            <span type="button" id="displayFormatTableBtn" class="mode-switch-option" data-value="prediction" data-value="table">Table</span> 
+        </div> 
+    </div>
 
       <script>
           document.addEventListener('DOMContentLoaded', () => {
@@ -283,9 +280,31 @@
         </div>
       </div> 
 
+      <!-- ─────────────────────────────────────────────────────────
+           Category tabs: only one group of cards shows at a time.
+           #chartViewContainer, Table Mode, and the Recent/Prediction
+           toggle are all untouched by this — it only ever adds/removes
+           .dash-tab-hidden on top of whatever those already do.
+           See js/dashboard-tabs.js.
+           ───────────────────────────────────────────────────────── -->
+      <nav class="dash-tabs no-print" id="dashTabs" role="tablist" aria-label="Dashboard categories">
+        <button type="button" class="dash-tab-btn" data-tab="overview" role="tab">
+          Overview <span class="dash-tab-count">20</span>
+        </button>
+        <button type="button" class="dash-tab-btn" data-tab="enrollment" role="tab">
+          Enrollment &amp; Retention <span class="dash-tab-count">4</span>
+        </button>
+        <button type="button" class="dash-tab-btn" data-tab="academic" role="tab">
+          Academic Performance <span class="dash-tab-count">9</span>
+        </button>
+        <button type="button" class="dash-tab-btn" data-tab="risk" role="tab">
+          Risk &amp; Dropout <span class="dash-tab-count">4</span>
+        </button>
+      </nav>
+
       <!-- Table Mode renders here instead of the charts below (see table-view.js) -->
       <div id="chartViewContainer" style="display:contents;">
-      <div class="card card-mini2">
+      <div class="card card-mini2" data-tab-category="overview">
         <div id="kpi-card-students" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
             <div style="align-items: center; display: flex; justify-content: space-between;" >
                 <div>
@@ -304,7 +323,7 @@
       </div>
 
 
-      <div class="card card-mini1">
+      <div class="card card-mini1" data-tab-category="overview">
         <div id="kpi-card-gwa" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
             <div style="align-items: center; display: flex; justify-content: space-between;">
                 <div>
@@ -322,7 +341,7 @@
         </div>
       </div>
 
-      <div class="card card-mini1">
+      <div class="card card-mini1" data-tab-category="overview">
         <div id="kpi-card-drop" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
             <div style="align-items: center; display: flex; justify-content: space-between;">
                 <div>
@@ -341,7 +360,7 @@
       </div>
 
       <!-- Course x Year-Level Dropout Heatmap -->
-      <div class="card card-full-width-bar2" id="heatmapCard">
+      <div class="card card-full-width-bar2" id="heatmapCard" data-tab-category="risk">
         <div style="border-radius: 10px; background-color: white;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
@@ -359,16 +378,21 @@
               <div id="courseYearLevelHeatmap">
                   <p style="color:#858796; text-align:center;">Loading heatmap...</p>
               </div>
-              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
-              <div style="text-align: center; font-size: 0.875rem; color: #858796;">
-                  <i class="fas fa-info-circle"></i>
-                  Every program across every college, broken down by year level. Darker red = higher dropout rate for that program's students at that year. Hover a cell for exact headcount. Reflects Main Campus by default, or the selected college/course from the filter above. Use the Course dropdown above to narrow this heatmap to a single program — it only affects this chart.
-              </div>
+              <div class="chart-explanation">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Every program across every college, broken down by year level. Darker red = higher dropout rate for that program's students at that year. Hover a cell for exact headcount. Reflects Main Campus by default, or the selected college/course from the filter above.</dd>
+                  <dt>What to expect</dt>
+                  <dd>Rates are usually low and fairly even for 1st and 2nd year, then rise in later years as harder major subjects and thesis/practicum requirements kick in — a normal pattern, not necessarily a problem on its own.</dd>
+                  <dt>What it means</dt>
+                  <dd>A cell that's much darker than the rest of its row or column flags a specific course-year combination worth a closer look — e.g. a particular program struggling in 3rd year specifically. This chart has no Prediction mode; it only ever shows Recent Data. Use the Course dropdown to narrow it to one program.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
-      <div class="card card-wide">
+      <div class="card card-wide" data-tab-category="enrollment">
           <div style="background-color: #fff; border-radius: 0.35rem; margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
 
               <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
@@ -386,11 +410,21 @@
                   <div id="maleStatusGridContainer" style="display:flex; flex-wrap:wrap; justify-content:center;">
                       <p style="color:#858796; text-align:center; width:100%;">Loading male status breakdown…</p>
                   </div>
+                  <div class="chart-explanation">
+<dl class="learn-more-body">
+                      <dt>What it shows</dt>
+                      <dd>Male students only, split by college, and within each college split again into Regular / INC / Dropped. It's a status snapshot, not a trend line.</dd>
+                      <dt>What to expect</dt>
+                      <dd>Most slices should be "Regular" — INC and Dropped are usually the smaller minority. In Prediction mode the badge switches to "Predicted Data" and the numbers become an estimate for the selected future term.</dd>
+                      <dt>What it means</dt>
+                      <dd>A college whose Dropped or INC slice looks unusually large relative to the others is worth flagging for follow-up. Comparing this card against its Female counterpart can also surface whether risk is skewed toward one gender in a particular college.</dd>
+                    </dl>
+</div>
               </div>
           </div>
       </div>
 
-      <div class="card card-wide">
+      <div class="card card-wide" data-tab-category="enrollment">
           <div style="background-color: #fff; border-radius: 0.35rem; margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
 
               <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
@@ -408,11 +442,21 @@
                   <div id="femaleStatusGridContainer" style="display:flex; flex-wrap:wrap; justify-content:center;">
                       <p style="color:#858796; text-align:center; width:100%;">Loading female status breakdown…</p>
                   </div>
+                  <div class="chart-explanation">
+<dl class="learn-more-body">
+                      <dt>What it shows</dt>
+                      <dd>Female students only, split by college, and within each college split again into Regular / INC / Dropped. It's a status snapshot, not a trend line.</dd>
+                      <dt>What to expect</dt>
+                      <dd>Most slices should be "Regular" — INC and Dropped are usually the smaller minority. In Prediction mode the badge switches to "Predicted Data" and the numbers become an estimate for the selected future term.</dd>
+                      <dt>What it means</dt>
+                      <dd>A college whose Dropped or INC slice looks unusually large relative to the others is worth flagging for follow-up. Comparing this card against its Male counterpart can also surface whether risk is skewed toward one gender in a particular college.</dd>
+                    </dl>
+</div>
               </div>
           </div>
       </div>
 
-      <div class="card card-full-width-bar1">
+      <div class="card card-full-width-bar1" data-tab-category="academic">
         <div style="border-radius: 10px; background-color: white;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
@@ -423,17 +467,21 @@
               <div style="position: relative; height: 350px; width: 100%;">
                   <canvas id="gwaRankingChart"></canvas>
               </div>
-              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
-              <div style="text-align: center; font-size: 0.875rem; color: #858796;">
-                  <i class="fas fa-info-circle"></i>
-                  Note: <strong>Lower Bar Height</strong> = <strong>Better Grade</strong> (GWA closer to 1.0 is best; closer to 5.0 is failing).
-                  Each college always uses the same bar color across this whole dashboard.
-              </div>
+              <div class="chart-explanation">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Every college ranked side by side by General Weighted Average (GWA). Lower bar height = better grade — GWA closer to 1.0 is best, closer to 5.0 is failing. Each college always uses the same bar color across this whole dashboard.</dd>
+                  <dt>What to expect</dt>
+                  <dd>Colleges typically cluster fairly close together term to term; a large gap between the best- and worst-ranked college is the exception, not the norm.</dd>
+                  <dt>What it means</dt>
+                  <dd>A college that's persistently at the tall end of this ranking across several terms is a candidate for academic-support attention. In Prediction mode, this ranking reflects the projected GWA for the selected future term rather than actual grades.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
-      <div class="card card-full-width-bar1">
+      <div class="card card-full-width-bar1" data-tab-category="academic">
         <div style="border-radius: 10px; background-color: white;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
@@ -444,16 +492,21 @@
               <div style="position: relative; height: 350px; width: 100%;">
                   <canvas id="yearLevelChart"></canvas>
               </div>
-              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
-              <div style="text-align: center; font-size: 0.875rem; color: #858796;">
-                  <i class="fas fa-info-circle"></i>
-                  Each bar is one year level (1st–4th Year, etc.), segmented by college. Hover a segment for exact headcount and its performance-band breakdown. Reflects Main Campus by default, or the selected college/course from the filter above.
-              </div>
+              <div class="chart-explanation">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Each bar is one year level (1st–4th Year, etc.), segmented by college. Hover a segment for exact headcount and its performance-band breakdown. Reflects Main Campus by default, or the selected college/course from the filter above.</dd>
+                  <dt>What to expect</dt>
+                  <dd>Bar heights (total headcount per year level) naturally shrink from 1st to 4th year as some students drop or stop out along the way — that funnel shape is expected, not itself a red flag.</dd>
+                  <dt>What it means</dt>
+                  <dd>Watch the performance-band mix inside each segment rather than just the bar height: a year level where a college's "Below Average"/"Failing" bands grow noticeably wider than its own earlier years is the more meaningful signal.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
-      <div class="card card-full-width-bar">
+      <div class="card card-full-width-bar" data-tab-category="risk">
         <div style="border-radius: 10px; background-color: white;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
@@ -472,17 +525,22 @@
               <div style="position: relative; height: 350px; width: 100%;">
                   <canvas id="yearLevelIncIrregChart"></canvas>
               </div>
-              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
-              <div style="text-align: center; font-size: 0.875rem; color: #858796;">
-                  <i class="fas fa-info-circle"></i>
-                  "Irregular Rate" here is behavioral (had an INC or dropped a subject this term) — separate from the "Irregular" bar itself, which is the registrar's own course-load classification. Each college always uses the same color across this whole dashboard. Use the buttons above to switch which rate is broken down by college.
-              </div>
+              <div class="chart-explanation">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>One rate at a time (pick INC / Irregular / Drop with the buttons above), broken down by year level and college. "Irregular Rate" here is behavioral (had an INC or dropped a subject this term) — separate from the "Irregular" registrar classification used elsewhere. Each college always uses the same color across this whole dashboard.</dd>
+                  <dt>What to expect</dt>
+                  <dd>All three rates are usually a small minority of students per year level; Drop Rate is typically the smallest of the three, INC Rate the largest.</dd>
+                  <dt>What it means</dt>
+                  <dd>A year level/college combination where any of these rates climbs well above its usual range is worth investigating — it often lines up with the same courses flagged in the Dropout Rate Heatmap.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
       <!-- Student Regular -->
-      <div class="card third-square">
+      <div class="card third-square" data-tab-category="enrollment">
         <div style="background-color: white; border-radius: 10px; margin-top: 10px;">
           
 
@@ -512,12 +570,22 @@
                       </div>
                   </div>
              </div>
+             <div class="chart-explanation">
+<dl class="learn-more-body">
+                 <dt>What it shows</dt>
+                 <dd>The count/share of students who are "Regular" — no failed (5.0) or dropped subject on record.</dd>
+                 <dt>What to expect</dt>
+                 <dd>This should be the large majority of the student body most terms.</dd>
+                 <dt>What it means</dt>
+                 <dd>Read this alongside its Irregular counterpart card — together they always add up to the full population, so a dip here is a mirror-image rise there.</dd>
+               </dl>
+</div>
             </div>
         </div>
       </div>
 
       <!-- Student Irregular -->
-      <div class="card third-square1">
+      <div class="card third-square1" data-tab-category="enrollment">
         <div style="background-color: white; border-radius: 10px; margin-top: 10px;">
           
 
@@ -549,22 +617,27 @@
                   </div>
               </div>
 
-              <!-- Plain-language takeaway, no chart-reading required -->
-              <div id="status-plain-summary" style="text-align: center; margin-top: 0.75rem; font-size: 0.85rem; color: #2e3a59; font-weight: 600;">
-                  Loading summary…
-              </div>
-
               <div style="text-align: center; margin-top: 0.5rem;">
                   <small style="color: #858796; font-style: italic;">
                       *Irregular = Students with ≥1 Failed (5.0) or Dropped subject.
                   </small>
               </div>
+              <div class="chart-explanation">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>The count/share of students flagged Irregular — at least one failed (5.0) or dropped subject on record.</dd>
+                  <dt>What to expect</dt>
+                  <dd>This is normally the smaller of the two Regular/Irregular groups; a sudden jump term over term is the thing to watch for, not the raw number alone.</dd>
+                  <dt>What it means</dt>
+                  <dd>A rising Irregular share is an early academic-risk signal worth cross-checking against the INC/Irregular/Drop Rate by Year Level and Dropout Risk Ranking charts to see where it's concentrated.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
       <!-- Student Scatter -->
-      <div class="card card-wide1">
+      <div class="card card-wide1" data-tab-category="academic">
           <div style="width: 100%;">
               <div style="background-color: #fff; background-clip: border-box; border-radius: 0.35rem; margin-bottom: 1.5rem;">
 
@@ -572,10 +645,6 @@
                   <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
                       <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                           GWA Distribution (Student Scatter)
-                          <!-- THIS SPAN SHOWS THE FILTERS -->
-                          <span id="scatterSubtitle" style="font-weight: 400; color: #858796; margin-left: 10px; font-size: 0.85rem;">
-                              (Loading...)
-                          </span>
                       </h6>
                   </div>
 
@@ -587,12 +656,16 @@
                       <!-- Dynamic color legend: one chip per college, colors match every other chart -->
                       <div id="scatterColorLegend" style="margin-top: 0.75rem; text-align: center;"></div>
 
-                      <div style="margin-top: 0.5rem; text-align: center; font-size: 0.875rem; color: #858796;">
-                          <i class="fas fa-info-circle"></i>
-                          Each dot is one student. <strong>Dots near the top</strong> = better grades (closer to 1.0).
-                          <strong>Dot color</strong> shows which college the student belongs to (see legend above).
-                          The dashed line is the overall average.
-                      </div>
+                      <div class="chart-explanation">
+<dl class="learn-more-body">
+                          <dt>What it shows</dt>
+                          <dd>Each dot is one student. Dots near the top = better grades (closer to 1.0). Dot color shows which college the student belongs to (see legend above). The dashed line is the overall average.</dd>
+                          <dt>What to expect</dt>
+                          <dd>A dense cluster near the average line with a thinner scatter of dots trailing toward the bottom (worse grades) is the typical shape — most students perform close to average, with a smaller tail struggling more.</dd>
+                          <dt>What it means</dt>
+                          <dd>A college whose dots sit consistently below the dashed average line, or a cluster of forecast points trending downward in Prediction mode, is worth a closer look at that college specifically.</dd>
+                        </dl>
+</div>
                   </div>
               </div>
           </div>
@@ -601,122 +674,164 @@
       <!-- ── Top 5 hardest subjects, SEPARATE line chart per department ── -->
 
       <!-- CAHS -->
-      <div class="card card-full-width">
+      <div class="card card-full-width" data-tab-category="academic">
         <div style="background-color: white; border-radius: 10px;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                   Top 5 Hardest Subjects: CAHS
               </h6>
-              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
-                  Line chart of this department's 5 hardest subjects, pooled across every course inside CAHS. A higher point (closer to 5.0) means students tend to score worse in that subject.
-              </p>
           </div>
           <div style="padding: 1rem;">
               <div id="hardestSubjectsCard_CAHS" style="display:flex; flex-wrap:wrap; justify-content:center;">
                   <p style="color:#858796; text-align:center; width:100%;">Loading CAHS subject difficulty…</p>
               </div>
+              <div class="chart-explanation" style="padding: 0 0.25rem;">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Line chart of CAHS's 5 hardest subjects, pooled across every course inside the department. A higher point (closer to 5.0) means students tend to score worse in that subject; a trailing dashed point is a forecast for the next term.</dd>
+                  <dt>What to expect</dt>
+                  <dd>The same handful of subjects tend to stay on this list term after term — usually major/board-related courses with heavier content, not a sign of a sudden problem.</dd>
+                  <dt>What it means</dt>
+                  <dd>A subject that's climbing over recent terms (or has a rising forecast point) rather than staying flat is the one worth flagging to the department for review — steady-but-high is expected, rising is not.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
       <!-- CBA -->
-      <div class="card card-full-width">
+      <div class="card card-full-width" data-tab-category="academic">
         <div style="background-color: white; border-radius: 10px;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                   Top 5 Hardest Subjects: CBA
               </h6>
-              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
-                  Line chart of this department's 5 hardest subjects, pooled across every course inside CBA. A higher point (closer to 5.0) means students tend to score worse in that subject.
-              </p>
           </div>
           <div style="padding: 1rem;">
               <div id="hardestSubjectsCard_CBA" style="display:flex; flex-wrap:wrap; justify-content:center;">
                   <p style="color:#858796; text-align:center; width:100%;">Loading CBA subject difficulty…</p>
               </div>
+              <div class="chart-explanation" style="padding: 0 0.25rem;">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Line chart of CBA's 5 hardest subjects, pooled across every course inside the department. A higher point (closer to 5.0) means students tend to score worse in that subject; a trailing dashed point is a forecast for the next term.</dd>
+                  <dt>What to expect</dt>
+                  <dd>The same handful of subjects tend to stay on this list term after term — usually major/board-related courses with heavier content, not a sign of a sudden problem.</dd>
+                  <dt>What it means</dt>
+                  <dd>A subject that's climbing over recent terms (or has a rising forecast point) rather than staying flat is the one worth flagging to the department for review — steady-but-high is expected, rising is not.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
       <!-- CCST -->
-      <div class="card card-full-width">
+      <div class="card card-full-width" data-tab-category="academic">
         <div style="background-color: white; border-radius: 10px;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                   Top 5 Hardest Subjects: CCST
               </h6>
-              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
-                  Line chart of this department's 5 hardest subjects, pooled across every course inside CCST. A higher point (closer to 5.0) means students tend to score worse in that subject.
-              </p>
           </div>
           <div style="padding: 1rem;">
               <div id="hardestSubjectsCard_CCST" style="display:flex; flex-wrap:wrap; justify-content:center;">
                   <p style="color:#858796; text-align:center; width:100%;">Loading CCST subject difficulty…</p>
               </div>
+              <div class="chart-explanation" style="padding: 0 0.25rem;">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Line chart of CCST's 5 hardest subjects, pooled across every course inside the department. A higher point (closer to 5.0) means students tend to score worse in that subject; a trailing dashed point is a forecast for the next term.</dd>
+                  <dt>What to expect</dt>
+                  <dd>The same handful of subjects tend to stay on this list term after term — usually major/board-related courses with heavier content, not a sign of a sudden problem.</dd>
+                  <dt>What it means</dt>
+                  <dd>A subject that's climbing over recent terms (or has a rising forecast point) rather than staying flat is the one worth flagging to the department for review — steady-but-high is expected, rising is not.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
       <!-- CEA -->
-      <div class="card card-full-width">
+      <div class="card card-full-width" data-tab-category="academic">
         <div style="background-color: white; border-radius: 10px;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                   Top 5 Hardest Subjects: CEA
               </h6>
-              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
-                  Line chart of this department's 5 hardest subjects, pooled across every course inside CEA. A higher point (closer to 5.0) means students tend to score worse in that subject.
-              </p>
           </div>
           <div style="padding: 1rem;">
               <div id="hardestSubjectsCard_CEA" style="display:flex; flex-wrap:wrap; justify-content:center;">
                   <p style="color:#858796; text-align:center; width:100%;">Loading CEA subject difficulty…</p>
               </div>
+              <div class="chart-explanation" style="padding: 0 0.25rem;">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Line chart of CEA's 5 hardest subjects, pooled across every course inside the department. A higher point (closer to 5.0) means students tend to score worse in that subject; a trailing dashed point is a forecast for the next term.</dd>
+                  <dt>What to expect</dt>
+                  <dd>The same handful of subjects tend to stay on this list term after term — usually major/board-related courses with heavier content, not a sign of a sudden problem.</dd>
+                  <dt>What it means</dt>
+                  <dd>A subject that's climbing over recent terms (or has a rising forecast point) rather than staying flat is the one worth flagging to the department for review — steady-but-high is expected, rising is not.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
       <!-- COAS -->
-      <div class="card card-full-width">
+      <div class="card card-full-width" data-tab-category="academic">
         <div style="background-color: white; border-radius: 10px;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                   Top 5 Hardest Subjects: COAS
               </h6>
-              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
-                  Line chart of this department's 5 hardest subjects, pooled across every course inside COAS. A higher point (closer to 5.0) means students tend to score worse in that subject.
-              </p>
           </div>
           <div style="padding: 1rem;">
               <div id="hardestSubjectsCard_COAS" style="display:flex; flex-wrap:wrap; justify-content:center;">
                   <p style="color:#858796; text-align:center; width:100%;">Loading COAS subject difficulty…</p>
               </div>
+              <div class="chart-explanation" style="padding: 0 0.25rem;">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Line chart of COAS's 5 hardest subjects, pooled across every course inside the department. A higher point (closer to 5.0) means students tend to score worse in that subject; a trailing dashed point is a forecast for the next term.</dd>
+                  <dt>What to expect</dt>
+                  <dd>The same handful of subjects tend to stay on this list term after term — usually major/board-related courses with heavier content, not a sign of a sudden problem.</dd>
+                  <dt>What it means</dt>
+                  <dd>A subject that's climbing over recent terms (or has a rising forecast point) rather than staying flat is the one worth flagging to the department for review — steady-but-high is expected, rising is not.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
       <!-- CTEC -->
-      <div class="card card-full-width">
+      <div class="card card-full-width" data-tab-category="academic">
         <div style="background-color: white; border-radius: 10px;">
           <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
                   Top 5 Hardest Subjects: CTEC
               </h6>
-              <p style="margin: 0.35rem 0 0 0; font-size: 0.8rem; color: #858796;">
-                  Line chart of this department's 5 hardest subjects, pooled across every course inside CTEC. A higher point (closer to 5.0) means students tend to score worse in that subject.
-              </p>
           </div>
           <div style="padding: 1rem;">
               <div id="hardestSubjectsCard_CTEC" style="display:flex; flex-wrap:wrap; justify-content:center;">
                   <p style="color:#858796; text-align:center; width:100%;">Loading CTEC subject difficulty…</p>
               </div>
+              <div class="chart-explanation" style="padding: 0 0.25rem;">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Line chart of CTEC's 5 hardest subjects, pooled across every course inside the department. A higher point (closer to 5.0) means students tend to score worse in that subject; a trailing dashed point is a forecast for the next term.</dd>
+                  <dt>What to expect</dt>
+                  <dd>The same handful of subjects tend to stay on this list term after term — usually major/board-related courses with heavier content, not a sign of a sudden problem.</dd>
+                  <dt>What it means</dt>
+                  <dd>A subject that's climbing over recent terms (or has a rising forecast point) rather than staying flat is the one worth flagging to the department for review — steady-but-high is expected, rising is not.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
 
 
-      <div class="card card-bottom-large">
+      <div class="card card-bottom-large" data-tab-category="risk">
         <div style="width: 100%;">
             <div style="background-color: #fff; background-clip: border-box; border-radius: 0.35rem; margin-bottom: 1.5rem;">
                 
@@ -734,17 +849,22 @@
                     <div style="position: relative; height: 350px; width: 100%;">
                         <canvas id="dropoutRankingChart"></canvas>
                     </div>
-                    <div style="margin-top: 1rem; text-align: center; font-size: 0.875rem; color: #858796;">
-                        <i class="fas fa-info-circle"></i>
-                        Comparing dropout rates across colleges. Each bar uses that college's own color (same as every other chart on this page).
-                        If you've selected a specific college above, the others are dimmed so it stands out.
-                    </div>
+                    <div class="chart-explanation">
+                  <dl class="learn-more-body">
+                        <dt>What it shows</dt>
+                        <dd>Comparing dropout rates across colleges. Each bar uses that college's own color (same as every other chart on this page). If you've selected a specific college above, the others are dimmed so it stands out.</dd>
+                        <dt>What to expect</dt>
+                        <dd>Dropout rates are normally a small single-digit percentage per college; a bar noticeably taller than the rest is the exception worth noting.</dd>
+                        <dt>What it means</dt>
+                        <dd>The college(s) at the top of this ranking are the ones where intervention/support would likely have the most impact. Compare against the INC/Irregular/Drop Rate by Year Level chart to see which year levels are driving it.</dd>
+                      </dl>
+                  </div>
                 </div>
             </div>
         </div>
       </div>
 
-      <div class="card card-bottom-small" id="incForecastCard">
+      <div class="card card-bottom-small" id="incForecastCard" data-tab-category="risk">
         <div style="border-radius: 10px; background-color: white;">
           <div style="border-radius: 10px 10px 0px 0px; padding-top: 10px; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
               <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
@@ -756,53 +876,27 @@
               <div style="position: relative; height: 350px; width: 100%;">
                   <canvas id="incForecastChart"></canvas>
               </div>
-              <hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid rgba(0,0,0,.1);">
 
               <!-- One colored chip per college; solid = history, dashed = forecast -->
               <div id="incForecastLegend" style="margin-top: 0.5rem; text-align: center;"></div>
-              <div style="text-align: center; margin-top: 0.75rem; font-size: 0.8rem; color: #858796;">
-                  <i class="fas fa-info-circle"></i>
-                  Each line is one college, always shown in that college's own color.
-                  A <strong>solid line</strong> is real historical data; a <strong>dashed line</strong> is the AI's future prediction.
-                  Higher on the chart = more students with an Incomplete (INC) grade.
-              </div>
+              <div class="chart-explanation">
+<dl class="learn-more-body">
+                  <dt>What it shows</dt>
+                  <dd>Each line is one college, always shown in that college's own color. A solid line is real historical data; a dashed line is the model's future prediction. Higher on the chart = more students with an Incomplete (INC) grade.</dd>
+                  <dt>What to expect</dt>
+                  <dd>INC rates tend to move gradually term to term rather than spike suddenly — a slow upward or downward drift is normal to see in the forecast portion.</dd>
+                  <dt>What it means</dt>
+                  <dd>A college whose dashed (forecast) line trends sharply upward is projected to see more Incomplete grades in the coming term(s) if current patterns hold — useful as an early-warning signal, not a guarantee.</dd>
+                </dl>
+</div>
           </div>
         </div>
       </div>
 
-      <!-- ───────────────── Model Performance / Evaluation ─────────────────
-           id="model-eval-card" is what Table Mode (table-view.js) checks for
-           so this card is always left exactly as-is, same as the KPI cards —
-           it has no <canvas> and nothing here maps to a meaningful table row. -->
-      <div class="card card-bottom-small-1" id="model-eval-card">
-        <div class="model-eval-box">
-
-          <div class="model-eval-box-header">
-            <h6>
-              <i class="fas fa-flask"></i> Model Performance & Accuracy
-            </h6>
-            <span id="mp-trained-at">Loading…</span>
-          </div>
-
-          <div class="model-eval-box-body">
-            <div id="mp-empty-state">
-              No model has been trained yet. Upload a dataset to begin.
-            </div>
-
-            <div id="mp-grid">
-              <!-- model cards injected by JS -->
-            </div>
-
-            <div id="mp-errors">
-              <hr>
-              <p>
-                Training Errors
-              </p>
-              <ul id="mp-errors-list"></ul>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Model Performance & Accuracy has moved to its own page
+           (Model Performance, admin_bp.modeldash_admin) since it isn't
+           department-scoped — models are trained on the whole dataset,
+           not per college. See modelperformancedashAdmin.html. -->
       </div><!-- /#chartViewContainer -->
     </section>
 
@@ -822,6 +916,7 @@
     <script src="{{url_for('static', filename='js/mode-toggle.js')}}?v=2"></script>
     <script src="{{url_for('static', filename='js/kebabMenu.js')}}?v=1"></script>
     <script src="{{url_for('static', filename='js/tableView.js')}}?v=1"></script>
+    <script src="{{url_for('static', filename='js/dashboard-tabs.js')}}?v=1"></script>
   </section>
 
   <!-- Logout Modal Structure -->

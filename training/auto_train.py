@@ -2,6 +2,7 @@ import os
 import re
 import json
 import time
+import shutil
 import argparse
 import traceback
 from datetime import datetime
@@ -29,6 +30,21 @@ try:
     from configs.config import ML_MODEL_DIR as MODEL_DIR
 except ImportError:
     MODEL_DIR = "Machine_Learning_Model"  # fallback for standalone CLI use
+
+try:
+    from configs.config import (
+        BACKUP_DIR, BACKUP_MODEL_DATASETS_DIR, BACKUP_ML_MODEL_DIR,
+        BACKUP_FINAL_MERGED_CSV, BACKUP_LONGFORM_CSV,
+    )
+except ImportError:
+    BACKUP_DIR                = "Backup"
+    BACKUP_MODEL_DATASETS_DIR = os.path.join(BACKUP_DIR, "model_datasets")
+    BACKUP_ML_MODEL_DIR       = os.path.join(BACKUP_DIR, "Machine_Learning_Model")
+    BACKUP_FINAL_MERGED_CSV   = os.path.join(BACKUP_DIR, "Final_Merged_Student_Data.csv")
+    BACKUP_LONGFORM_CSV       = os.path.join(BACKUP_DIR, "Final_LongForm_Student_Grades.csv")
+
+for _d in (BACKUP_DIR, BACKUP_MODEL_DATASETS_DIR, BACKUP_ML_MODEL_DIR):
+    os.makedirs(_d, exist_ok=True)
 
 STATE_FILE  = os.path.join(MODEL_DIR, "training_state.json")
 HORIZON_DEFAULT_STEPS = 3   # predict this many years beyond latest data year
@@ -59,6 +75,139 @@ def _save(obj, filename: str):
     path = os.path.join(MODEL_DIR, filename)
     joblib.dump(obj, path)
     return path
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  ONE-STEP-BACK BACKUP / RESTORE
+#  ──────────────────────────────────────────────────────────────────────
+#  There is only ever ONE backup slot: the exact state of the shared
+#  master CSV / long-form CSV / model_datasets CSVs / trained .pkl files
+#  right before the most recent upload was merged in. snapshot_to_backup()
+#  is called once, at the very start of a new upload's merge, and
+#  OVERWRITES whatever backup existed — so backups never accumulate and
+#  never cost more than one extra copy of the shared data.
+#
+#  restore_from_backup() copies everything back over the live files and
+#  then CLEARS the backup slot (it has been "spent"), which is why a
+#  second delete/cancel in a row has nothing to roll back to until
+#  another upload creates a fresh backup.
+# ══════════════════════════════════════════════════════════════════════════
+
+_LONGFORM_CSV_NAME = "Final_LongForm_Student_Grades.csv"
+
+
+def _longform_csv_path() -> str:
+    return os.path.join(PROCESSED_DIR, _LONGFORM_CSV_NAME)
+
+
+def backup_exists() -> bool:
+    """Whether a one-step-back backup is currently available to restore."""
+    return os.path.exists(BACKUP_FINAL_MERGED_CSV)
+
+
+def snapshot_to_backup():
+    """
+    Copy the CURRENT ("Recent") master CSV, long-form CSV, model_datasets
+    CSVs, and every trained .pkl + training_state.json into Backup/,
+    overwriting any previous backup. No-op (does nothing, leaves any
+    existing backup alone) if there is no master CSV yet — i.e. the very
+    first upload has nothing to back up.
+    """
+    if not os.path.exists(FINAL_OUTPUT):
+        return False
+
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    shutil.copy2(FINAL_OUTPUT, BACKUP_FINAL_MERGED_CSV)
+
+    long_csv = _longform_csv_path()
+    if os.path.exists(long_csv):
+        shutil.copy2(long_csv, BACKUP_LONGFORM_CSV)
+    elif os.path.exists(BACKUP_LONGFORM_CSV):
+        os.remove(BACKUP_LONGFORM_CSV)
+
+    # model_datasets/*.csv
+    if os.path.isdir(BACKUP_MODEL_DATASETS_DIR):
+        shutil.rmtree(BACKUP_MODEL_DATASETS_DIR)
+    os.makedirs(BACKUP_MODEL_DATASETS_DIR, exist_ok=True)
+    if os.path.isdir(MODEL_DATA_DIR):
+        for fname in os.listdir(MODEL_DATA_DIR):
+            if fname.endswith(".csv"):
+                shutil.copy2(os.path.join(MODEL_DATA_DIR, fname),
+                             os.path.join(BACKUP_MODEL_DATASETS_DIR, fname))
+
+    # trained .pkl models + training_state.json
+    if os.path.isdir(BACKUP_ML_MODEL_DIR):
+        shutil.rmtree(BACKUP_ML_MODEL_DIR)
+    os.makedirs(BACKUP_ML_MODEL_DIR, exist_ok=True)
+    if os.path.isdir(MODEL_DIR):
+        for fname in os.listdir(MODEL_DIR):
+            if fname.endswith(".pkl") or fname == "training_state.json":
+                shutil.copy2(os.path.join(MODEL_DIR, fname),
+                             os.path.join(BACKUP_ML_MODEL_DIR, fname))
+
+    _log("Backup snapshot taken (previous Recent state saved to Backup/)")
+    return True
+
+
+def restore_from_backup() -> bool:
+    """
+    Restore the master CSV, long-form CSV, model_datasets CSVs, and
+    trained .pkl files from the one-step-back backup, then CLEAR the
+    backup slot (it has been consumed). Returns False (no-op) if there
+    is no backup to restore.
+    """
+    if not backup_exists():
+        return False
+
+    shutil.copy2(BACKUP_FINAL_MERGED_CSV, FINAL_OUTPUT)
+
+    long_csv = _longform_csv_path()
+    if os.path.exists(BACKUP_LONGFORM_CSV):
+        shutil.copy2(BACKUP_LONGFORM_CSV, long_csv)
+    elif os.path.exists(long_csv):
+        os.remove(long_csv)
+
+    # model_datasets/*.csv — replace the live set entirely with the backup set
+    if os.path.isdir(MODEL_DATA_DIR):
+        for fname in os.listdir(MODEL_DATA_DIR):
+            if fname.endswith(".csv"):
+                os.remove(os.path.join(MODEL_DATA_DIR, fname))
+    os.makedirs(MODEL_DATA_DIR, exist_ok=True)
+    if os.path.isdir(BACKUP_MODEL_DATASETS_DIR):
+        for fname in os.listdir(BACKUP_MODEL_DATASETS_DIR):
+            shutil.copy2(os.path.join(BACKUP_MODEL_DATASETS_DIR, fname),
+                         os.path.join(MODEL_DATA_DIR, fname))
+
+    # trained .pkl models + training_state.json
+    if os.path.isdir(MODEL_DIR):
+        for fname in os.listdir(MODEL_DIR):
+            if fname.endswith(".pkl") or fname == "training_state.json":
+                os.remove(os.path.join(MODEL_DIR, fname))
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    if os.path.isdir(BACKUP_ML_MODEL_DIR):
+        for fname in os.listdir(BACKUP_ML_MODEL_DIR):
+            shutil.copy2(os.path.join(BACKUP_ML_MODEL_DIR, fname),
+                         os.path.join(MODEL_DIR, fname))
+
+    # Clear the backup slot — it's been spent. Nothing to roll back to
+    # again until the next upload takes a fresh snapshot.
+    clear_backup()
+
+    _log("Restored from backup (rolled back to the pre-upload state)")
+    return True
+
+
+def clear_backup():
+    """Empties the backup slot without restoring it (used right after a
+    restore, and safe to call any time the slot should be considered
+    'spent')."""
+    for path in (BACKUP_FINAL_MERGED_CSV, BACKUP_LONGFORM_CSV):
+        if os.path.exists(path):
+            os.remove(path)
+    for d in (BACKUP_MODEL_DATASETS_DIR, BACKUP_ML_MODEL_DIR):
+        if os.path.isdir(d):
+            shutil.rmtree(d)
+            os.makedirs(d, exist_ok=True)
 
 
 def _r2(y_true, y_pred) -> float:
@@ -1055,6 +1204,13 @@ def run_full_pipeline(new_file: str = None) -> dict:
     if new_file:
         _log(f"Preprocessing new file: {new_file}")
         try:
+            # Snapshot the CURRENT ("Recent") state to Backup/ BEFORE
+            # merging this file in, so deleting/canceling this upload
+            # later can restore exactly what was here a moment ago.
+            # No-op if this is the very first upload (nothing yet to
+            # back up) — see snapshot_to_backup()'s docstring.
+            snapshot_to_backup()
+
             new_df = process_file(new_file)
             if new_df.empty:
                 raise ValueError("Preprocessor returned empty DataFrame.")

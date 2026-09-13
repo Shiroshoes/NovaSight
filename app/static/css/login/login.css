@@ -159,7 +159,6 @@ body {
     font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
-    box-shadow: 0 10px 20px rgba(253, 42, 42, 0.2);
     transition: 0.3s;
 }
 
@@ -171,6 +170,7 @@ body {
 /* --- Bottom Credits --- */
 .bottom-info {
     position: absolute;
+    text-align: center;
     bottom: 40px;
     width: 100%;
     padding: 0 60px;
@@ -196,4 +196,34 @@ body {
     width: 24px;
     height: 24px;
     padding-top: 3px;
+}
+
+
+.email-link {
+    color: #666666;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.email-link:hover {
+    text-decoration: underline;
+    color: #800000;
+    font-weight: 800;
+}
+
+
+.btn-privacy{
+    color: rgb(0, 0, 0, 0.774);
+    text-decoration: none;
+    font-size: .8rem;
+    display: inline-block;
+    transition: 0.3s ease;
+    margin-top: 10px;
+}
+
+.btn-privacy:hover {
+    color: #800000; /* Darker blue on hover */
+    transform: translateY(-2px);
+    font-weight: bold;
+    text-decoration: underline;
 }

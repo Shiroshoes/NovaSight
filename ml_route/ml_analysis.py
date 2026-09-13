@@ -2529,6 +2529,24 @@ def get_status_trend():
             per_group = []
             all_years_set = set()
 
+            # For the "Total Regular / Total Irregular" numbers under the
+            # two charts: Recent mode gets these from updateStatusChart's
+            # own fetch, but Prediction mode never called that (see
+            # _renderStatusCharts in mode-toggle.js), so those numbers
+            # stayed frozen at 0. To populate them here we need a
+            # forecast HEADCOUNT per group (not just a %), since %  x
+            # nothing = 0 — reusing the same damped enrollment forecast
+            # get_kpi_metrics already uses per college.
+            CURRENT_YEAR = get_latest_real_year()
+            sem_for_enrollment = None if semester_arg.lower() in ('all', 'overall') else (1 if '1' in semester_arg else 2)
+            # Course breakdown has no per-course enrollment model — scale
+            # the parent college's own forecasted headcount down by that
+            # course's real historical share of the college, same
+            # approximation get_kpi_metrics uses for a single-course scope.
+            parent_college_code = None
+            if breakdown == 'course':
+                parent_college_code = (trend_scope.get('feature_college') if 'trend_scope' in locals() else None) or college_arg.strip().upper()
+
             for g in groups:
                 g_df = scope_df[scope_df[group_col].astype(str).str.strip() == g]
                 if g_df.empty:
@@ -2559,6 +2577,30 @@ def get_status_trend():
                 reg_fore = forecast_series(reg_pct, len(fyrs), y_min=0, y_max=100)
                 irr_fore = forecast_series(irr_pct, len(fyrs), y_min=0, y_max=100)
 
+                # Forecast headcount for this group's furthest forecast
+                # year, so the % lines above can turn into real predicted
+                # counts (regular_forecast_count/irregular_forecast_count)
+                # for the totals under the chart.
+                reg_count_fore = 0
+                irr_count_fore = 0
+                if fyrs:
+                    final_fy = fyrs[-1]
+                    if breakdown == 'college':
+                        headcount = _college_enrollment_forecast(g, final_fy, CURRENT_YEAR, sem_for_enrollment) or 0
+                    else:
+                        course_share = 0.0
+                        if parent_college_code:
+                            college_latest = scope_df[scope_df['Year_Numeric'] == latest]
+                            college_headcount = college_latest['Student_ID'].nunique()
+                            course_headcount = g_df[g_df['Year_Numeric'] == latest]['Student_ID'].nunique()
+                            course_share = (course_headcount / college_headcount) if college_headcount else 0.0
+                        parent_headcount = (
+                            _college_enrollment_forecast(parent_college_code, final_fy, CURRENT_YEAR, sem_for_enrollment) or 0
+                        ) if parent_college_code else 0
+                        headcount = parent_headcount * course_share
+                    reg_count_fore = round(headcount * (reg_fore[-1] / 100))
+                    irr_count_fore = round(headcount * (irr_fore[-1] / 100))
+
                 all_years_set.update(int(y) for y in yrs)
                 all_years_set.update(fyrs)
                 per_group.append({
@@ -2566,9 +2608,17 @@ def get_status_trend():
                     "regular": reg_pct, "irregular": irr_pct,
                     "forecast_years": fyrs,
                     "regular_forecast": reg_fore, "irregular_forecast": irr_fore,
+                    "regular_forecast_count": reg_count_fore, "irregular_forecast_count": irr_count_fore,
                 })
 
             all_years = sorted(all_years_set)
+            final_forecast_year = max((pg["forecast_years"][-1] for pg in per_group if pg["forecast_years"]), default=None)
+            regular_total_forecast = sum(
+                pg["regular_forecast_count"] for pg in per_group if pg["forecast_years"] and pg["forecast_years"][-1] == final_forecast_year
+            )
+            irregular_total_forecast = sum(
+                pg["irregular_forecast_count"] for pg in per_group if pg["forecast_years"] and pg["forecast_years"][-1] == final_forecast_year
+            )
 
             def build_series(hist_key, fore_key):
                 out = []
@@ -2590,6 +2640,13 @@ def get_status_trend():
                 "breakdown": breakdown,
                 "regular_series": build_series("regular", "regular_forecast"),
                 "irregular_series": build_series("irregular", "irregular_forecast"),
+                # Predicted headcounts (not %) for the "Total Regular /
+                # Total Irregular" numbers under the two charts in
+                # Prediction mode, summed across every line's group at
+                # the furthest forecast year shown.
+                "forecast_year": final_forecast_year,
+                "regular_total_forecast": regular_total_forecast,
+                "irregular_total_forecast": irregular_total_forecast,
             })
 
         # ── ORIGINAL SINGLE-LINE AGGREGATE MODE (unchanged) ────────────

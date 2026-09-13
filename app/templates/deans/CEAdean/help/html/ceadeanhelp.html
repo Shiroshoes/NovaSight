@@ -22,20 +22,50 @@
         <span>Home</span>
       </a>
 
-    <a href="{{url_for('cea_bp.ceadash_cea')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icondash">
-        <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
+      <div>
+        <hr class="sidebardivider">
+      </div>
+  <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Overview</p>
+
+    <a href="{{url_for('cea_bp.ceadash_cea')}}" class="menu-btn">
+    <div class="non-active-bordericon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
+        <path fill-rule="evenodd" d="M4.5 2.25a.75.75 0 0 0 0 1.5v16.5h-.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5h-.75V3.75a.75.75 0 0 0 0-1.5h-15ZM9 6a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H9Zm-.75 3.75A.75.75 0 0 1 9 9h1.5a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM9 12a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H9Zm3.75-5.25A.75.75 0 0 1 13.5 6H15a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75ZM13.5 9a.75.75 0 0 0 0 1.5H15A.75.75 0 0 0 15 9h-1.5Zm-.75 3.75a.75.75 0 0 1 .75-.75H15a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75ZM9 19.5v-2.25a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-.75.75h-4.5A.75.75 0 0 1 9 19.5Z" clip-rule="evenodd" />
       </svg>
     </div>
 
-      
-    <span>CEA Dashboard</span></a>
+     <span> CEA Dashboard</span></a>
+
+      <div>
+        <hr class="sidebardivider">
+      </div>
+
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Machine Learning & Prediction</p>
+
+    <a href="{{url_for('cea_bp.preddash_cea')}}" class="menu-btn">
+    <div  class="non-active-bordericon">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icon">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+    </svg>
+    </div>
+
+    <span>Prediction Analysis</span></a>
+
+    <a href="{{url_for('cea_bp.modeldash_cea')}}" class="menu-btn">
+    <div class="non-active-bordericondash">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
+      </svg>
+    </div>
+
+    <span>Model Performance</span></a>
 
 </div>
       <div>
         <hr class="sidebardivider">
       </div>
+
+      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Account Panel</p>
       
       <a href="{{url_for('cea_bp.profile_cea')}}" class="menu-btn">
         <div class="non-active-bordericon">
@@ -46,7 +76,7 @@
         <span>Profile</span>
       </a>
 
-        <a href="#" class="menu-active">
+        <a href="{{url_for('cea_bp.help_cea')}}" class="menu-active">
         <div class="active-bordericon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icon">
             <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
@@ -54,6 +84,10 @@
         </div>
         <span>Help</span>
         </a>
+
+      <div>
+        <hr class="sidebardivider">
+      </div>
 
         <a href="#" id="logoutLink" class="menu-btn">
           <div class="non-active-bordericon">
@@ -64,6 +98,16 @@
 
           <span>Logout</span>
         </a>
+
+      <div class="sidebar-footer">
+        <a href="{{ url_for('cea_bp.privacy_policy_CEADean') }}" class="btn-privacy">
+          &bull; Privacy Policy
+        </a>
+
+        <p class="copyright">
+          &copy; 2026 NovaSight Dev Team. All rights reserved.
+        </p>
+      </div>
     </nav>
   </aside>
 <main>
@@ -283,8 +327,8 @@
             </div>
 
             <p>
-                If the problem persists, please contact the NovaSight
-                system administrator or the development team for further
+                If the problem persists, please contact the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=miso@bpsu.edu.ph" target="_blank">NovaSight
+                system administrator</a> or the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=jieperdio23@bpsu.edu.ph" target="_blank">development team</a> for further
                 assistance.
             </p>
 

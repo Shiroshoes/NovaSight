@@ -15,6 +15,20 @@ def home_cba():
         return redirect(url_for('home')) 
     return render_template('deans/CBADean/home/html/cbadeanhome.html') 
 
+# prwd dash
+@cba_bp.route('/predictivedashboard')
+def preddash_cba():
+    if 'user_id' not in session or session.get('role') != 'CBAdean':
+        return redirect(url_for('home'))
+    return render_template('deans/CBAdean/dashboard/predictiondashboardcba.html', college_type='all')
+
+# model dash
+@cba_bp.route('/modeldashboard')
+def modeldash_cba():
+    if 'user_id' not in session or session.get('role') != 'CBAdean':
+        return redirect(url_for('home'))
+    return render_template('deans/CBAdean/dashboard/modelperformancedashcba.html', college_type='all')
+
 # Profile Page (CBA Dean)
 @cba_bp.route('/profile')
 def profile_cba():
@@ -38,6 +52,13 @@ def help_cba():
     if 'user_id' not in session or session.get('role') != 'CBAdean':
         return redirect(url_for('home'))
     return render_template('deans/CBADean/help/html/cbadeanhelp.html')
+
+# privacy policy
+@cba_bp.route('/privacy-policy')
+def privacy_policy_CBADean():
+    if 'user_id' not in session or session.get('role') != 'CBAdean':
+        return redirect(url_for('home'))
+    return render_template('deans/CBADean/privacypolCBA/privacypolicyCBA.html')
 
 # --- CBA Dean Specific Dashboards ---
 

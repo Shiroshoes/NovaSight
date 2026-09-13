@@ -16,6 +16,7 @@ from routes.coas import coas_bp
 from routes.ctec import ctec_bp
 from ml_route.ml_analysis import ml_bp
 from ml_route.upload_rotues import upload_bp
+from ml_route.ml_metrics_routes import ml_diag_bp
 import os
 
 
@@ -39,6 +40,7 @@ app.register_blueprint(coas_bp)
 app.register_blueprint(ctec_bp)
 app.register_blueprint(ml_bp)
 app.register_blueprint(upload_bp, url_prefix='')
+app.register_blueprint(ml_diag_bp)
 
 # ---------------- Default Admin Creation ----------------
 with app.app_context():
@@ -59,6 +61,22 @@ with app.app_context():
         db.session.execute(text('ALTER TABLE acad_user ADD COLUMN seen_tutorials TEXT'))
         db.session.commit()
         print("Migrated: added acad_user.seen_tutorials")
+
+    # Same story for uploaded_dataset: is_deleted/deleted_at are new
+    # (soft-delete / Recently Deleted trash table feature) and won't
+    # exist yet on a database created before this change.
+    existing_upload_cols = {c['name'] for c in inspector.get_columns('uploaded_dataset')}
+    if 'is_deleted' not in existing_upload_cols:
+        db.session.execute(text(
+            'ALTER TABLE uploaded_dataset ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0'
+        ))
+        db.session.commit()
+        print("Migrated: added uploaded_dataset.is_deleted")
+
+    if 'deleted_at' not in existing_upload_cols:
+        db.session.execute(text('ALTER TABLE uploaded_dataset ADD COLUMN deleted_at DATETIME'))
+        db.session.commit()
+        print("Migrated: added uploaded_dataset.deleted_at")
 
     # Same story as the column above: models.py declares account as
     # unique=True, but db.create_all() never retrofits a constraint onto a
@@ -88,19 +106,30 @@ with app.app_context():
                 for row in dupes:
                     print(f"  - {row.acct}  ({row.c} accounts)")
 
-    if not AcadUser.query.filter_by(account='admin@gmail.com').first():
+    # Default admin's domain changed from gmail.com to the official
+    # bpsu.edu.ph one. On a database created before this change, the old
+    # admin@gmail.com row is still sitting there — rename it in place
+    # (preserving its password/history) instead of leaving it behind and
+    # letting the block below create a brand-new second admin account.
+    old_admin = AcadUser.query.filter_by(account='admin@gmail.com').first()
+    if old_admin and not AcadUser.query.filter_by(account='admin@bpsu.edu.ph').first():
+        old_admin.account = 'admin@bpsu.edu.ph'
+        db.session.commit()
+        print("Migrated: renamed admin@gmail.com -> admin@bpsu.edu.ph")
+
+    if not AcadUser.query.filter_by(account='admin@bpsu.edu.ph').first():
         admin_user = AcadUser(
             first_name='Admin',
             last_name='User',
             mi=None,
-            account='admin@gmail.com',
+            account='admin@bpsu.edu.ph',
             role='admin'
         )
         admin_user.set_password('Admin123!')
         assign_avatar_color(admin_user)
         db.session.add(admin_user)
         db.session.commit()
-        print("Admin account created: admin@gmail.com / Admin123!")
+        print("Admin account created: admin@bpsu.edu.ph / Admin123!")
     else:
         print("Admin account already exists")
 
@@ -119,6 +148,10 @@ def home():
 @app.route('/help')
 def help():
     return render_template('helpnonlogin.html')
+
+@app.route('/privacy-policy')
+def privacy_policy():
+    return render_template('privacypolicy.html')
 
 # ---------------- Login / Logout ----------------
 @app.route('/login', methods=['GET', 'POST'])

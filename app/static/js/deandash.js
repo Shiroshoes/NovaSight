@@ -137,6 +137,16 @@ document.addEventListener("DOMContentLoaded", function() {
         if (typeof DisplayFormat !== 'undefined') DisplayFormat.refresh(year, semester, college);
     }
 
+    // FIX: triggerUpdate is declared inside this DOMContentLoaded closure,
+    // so it was never actually reachable from the page's inline
+    // handleDepartmentChange() (defined in deptdashAdmin.html's own
+    // <script> tag, outside this closure). That function's
+    // `typeof triggerUpdate === 'function'` check was silently failing
+    // and doing nothing — which is why picking a new Department never
+    // refreshed any chart and the dashboard just stayed on CAHS.
+    // Exposing it on window lets that inline handler call the real thing.
+    window.triggerUpdate = triggerUpdate;
+
     // INITIAL LOAD
     // Fetch the real latest uploaded year FIRST (so LATEST_REAL_YEAR_FALLBACK
     // is correct before anything renders), then populate Year/Semester from
@@ -226,7 +236,14 @@ function updateGwaScatter(college, semester) {
     const titleEl = document.getElementById('scatterSubtitle'); // Get the new span
     if (!canvas) return;
 
-    const safeCollege = college || 'all';
+    // NOTE: filterCollege's "All Colleges" option value is the literal
+    // string "Main Campus" (see predictiondashboardAdmin.html), not
+    // "all" — every other chart function in this file normalizes that
+    // to 'all' before using it (see updateDropoutPie, updateIncForecast,
+    // etc.). This one didn't, so `safeCollege === 'all'` below never
+    // matched and scatterByCollege was always false — the scatter
+    // grouped by course even at "All Colleges" scope, never by college.
+    const safeCollege = (college === 'Main Campus' || !college) ? 'all' : college;
     const safeSemester = semester || 'all';
 
     // 1. Update the Header Text Immediately
@@ -276,19 +293,23 @@ function updateGwaScatter(college, semester) {
             const maxYear = allYears.length ? Math.max(...allYears) : 2024;
             const lastRealYear = data.latest_real_year;
 
-            // Group dots by COURSE (e.g. BSN, BSPT...) and color each
-            // group with the shared palette, so a dot's color tells you
-            // the student's course at a glance — same colors used in the
-            // hardest-subjects panels and INC forecast lines below.
+            // Group dots by COLLEGE at "All Colleges" scope (matching the
+            // Main dashboard's own GWA scatter), or by COURSE once a
+            // specific department has been picked — same drill-down
+            // pattern used by the Status donuts above. Previously this
+            // always grouped by course, so "All Colleges" showed ~19
+            // course-colored groups instead of the 6 department colors.
+            const scatterByCollege = safeCollege === 'all';
             const groupsPresent = {};
             data.data.forEach(pt => {
-                const g = pt.course || 'Unknown';
+                const g = (scatterByCollege ? pt.college : pt.course) || 'Unknown';
                 if (!groupsPresent[g]) groupsPresent[g] = [];
                 groupsPresent[g].push(pt);
             });
 
+            const scatterColorHint = scatterByCollege ? null : (typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
             const scatterDatasets = Object.keys(groupsPresent).sort().map(g => {
-                const color = getGroupColor(g, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
+                const color = getGroupColor(g, scatterColorHint);
                 return {
                     label: g,
                     data: groupsPresent[g],
@@ -400,7 +421,7 @@ function updateGwaScatter(college, semester) {
 
             if (typeof renderColorLegend === 'function') {
                 renderColorLegend('scatterColorLegend', Object.keys(groupsPresent).sort().map(g => ({
-                    label: g, color: getGroupColor(g, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null)
+                    label: g, color: getGroupColor(g, scatterColorHint)
                 })));
             }
         })
@@ -814,6 +835,8 @@ function updateStatusChart(year, semester, college) {
     const elReg = document.getElementById('val-regular');
     const elIrr = document.getElementById('val-irregular');
     const summaryEl = document.getElementById('status-plain-summary');
+    const legendEl = document.getElementById('status-plain-summary-legend');
+    const irrLegendEl = document.getElementById('status-irregular-legend');
 
     function renderDonut(existingChart, ctx, labels, chartData, chartColors, tooltipFn) {
         // Only trust `existingChart` if it's ACTUALLY the chart Chart.js
@@ -870,93 +893,165 @@ function updateStatusChart(year, semester, college) {
         });
     }
 
-    const entityLabel = (safeCollege === 'all') ? 'Main Campus' : safeCollege.toUpperCase();
+    // FIX (college colors): this used to always break Regular/Irregular
+    // down by COURSE, even at "All Colleges" — so every donut showed
+    // ~19 course-shade slices instead of the 6 fixed department colors
+    // used everywhere else on the dashboard (and on the Main dashboard's
+    // own version of this same chart). Restored the branch maindash.js
+    // already has: "All Colleges" -> one slice PER COLLEGE, its own
+    // fixed getGroupColor(college) — only drilling down to per-COURSE
+    // shading once a specific college is actually selected.
+    if (safeCollege === 'all') {
+        // MAIN CAMPUS VIEW: one donut per Regular/Irregular, each broken
+        // out by COLLEGE — every slice colored with that college's own
+        // fixed brand color, exactly like the Main dashboard.
+        if (labelReg) labelReg.innerText = 'Regular — by College';
+        if (labelIrr) labelIrr.innerText = 'Irregular — by College';
+        if (dotReg) dotReg.style.color = getGroupColor('Main Campus');
+        if (dotIrr) dotIrr.style.color = getRiskColor('Main Campus');
 
-    // Same principle as the Main dashboard's "all colleges" view, just
-    // applied TWICE: one donut breaks Regular into one slice PER COURSE
-    // inside this college, and a second donut does the same for
-    // Irregular — both colored with each course's own shared color
-    // (getGroupColor), instead of Irregular being just a plain number.
-    if (labelReg) labelReg.innerText = 'Regular — by Course';
-    if (labelIrr) labelIrr.innerText = 'Irregular — by Course';
-    if (dotReg) dotReg.style.color = getGroupColor(entityLabel);
-    if (dotIrr) dotIrr.style.color = getRiskColor(entityLabel);
-
-    fetch(`/api/get_status_by_course?year=${year}&semester=${safeSemester}&college=${safeCollege}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.error) return console.error("Status By Course Error:", data.error);
-
-            const courses = data.courses || [];
-            const totalReg = courses.reduce((a, c) => a + c.regular, 0);
-            const totalIrr = courses.reduce((a, c) => a + c.irregular, 0);
+        fetchStatusByCollege(year, safeSemester).then(rows => {
+            const totalReg = rows.reduce((a, r) => a + r.regular, 0);
+            const totalIrr = rows.reduce((a, r) => a + r.irregular, 0);
+            const displayYear = rows[0] ? rows[0].year : year;
 
             if (elReg) elReg.innerText = totalReg.toLocaleString();
             if (elIrr) elIrr.innerText = totalIrr.toLocaleString();
             if (badges.length) {
-                // Same reasoning as the Male/Female Retention & Risk
-                // badges (drop-pie-badge, above): this only ever renders
-                // in Recent mode — Prediction mode swaps in a separate
-                // trend-line chart entirely (see mode-toggle.js's
-                // _renderStatusCharts) — so a "Current Data" pill here
-                // was implying a live/vs-forecast distinction that
-                // doesn't actually exist on this card. Just show the year.
                 badges.forEach(badge => {
-                    badge.innerText = `${data.year || year}`;
+                    badge.innerText = `${displayYear}`;
                     badge.style.backgroundColor = "transparent";
                     badge.style.color = "#5a5c69";
                 });
             }
             if (summaryEl && typeof buildDonutSummarySentence === 'function') {
-                summaryEl.innerText = buildDonutSummarySentence(entityLabel, 'Regular', totalReg, 'Irregular', totalIrr);
+                summaryEl.innerText = buildDonutSummarySentence('Main Campus', 'Regular', totalReg, 'Irregular', totalIrr);
             }
 
-            const legendEl = document.getElementById('status-plain-summary-legend');
-            const irrLegendEl = document.getElementById('status-irregular-legend');
-
-            // --- REGULAR DONUT: one slice per course ---
-            const regRows = courses.filter(c => c.regular > 0);
+            // --- REGULAR DONUT: one slice per college ---
+            const regRows = rows.filter(r => r.regular > 0);
             if (regRows.length === 0) {
                 statusRegularChart = renderDonut(statusRegularChart, regCtx, ['No Data'], [1], ['#e3e6f0'], () => ' No Data');
                 if (legendEl) legendEl.innerHTML = '';
             } else {
-                const regLabels = regRows.map(c => c.course);
-                const regValues = regRows.map(c => c.regular);
-                const regColors = regRows.map(c => getGroupColor(c.course, entityLabel));
-
+                const regLabels = regRows.map(r => r.college);
+                const regValues = regRows.map(r => r.regular);
+                const regColors = regRows.map(r => getGroupColor(r.college));
                 statusRegularChart = renderDonut(statusRegularChart, regCtx, regLabels, regValues, regColors, (context) => {
                     const row = regRows[context.dataIndex];
                     const pct = totalReg > 0 ? Math.round((row.regular / totalReg) * 100) : 0;
-                    return ` ${row.course}: ${row.regular.toLocaleString()} Regular (${pct}% of ${entityLabel}'s Regular students)`;
+                    return ` ${row.college}: ${row.regular.toLocaleString()} Regular (${pct}% of all Regular students)`;
                 });
-
                 if (typeof renderColorLegend === 'function') {
-                    renderColorLegend('status-plain-summary-legend', regLabels.map(l => ({ label: l, color: getGroupColor(l, entityLabel) })));
+                    renderColorLegend('status-plain-summary-legend', regLabels.map(l => ({ label: l, color: getGroupColor(l) })));
                 }
             }
 
-            // --- IRREGULAR DONUT: one slice per course ---
-            const irrRows = courses.filter(c => c.irregular > 0);
+            // --- IRREGULAR DONUT: one slice per college ---
+            const irrRows = rows.filter(r => r.irregular > 0);
             if (irrRows.length === 0) {
                 statusIrregularChart = renderDonut(statusIrregularChart, irrCtx, ['No Data'], [1], ['#e3e6f0'], () => ' No Data');
                 if (irrLegendEl) irrLegendEl.innerHTML = '';
             } else {
-                const irrLabels = irrRows.map(c => c.course);
-                const irrValues = irrRows.map(c => c.irregular);
-                const irrColors = irrRows.map(c => getGroupColor(c.course, entityLabel));
-
+                const irrLabels = irrRows.map(r => r.college);
+                const irrValues = irrRows.map(r => r.irregular);
+                const irrColors = irrRows.map(r => getGroupColor(r.college));
                 statusIrregularChart = renderDonut(statusIrregularChart, irrCtx, irrLabels, irrValues, irrColors, (context) => {
                     const row = irrRows[context.dataIndex];
                     const pct = totalIrr > 0 ? Math.round((row.irregular / totalIrr) * 100) : 0;
-                    return ` ${row.course}: ${row.irregular.toLocaleString()} Irregular (${pct}% of ${entityLabel}'s Irregular students)`;
+                    return ` ${row.college}: ${row.irregular.toLocaleString()} Irregular (${pct}% of all Irregular students)`;
                 });
-
                 if (typeof renderColorLegend === 'function') {
-                    renderColorLegend('status-irregular-legend', irrLabels.map(l => ({ label: l, color: getGroupColor(l, entityLabel) })));
+                    renderColorLegend('status-irregular-legend', irrLabels.map(l => ({ label: l, color: getGroupColor(l) })));
                 }
             }
-        })
-        .catch(err => console.error("Status Pie Fatal:", err));
+        }).catch(err => console.error("Status By College Fatal:", err));
+
+    } else {
+        // SINGLE-COLLEGE VIEW: same two-donut idea, one level down — one
+        // slice PER COURSE inside this college, for both Regular and
+        // Irregular, each colored with a shade of THIS college's own
+        // color (getGroupColor(course, entityLabel)).
+        const entityLabel = safeCollege.toUpperCase();
+
+        if (labelReg) labelReg.innerText = 'Regular — by Course';
+        if (labelIrr) labelIrr.innerText = 'Irregular — by Course';
+        if (dotReg) dotReg.style.color = getGroupColor(entityLabel);
+        if (dotIrr) dotIrr.style.color = getRiskColor(entityLabel);
+
+        fetch(`/api/get_status_by_course?year=${year}&semester=${safeSemester}&college=${safeCollege}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) return console.error("Status By Course Error:", data.error);
+
+                const courses = data.courses || [];
+                const totalReg = courses.reduce((a, c) => a + c.regular, 0);
+                const totalIrr = courses.reduce((a, c) => a + c.irregular, 0);
+
+                if (elReg) elReg.innerText = totalReg.toLocaleString();
+                if (elIrr) elIrr.innerText = totalIrr.toLocaleString();
+                if (badges.length) {
+                    // Same reasoning as the Male/Female Retention & Risk
+                    // badges (drop-pie-badge, above): this only ever renders
+                    // in Recent mode — Prediction mode swaps in a separate
+                    // trend-line chart entirely (see mode-toggle.js's
+                    // _renderStatusCharts) — so a "Current Data" pill here
+                    // was implying a live/vs-forecast distinction that
+                    // doesn't actually exist on this card. Just show the year.
+                    badges.forEach(badge => {
+                        badge.innerText = `${data.year || year}`;
+                        badge.style.backgroundColor = "transparent";
+                        badge.style.color = "#5a5c69";
+                    });
+                }
+                if (summaryEl && typeof buildDonutSummarySentence === 'function') {
+                    summaryEl.innerText = buildDonutSummarySentence(entityLabel, 'Regular', totalReg, 'Irregular', totalIrr);
+                }
+
+                // --- REGULAR DONUT: one slice per course ---
+                const regRows = courses.filter(c => c.regular > 0);
+                if (regRows.length === 0) {
+                    statusRegularChart = renderDonut(statusRegularChart, regCtx, ['No Data'], [1], ['#e3e6f0'], () => ' No Data');
+                    if (legendEl) legendEl.innerHTML = '';
+                } else {
+                    const regLabels = regRows.map(c => c.course);
+                    const regValues = regRows.map(c => c.regular);
+                    const regColors = regRows.map(c => getGroupColor(c.course, entityLabel));
+
+                    statusRegularChart = renderDonut(statusRegularChart, regCtx, regLabels, regValues, regColors, (context) => {
+                        const row = regRows[context.dataIndex];
+                        const pct = totalReg > 0 ? Math.round((row.regular / totalReg) * 100) : 0;
+                        return ` ${row.course}: ${row.regular.toLocaleString()} Regular (${pct}% of ${entityLabel}'s Regular students)`;
+                    });
+
+                    if (typeof renderColorLegend === 'function') {
+                        renderColorLegend('status-plain-summary-legend', regLabels.map(l => ({ label: l, color: getGroupColor(l, entityLabel) })));
+                    }
+                }
+
+                // --- IRREGULAR DONUT: one slice per course ---
+                const irrRows = courses.filter(c => c.irregular > 0);
+                if (irrRows.length === 0) {
+                    statusIrregularChart = renderDonut(statusIrregularChart, irrCtx, ['No Data'], [1], ['#e3e6f0'], () => ' No Data');
+                    if (irrLegendEl) irrLegendEl.innerHTML = '';
+                } else {
+                    const irrLabels = irrRows.map(c => c.course);
+                    const irrValues = irrRows.map(c => c.irregular);
+                    const irrColors = irrRows.map(c => getGroupColor(c.course, entityLabel));
+
+                    statusIrregularChart = renderDonut(statusIrregularChart, irrCtx, irrLabels, irrValues, irrColors, (context) => {
+                        const row = irrRows[context.dataIndex];
+                        const pct = totalIrr > 0 ? Math.round((row.irregular / totalIrr) * 100) : 0;
+                        return ` ${row.course}: ${row.irregular.toLocaleString()} Irregular (${pct}% of ${entityLabel}'s Irregular students)`;
+                    });
+
+                    if (typeof renderColorLegend === 'function') {
+                        renderColorLegend('status-irregular-legend', irrLabels.map(l => ({ label: l, color: getGroupColor(l, entityLabel) })));
+                    }
+                }
+            })
+            .catch(err => console.error("Status Pie Fatal:", err));
+    }
 }
 
 
@@ -969,11 +1064,17 @@ function updateIncForecast(college) {
     // Sanitize input
     const safeCollege = (college === 'Main Campus' || !college) ? 'all' : college;
 
-    // by=course -> one colored line per COURSE inside this college (e.g.
-    // CAHS's BSN, BSPT, BSMT...), instead of one flat line for the whole college.
+    // by=college at "All Colleges" scope -> one line per DEPARTMENT
+    // (matches the Main dashboard's INC forecast); by=course once a
+    // specific department is selected -> one line per COURSE inside it.
+    // Previously this was hardcoded to by=course, so "All Colleges"
+    // showed every course across every college as its own line instead
+    // of the 6 department lines.
+    const incForecastBy = safeCollege === 'all' ? 'college' : 'course';
+    const incForecastColorHint = safeCollege === 'all' ? null : (typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
     setChartLoading(canvas, 'Loading INC forecast…');
 
-    fetch(`/api/get_inc_forecast?college=${safeCollege}&by=course`)
+    fetch(`/api/get_inc_forecast?college=${safeCollege}&by=${incForecastBy}`)
         .then(res => res.json())
         .then(data => {
             if (data.error) {
@@ -998,7 +1099,7 @@ function updateIncForecast(college) {
 
             const datasets = [];
             (data.series || []).forEach(s => {
-                const color = getGroupColor(s.label, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
+                const color = getGroupColor(s.label, incForecastColorHint);
                 datasets.push({
                     label: s.label,
                     data: s.history,
@@ -1071,7 +1172,7 @@ function updateIncForecast(college) {
 
             if (typeof renderColorLegend === 'function') {
                 renderColorLegend('incForecastLegend', (data.series || []).map(s => ({
-                    label: s.label, color: getGroupColor(s.label, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null)
+                    label: s.label, color: getGroupColor(s.label, incForecastColorHint)
                 })));
             }
         })
@@ -1091,23 +1192,35 @@ function updateIncForecast(college) {
 // colored with getGroupColor (same stable auto-palette used for course
 // names) so a subject's color stays consistent across re-renders.
 function updateHardestSubjectsByCourse(college) {
-    // Two supported layouts, chosen automatically:
+    // Three supported layouts, chosen automatically:
     //
-    // 1. DEDICATED PER-COURSE CARDS — used when the page defines
+    // 1. DEDICATED STATIC CARDS — used when the page defines
     //    window.HARDEST_SUBJECTS_COURSE_CARDS = { keyword: containerId, ... }
-    //    (e.g. the CAHS dean dashboard, which has one named card per
-    //    course). Each course's chart is matched to its own card by a
-    //    case-insensitive substring match on the course name, and drawn
-    //    bigger since it's the only chart in that card.
+    //    (e.g. the Main dashboard, one fixed card per department).
+    //    Each course's chart is matched to its own pre-built card by a
+    //    case-insensitive substring match on the course name.
     //
-    // 2. SHARED CONTAINER — the old behavior, still used on pages (like
-    //    the Main dashboard) that show every course's chart together in
-    //    one #hardestSubjectsByCourseContainer, as a grid of mini-cards.
+    // 2. SEPARATE DYNAMIC CARDS — used whenever the shared container has
+    //    data-card-layout="separate" (Dept dashboard and Prediction
+    //    dashboard). The course list here isn't fixed (it changes with
+    //    the Department dropdown), so cards can't be pre-built in HTML —
+    //    instead this builds one real, full-width `.card` per course
+    //    (same look as every other dedicated card on the dashboard, e.g.
+    //    the Main dashboard's per-department cards) and injects them as
+    //    siblings into the container, which itself is `display:contents`
+    //    so each generated card becomes its own direct grid item.
+    //
+    // 3. SHARED MINI-CARDS (legacy) — the old fallback: every course's
+    //    chart together as a flex-wrapped grid of mini-cards inside one
+    //    wrapping card. Kept only for any page that still uses the plain
+    //    #hardestSubjectsByCourseContainer without the "separate" marker.
     const cardMap = window.HARDEST_SUBJECTS_COURSE_CARDS;
     const dedicatedMode = !!cardMap;
 
     const sharedContainer = document.getElementById('hardestSubjectsByCourseContainer');
     if (!dedicatedMode && !sharedContainer) return;
+    const separateCardsMode = !dedicatedMode && sharedContainer &&
+        sharedContainer.dataset.cardLayout === 'separate';
 
     const safeCollege = (college === 'Main Campus' || !college) ? 'all' : college;
 
@@ -1121,7 +1234,7 @@ function updateHardestSubjectsByCourse(college) {
                         if (el) el.innerHTML = `<p style="color:#858796; text-align:center; width:100%;">${data.error}</p>`;
                     });
                 } else {
-                    sharedContainer.innerHTML = `<p style="color:#858796; text-align:center;">${data.error}</p>`;
+                    sharedContainer.innerHTML = `<p style="color:#858796; text-align:center; width:100%;">${data.error}</p>`;
                 }
                 return;
             }
@@ -1141,6 +1254,8 @@ function updateHardestSubjectsByCourse(college) {
 
             if (dedicatedMode) {
                 renderHardestSubjectsDedicated(courses, cardMap);
+            } else if (separateCardsMode) {
+                renderHardestSubjectsSeparateCards(courses, sharedContainer);
             } else {
                 renderHardestSubjectsShared(courses, sharedContainer);
             }
@@ -1297,6 +1412,55 @@ function renderHardestSubjectsShared(courses, container) {
     });
 }
 
+
+
+/** Layout 2: one real, full-width `.card` per course, generated
+ *  dynamically and injected as siblings into `container` (which the
+ *  page marks with data-card-layout="separate" and leaves as
+ *  `display:contents`, so each card below becomes its own direct grid
+ *  item — same visual treatment as the Main dashboard's fixed
+ *  per-department cards, just built at runtime since the course list
+ *  changes with the Department dropdown). */
+function renderHardestSubjectsSeparateCards(courses, container) {
+    container.innerHTML = courses.map(c => {
+        const safeId = c.course.replace(/[^a-zA-Z0-9]/g, '_');
+        const color = getGroupColor(c.course, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
+        return `
+        <div class="card card-full-width" data-tab-category="academic">
+          <div style="background-color: white; border-radius: 10px;">
+            <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
+                <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:${color}; margin-right:6px;"></span>
+                    Top 5 Hardest Subjects: ${c.course}
+                </h6>
+            </div>
+            <div style="padding: 1rem;">
+                <div style="position:relative; height:320px;">
+                    <canvas id="hardestChart_${safeId}"></canvas>
+                </div>
+                <div id="hardestLegend_${safeId}" style="margin-top:0.6rem; text-align:center;"></div>
+                <div class="chart-explanation" style="padding: 0 0.25rem;">
+                  <dl class="learn-more-body">
+                    <dt>What it shows</dt>
+                    <dd>Line chart of ${c.course}'s 5 hardest subjects. A higher point (closer to 5.0) means students tend to score worse in that subject; a trailing dashed point is a forecast for the next term.</dd>
+                    <dt>What to expect</dt>
+                    <dd>The same handful of subjects tend to stay on this list term after term — usually major/board-related subjects with heavier content, not a sign of a sudden problem.</dd>
+                    <dt>What it means</dt>
+                    <dd>A subject that's climbing over recent terms (or has a rising forecast point) rather than staying flat is the one worth flagging for review — steady-but-high is expected, rising is not.</dd>
+                  </dl>
+                </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    courses.forEach(c => {
+        const safeId = c.course.replace(/[^a-zA-Z0-9]/g, '_');
+        const canvas = document.getElementById(`hardestChart_${safeId}`);
+        const legendEl = document.getElementById(`hardestLegend_${safeId}`);
+        drawHardestSubjectChart(c, canvas, legendEl);
+    });
+}
 
 
 // --- IRREGULAR + GENDER, TWO DONUTS PER COURSE (MALE / FEMALE) ---
@@ -1461,9 +1625,17 @@ function updateDropoutSpike(college) {
 
     const safeCollege = (college === 'Main Campus' || !college) ? 'all' : college;
 
+    // by=college at "All Colleges" scope -> one line per DEPARTMENT;
+    // by=course once a specific department is selected -> one line per
+    // COURSE inside it. Previously hardcoded to by=course, so "All
+    // Colleges" plotted every course across every college as its own
+    // line instead of the 6 department lines.
+    const spikeBy = safeCollege === 'all' ? 'college' : 'course';
+    const spikeColorHint = safeCollege === 'all' ? null : (typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
+
     setChartLoading(canvas, 'Loading dropout trend…');
 
-    fetch(`/api/get_dropout_spike?college=${safeCollege}&by=course`)
+    fetch(`/api/get_dropout_spike?college=${safeCollege}&by=${spikeBy}`)
         .then(res => res.json())
         .then(data => {
             if (data.error) {
@@ -1495,7 +1667,7 @@ function updateDropoutSpike(college) {
             // Keeps the chart working even before the backend adds `by=course`.
             if (!data.series && data.labels && data.data) {
                 const predictionStartIndex = data.pred_start_index || (data.labels.length - 5);
-                const lineColor = getGroupColor(safeCollege === 'all' ? (typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : 'CAHS') : safeCollege);
+                const lineColor = getGroupColor(safeCollege === 'all' ? 'Main Campus' : safeCollege, spikeColorHint);
                 const pointColors = data.spikes.map(s => s ? '#e74a3b' : lineColor);
                 const pointRadii = data.spikes.map(s => s ? 6 : 3);
 
@@ -1546,7 +1718,7 @@ function updateDropoutSpike(college) {
             const datasets = [];
             const allSpikes = [];
             (data.series || []).forEach(s => {
-                const color = getGroupColor(s.label, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
+                const color = getGroupColor(s.label, spikeColorHint);
                 const combined = (s.history || []).map((v, i) => (v != null ? v : (s.forecast || [])[i]));
                 const spikes = s.spikes || [];
                 allSpikes.push(spikes);
@@ -1581,7 +1753,7 @@ function updateDropoutSpike(college) {
 
             if (typeof renderColorLegend === 'function') {
                 renderColorLegend('dropoutSpikeLegend', (data.series || []).map(s => ({
-                    label: s.label, color: getGroupColor(s.label, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null)
+                    label: s.label, color: getGroupColor(s.label, spikeColorHint)
                 })));
             }
         })
@@ -1723,13 +1895,18 @@ function dropoutSpikeBaseOptions(labels, allSpikesPerDataset) {
         }
 
         function loadModelPerformance() {
+          // mp-grid/mp-empty-state/mp-trained-at no longer exist on the
+          // Dept or Prediction dashboards (moved to their own Model
+          // Performance page) — guard so this no-ops there instead of
+          // throwing.
+          const grid = document.getElementById('mp-grid');
+          const empty = document.getElementById('mp-empty-state');
+          const trainedAtEl = document.getElementById('mp-trained-at');
+          if (!grid || !empty || !trainedAtEl) return;
+
           fetch('/api/model-performance')
             .then(res => res.json())
             .then(data => {
-              const grid = document.getElementById('mp-grid');
-              const empty = document.getElementById('mp-empty-state');
-              const trainedAtEl = document.getElementById('mp-trained-at');
-
               if (data.status === 'no_training_yet' || !data.models || !data.models.length) {
                 grid.style.display = 'none';
                 empty.style.display = 'block';

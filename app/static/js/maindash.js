@@ -1620,13 +1620,20 @@ function updateRiskByCollege(year, semester) {
         }
 
         function loadModelPerformance() {
+          // The Model Performance & Accuracy card lived on the Main
+          // Dashboard's Overview tab; it now lives only on its own Model
+          // Performance dashboard (modelperformancedashAdmin.html, which
+          // has its own copy of this exact block), so Overview only
+          // shows charts. Guard on the elements existing so this no-ops
+          // cleanly here instead of throwing.
+          const grid = document.getElementById('mp-grid');
+          const empty = document.getElementById('mp-empty-state');
+          const trainedAtEl = document.getElementById('mp-trained-at');
+          if (!grid || !empty || !trainedAtEl) return;
+
           fetch('/api/model-performance')
             .then(res => res.json())
             .then(data => {
-              const grid = document.getElementById('mp-grid');
-              const empty = document.getElementById('mp-empty-state');
-              const trainedAtEl = document.getElementById('mp-trained-at');
-
               if (data.status === 'no_training_yet' || !data.models || !data.models.length) {
                 grid.style.display = 'none';
                 empty.style.display = 'block';

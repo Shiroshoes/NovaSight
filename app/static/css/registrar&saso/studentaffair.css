@@ -42,6 +42,24 @@ body {
   overflow-x: hidden;
   padding: 20px;
   box-sizing: border-box;
+  margin-bottom: 20%;
+}
+
+.sidebardivider {
+  border: none;
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.15);
+  width: 100%;
+  margin: 8px 0;
+}
+
+.sidebar-section-label {
+  margin: 0 0 4px 0;
+}
+
+.sidebar-section-label + .dash-btn,
+.sidebar-section-label + .menu-btn {
+  margin-top: 0;
 }
 
 .pad::-webkit-scrollbar {
@@ -582,4 +600,42 @@ footer{
 
 .hidden {
     display: none;
+}
+
+
+.sidebar-footer{
+    position: absolute;
+    background-color: #ffffff;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 1px 0 0 0;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+    border-top: 1px solid #DCD6C9;
+}
+
+.copyright {
+    font-size: 10px;
+    color: #666;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.btn-privacy{
+    color:#666;
+    text-decoration: none;
+    padding: 10px 10px 0 0; /* Horizontal wide button */
+    border-radius: 9999px; /* Fully rounded */
+    font-size: .8rem;
+    display: inline-block;
+    transition: 0.3s ease;
+}
+
+.btn-privacy:hover {
+    color: #800000; /* Darker blue on hover */
+    transform: translateY(-2px);
+    font-weight: bold;
+    text-decoration: underline;
 }
