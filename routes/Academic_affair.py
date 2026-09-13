@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
 from database.models import AcadUser, db
+from configs.config import MIN_PASSWORD_LENGTH
 from util.utils import allowed_file, save_file
 
 academicaffair_bp = Blueprint('academicaffair_bp', __name__, url_prefix='/NovaSight/academicaffair')
@@ -87,8 +88,8 @@ def update_password():
     data = request.get_json()
     password = data.get('password')
 
-    if not password:
-        return jsonify({"error": "Password required"}), 400
+    if not password or len(password) < MIN_PASSWORD_LENGTH:
+        return jsonify({"error": f"Password is required and must be at least {MIN_PASSWORD_LENGTH} characters."}), 400
 
     user = AcadUser.query.get(session['user_id'])
     if not user:

@@ -7,13 +7,34 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import io
 import base64
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 
 from database.models import UploadedDataset
 
 from configs.config import FINAL_MERGED_CSV, ML_MODEL_DIR, MODEL_DATASETS_DIR
 
 ml_bp = Blueprint('ml_analysis', __name__)
+
+
+# ── Auth gate ─────────────────────────────────────────────────────────────
+# CRITICAL FIX: every /api/... route below (dropout risk, GWA rankings, KPI
+# metrics, status/year-level breakdowns — the actual dashboard data) had NO
+# session check at all before this. Anyone on the internet, logged in or
+# not, could hit these URLs directly. This runs before every view function
+# in this blueprint, so no individual route can be missed or added later
+# without the check.
+#
+# NOTE: this only confirms the requester is logged in — it does NOT yet
+# verify a dean is only pulling their OWN college's data. Several routes
+# take a client-supplied `college`/`department` query param with no
+# server-side check against the logged-in user's actual role, meaning a
+# logged-in dean can currently still request another college's data by
+# editing the URL. That's a separate authorization gap this blueprint-wide
+# gate does not close — flagged here rather than silently left unmentioned.
+@ml_bp.before_request
+def _require_login():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in.'}), 401
 
 
 # ── forecast_series() ────────────────────────────────────────────────────────

@@ -9,7 +9,14 @@ from configs.config import (
     ALLOWED_EXTENSIONS,
     ALLOWED_IMAGE_FORMATS,
     AVATAR_MAX_DIMENSION_PX,
+    AVATAR_MAX_PIXELS,
 )
+
+# Pillow's own default decompression-bomb threshold (~89M px warn, ~179M px
+# hard error) is far more generous than anything an avatar needs. Tightening
+# it here means a small-on-disk-but-massive-when-decoded image is rejected
+# before it can blow up memory, regardless of the file size check elsewhere.
+Image.MAX_IMAGE_PIXELS = AVATAR_MAX_PIXELS
 
 
 def allowed_file(filename):
@@ -32,12 +39,19 @@ def validate_and_reencode_image(file_storage):
     try:
         probe = Image.open(file_storage.stream)
         probe.verify()  # structural check only; the file object is unusable after this
+    except Image.DecompressionBombError:
+        raise ValueError("Image is too large to process.")
     except (UnidentifiedImageError, OSError, ValueError):
         raise ValueError("File is not a valid image.")
 
     file_storage.stream.seek(0)
-    img = Image.open(file_storage.stream)  # re-open: verify() leaves the old handle dead
-    img.load()
+    try:
+        img = Image.open(file_storage.stream)  # re-open: verify() leaves the old handle dead
+        img.load()  # this is where a decompression bomb actually decodes — now guarded
+    except Image.DecompressionBombError:
+        raise ValueError("Image is too large to process.")
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise ValueError("File is not a valid image.")
 
     fmt = (img.format or '').upper()
     if fmt not in ALLOWED_IMAGE_FORMATS:

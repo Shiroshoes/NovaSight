@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, session, redirect, flash, jsonify, url_for
 from database.models import AcadUser, db, assign_avatar_color, ensure_avatar_color
 from util.utils import allowed_file, save_file
-from configs.config import ALLOWED_ROLES, AVATAR_MAX_SIZE_MB
+from configs.config import ALLOWED_ROLES, AVATAR_MAX_SIZE_MB, MIN_PASSWORD_LENGTH
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
@@ -125,6 +125,10 @@ def add_user():
         flash("Invalid role", "error")
         return redirect(url_for('admin_bp.admin_page'))
 
+    if len(password) < MIN_PASSWORD_LENGTH:
+        flash(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.", "error")
+        return redirect(url_for('admin_bp.admin_page'))
+
     if AcadUser.query.filter(db.func.lower(AcadUser.account) == account).first():
         flash("Account already exists", "error")
         return redirect(url_for('admin_bp.admin_page'))
@@ -181,6 +185,9 @@ def update_user(user_id):
     user.mi         = mi
     user.suffix     = suffix
     if password:
+        if len(password) < MIN_PASSWORD_LENGTH:
+            flash(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.", "error")
+            return redirect(url_for('admin_bp.admin_page'))
         if user.check_password(password):
             flash("New password must be different from the user's current password.", "error")
             return redirect(url_for('admin_bp.admin_page'))
@@ -315,8 +322,8 @@ def update_password():
     data     = request.get_json()
     password = data.get('password')
 
-    if not password:
-        return jsonify({"error": "Password required"}), 400
+    if not password or len(password) < MIN_PASSWORD_LENGTH:
+        return jsonify({"error": f"Password is required and must be at least {MIN_PASSWORD_LENGTH} characters."}), 400
 
     user = AcadUser.query.get(session['user_id'])
     if not user:

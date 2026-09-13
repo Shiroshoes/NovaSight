@@ -10,7 +10,24 @@ if not os.path.exists(DB_DIR):
 
 SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(DB_DIR, 'nova.db')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
-SECRET_KEY = 'your_secret_key_here'
+
+# SECRET_KEY signs every session cookie — anyone who knows this value can
+# forge a valid login session for ANY user, including admin. Must come from
+# the environment (set it before starting the app: see the deployment
+# guides' systemd Environment= line), never hardcoded here.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is not set. Generate one with:\n"
+        "  python3 -c \"import secrets; print(secrets.token_hex(32))\"\n"
+        "then set it in your environment before starting the app."
+    )
+
+# Minimum acceptable password length, enforced everywhere a password is
+# created or changed (admin.py's add_user/update_user, and every role's
+# own update_password route). Kept here as one shared constant so the
+# requirement can't silently drift out of sync between routes.
+MIN_PASSWORD_LENGTH = 8
 
 # ── Profile image uploads ─────────────────────────────────────
 UPLOAD_FOLDER      = os.path.join(BASE_DIR, 'app', 'static', 'uploads')
@@ -21,7 +38,15 @@ ALLOWED_IMAGE_FORMATS = {'JPEG', 'PNG'}
 # uploads (DATASET_MAX_SIZE_MB), not this. Avatars get their own small cap.
 AVATAR_MAX_SIZE_MB = 5
 AVATAR_MAX_DIMENSION_PX = 1024  # long edge is downscaled to this on upload
-# No MAX_CONTENT_LENGTH set globally — dataset uploads below are intentionally unlimited
+# Hard cap on decoded pixel count (width * height), checked BEFORE the image
+# is resized down to AVATAR_MAX_DIMENSION_PX. A small file on disk can still
+# decompress into a huge pixel buffer in memory (a "decompression bomb") —
+# this catches that regardless of how small the uploaded file itself is.
+# 40 megapixels comfortably covers even a high-res modern phone photo while
+# sitting well below Pillow's own default warn/error thresholds (~89M/~179M).
+AVATAR_MAX_PIXELS = 40_000_000
+# No MAX_CONTENT_LENGTH set globally — dataset uploads below have their own
+# separate cap (DATASET_MAX_SIZE_MB) instead of a single global limit.
 
 # ── Grade-sheet dataset folders ───────────────────────────────
 # Raw uploads land here first (used as the duplicate-check source)
@@ -63,7 +88,12 @@ SOFT_DELETE_EXPIRY_DAYS = 30
 
 # ── Dataset file validation ───────────────────────────────────
 DATASET_ALLOWED_EXTENSIONS = {'xlsx'}
-DATASET_MAX_SIZE_MB = None  # No file size limit
+# Was previously None (no limit) — a genuinely unbounded upload endpoint is
+# a disk-fill DoS risk on its own, and combines badly with .xlsx files being
+# zip archives: a small file can still expand into something huge once
+# something actually tries to read it. 50MB is generous headroom over any
+# realistic single-semester grade sheet while still bounding the worst case.
+DATASET_MAX_SIZE_MB = 50
 
 # Accepted filename formats (spaces OR underscores between parts):
 #   2022-1 Student-Performance Dataset.xlsx

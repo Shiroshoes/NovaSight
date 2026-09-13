@@ -31,6 +31,22 @@ from training.auto_train import (
 
 upload_bp = Blueprint('upload_bp', __name__)
 
+
+# ── Auth gate ─────────────────────────────────────────────────────────────
+# CRITICAL FIX: /api/deleted-list, /api/failed-uploads, /api/upload-status,
+# /api/training-state, /api/model-performance, /api/unprocessed-list, and
+# /api/processed-list had NO session check at all — fully public, and
+# leaking uploader names and real server filesystem paths (raw_path/
+# processed_path) to anyone. This is a FLOOR requirement (must be logged
+# in) that sits underneath the stricter per-route role checks other routes
+# in this file already have (e.g. UPLOAD_ALLOWED_ROLES for uploading/
+# deleting) — those still run as before, just with this baseline added
+# under everything.
+@upload_bp.before_request
+def _require_login():
+    if 'user_id' not in session:
+        return jsonify({'ok': False, 'error': 'Not logged in.'}), 401
+
 # ─────────────────────────────────────────────────────────────
 # CANCELLATION SIGNALLING
 # ─────────────────────────────────────────────────────────────
@@ -249,15 +265,52 @@ def api_upload_dataset():
     if not f.filename:
         return jsonify({'ok': False, 'error': 'Empty filename.'}), 400
 
-    # Measure size for display only (no limit enforced)
+    # Measure size for the cap below and for display
     f.seek(0, 2)
     size_bytes = f.tell()
     f.seek(0)
 
-    # ── Format validation (extension + filename pattern only) ──
+    # ── Format validation (extension + filename pattern) ──
     ok, reason = _validate_dataset_file(f.filename)
     if not ok:
         return jsonify({'ok': False, 'error': reason}), 422
+
+    # ── Size cap ─────────────────────────────────────────────
+    if DATASET_MAX_SIZE_MB is not None:
+        max_bytes = DATASET_MAX_SIZE_MB * 1024 * 1024
+        if size_bytes > max_bytes:
+            return jsonify({
+                'ok': False,
+                'error': (
+                    f"File is too large "
+                    f"({size_bytes / (1024 * 1024):.1f}MB, max "
+                    f"{DATASET_MAX_SIZE_MB}MB)."
+                ),
+            }), 413
+
+    # ── Content validation ───────────────────────────────────
+    # Filename/extension checks above only prove the NAME looks right —
+    # this confirms the bytes themselves are a genuine, openable .xlsx
+    # workbook, straight from the in-memory stream, before anything
+    # touches disk. A file that fails here (corrupted, a renamed
+    # non-Excel file, or a malformed archive) is rejected outright
+    # instead of being silently accepted with sheet_count left blank.
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(f.stream, read_only=True)
+        sheet_count = len(wb.sheetnames)
+        wb.close()
+    except Exception:
+        return jsonify({
+            'ok': False,
+            'error': (
+                "This file could not be opened as a valid Excel workbook. "
+                "It may be corrupted, or not actually an .xlsx file despite "
+                "its name — please re-export it and try again."
+            ),
+        }), 422
+    finally:
+        f.seek(0)  # rewind regardless of outcome — f.save() below needs this
 
     # ── Duplicate check (canonical name in Unprocessed_Datasets/) ──
     canonical = _canonical_name(f.filename)
@@ -291,16 +344,6 @@ def api_upload_dataset():
 
     year, semester = _parse_filename_meta(f.filename)
     size_kb = round(size_bytes / 1024, 1)
-
-    # ── Count sheets ─────────────────────────────────────────
-    sheet_count = None
-    try:
-        from openpyxl import load_workbook
-        wb = load_workbook(raw_path, read_only=True)
-        sheet_count = len(wb.sheetnames)
-        wb.close()
-    except Exception:
-        pass
 
     # ── Create DB record ──────────────────────────────────────
     record = UploadedDataset(

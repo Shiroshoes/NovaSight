@@ -36,12 +36,21 @@ import json
 
 import numpy as np
 import pandas as pd
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 
 from configs.config import ML_MODEL_DIR, MODEL_DATASETS_DIR
 from ml_route import ml_analysis
 
 ml_diag_bp = Blueprint('ml_diagnostics', __name__)
+
+
+# CRITICAL FIX: all 6 routes below (model performance, feature importance,
+# confusion matrices, residual trends) had NO session check — fully public
+# to anyone, logged in or not. Same fix pattern as ml_analysis.py.
+@ml_diag_bp.before_request
+def _require_login():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in.'}), 401
 
 STATE_FILE = os.path.join(ML_MODEL_DIR, "training_state.json")
 
