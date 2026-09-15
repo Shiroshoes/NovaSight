@@ -795,3 +795,46 @@ footer{
     font-weight: bold;
     text-decoration: underline;
 }   
+
+
+.dash-tabs {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.25rem 0 0.5rem 0;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid #DCD6C9;
+    margin-left: 28px;
+    margin-right: 28px;
+    margin-bottom: 10px;
+}
+.dash-tab-btn {
+    border: 1px solid #DCD6C9;
+    background: #800000;
+    color: #ffffff;
+    border-radius: 999px;
+    padding: 0.45rem 1rem;
+    font-size: 0.85rem;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.dash-tab-btn:hover { border-color: #c72828; color: #ffffff; font-weight: bold;}
+.dash-tab-btn.active { background: #800000; color: #fff; }
+.dash-tab-btn .dash-tab-count {
+    font-size: 0.7rem;
+    font-weight: 700;
+    opacity: 0.75;
+    background: rgba(0,0,0,0.08);
+    border-radius: 999px;
+    padding: 0.05rem 0.45rem;
+}
+.dash-tab-btn.active .dash-tab-count { background: rgba(255,255,255,0.25); }
+
+/* Cards not in the active category are fully removed from the grid flow
+   (display:none), same mechanism already used for .no-print. */
+[data-tab-category].dash-tab-hidden { display: none !important; }

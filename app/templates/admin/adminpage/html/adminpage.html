@@ -201,8 +201,28 @@
             </a>
         </header>
 
+      <nav class="dash-tabs no-print" id="dashTabs" role="tablist" aria-label="Dashboard categories">
+        <button id="resetDbBtn" class="btn dash-tab-btn">Reset Database</button>
+      </nav>
+
+        <script>
+        document.getElementById('resetDbBtn').addEventListener('click', async () => {
+            if (!confirm('Permanently delete ALL uploads, models, and training data?')) return;
+            const typed = prompt('Type RESET to confirm:');
+            if (typed !== 'RESET') return;
+
+            const res = await fetch('/api/reset-database', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ confirm: 'RESET' })
+            });
+            const data = await res.json();
+            alert(data.message || data.error);
+            if (data.ok) location.reload();
+        });
+        </script>
     <section class="dashboard-grid">
-        
+
       <div class="dashboard-col-left">
           
           <div class="card account-list-card">
@@ -350,10 +370,10 @@
                           <label>Role:</label>
                           <select name="role" id="editRole" class="role-selector" required>
                             <option value="" style="color: #999;" disabled selected hidden>Select a Role</option>
-                              <option value="admin">Admin</option>
+                              <option value="Academic_Affair">Academic Affair</option>
                               <option value="Registrar">Registrar</option>
                               <option value="SASO">SASO</option>
-                              <option value="Academic_Affair">Academic Affair</option>
+                              <option value="MISO">MISO</option>
                               <option value="NurseDean">Nursing Dean</option>
                               <option value="PHdean">Public Health Dean</option>
                               <option value="MidwifeDeaan">Midwifery Dean</option>
@@ -452,10 +472,10 @@
                           <label>Role:</label>
                           <select name="role" class="role-selector" required>
                             <option value="" style="color: #999;" disabled selected hidden>Select a Role</option>
-                              <option value="admin">Admin</option>
+                              <option value="Academic_Affair">Academic Affair</option>
                               <option value="Registrar">Registrar</option>
                               <option value="SASO">SASO</option>
-                              <option value="Academic_Affair">Academic Affair</option>
+                              <option value="MISO">MISO</option>
                               <option value="NurseDean">Nursing Dean</option>
                               <option value="PHdean">Public Health Dean</option>
                               <option value="MidwifeDeaan">Midwifery Dean</option>

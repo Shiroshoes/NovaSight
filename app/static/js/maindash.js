@@ -17,6 +17,18 @@ var femaleStatusGridDonuts = {}; // same as above, Female grid, keyed by group n
 var courseStatusGenderDonuts = {};  // two Regular/Irregular donuts (Male + Female) per COURSE (all colleges), keyed by `${course}_male` / `${course}_female`
 var hardestSubjectCharts = {};      // one Top-5-hardest-subjects line chart per COURSE, keyed by course name
 
+// Main dashboard no longer shows an in-place Recent/Prediction toggle —
+// this page is Recent/CSV-only now, same as dean dashboards (see
+// deandash.js's identical flag). mode-toggle.js reads this in
+// ModeAwareCharts.init() (called after this file loads) and hides the
+// pill switch + refuses to enter 'prediction' mode. Prediction charts
+// live on their own separate page now instead of toggling in place
+// here — that page reuses ModeAwareCharts's existing prediction-render
+// functions against its own canvases/route, so nothing in mode-toggle.js
+// itself needed to be deleted, only gated off on this page.
+window.DASHBOARD_PREDICTION_DISABLED = true;
+
+
 // ALL_COLLEGE_CODES is declared once, in chart-helpers.js (which loads
 // before this file) -- it used to be declared here too as `const`,
 // which is exactly the kind of top-level redeclaration that throws a
@@ -825,7 +837,9 @@ function updateGwaScatter(college, semester) {
                 gwaScatterChart.destroy();
             }
 
-            const allYears = [...(data.real_years || []), ...(data.forecast_years || [])];
+            const allYears = window.DASHBOARD_PREDICTION_DISABLED
+                ? [...(data.real_years || [])]
+                : [...(data.real_years || []), ...(data.forecast_years || [])];
             const minYear = allYears.length ? Math.min(...allYears) : 2024;
             const maxYear = allYears.length ? Math.max(...allYears) : 2024;
             const lastRealYear = data.latest_real_year;
@@ -864,7 +878,14 @@ function updateGwaScatter(college, semester) {
             scatterDatasets.push({
                 type: 'line',
                 label: 'Avg GWA (dashed = predicted)',
-                data: (data.line || []).map(p => ({ x: p.x, y: p.y, is_forecast: p.is_forecast })),
+                // Prediction disabled on this page — drop forecast points
+                // from the trend line entirely instead of just letting
+                // segment styling dash them, since this line always
+                // spanned real+forecast regardless of the Recent/
+                // Prediction toggle.
+                data: (data.line || [])
+                    .filter(p => !window.DASHBOARD_PREDICTION_DISABLED || !p.is_forecast)
+                    .map(p => ({ x: p.x, y: p.y, is_forecast: p.is_forecast })),
                 borderColor: "#212529",
                 borderWidth: 2,
                 segment: {
@@ -916,7 +937,9 @@ function updateGwaScatter(college, semester) {
                                 stepSize: 1,
                                 callback: (v) => Math.round(v) === v ? Math.round(v) : ''
                             },
-                            title: { display: true, text: 'School Year (dashed columns to the right are Predicted Data)' }
+                            title: { display: true, text: window.DASHBOARD_PREDICTION_DISABLED
+                                ? 'School Year'
+                                : 'School Year (dashed columns to the right are Predicted Data)' }
                         },
                         y: {
                             reverse: true, // 1.0 Top
@@ -1004,6 +1027,15 @@ function updateKPIMetrics(year, semester, college) {
             // Total Drop is a newer field — default to 0 rather than
             // treating an older/malformed payload as a hard error.
             const safeDrop = data.drop === undefined ? 0 : data.drop;
+            // FIX: renderKpiDropRatio() below was called with `safeStudents`,
+            // but nothing in this function ever declared it — a
+            // ReferenceError thrown mid-callback (after the KPI numbers/
+            // titles above had already been written, but before the drop
+            // ratio badge got a chance to render) that .catch() silently
+            // swallowed as a generic "KPI Error". That's why the ratio
+            // badge never showed up. data.students is already validated
+            // above, so this mirrors deandash.js's identical line.
+            const safeStudents = data.students;
 
             // 2. Update Numbers
             const isPred = data.is_prediction;
@@ -1068,12 +1100,55 @@ function updateKPIMetrics(year, semester, college) {
                 const pctChange = data.pct_change || {};
                 renderKpiTrend('students', trend.students, pctChange.students, 'up');
                 renderKpiTrend('gwa', trend.gwa, pctChange.gwa, 'down');
-                renderKpiTrend('drop', trend.drop, pctChange.drop, 'down');
+            }
+            if (typeof renderKpiDropRatio === 'function') {
+                const pctChange = data.pct_change || {};
+                renderKpiDropRatio('drop', safeDrop, safeStudents, pctChange.drop);
             }
         })
         .catch(err => console.error("KPI Error:", err));
 }
 
+// Reuses the same _KPI_TREND_ARROW_UP/DOWN icons the Students/GWA badges
+// use (defined in chart-helpers.js, loaded first).
+function renderKpiDropRatio(prefix, dropCount, totalEnrollment, pctChange) {
+    const pctEl = document.getElementById(`kpi-pct-${prefix}`);
+    if (!pctEl) return;
+
+    if (!totalEnrollment || totalEnrollment <= 0) {
+        // No enrollment to divide by — ratio is undefined, so leave
+        // the badge blank rather than showing a misleading 0% or NaN.
+        pctEl.innerHTML = '';
+        return;
+    }
+
+    const ratio = (dropCount / totalEnrollment) * 100;
+
+    // Arrow direction comes straight from the backend's pct_change.drop
+    // (same field Students/GWA read via renderKpiTrend) — NOT a
+    // session-tracked "vs. last render" comparison, so the arrow shows
+    // immediately on first load exactly like the other two badges do,
+    // instead of staying blank until a second fetch has something to
+    // compare against. Fewer drops is always the good outcome, so a
+    // rising drop count is red/bad and a falling one is green/good.
+    let arrow = '';
+    let color = '#800000';
+    if (pctChange !== null && pctChange !== undefined && typeof _KPI_TREND_ARROW_UP !== 'undefined') {
+        if (pctChange === 0) {
+            arrow = '— ';
+            color = '#858796';
+        } else if (pctChange > 0) {
+            arrow = `${_KPI_TREND_ARROW_UP} `;
+            color = '#e74a3b';
+        } else {
+            arrow = `${_KPI_TREND_ARROW_DOWN} `;
+            color = '#1cc88a';
+        }
+    }
+
+    pctEl.style.color = color;
+    pctEl.innerHTML = `${arrow}${ratio.toFixed(1)}%`;
+}
 
 
 
@@ -1105,7 +1180,25 @@ function updateIncForecast(college) {
             setChartReady(canvas);
 
             const ctx = canvas.getContext('2d');
-            const labels = data.years;
+            let labels = data.years;
+            let series = data.series || [];
+
+            // Recent/historical view (no prediction) — data.years always
+            // spans history + forecast years together so the dashed line
+            // has room to draw. With the forecast dataset skipped below,
+            // that left the x-axis stretching past the real data into
+            // empty trailing years. Trim labels (and each series' history
+            // array) to the last year ANY college actually has real data.
+            if (window.DASHBOARD_PREDICTION_DISABLED) {
+                let lastRealIdx = -1;
+                series.forEach(s => {
+                    (s.history || []).forEach((v, i) => { if (v !== null && v !== undefined && i > lastRealIdx) lastRealIdx = i; });
+                });
+                if (lastRealIdx >= 0 && lastRealIdx + 1 < labels.length) {
+                    labels = labels.slice(0, lastRealIdx + 1);
+                    series = series.map(s => ({ ...s, history: (s.history || []).slice(0, lastRealIdx + 1) }));
+                }
+            }
 
             if (incForecastChart) {
                 incForecastChart.destroy();
@@ -1115,7 +1208,7 @@ function updateIncForecast(college) {
             // COLLEGE, all sharing that college's fixed color so a line's
             // color always means the same college everywhere else on the page.
             const datasets = [];
-            (data.series || []).forEach(s => {
+            series.forEach(s => {
                 const color = getGroupColor(s.label);
                 datasets.push({
                     label: s.label,
@@ -1129,6 +1222,13 @@ function updateIncForecast(college) {
                     fill: false,
                     tension: 0.3
                 });
+                // Prediction disabled on this page (see
+                // window.DASHBOARD_PREDICTION_DISABLED) — this chart used
+                // to render its full real+forecast horizon in one shot
+                // regardless of the Recent/Prediction toggle, so skip the
+                // dashed forecast dataset entirely instead of just hiding
+                // the toggle that never controlled it.
+                if (!window.DASHBOARD_PREDICTION_DISABLED) {
                 datasets.push({
                     label: s.label,
                     data: s.forecast,
@@ -1149,6 +1249,7 @@ function updateIncForecast(college) {
                     // predicted one.
                     isForecast: true,
                 });
+                }
             });
 
             incForecastChart = new Chart(ctx, {
@@ -1783,12 +1884,17 @@ function drawHardestSubjectChart(group, canvas, legendEl) {
     const years = group.years || [];
     const subjects = group.subjects || [];
     const historyCount = group.history_count != null ? group.history_count : years.length;
+    // Prediction disabled on this page — trim both the year labels and
+    // each subject's series down to just the real portion instead of
+    // the full real+forecast horizon this chart always fetched in one
+    // shot regardless of the Recent/Prediction toggle.
+    const displayYears = trimForecast(years, historyCount);
 
     const datasets = subjects.map(s => {
         const color = getGroupColor(s.subject, group.course);
         return {
             label: s.subject,
-            data: s.data,
+            data: trimForecast(s.data, historyCount),
             failCount: s.failCount || 0,
             failRate: s.failRate || 0,
             borderColor: color,
@@ -1810,7 +1916,7 @@ function drawHardestSubjectChart(group, canvas, legendEl) {
     hardestSubjectCharts[group.course] = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: years,
+            labels: displayYears,
             datasets: datasets
         },
         options: {

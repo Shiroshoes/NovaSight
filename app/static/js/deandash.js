@@ -13,6 +13,16 @@ var femaleStatusGridDonuts = {}; // same as above, Female grid, keyed by course 
 var gwaScatterChart;
 var courseStatusGenderDonuts = {}; // two Regular/Irregular donuts (Male + Female) per course, keyed by `${course}_male` / `${course}_female`
 
+// Dean dashboards only ever show real/uploaded (CSV) data — no forecast.
+// mode-toggle.js reads this flag in ModeAwareCharts.init() (called after
+// this file loads, per the documented LOAD ORDER) and hides the
+// Recent/Prediction pill switch + refuses to enter 'prediction' mode
+// when it's set, WITHOUT needing separate canvas ids or a separate copy
+// of mode-toggle.js — same chart ids, same shared file, just locked to
+// Recent on this page. maindash.js never sets this, so the main
+// dashboard's Prediction mode is unaffected.
+window.DASHBOARD_PREDICTION_DISABLED = true;
+
 /* ── Chart loading / empty-state helper ───────────────────────────
    A handful of bare <canvas> charts (GWA Scatter, INC Forecast,
    Dropout Spike) had no visual feedback when a fetch resolved with
@@ -288,7 +298,9 @@ function updateGwaScatter(college, semester) {
                 gwaScatterChart.destroy();
             }
 
-            const allYears = [...(data.real_years || []), ...(data.forecast_years || [])];
+            const allYears = window.DASHBOARD_PREDICTION_DISABLED
+                ? [...(data.real_years || [])]
+                : [...(data.real_years || []), ...(data.forecast_years || [])];
             const minYear = allYears.length ? Math.min(...allYears) : 2024;
             const maxYear = allYears.length ? Math.max(...allYears) : 2024;
             const lastRealYear = data.latest_real_year;
@@ -330,7 +342,14 @@ function updateGwaScatter(college, semester) {
             scatterDatasets.push({
                 type: 'line',
                 label: 'Avg GWA (dashed = predicted)',
-                data: (data.line || []).map(p => ({ x: p.x, y: p.y, is_forecast: p.is_forecast })),
+                // Prediction disabled on this page — drop forecast points
+                // from the trend line entirely instead of just letting
+                // segment styling dash them, since this line always
+                // spanned real+forecast regardless of the Recent/
+                // Prediction toggle.
+                data: (data.line || [])
+                    .filter(p => !window.DASHBOARD_PREDICTION_DISABLED || !p.is_forecast)
+                    .map(p => ({ x: p.x, y: p.y, is_forecast: p.is_forecast })),
                 borderColor: "#212529",
                 borderWidth: 2,
                 segment: {
@@ -382,7 +401,9 @@ function updateGwaScatter(college, semester) {
                                 stepSize: 1,
                                 callback: (v) => Math.round(v) === v ? Math.round(v) : ''
                             },
-                            title: { display: true, text: 'School Year (dashed columns to the right are Predicted Data)' }
+                            title: { display: true, text: window.DASHBOARD_PREDICTION_DISABLED
+                                ? 'School Year'
+                                : 'School Year (dashed columns to the right are Predicted Data)' }
                         },
                         y: {
                             reverse: true, // 1.0 Top
@@ -789,12 +810,53 @@ function updateKPIMetrics(year, semester, college) {
                 const pctChange = data.pct_change || {};
                 renderKpiTrend('students', trend.students, pctChange.students, 'up');
                 renderKpiTrend('gwa', trend.gwa, pctChange.gwa, 'down');
-                renderKpiTrend('drop', trend.drop, pctChange.drop, 'down');
+            }
+            if (typeof renderKpiDropRatio === 'function') {
+                const pctChange = data.pct_change || {};
+                renderKpiDropRatio('drop', safeDrop, safeStudents, pctChange.drop);
             }
         })
         .catch(err => console.error("KPI Error:", err));
 }
 
+function renderKpiDropRatio(prefix, dropCount, totalEnrollment, pctChange) {
+    const pctEl = document.getElementById(`kpi-pct-${prefix}`);
+    if (!pctEl) return;
+
+    if (!totalEnrollment || totalEnrollment <= 0) {
+        // No enrollment to divide by — ratio is undefined, so leave
+        // the badge blank rather than showing a misleading 0% or NaN.
+        pctEl.innerHTML = '';
+        return;
+    }
+
+    const ratio = (dropCount / totalEnrollment) * 100;
+
+    // Arrow direction comes straight from the backend's pct_change.drop
+    // (same field Students/GWA read via renderKpiTrend) — NOT a
+    // session-tracked "vs. last render" comparison, so the arrow shows
+    // immediately on first load exactly like the other two badges do,
+    // instead of staying blank until a second fetch has something to
+    // compare against. Fewer drops is always the good outcome, so a
+    // rising drop count is red/bad and a falling one is green/good.
+    let arrow = '';
+    let color = '#800000';
+    if (pctChange !== null && pctChange !== undefined && typeof _KPI_TREND_ARROW_UP !== 'undefined') {
+        if (pctChange === 0) {
+            arrow = '— ';
+            color = '#858796';
+        } else if (pctChange > 0) {
+            arrow = `${_KPI_TREND_ARROW_UP} `;
+            color = '#e74a3b';
+        } else {
+            arrow = `${_KPI_TREND_ARROW_DOWN} `;
+            color = '#1cc88a';
+        }
+    }
+
+    pctEl.style.color = color;
+    pctEl.innerHTML = `${arrow}${ratio.toFixed(1)}%`;
+}
 
 
 
@@ -1091,14 +1153,32 @@ function updateIncForecast(college) {
             setChartReady(canvas);
 
             const ctx = canvas.getContext('2d');
-            const labels = data.years;
+            let labels = data.years;
+            let series = data.series || [];
+
+            // Recent/historical view (no prediction) — data.years always
+            // spans history + forecast years together so the dashed line
+            // has room to draw. With the forecast dataset skipped below,
+            // that left the x-axis stretching past the real data into
+            // empty trailing years. Trim labels (and each series' history
+            // array) to the last year ANY group actually has real data.
+            if (window.DASHBOARD_PREDICTION_DISABLED) {
+                let lastRealIdx = -1;
+                series.forEach(s => {
+                    (s.history || []).forEach((v, i) => { if (v !== null && v !== undefined && i > lastRealIdx) lastRealIdx = i; });
+                });
+                if (lastRealIdx >= 0 && lastRealIdx + 1 < labels.length) {
+                    labels = labels.slice(0, lastRealIdx + 1);
+                    series = series.map(s => ({ ...s, history: (s.history || []).slice(0, lastRealIdx + 1) }));
+                }
+            }
 
             if (incForecastChart) {
                 incForecastChart.destroy();
             }
 
             const datasets = [];
-            (data.series || []).forEach(s => {
+            series.forEach(s => {
                 const color = getGroupColor(s.label, incForecastColorHint);
                 datasets.push({
                     label: s.label,
@@ -1112,6 +1192,13 @@ function updateIncForecast(college) {
                     fill: false,
                     tension: 0.3
                 });
+                // Prediction disabled on this page (see
+                // window.DASHBOARD_PREDICTION_DISABLED) — this chart used
+                // to render its full real+forecast horizon in one shot
+                // regardless of the Recent/Prediction toggle, so skip the
+                // dashed forecast dataset entirely instead of just hiding
+                // the toggle that never controlled it.
+                if (!window.DASHBOARD_PREDICTION_DISABLED) {
                 datasets.push({
                     label: s.label,
                     data: s.forecast,
@@ -1132,6 +1219,7 @@ function updateIncForecast(college) {
                     // predicted one.
                     isForecast: true,
                 });
+                }
             });
 
             incForecastChart = new Chart(ctx, {
@@ -1275,12 +1363,17 @@ function drawHardestSubjectChart(course, canvas, legendEl) {
     const years = course.years || [];
     const subjects = course.subjects || [];
     const historyCount = course.history_count != null ? course.history_count : years.length;
+    // Prediction disabled on this page — trim both the year labels and
+    // each subject's series down to just the real portion instead of
+    // the full real+forecast horizon this chart always fetched in one
+    // shot regardless of the Recent/Prediction toggle.
+    const displayYears = trimForecast(years, historyCount);
 
     const datasets = subjects.map(s => {
         const color = getGroupColor(s.subject, typeof COLLEGE_NAME !== 'undefined' ? COLLEGE_NAME : null);
         return {
             label: s.subject,
-            data: s.data,
+            data: trimForecast(s.data, historyCount),
             failCount: s.failCount || 0,
             failRate: s.failRate || 0,
             borderColor: color,
@@ -1302,7 +1395,7 @@ function drawHardestSubjectChart(course, canvas, legendEl) {
     hardestSubjectCharts[course.course] = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: years,
+            labels: displayYears,
             datasets: datasets
         },
         options: {
@@ -1668,16 +1761,23 @@ function updateDropoutSpike(college) {
             if (!data.series && data.labels && data.data) {
                 const predictionStartIndex = data.pred_start_index || (data.labels.length - 5);
                 const lineColor = getGroupColor(safeCollege === 'all' ? 'Main Campus' : safeCollege, spikeColorHint);
-                const pointColors = data.spikes.map(s => s ? '#e74a3b' : lineColor);
-                const pointRadii = data.spikes.map(s => s ? 6 : 3);
+                // Prediction disabled on this page — trim everything down
+                // to the real portion instead of the full real+forecast
+                // horizon this chart always fetched in one shot
+                // regardless of the Recent/Prediction toggle.
+                const displayLabels = trimForecast(data.labels, predictionStartIndex);
+                const displayData   = trimForecast(data.data, predictionStartIndex);
+                const displaySpikes = trimForecast(data.spikes, predictionStartIndex);
+                const pointColors = displaySpikes.map(s => s ? '#e74a3b' : lineColor);
+                const pointRadii = displaySpikes.map(s => s ? 6 : 3);
 
                 dropoutSpikeChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: data.labels,
+                        labels: displayLabels,
                         datasets: [{
                             label: 'Dropout Rate',
-                            data: data.data,
+                            data: displayData,
                             borderColor: lineColor,
                             backgroundColor: hexToRgba(lineColor, 0.06),
                             borderWidth: 2,
@@ -1692,7 +1792,7 @@ function updateDropoutSpike(college) {
                             }
                         }]
                     },
-                    options: dropoutSpikeBaseOptions(data.labels, [data.spikes])
+                    options: dropoutSpikeBaseOptions(displayLabels, [displaySpikes])
                 });
 
                 if (typeof renderColorLegend === 'function') {
@@ -1714,21 +1814,27 @@ function updateDropoutSpike(college) {
             const predictionStartIndex = data.pred_start_index != null
                 ? data.pred_start_index
                 : Math.max(0, labels.length - 5);
+            // Prediction disabled on this page — trim the shared label
+            // axis down to the real portion (each series below is
+            // trimmed the same way).
+            const displayLabels = trimForecast(labels, predictionStartIndex);
 
             const datasets = [];
             const allSpikes = [];
             (data.series || []).forEach(s => {
                 const color = getGroupColor(s.label, spikeColorHint);
                 const combined = (s.history || []).map((v, i) => (v != null ? v : (s.forecast || [])[i]));
+                const displayCombined = trimForecast(combined, predictionStartIndex);
                 const spikes = s.spikes || [];
-                allSpikes.push(spikes);
+                const displaySpikes = trimForecast(spikes, predictionStartIndex);
+                allSpikes.push(displaySpikes);
 
-                const pointColors = combined.map((_, i) => (spikes[i] ? '#e74a3b' : color));
-                const pointRadii = combined.map((_, i) => (spikes[i] ? 6 : 3));
+                const pointColors = displayCombined.map((_, i) => (displaySpikes[i] ? '#e74a3b' : color));
+                const pointRadii = displayCombined.map((_, i) => (displaySpikes[i] ? 6 : 3));
 
                 datasets.push({
                     label: s.label,
-                    data: combined,
+                    data: displayCombined,
                     borderColor: color,
                     backgroundColor: 'transparent',
                     borderWidth: 2,
@@ -1747,8 +1853,8 @@ function updateDropoutSpike(college) {
 
             dropoutSpikeChart = new Chart(ctx, {
                 type: 'line',
-                data: { labels: labels, datasets: datasets },
-                options: dropoutSpikeBaseOptions(labels, allSpikes)
+                data: { labels: displayLabels, datasets: datasets },
+                options: dropoutSpikeBaseOptions(displayLabels, allSpikes)
             });
 
             if (typeof renderColorLegend === 'function') {

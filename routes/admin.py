@@ -1,9 +1,15 @@
 from flask import Blueprint, render_template, request, session, redirect, flash, jsonify, url_for
 from database.models import AcadUser, db, assign_avatar_color, ensure_avatar_color
 from util.utils import allowed_file, save_file
-from configs.config import ALLOWED_ROLES, AVATAR_MAX_SIZE_MB, MIN_PASSWORD_LENGTH
+from configs.config import (
+    ALLOWED_ROLES, AVATAR_MAX_SIZE_MB, MIN_PASSWORD_LENGTH,
+    UNPROCESSED_DATASETS_DIR,
+)
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
+import os
+import shutil
 
 # ---------------- Blueprint Setup ----------------
 admin_bp = Blueprint('admin_bp', __name__, url_prefix='/NovaSight/admin')
@@ -11,7 +17,7 @@ admin_bp = Blueprint('admin_bp', __name__, url_prefix='/NovaSight/admin')
 # ---------------- Homeadmin ----------------
 @admin_bp.route('/')
 def dashboard():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
 
     users = AcadUser.query.filter_by(is_archived=False).all()
@@ -20,7 +26,7 @@ def dashboard():
 # ---------------- Admin Management Page (Adminpage) ----------------
 @admin_bp.route('/adminpage')
 def admin_page():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
 
     active_users   = AcadUser.query.filter_by(is_archived=False).all()
@@ -36,7 +42,7 @@ def admin_page():
 # ---------------- Profile Page (Profileadmin) ----------------
 @admin_bp.route('/profile')
 def profile():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
 
     user = AcadUser.query.get(session['user_id'])
@@ -52,7 +58,7 @@ def profile():
 # ---------------- File Upload ----------------
 @admin_bp.route('/fileupload')
 def fileupload_admin():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
     return render_template('admin/fileupload/fileupload.html')
 
@@ -60,39 +66,39 @@ def fileupload_admin():
 # ------------ Help admin ------------
 @admin_bp.route('/help')
 def help_admin():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
     return render_template('admin/helpadmin/html/helpadmin.html')
 
 # --------- Dashboards --------
 @admin_bp.route('/maindashboard')
 def maindash_admin():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
     return render_template('admin/dashboard/maindashboardadmin/html/maindashboardadmin.html', college_type='all')
 
 @admin_bp.route('/deptdash')
 def deptdash_admin():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
     return render_template('admin/dashboard/deptdashAdmin/deptdashAdmin.html', college_type='all')
 
 @admin_bp.route('/preddash')
 def preddash_admin():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
     return render_template('admin/dashboard/predictiondashboardAdmin/predictiondashboardAdmin.html', college_type='all')
 
 @admin_bp.route('/modeldash')
 def modeldash_admin():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
     return render_template('admin/dashboard/modelperformancedashAdmin/modelperformancedashAdmin.html', college_type='all')
 
 # ----------------- Privacy Policy Page ----------------
 @admin_bp.route('/privacypolicyAdmin')
 def privacy_policy_admin():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
     return render_template('admin/privacypoladmin/privacypolicyAdmin.html')
 
@@ -100,7 +106,7 @@ def privacy_policy_admin():
 # ---------------- Add User ----------------
 @admin_bp.route('/add_user', methods=['POST'])
 def add_user():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         flash("Unauthorized", "error")
         return redirect(url_for('admin_bp.admin_page'))
 
@@ -161,7 +167,7 @@ def add_user():
 # ---------------- Update User ----------------
 @admin_bp.route('/update_user/<int:user_id>', methods=['POST'])
 def update_user(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return "Unauthorized", 403
 
     user = AcadUser.query.get(user_id)
@@ -205,7 +211,7 @@ def update_user(user_id):
 # ---------------- Archive (Deactivate) User ----------------
 @admin_bp.route('/archive_user/<int:user_id>', methods=['POST'])
 def archive_user(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return "Unauthorized", 403
 
     user = AcadUser.query.get(user_id)
@@ -224,7 +230,7 @@ def archive_user(user_id):
 # ---------------- Restore (Activate) User ----------------
 @admin_bp.route('/restore_user/<int:user_id>', methods=['POST'])
 def restore_user(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return "Unauthorized", 403
 
     user = AcadUser.query.get(user_id)
@@ -240,7 +246,7 @@ def restore_user(user_id):
 # ---------------- Delete User (permanent) ----------------
 @admin_bp.route('/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return "Unauthorized", 403
 
     user = AcadUser.query.get(user_id)
@@ -295,7 +301,7 @@ def upload_image():
 # ---------------- Get User (JSON) ----------------
 @admin_bp.route('/get_user/<int:user_id>')
 def get_user(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return jsonify({"error": "Unauthorized"}), 403
     user = AcadUser.query.get(user_id)
     if not user:
@@ -335,3 +341,134 @@ def update_password():
     user.set_password(password)
     db.session.commit()
     return jsonify({"success": True})
+
+
+# ---------------- FULL RESET (database + all files) ----------------
+# Every table this app writes to, in the order schema.sql creates them.
+# There's no UI button for this on purpose — it's meant to be run from
+# the browser console (F12) by an admin who's already logged in:
+#
+#   fetch('/NovaSight/admin/reset_database', {
+#     method: 'POST',
+#     headers: {'Content-Type': 'application/json'},
+#     body: JSON.stringify({
+#       password: 'your-own-admin-password',
+#       confirm: 'RESET DATABASE'
+#     })
+#   }).then(r => r.json()).then(console.log)
+#
+# Keep this list in sync with schema.sql if a table is ever added/removed.
+_ALL_DB_TABLES = [
+    'acad_user', 'uploaded_dataset',
+    'semester_uploads', 'longform_uploads',
+    'dropout_spike_cohort', 'dropout_ranking_college',
+    'gwa_ranking_college', 'kpi_gwa_student', 'gwa_trend_timeseries',
+    'inc_forecast_cohort', 'irreg_reg_cohort', 'kpi_enrollment_college',
+    'kpi_drop_college', 'subject_grade_forecast', 'performance_band_dist',
+    'year_level_performance', 'year_level_inc_irreg',
+    'course_year_level_dropout', 'gender_performance_male',
+    'gender_performance_female', 'trained_models', 'training_summary',
+    'app_storage',
+]
+
+
+def _clear_dir(path):
+    """Deletes everything INSIDE `path` but keeps the folder itself.
+    Only ever called on UNPROCESSED_DATASETS_DIR now — the other
+    dataset/model/backup folders this used to also clear are gone
+    (see configs/config.py)."""
+    if not os.path.isdir(path):
+        return
+    for entry in os.listdir(path):
+        full = os.path.join(path, entry)
+        if os.path.isdir(full):
+            shutil.rmtree(full, ignore_errors=True)
+        else:
+            try:
+                os.remove(full)
+            except OSError:
+                pass
+
+
+@admin_bp.route('/reset_database', methods=['POST'])
+def reset_database():
+    """
+    IRREVERSIBLE full reset: truncates every table (users, uploads,
+    grade data, every model_datasets table, trained_models), deletes
+    every uploaded/processed/trained file on disk, then recreates the
+    single default admin account — the exact same "brand new install"
+    state app.py creates the very first time the app is ever run.
+
+    Two separate confirmations are required because this route has no
+    "are you sure?" browser dialog like a real button would — the
+    caller's own password plus an exact-match confirm phrase are the
+    only things stopping an accidental paste, a stale open tab, or
+    someone finding this URL from wiping the database.
+    """
+    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data     = request.get_json(silent=True) or {}
+    password = data.get('password', '')
+    confirm  = data.get('confirm', '')
+
+    user = AcadUser.query.get(session['user_id'])
+    if not user or not user.check_password(password):
+        return jsonify({"error": "Incorrect password"}), 403
+
+    if confirm != 'RESET DATABASE':
+        return jsonify({"error": 'Type confirm exactly as: "RESET DATABASE"'}), 400
+
+    try:
+        # ---- 1. Wipe every table ----
+        with db.engine.begin() as conn:
+            conn.execute(text('SET FOREIGN_KEY_CHECKS=0'))
+            for table in _ALL_DB_TABLES:
+                # Several of these (semester_uploads, longform_uploads,
+                # training_summary, app_storage, and each model_datasets
+                # table) are only CREATEd lazily on first write (see
+                # db_io.py) — on a fresh install, or before anything's
+                # been uploaded/trained yet, they simply don't exist.
+                # TRUNCATE on a missing table raises and used to abort
+                # the WHOLE reset (including tables listed after it) —
+                # skip anything not there instead of crashing on it.
+                exists = conn.execute(text(
+                    "SELECT 1 FROM information_schema.tables "
+                    "WHERE table_schema = DATABASE() AND table_name = :t"
+                ), {"t": table}).fetchone()
+                if exists:
+                    conn.execute(text(f'TRUNCATE TABLE {table}'))
+            conn.execute(text('SET FOREIGN_KEY_CHECKS=1'))
+
+        # ---- 2. Wipe every file the app still actually generates ----
+        # (Processed_Datasets/by_year/, model_datasets/, Machine_Learning_
+        # Model/, and Backup/ are gone — that data lives in MySQL now, and
+        # was already cleared in step 1. Only the raw .xlsx upload staging
+        # folder is still real disk state.)
+        _clear_dir(UNPROCESSED_DATASETS_DIR)
+
+        # ---- 3. Recreate the default admin (mirrors app.py's first-run logic) ----
+        admin_user = AcadUser(
+            first_name='Admin',
+            last_name='User',
+            account='admin@bpsu.edu.ph',
+            role='Academic_Affair'
+        )
+        admin_user.set_password('Admin123!')
+        assign_avatar_color(admin_user)
+        db.session.add(admin_user)
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        print("Database reset error:", e)
+        return jsonify({"error": f"Reset failed: {e}"}), 500
+
+    # The account that made this request no longer exists (acad_user was
+    # just truncated), so clear the session instead of leaving a session
+    # cookie pointing at a acaduser_id that's gone.
+    session.clear()
+    return jsonify({
+        "success": True,
+        "message": "Database and all files reset. Log back in as admin@bpsu.edu.ph / Admin123!"
+    })

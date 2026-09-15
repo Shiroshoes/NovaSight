@@ -21,10 +21,10 @@ db = SQLAlchemy()
 # shades are just lighter tints of that same real color, generated to keep
 # multiple users on the same role visually distinct.
 ROLE_COLOR_FAMILIES = {
-    'admin':           [('#4A4A4A', '#FFFFFF'), ('#6E6E6E', '#FFFFFF'), ('#8C8C8C', '#FFFFFF')],  # neutral grey — MIS/admin
+    'Academic_Affair':           [('#4A4A4A', '#FFFFFF'), ('#6E6E6E', '#FFFFFF'), ('#8C8C8C', '#FFFFFF')],  # neutral grey — MIS/admin
     'Registrar':       [('#1E5AA8', '#FFFFFF'), ('#2E72C9', '#FFFFFF'), ('#5B93D8', '#FFFFFF')],  # blue
     'SASO':            [('#B8860B', '#FFFFFF'), ('#D4A017', '#FFFFFF'), ('#E6B84D', '#1F2937')],  # gold
-    'Academic_Affair': [('#6A1B9A', '#FFFFFF'), ('#8E24AA', '#FFFFFF'), ('#AB47BC', '#FFFFFF')],  # purple
+    'MISO': [('#6A1B9A', '#FFFFFF'), ('#8E24AA', '#FFFFFF'), ('#AB47BC', '#FFFFFF')],  # purple
     # CAHS split into 4 roles (Nursing/PH/Midwifery deans + director), each
     # now with its own program color instead of sharing one teal family.
     # Shade 1 is the "official" program color; shades 2-3 are lighter tints
@@ -212,7 +212,6 @@ class UploadedDataset(db.Model):
 
     id                = db.Column(db.Integer,      primary_key=True)
     original_filename = db.Column(db.String(255),  nullable=False)
-    stored_filename   = db.Column(db.String(255),  nullable=False, unique=True)
     raw_path          = db.Column(db.String(512),  nullable=False)
     processed         = db.Column(db.Boolean,      default=False, nullable=False)
     processed_path    = db.Column(db.String(512),  nullable=True)
@@ -232,7 +231,6 @@ class UploadedDataset(db.Model):
         return {
             'id':                self.id,
             'original_filename': self.original_filename,
-            'stored_filename':   self.stored_filename,
             'processed':         self.processed,
             'status':            self.status,
             'error_message':     self.error_message,

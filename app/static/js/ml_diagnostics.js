@@ -166,6 +166,7 @@
 
       function loadPredictedVsActual(model) {
         const statusEl = document.getElementById('predictedVsActualStatus');
+        if (!statusEl) return; // element not on this page/section — nothing to update
         fetch(`/api/model_predicted_vs_actual?model=${encodeURIComponent(model)}`)
           .then(res => { if (!res.ok) throw new Error('not implemented yet'); return res.json(); })
           .then(data => {
@@ -188,6 +189,7 @@
 
       function loadFeatureImportance(model) {
         const statusEl = document.getElementById('featureImportanceStatus');
+        if (!statusEl) return; // element not on this page/section — nothing to update
         fetch(`/api/model_feature_importance?model=${encodeURIComponent(model)}`)
           .then(res => { if (!res.ok) throw new Error('not implemented yet'); return res.json(); })
           .then(data => {
@@ -205,6 +207,7 @@
 
       function loadConfusionMatrix(model) {
         const statusEl = document.getElementById('confusionMatrixStatus');
+        if (!statusEl) return; // element not on this page/section — nothing to update
         const grid = document.getElementById('confusionMatrixGrid');
         fetch(`/api/model_confusion_matrix?model=${encodeURIComponent(model)}`)
           .then(res => { if (!res.ok) throw new Error('not implemented yet'); return res.json(); })
@@ -228,6 +231,7 @@
 
       function loadResidualTrend(model) {
         const statusEl = document.getElementById('residualTrendStatus');
+        if (!statusEl) return; // element not on this page/section — nothing to update
         fetch(`/api/model_residual_trend?model=${encodeURIComponent(model)}`)
           .then(res => { if (!res.ok) throw new Error('not implemented yet'); return res.json(); })
           .then(data => {

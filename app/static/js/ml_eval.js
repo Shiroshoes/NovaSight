@@ -1,31 +1,36 @@
 // ── Algorithm-type breakdown (KPI formulas / donut / bar / warnings) ──
-// Linear Regression = green, Random Forest Regression = blue,
-// Random Forest Classifier = violet.
+// Linear Regression = green, Ridge Regression = teal, Random Forest
+// Regression = blue, Random Forest Classifier = violet.
 const ALGO_META = {
   linreg: { label: 'Linear Regression',       color: '#1cc88a', formula: 'ŷ = β₀ + β₁x₁ + β₂x₂ + ... + βₙxₙ',
             desc: 'A straight-line trend fit, used for every forecast target (GWA, enrollment, INC/irregular/drop rate).' },
+  ridge:  { label: 'Ridge Regression',        color: '#36b9cc', formula: 'ŷ = argmin_β ‖y − Xβ‖² + α‖β‖²',
+            desc: 'A straight-line trend fit with L2 shrinkage — same shape as Linear Regression but more stable coefficients, used where predictors are sparse/correlated (e.g. per-course, per-college cohorts) so it can still extrapolate cleanly.' },
   rfreg:  { label: 'Random Forest Regression', color: '#2A86FD', formula: 'ŷ = (1/T) · Σ Treeₜ(x),  t = 1...T',
             desc: 'Averages many decision trees. More flexible than a straight line, but can\'t extrapolate past its training years.' },
   rfclf:  { label: 'Random Forest Classifier', color: '#8e44ad', formula: 'ŷ = mode{ Tree₁(x), Tree₂(x), ..., Treeₜ(x) }',
             desc: 'Each tree votes on a class (e.g. at-risk vs. safe); the majority vote wins.' },
 };
 // Tie-break order when two types have the same model count: Linear
-// Regression wins, then Random Forest Regression, then Random Forest
-// Classifier.
-const ALGO_ORDER = ['linreg', 'rfreg', 'rfclf'];
+// Regression wins, then Ridge Regression, then Random Forest
+// Regression, then Random Forest Classifier.
+const ALGO_ORDER = ['linreg', 'ridge', 'rfreg', 'rfclf'];
 
 // Classifies a model into one of ALGO_ORDER. Prefers an explicit
-// `algorithm` field from the backend (e.g. "LinearRegression",
+// `algorithm` field from the backend (e.g. "LinearRegression", "Ridge",
 // "RandomForestRegressor", "RandomForestClassifier") — add this field
-// to /api/get_model_metrics's response for exact grouping. Falls back
-// to guessing from `model.type` (classification -> Random Forest
+// to /api/get_model_metrics's response for exact grouping. Ridge is
+// checked before the LinearRegression substring match since it's now
+// its own token instead of being folded into linreg. Falls back to
+// guessing from `model.type` (classification -> Random Forest
 // Classifier, everything else -> Linear Regression), same convention
 // buildCard() below already uses for its typeLabel.
 function classifyAlgorithm(model) {
   const algo = (model.algorithm || '').toLowerCase();
   if (algo.includes('randomforestclassifier')) return 'rfclf';
   if (algo.includes('randomforestregressor')) return 'rfreg';
-  if (algo.includes('linearregression') || algo.includes('ridge')) return 'linreg';
+  if (algo.includes('ridge')) return 'ridge';
+  if (algo.includes('linearregression')) return 'linreg';
   return model.type === 'classification' ? 'rfclf' : 'linreg';
 }
 
@@ -50,7 +55,7 @@ function headlineQualityClass(v) {
 let _typeDonutChart, _typeScoreChart;
 
 function renderAlgorithmTypeCharts(models) {
-  const counts = { linreg: 0, rfreg: 0, rfclf: 0 };
+  const counts = { linreg: 0, ridge: 0, rfreg: 0, rfclf: 0 };
   models.forEach(m => counts[classifyAlgorithm(m)]++);
 
   const donutCtx = document.getElementById('typeDonutChart');
@@ -249,11 +254,12 @@ const CHART_LABELS = [
   // (from the /irreg/i match) instead of the bar chart it actually
   // powers.
   { match: /year.*level.*(inc|irreg|drop)|(inc|irreg|drop).*year.*level/i, label: 'INC/Irregular/Drop Rate by Year Level (Bar)' },
+  { match: /status_trend/i,                label: 'INC/Irregular/Drop Rate by Year Level (Bar)' },
   { match: /irreg/i,                       label: 'Irregular Students (Donut)' },
   { match: /dropout.*spike|spike/i,        label: 'Dropout Trend (Line)' },
   { match: /gwa.*trend|trend.*gwa/i,       label: 'GWA Trend (Line)' },
   { match: /forecast/i,                    label: 'Forecast (Line)' },
-  { match: /subject.*grade/i,              label: 'Subject Grades (Line)' },
+  { match: /subject.*grade|subject_top/i,  label: 'Top 5 Hardest Subjects (Line)' },
   { match: /gender/i,                      label: 'Gender Performance (Line)' },
   { match: /ranking/i,                     label: 'Ranking (Bar)' },
   { match: /^kpi$|kpi/i,                   label: 'KPI Tile' },

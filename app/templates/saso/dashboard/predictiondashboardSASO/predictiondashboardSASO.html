@@ -676,7 +676,10 @@
     <script src="{{url_for('static', filename='js/mode-toggle.js')}}"></script>
     <script src="{{url_for('static', filename='js/dashboard-tabs.js')}}?v=1"></script>
 
-
+    <script>
+        window.DASHBOARD_PREDICTION_DISABLED = false;
+    </script>
+    
   <!-- Logout Modal Structure -->
   <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
     <div class="logout-card">

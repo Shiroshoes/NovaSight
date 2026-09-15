@@ -108,6 +108,7 @@
     });
   }
 
+
   // ─────────────────────────────────────────────────────────
   // Upload flow
   // ─────────────────────────────────────────────────────────
@@ -149,10 +150,12 @@
         if (!ok) {
           setStepState('step-validate', status === 409 ? 'done' : 'error');
           setStepState('step-upload', 'error');
-          showAlert(
-            data.error || 'Upload failed.',
-            data.duplicate ? 'warning' : 'error'
-          );
+
+          const message = data.duplicate
+            ? (data.error || 'Dataset already encoded.')
+            : (data.error || 'Upload failed.');
+
+          showAlert(message, data.duplicate ? 'warning' : 'error');
           return;
         }
 
@@ -225,48 +228,9 @@
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // Cancel an in-flight upload
-  // ─────────────────────────────────────────────────────────
-
-  if (cancelPipelineBtn) {
-    cancelPipelineBtn.addEventListener('click', () => {
-      if (!currentRecordId) return;
-      showCancelUploadConfirm(currentRecordId);
-    });
-  }
-
-  function showCancelUploadConfirm(recordId) {
-    const modal = document.getElementById('cancelUploadConfirmModal');
-    const text  = document.getElementById('cancelUploadConfirmText');
-    const yesBtn = document.getElementById('confirmCancelUploadBtn');
-    const backBtn = document.getElementById('backCancelUploadBtn');
-    if (!modal) return;
-
-    text.textContent = 'Cancel this upload? Anything already merged from it will be rolled back to the previous state.';
-    modal.style.display = 'flex';
-
-    const newYes = yesBtn.cloneNode(true);
-    yesBtn.parentNode.replaceChild(newYes, yesBtn);
-    newYes.addEventListener('click', () => {
-      modal.style.display = 'none';
-      fetch('/api/cancel-upload/' + recordId, { method: 'POST' })
-        .then((res) => res.json())
-        .then((data) => {
-          if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-          currentRecordId = null;
-          pipelineCard.classList.add('hidden');
-          if (cancelPipelineBtn) cancelPipelineBtn.classList.add('hidden');
-          showAlert(data.message || 'Upload cancelled.', data.ok ? 'success' : 'error');
-          refreshLists();
-        })
-        .catch(() => {});
-    });
-
-    const newBack = backBtn.cloneNode(true);
-    backBtn.parentNode.replaceChild(newBack, backBtn);
-    newBack.addEventListener('click', () => { modal.style.display = 'none'; });
-  }
+  // Cancel-upload feature removed (2026-09-15) — uploads run to
+  // completion or failure; there is no mid-flight cancel/rollback.
+  if (cancelPipelineBtn) cancelPipelineBtn.classList.add('hidden');
 
   // ─────────────────────────────────────────────────────────
   // Floating "upload failed" card
@@ -367,7 +331,6 @@
   function refreshLists() {
     loadUnprocessedList();
     loadProcessedList();
-    loadDeletedList();
   }
 
   window.loadUnprocessedList = function loadUnprocessedList() {
@@ -396,14 +359,8 @@
             <span><span class="role-badge">${escapeHtml(r.uploader_role)}</span></span>
             <span>${escapeHtml(r.uploaded_at)}</span>
             <span><span class="status-badge ${statusBadgeClass(r.status)}">${escapeHtml(r.status)}</span></span>
-            <span>${(r.status === 'pending' || r.status === 'processing')
-              ? `<button class="btn-refresh row-action-btn" data-cancel-id="${r.id}">Cancel</button>`
-              : ''}</span>
+            <span></span>
           </div>`).join('');
-
-        body.querySelectorAll('[data-cancel-id]').forEach((btn) => {
-          btn.addEventListener('click', () => showCancelUploadConfirm(btn.getAttribute('data-cancel-id')));
-        });
       })
       .catch(() => { /* leave existing content on transient error */ });
   };
@@ -429,17 +386,7 @@
                 <span>${escapeHtml(r.uploader_name)}</span>
                 <span>${escapeHtml(r.uploaded_at)}</span>
                 <span class="cell-path" title="${escapeHtml(r.processed_path)}">${escapeHtml(r.processed_path)}</span>
-                <span>${r.is_most_recent_deletable
-                  ? `<button class="btn-refresh row-action-btn" data-delete-id="${r.id}" data-delete-name="${escapeHtml(r.original_filename)}">Delete</button>`
-                  : ''}</span>
               </div>`).join('');
-
-          procBody.querySelectorAll('[data-delete-id]').forEach((btn) => {
-            btn.addEventListener('click', () => showDeleteRecentConfirm(
-              btn.getAttribute('data-delete-id'),
-              btn.getAttribute('data-delete-name')
-            ));
-          });
         }
 
         const modelFiles = data.model_files || [];
@@ -455,114 +402,6 @@
                 <span><span class="status-badge ${f.status === 'Recent' ? 'badge--done' : 'badge--pending'}">${escapeHtml(f.status)}</span></span>
               </div>`).join('');
         }
-      })
-      .catch(() => { /* leave existing content on transient error */ });
-  };
-
-  // ─────────────────────────────────────────────────────────
-  // Delete most-recent-upload flow (soft-delete + rollback to backup)
-  // ─────────────────────────────────────────────────────────
-
-  function showDeleteRecentConfirm(recordId, filename) {
-    const modal = document.getElementById('deleteConfirmModal');
-    const text  = document.getElementById('deleteConfirmText');
-    const yesBtn = document.getElementById('confirmDeleteBtn');
-    const backBtn = document.getElementById('cancelDeleteBtn');
-    if (!modal) return;
-
-    text.innerHTML =
-      `Do you want to delete <strong>"${filename}"</strong>?<br><br>` +
-      `This will revert the dashboard data and AI models back to the ` +
-      `previous semester's state — not just remove a file.`;
-    modal.style.display = 'flex';
-
-    const newYes = yesBtn.cloneNode(true);
-    yesBtn.parentNode.replaceChild(newYes, yesBtn);
-    newYes.addEventListener('click', () => {
-      modal.style.display = 'none';
-      fetch('/api/delete-recent-upload/' + recordId, { method: 'DELETE' })
-        .then((res) => res.json())
-        .then((data) => {
-          showAlert(data.message || (data.ok ? 'Deleted.' : 'Delete failed.'), data.ok ? 'success' : 'error');
-          refreshLists();
-        })
-        .catch(() => {});
-    });
-
-    const newBack = backBtn.cloneNode(true);
-    backBtn.parentNode.replaceChild(newBack, backBtn);
-    newBack.addEventListener('click', () => { modal.style.display = 'none'; });
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // Recently Deleted (trash) table
-  // ─────────────────────────────────────────────────────────
-
-  window.loadDeletedList = function loadDeletedList() {
-    const body = document.getElementById('deletedTableBody');
-    if (!body) return;
-
-    fetch('/api/deleted-list')
-      .then((res) => res.json())
-      .then((records) => {
-        if (!Array.isArray(records) || records.length === 0) {
-          body.innerHTML = `<div class="file-table__empty"><p>Nothing in the trash right now.</p></div>`;
-          return;
-        }
-
-        body.innerHTML = records.map((r) => `
-          <div class="file-table__row deleted-row">
-            <span class="cell-filename" title="${escapeHtml(r.original_filename)}">${escapeHtml(r.original_filename)}</span>
-            <span>${escapeHtml(r.academic_year)}</span>
-            <span>${escapeHtml(r.semester)}</span>
-            <span>${escapeHtml(r.deleted_at)}</span>
-            <span>${escapeHtml(r.days_remaining)} day(s)</span>
-            <span>
-              <button class="btn-refresh row-action-btn" data-restore-id="${r.id}">Restore</button>
-              <button class="btn-refresh row-action-btn" data-purge-id="${r.id}" data-purge-name="${escapeHtml(r.original_filename)}">Delete Permanently</button>
-            </span>
-          </div>`).join('');
-
-        body.querySelectorAll('[data-restore-id]').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            fetch('/api/restore-deleted/' + btn.getAttribute('data-restore-id'), { method: 'POST' })
-              .then((res) => res.json())
-              .then((data) => {
-                showAlert(data.message || (data.ok ? 'Restoring…' : 'Restore failed.'), data.ok ? 'success' : 'error');
-                refreshLists();
-              })
-              .catch(() => {});
-          });
-        });
-
-        body.querySelectorAll('[data-purge-id]').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const filename = btn.getAttribute('data-purge-name');
-            const modal = document.getElementById('deleteConfirmModal');
-            const text  = document.getElementById('deleteConfirmText');
-            const yesBtn = document.getElementById('confirmDeleteBtn');
-            const backBtn = document.getElementById('cancelDeleteBtn');
-            text.innerHTML = `Permanently delete <strong>"${filename}"</strong>? This cannot be undone.`;
-            modal.style.display = 'flex';
-
-            const newYes = yesBtn.cloneNode(true);
-            yesBtn.parentNode.replaceChild(newYes, yesBtn);
-            newYes.addEventListener('click', () => {
-              modal.style.display = 'none';
-              fetch('/api/permanently-delete/' + btn.getAttribute('data-purge-id'), { method: 'DELETE' })
-                .then((res) => res.json())
-                .then((data) => {
-                  showAlert(data.message || (data.ok ? 'Permanently deleted.' : 'Delete failed.'), data.ok ? 'success' : 'error');
-                  refreshLists();
-                })
-                .catch(() => {});
-            });
-
-            const newBack = backBtn.cloneNode(true);
-            backBtn.parentNode.replaceChild(newBack, backBtn);
-            newBack.addEventListener('click', () => { modal.style.display = 'none'; });
-          });
-        });
       })
       .catch(() => { /* leave existing content on transient error */ });
   };

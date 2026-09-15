@@ -3,25 +3,33 @@ import re
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-# ── Database ──────────────────────────────────────────────────
-DB_DIR = os.path.join(BASE_DIR, 'database')
-if not os.path.exists(DB_DIR):
-    os.makedirs(DB_DIR)
+# ── Database (MySQL via XAMPP) ────────────────────────────────
+# XAMPP's MySQL defaults: host=localhost, port=3306, user=root, no
+# password. Overridable via environment variables so the same code
+# works once you eventually move off XAMPP to a real production
+# MySQL/MariaDB server (just set these env vars there instead).
+DB_HOST = os.environ.get('DB_HOST', 'localhost')
+DB_PORT = os.environ.get('DB_PORT', '3306')
+DB_USER = os.environ.get('DB_USER', 'root')
+DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
+DB_NAME = os.environ.get('DB_NAME', 'novasight')
 
-SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(DB_DIR, 'nova.db')
+SQLALCHEMY_DATABASE_URI = (
+    f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # SECRET_KEY signs every session cookie — anyone who knows this value can
 # forge a valid login session for ANY user, including admin. Must come from
 # the environment (set it before starting the app: see the deployment
 # guides' systemd Environment= line), never hardcoded here.
+# SECRET_KEY signs every session cookie — anyone who knows this value can
+# forge a valid login session for ANY user, including admin. Must come from
+# the environment (set it before starting the app: see the deployment
+# guides' systemd Environment= line), never hardcoded here.
 SECRET_KEY = os.environ.get('SECRET_KEY')
 if not SECRET_KEY:
-    raise RuntimeError(
-        "SECRET_KEY environment variable is not set. Generate one with:\n"
-        "  python3 -c \"import secrets; print(secrets.token_hex(32))\"\n"
-        "then set it in your environment before starting the app."
-    )
+    raise RuntimeError("SECRET_KEY environment variable is not set.")
 
 # Minimum acceptable password length, enforced everywhere a password is
 # created or changed (admin.py's add_user/update_user, and every role's
@@ -55,32 +63,66 @@ UNPROCESSED_DATASETS_DIR = os.path.join(BASE_DIR, 'Unprocessed_Datasets')
 # The preprocessor writes final CSVs here; models read from here
 PROCESSED_DATASETS_DIR = os.path.join(BASE_DIR, 'Processed_Datasets')
 
-# Model-specific CSVs live inside a sub-folder
+# ── Per-year processed data ────────────────────────────────────
+# LEGACY PATH CONSTANTS — NOT auto-created anymore (2026-09-15).
+# Everything that used to live under these folders (semester grade
+# data, model_datasets CSVs, trained .pkl models, one-step-back
+# backups) now lives in MySQL only:
+#   - semester/model data          -> semester_uploads / longform_uploads
+#     tables (see db_io.py, preprocess.py)
+#   - trained models + state       -> trained_model_files / training_state_kv
+#     tables (see db_io.py's save_model_blob/load_model_blob,
+#     save_training_state/load_training_state)
+#   - one-step-back backup feature -> REMOVED. There is no backup/restore
+#     anymore; deleting the most recent upload is no longer undoable this
+#     way. (auto_train.py's snapshot_to_backup/restore_from_backup/
+#     clear_backup/backup_exists were deleted along with BACKUP_DIR etc.)
+#
+# These path constants are kept ONLY because a couple of function
+# signatures in preprocess.py still take a directory argument even
+# though (per its own comments) it no longer writes there. Do not add
+# any os.makedirs() calls back for these — if you find code that still
+# actually needs one of these folders to exist on disk, that's a sign
+# it hasn't finished migrating to MySQL yet, not a reason to recreate
+# the folder.
+PROCESSED_BY_YEAR_DIR = os.path.join(PROCESSED_DATASETS_DIR, 'by_year')
+
+# Auto-train (model retraining) is gated on how many individual SEMESTERS
+# currently have data — NOT distinct academic years. Uploads don't land
+# a clean 2-per-year, so counting distinct years (the old
+# MIN_YEARS_FOR_TRAINING gate) could fire training a semester early or
+# late depending on how uploads happened to spread across years. Below
+# this count, uploads still preprocess and save normally (so the
+# dashboard's Recent Data view stays current) but no model (re)training
+# runs — the trend-based models need multiple semesters of history to
+# mean anything. Once the threshold is reached, training runs on ALL
+# semesters accumulated so far and keeps growing from there (6, then 7,
+# then 8, ...) — it is NOT a rolling window that drops old semesters.
+# (Gate check itself now queries MySQL — see count_semesters_with_data()
+# in preprocess.py — this constant is unaffected.)
+MIN_SEMESTERS_FOR_TRAINING = 6
+
+# Model-specific CSVs — superseded by MySQL tables, see note above.
 MODEL_DATASETS_DIR = os.path.join(PROCESSED_DATASETS_DIR, 'model_datasets')
 
-# Master merged file (all years combined)
+# Master merged file — superseded by `SELECT * FROM student_data`.
 FINAL_MERGED_CSV = os.path.join(PROCESSED_DATASETS_DIR, 'Final_Merged_Student_Data.csv')
 
-# Trained model files (.pkl) + training_state.json live here.
-# Anchored to BASE_DIR for the same reason as the dataset folders above:
-# auto_train.py (writer) and ml_analysis.py (reader) must agree on one
-# physical folder no matter what directory the process is launched from.
+# Trained model files used to live here as .pkl + training_state.json.
+# REMOVED (2026-09-15): models are now stored as BLOBs in MySQL's
+# trained_model_files table and training_state.json's content now lives
+# in training_state_kv — see db_io.py. This constant is kept only in
+# case some other file still imports ML_MODEL_DIR; nothing should be
+# writing to it anymore and it is no longer auto-created.
 ML_MODEL_DIR = os.path.join(BASE_DIR, 'Machine_Learning_Model')
 
-# ── One-step-back backup snapshot (delete-most-recent-upload feature) ──
-# Right before a new semester file is merged into the shared master
-# CSV/models, auto_train.py copies the CURRENT ("Recent") state of the
-# master CSV, the long-form CSV, every model_datasets/*.csv, and every
-# trained .pkl + training_state.json into this folder, OVERWRITING
-# whatever backup was there before. This means there is only ever ONE
-# backup slot (the state right before the most recent upload) — deleting
-# the most recent upload restores this snapshot and then the slot is
-# empty again until the next upload creates a fresh one.
-BACKUP_DIR                 = os.path.join(BASE_DIR, 'Backup')
-BACKUP_MODEL_DATASETS_DIR  = os.path.join(BACKUP_DIR, 'model_datasets')
-BACKUP_ML_MODEL_DIR        = os.path.join(BACKUP_DIR, 'Machine_Learning_Model')
-BACKUP_FINAL_MERGED_CSV    = os.path.join(BACKUP_DIR, 'Final_Merged_Student_Data.csv')
-BACKUP_LONGFORM_CSV        = os.path.join(BACKUP_DIR, 'Final_LongForm_Student_Grades.csv')
+# ── One-step-back backup snapshot ──────────────────────────────
+# REMOVED (2026-09-15) — per your call, the whole "delete-most-recent-
+# upload restores a backup" feature is gone. There is no more Backup/
+# folder, no snapshot before merge, no restore path. If you want an
+# undo feature again later, it should be built on top of MySQL directly
+# (e.g. keep the previous semester_uploads row instead of a file
+# backup) rather than resurrecting this folder.
 
 # Soft-deleted upload records (Recently Deleted table) are permanently
 # purged after this many days.
@@ -113,7 +155,7 @@ DATASET_FILENAME_REGEX = re.compile(
 CAHS_ROLES = ['NurseDean', 'PHdean', 'MidwifeDeaan', 'CAHSdirector']
 
 ALLOWED_ROLES = [
-    'admin', 'Registrar', 'SASO', 'Academic_Affair',
+    'Academic_Affair', 'Registrar', 'SASO', 'MISO',
     *CAHS_ROLES, 'CBAdean', 'CCSTdean', 'CEAdean',
     'CoASdean', 'CTECdean',
 ]
@@ -123,7 +165,7 @@ ALLOWED_ROLES = [
 # the DB/session; this is only for displaying a role to a user (profile
 # pages, etc). Falls back to the raw code for anything not listed here.
 ROLE_DISPLAY_NAMES = {
-    'admin':           'Admin',
+    'MISO':           'MISO',
     'Registrar':       'Registrar',
     'SASO':            'SASO',
     'Academic_Affair': 'Academic Affair',
@@ -139,9 +181,14 @@ ROLE_DISPLAY_NAMES = {
 }
 
 # Roles that are allowed to upload grade-sheet datasets
-UPLOAD_ALLOWED_ROLES = {'Academic_Affair', 'admin'}
+UPLOAD_ALLOWED_ROLES = {'MISO', 'Academic_Affair'}
 
 # ── Auto-create folders on import ─────────────────────────────
-for _d in (UNPROCESSED_DATASETS_DIR, PROCESSED_DATASETS_DIR, MODEL_DATASETS_DIR, ML_MODEL_DIR,
-           BACKUP_DIR, BACKUP_MODEL_DATASETS_DIR, BACKUP_ML_MODEL_DIR):
+# ONLY the folders code actually still writes to at runtime. Everything
+# that moved to MySQL (by_year/, model_datasets/, Machine_Learning_Model/,
+# Backup/) was removed from this list on purpose — see the comments on
+# each constant above. UPLOAD_FOLDER (avatars) and UNPROCESSED_DATASETS_DIR
+# (raw .xlsx staging + duplicate-check source) are the only two things
+# still genuinely disk-based.
+for _d in (UPLOAD_FOLDER, UNPROCESSED_DATASETS_DIR):
     os.makedirs(_d, exist_ok=True)

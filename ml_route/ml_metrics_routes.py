@@ -19,12 +19,24 @@ this is purely a read layer on top of what auto_train.py already produces.
 
 ALGORITHM_MAP below is hand-built from auto_train.py's actual trainer
 bodies (not guessed from model.type) — see the "WHICH TRAINER FEEDS WHICH
-CHART" comment block near the top of that file for the source of truth:
-LinearRegression x14, RandomForestRegressor x6, RandomForestClassifier x1
-(irreg_reg — the ONLY classifier currently trained). Every model entry
-below carries a real "algorithm" field, so the frontend's
-classifyAlgorithm() in ml_eval.js uses it directly instead of falling
-back to guessing from `type`.
+CHART" comment block near the top of that file for the source of truth.
+Kept in sync with auto_train.py's Ridge swaps as of 2026-09-15
+(dropout_spike, inc_forecast, status_trend, subject_top all use Ridge
+now, not RandomForestRegressor). Every model entry below carries a real
+"algorithm" field, so the frontend's classifyAlgorithm() in ml_eval.js
+uses it directly instead of falling back to guessing from `type`.
+
+NOTE (fixed 2026-09-15): train_kpi's "enrollment" sub-target trains a
+Ridge model in log-space (see auto_train.py line ~914 — inside the
+enrollment block, not drop); its GWA and Drop sub-targets stay plain
+LinearRegression. This used to be a single "kpi": "LinearRegression"
+entry, which mislabeled the enrollment sub-model as Linear Regression
+everywhere downstream (model card, and the "Models by Algorithm Type"
+donut/bar in ml_eval.js — it undercounted Ridge by 1, e.g. showing 6
+instead of 7). ALGORITHM_MAP entries can now be either a plain string
+(one algorithm for the whole trainer) or a {sub_key: algorithm} dict
+for trainers whose sub-targets don't all share one algorithm — see
+_algorithm_for() below.
 
 Register in app.py the same way ml_bp/upload_bp/admin_bp already are:
     from ml_route.ml_metrics_routes import ml_diag_bp
@@ -38,8 +50,9 @@ import numpy as np
 import pandas as pd
 from flask import Blueprint, jsonify, request, session
 
-from configs.config import ML_MODEL_DIR, MODEL_DATASETS_DIR
+from configs.config import MODEL_DATASETS_DIR
 from ml_route import ml_analysis
+from util.db_io import load_training_state
 
 ml_diag_bp = Blueprint('ml_diagnostics', __name__)
 
@@ -52,16 +65,13 @@ def _require_login():
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in.'}), 401
 
-STATE_FILE = os.path.join(ML_MODEL_DIR, "training_state.json")
-
-
-# ── Load training_state.json ──────────────────────────────────────────────
+# ── Load training state ─────────────────────────────────────────────────
+# Used to read ML_MODEL_DIR/training_state.json off disk. Now reads the
+# same dict back from MySQL's training_state_kv table (auto_train.py's
+# _save_state() writes there — see db_io.py).
 def _load_state() -> dict:
-    if not os.path.exists(STATE_FILE):
-        return {}
     try:
-        with open(STATE_FILE) as f:
-            return json.load(f)
+        return load_training_state()
     except Exception:
         return {}
 
@@ -69,12 +79,15 @@ def _load_state() -> dict:
 # ── Ground-truth algorithm per trainer (see module docstring) ─────────────
 ALGORITHM_MAP = {
     "dropout_risk":              "LinearRegression",
-    "dropout_spike":             "RandomForestRegressor",
+    "dropout_spike":              "Ridge",
     "dropout_ranking":           "RandomForestRegressor",
     "gwa_ranking":                "LinearRegression",
     "gwa_trend":                  "LinearRegression",
+    "inc_forecast":               "Ridge",
     "irreg_reg":                  "RandomForestClassifier",
-    "kpi":                        "LinearRegression",
+    "status_trend":               "Ridge",
+    "kpi":                        {"gwa": "LinearRegression", "enrollment": "Ridge", "drop": "LinearRegression"},
+    "subject_top":                "Ridge",
     "gender_performance_male":   "RandomForestRegressor",
     "gender_performance_female": "RandomForestRegressor",
     "year_level_performance":    "LinearRegression",
@@ -96,6 +109,10 @@ DESCRIPTIONS = {
                  "Irregular-rate donut.",
     "kpi": "Three separate linear trend halves (GWA / Enrollment / Drop count) behind the "
            "dean-dashboard KPI tiles.",
+    "status_trend": "Irregular-rate and INC-rate trend per college — primary forecaster for the "
+                     "INC / Irregular / Drop Rate by Year Level chart, falls back to forecast_series().",
+    "subject_top": "Per-subject grade trend — primary forecaster for Top 5 Hardest Subjects, "
+                    "falls back to forecast_series() when the model hasn't seen that College/Course/Subject.",
     "gender_performance_male": "Male-only Dropout/INC rate trend — feeds the Male Retention "
                                 "Trend forecast.",
     "gender_performance_female": "Female-only Dropout/INC rate trend — feeds the Female Retention "
@@ -106,6 +123,19 @@ DESCRIPTIONS = {
 }
 
 _METRIC_KEYS = ("r2", "rmse", "mse", "mae", "accuracy", "f1")
+
+
+def _algorithm_for(trainer_name: str, sub_key: str = None) -> str:
+    """Resolve the real algorithm for a (trainer, sub_key) pair.
+    ALGORITHM_MAP entries are usually one string per trainer, but some
+    trainers (currently just kpi) fit sub-targets with different
+    algorithms, so their entry is a {sub_key: algorithm} dict instead —
+    this picks the right one so a mixed trainer's sub-models don't all
+    inherit one wrong label (see the kpi enrollment/Ridge note above)."""
+    entry = ALGORITHM_MAP.get(trainer_name, "Unknown")
+    if isinstance(entry, dict):
+        return entry.get(sub_key, "Unknown")
+    return entry
 
 
 def _make_entry(name: str, result: dict, algorithm: str, description: str) -> dict:
@@ -133,17 +163,20 @@ def _flatten_models(models_dict: dict) -> list:
     one flat list of individually-scored entries."""
     out = []
     for trainer_name, result in (models_dict or {}).items():
-        algo = ALGORITHM_MAP.get(trainer_name, "Unknown")
-        desc = DESCRIPTIONS.get(trainer_name, "")
+        if trainer_name not in DESCRIPTIONS:
+            continue  # not wired to any chart yet — keep it out of Model Performance & Accuracy
+        desc = DESCRIPTIONS[trainer_name]
         if not isinstance(result, dict):
             continue
         is_flat = "status" in result or any(k in result for k in _METRIC_KEYS)
         if is_flat:
+            algo = _algorithm_for(trainer_name)
             out.append(_make_entry(trainer_name, result, algo, desc))
         else:
             for sub_key, sub_result in result.items():
                 if not isinstance(sub_result, dict):
                     continue
+                algo = _algorithm_for(trainer_name, sub_key)
                 out.append(_make_entry(f"{trainer_name} ({sub_key})", sub_result, algo, desc))
     return out
 

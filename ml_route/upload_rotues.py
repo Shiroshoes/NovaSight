@@ -1,10 +1,7 @@
 import os
 import re
 import time
-import glob
 import threading
-import shutil
-from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify, session, render_template, current_app
 from werkzeug.utils import secure_filename
@@ -13,51 +10,35 @@ from database.models import db, AcadUser, UploadedDataset
 from configs.config import (
     UNPROCESSED_DATASETS_DIR,
     PROCESSED_DATASETS_DIR,
+    PROCESSED_BY_YEAR_DIR,
     MODEL_DATASETS_DIR,
     FINAL_MERGED_CSV,
     DATASET_ALLOWED_EXTENSIONS,
     DATASET_MAX_SIZE_MB,
     DATASET_FILENAME_REGEX,
     UPLOAD_ALLOWED_ROLES,
-    BACKUP_DIR,
-    BACKUP_MODEL_DATASETS_DIR,
-    BACKUP_ML_MODEL_DIR,
-    SOFT_DELETE_EXPIRY_DAYS,
+    MIN_SEMESTERS_FOR_TRAINING,
 )
 from training.auto_train import (
     run_full_pipeline, load_state, MODEL_DIR as ML_MODEL_DIR,
-    backup_exists, restore_from_backup,
 )
 
 upload_bp = Blueprint('upload_bp', __name__)
 
 
 # ── Auth gate ─────────────────────────────────────────────────────────────
-# CRITICAL FIX: /api/deleted-list, /api/failed-uploads, /api/upload-status,
-# /api/training-state, /api/model-performance, /api/unprocessed-list, and
-# /api/processed-list had NO session check at all — fully public, and
-# leaking uploader names and real server filesystem paths (raw_path/
-# processed_path) to anyone. This is a FLOOR requirement (must be logged
-# in) that sits underneath the stricter per-route role checks other routes
-# in this file already have (e.g. UPLOAD_ALLOWED_ROLES for uploading/
-# deleting) — those still run as before, just with this baseline added
-# under everything.
+# CRITICAL FIX: /api/failed-uploads, /api/upload-status, /api/training-state,
+# /api/model-performance, /api/unprocessed-list, and /api/processed-list had
+# NO session check at all — fully public, and leaking uploader names and
+# real server filesystem paths (raw_path/processed_path) to anyone. This is
+# a FLOOR requirement (must be logged in) that sits underneath the stricter
+# per-route role checks other routes in this file already have (e.g.
+# UPLOAD_ALLOWED_ROLES for uploading) — those still run as before, just
+# with this baseline added under everything.
 @upload_bp.before_request
 def _require_login():
     if 'user_id' not in session:
         return jsonify({'ok': False, 'error': 'Not logged in.'}), 401
-
-# ─────────────────────────────────────────────────────────────
-# CANCELLATION SIGNALLING
-# ─────────────────────────────────────────────────────────────
-# run_full_pipeline() is a single long blocking call (merge + train every
-# model) with no internal checkpoints to interrupt mid-flight, so "Cancel"
-# can't stop it instantly — it flags the record here, and _background_train
-# checks the flag the moment the pipeline call returns, then rolls back and
-# discards the result instead of ever marking the record 'done'. In
-# practice this means Cancel takes effect as soon as the current
-# preprocessing/training pass finishes, not mid-step.
-_CANCEL_REQUESTED = set()
 
 
 # ─────────────────────────────────────────────────────────────
@@ -121,8 +102,9 @@ def _safe_stored_name(user_id: int, original: str) -> str:
 
 def _canonical_name(filename: str) -> str:
     """
-    Return a normalised canonical name used for duplicate detection.
-    Spaces and underscores are treated as equivalent.
+    Return a normalised name used for duplicate detection ONLY (no file by
+    this name is ever written to disk). Spaces and underscores are treated
+    as equivalent.
     e.g. '2022-1 Student-Performance Dataset.xlsx'
       →  '2022-1_Student-Performance_Dataset.xlsx'
     """
@@ -134,17 +116,19 @@ def _canonical_name(filename: str) -> str:
 # ─────────────────────────────────────────────────────────────
 
 def _wipe_record_files(record) -> None:
-    """Remove a record's raw upload + its canonical duplicate-check copy.
-    Used for both failed-upload cleanup and cancel/permanent-delete."""
-    canonical_path = os.path.join(
-        UNPROCESSED_DATASETS_DIR, _canonical_name(record.original_filename)
-    )
-    for stale_path in (record.raw_path, canonical_path):
-        if stale_path and os.path.exists(stale_path):
-            try:
-                os.remove(stale_path)
-            except OSError as cleanup_err:
-                print(f"[upload_routes] file cleanup warning: {cleanup_err}")
+    """Remove a record's raw upload file from Unprocessed_Datasets/.
+    Used for both failed-upload cleanup and cancel/permanent-delete.
+
+    Unprocessed_Datasets/ holds exactly one file per upload (the original
+    file itself, saved under its collision-safe stored name) — there is no
+    separate canonical-name duplicate-marker copy to clean up alongside it
+    (duplicate detection is done against the database, see
+    api_upload_dataset())."""
+    if record.raw_path and os.path.exists(record.raw_path):
+        try:
+            os.remove(record.raw_path)
+        except OSError as cleanup_err:
+            print(f"[upload_routes] file cleanup warning: {cleanup_err}")
 
 
 def _reload_ml_models():
@@ -159,9 +143,8 @@ def _background_train(app, record_id: int, raw_path: str):
     """
     Background thread:
       1. Run full preprocessing + model retraining pipeline
-      2. Update DB record on completion, OR roll back + discard the
-         record entirely if it was cancelled while this was running
-         (see _CANCEL_REQUESTED above).
+      2. Update DB record on completion, or mark it 'failed' if the
+         pipeline raised or returned no usable row count.
     """
     with app.app_context():
         record = UploadedDataset.query.get(record_id)
@@ -174,35 +157,108 @@ def _background_train(app, record_id: int, raw_path: str):
         try:
             state = run_full_pipeline(new_file=raw_path)
 
-            # ── Cancelled while the pipeline was running ────────────
-            # A snapshot of the PRE-upload state was taken at the start
-            # of run_full_pipeline(), so restoring now discards
-            # everything this upload just merged/(re)trained and puts
-            # the shared data/models back exactly how they were before
-            # this file was ever picked up.
-            if record_id in _CANCEL_REQUESTED:
-                _CANCEL_REQUESTED.discard(record_id)
-                restore_from_backup()
-                _wipe_record_files(record)
-                db.session.delete(record)
+            # ── Did the pipeline actually succeed? ──────────────────
+            # run_full_pipeline() can return EARLY — e.g. process_file()
+            # extracted 0 rows from the sheet, or any other "preprocess"
+            # step exception — without ever setting rows_in_file /
+            # rows_in_master. That used to fall straight through to the
+            # 'done' branch below with row_count=None: the upload was
+            # reported as successful with a silently-null row count,
+            # even though nothing was actually written to disk or MySQL.
+            #
+            # FIX (2026-09-15): treating ANY non-empty state['errors'] as
+            # a full failure over-corrected that — it also discarded
+            # row_count for uploads whose OWN preprocessing (Step 1)
+            # genuinely succeeded (rows_in_file/rows_in_master IS in
+            # state) but a later, non-fatal step errored (e.g.
+            # export_model_datasets' try/except in run_full_pipeline,
+            # which logs and continues rather than aborting). Those
+            # uploads were being marked 'failed' with row_count stuck
+            # null even though this file's data was safely saved. The
+            # real signal for "nothing to report" is row_count itself
+            # being unavailable, not merely state['errors'] being
+            # non-empty.
+            row_count = state.get('rows_in_master') or state.get('rows_in_file')
+
+            if state.get('errors') and row_count is None:
+                error_message = "; ".join(
+                    f"[{e.get('step', '?')}] {e.get('error', 'unknown error')}"
+                    for e in state['errors']
+                )
+                record.status        = 'failed'
+                record.error_message = error_message
                 db.session.commit()
+                print(f"[upload_routes] Upload {record_id} failed during pipeline: {error_message}")
+
+                _wipe_record_files(record)
                 _reload_ml_models()
-                print(f"[upload_routes] Upload {record_id} cancelled — rolled back to backup.")
                 return
 
-            row_count  = state.get('rows_in_master')
-            label      = (record.academic_year or '').replace('-', '_')
+            # This upload's own standalone semester folder — never
+            # combined with any other semester, including another
+            # semester of the same academic year (see
+            # preprocess.write_semester_folder).
+            # rows_in_file = just this upload's own row count (always
+            # set by Step 1). rows_in_master only exists once training has
+            # actually run (semesters_collected >= MIN_SEMESTERS_FOR_TRAINING) and
+            # the shared master CSV was regenerated from all semesters.
             sem_csv    = os.path.join(
-                PROCESSED_DATASETS_DIR,
-                f"{label}_{record.semester}_cleaned.csv"
+                PROCESSED_BY_YEAR_DIR,
+                f"{record.academic_year or ''}_{record.semester or ''}",
+                'Student_Data.csv'
             )
             proc_path  = sem_csv if os.path.exists(sem_csv) else FINAL_MERGED_CSV
 
             record.processed      = True
             record.status         = 'done'
             record.processed_path = proc_path
-            record.row_count      = row_count
+            # FIX (2026-09-15): this used to reuse `row_count` from the
+            # signal-check above, which prefers rows_in_master — the
+            # GRAND TOTAL of students across every semester combined, only
+            # populated once the MIN_SEMESTERS_FOR_TRAINING gate is passed.
+            # That made every record's displayed row_count balloon to
+            # the whole dataset's size instead of showing what THIS
+            # upload actually contributed, and made it look like row
+            # counts kept "multiplying" on every later upload even
+            # though nothing was duplicated — it was just the running
+            # total. Always show this upload's own file count here;
+            # rows_in_master belongs on dashboard-wide totals, not a
+            # single upload's row.
+            record.row_count      = state.get('rows_in_file') or row_count
+
+            # Surface a non-fatal error (e.g. export_datasets/training
+            # step) even though this upload is still marked 'done' —
+            # this file's own data is safe, but something downstream of
+            # it (model_datasets refresh, a trainer) needs attention.
+            if state.get('errors'):
+                record.error_message = "; ".join(
+                    f"[{e.get('step', '?')}] {e.get('error', 'unknown error')}"
+                    for e in state['errors']
+                )
+                print(f"[upload_routes] Upload {record_id} done with non-fatal errors: {record.error_message}")
+
             db.session.commit()
+
+            # Unprocessed_Datasets/ is temp staging only — the raw file's
+            # data now lives safely in its semester folder / MySQL, so the
+            # original upload no longer needs to sit on disk. Previously
+            # _wipe_record_files() only ran on the failure path (below) and
+            # on cancel/delete, so a SUCCESSFUL upload's raw file was never
+            # cleaned up and just accumulated in Unprocessed_Datasets/
+            # forever.
+            _wipe_record_files(record)
+
+            # Model (re)training only actually runs once MIN_SEMESTERS_FOR_TRAINING
+            # semesters have data — see run_full_pipeline()'s gate in
+            # auto_train.py. Either way this upload's own data is
+            # saved and 'done'; state['training_status'] just tells the caller
+            # whether training happened this time.
+            if state.get('training_status') == 'waiting_for_more_semesters':
+                print(
+                    f"[upload_routes] Upload {record_id} saved to {record.academic_year}. "
+                    f"Training on hold: {state.get('semesters_collected', 0)}/"
+                    f"{MIN_SEMESTERS_FOR_TRAINING} semesters collected."
+                )
 
             # Hot-reload ML models so the dashboard reflects the new PKLs
             # immediately without requiring a Flask restart.
@@ -216,27 +272,15 @@ def _background_train(app, record_id: int, raw_path: str):
             traceback.print_exc()
 
             # ── Clean up the physical files ─────────────────────
-            # The duplicate check only looks at whether a canonical-name
-            # copy exists on disk. If we left that copy sitting in
-            # Unprocessed_Datasets/ after a failed run, re-uploading the
-            # exact same filename would be rejected as a "duplicate"
-            # forever, even though nothing ever succeeded. Remove both
-            # the raw upload and its canonical copy so a reupload of the
-            # same filename is accepted right away. The DB record itself
-            # is kept (status='failed') only long enough to drive the
-            # "file failed to process" floating notice on the frontend —
-            # see /api/upload-record/<id> for how it's removed for good.
+            # The duplicate check queries the database (see
+            # api_upload_dataset()), not the filesystem, so as soon as this
+            # failed record is deleted below (or via /api/upload-record/<id>)
+            # a reupload of the same filename is accepted right away. Remove
+            # the raw upload file now regardless. The DB record itself is
+            # kept (status='failed') only long enough to drive the "file
+            # failed to process" floating notice on the frontend — see
+            # /api/upload-record/<id> for how it's removed for good.
             _wipe_record_files(record)
-
-            # run_full_pipeline() snapshots the pre-upload state before
-            # touching anything, so if it failed partway through (e.g.
-            # merge succeeded but a later model failed to train), the
-            # master CSV / model_datasets / .pkl files could be left in a
-            # half-updated state. Restoring here guarantees the shared
-            # data always lands back on a known-good, fully-trained state
-            # instead of a partially-merged one. No-op if nothing was
-            # actually touched yet (backup_exists() is False).
-            restore_from_backup()
             _reload_ml_models()
 
 
@@ -312,35 +356,43 @@ def api_upload_dataset():
     finally:
         f.seek(0)  # rewind regardless of outcome — f.save() below needs this
 
-    # ── Duplicate check (canonical name in Unprocessed_Datasets/) ──
+    # ── Duplicate check (database, NOT a marker file on disk) ──
+    # Unprocessed_Datasets/ holds only the one raw file per successful
+    # upload — no second canonical-name copy is written just to support
+    # this check. Space/underscore variants of the same filename are
+    # still treated as the same dataset (e.g. '2022-1 ... .xlsx' and
+    # '2022-1_...xlsx' both match), so the check compares against every
+    # non-deleted record's filename in its canonical form.
     canonical = _canonical_name(f.filename)
-    orig_path = os.path.join(UNPROCESSED_DATASETS_DIR, canonical)
+    dup = UploadedDataset.query.filter(
+        UploadedDataset.is_deleted.is_(False)
+    ).filter(
+        db.func.replace(UploadedDataset.original_filename, ' ', '_') == canonical
+    ).first()
 
-    if os.path.exists(orig_path):
-        dup = UploadedDataset.query.filter(
-            UploadedDataset.original_filename.in_([f.filename, canonical])
-        ).first()
+    if dup:
         return jsonify({
             'ok'       : False,
             'duplicate': True,
             'error'    : (
                 f"<strong>'{f.filename}'</strong> has already been uploaded"
-                + (
-                    f" by <strong>{dup.uploader.username}</strong>"
-                    f" on {dup.uploaded_at.strftime('%b %d, %Y')}"
-                    if dup else ''
-                )
-                + ".<br>If this is a different dataset please rename the file and re-upload."
+                f" by <strong>{dup.uploader.username}</strong>"
+                f" on {dup.uploaded_at.strftime('%b %d, %Y')}"
+                ".<br>If this is a different dataset please rename the file and re-upload."
             ),
         }), 409
 
     # ── Save raw file ─────────────────────────────────────────
+    # Exactly one file lands in Unprocessed_Datasets/ per upload — the
+    # original file itself, under a collision-safe stored name.
     stored_name = _safe_stored_name(user.acaduser_id, f.filename)
     raw_path    = os.path.join(UNPROCESSED_DATASETS_DIR, stored_name)
+    # Defensive: OneDrive (or manual deletion) can remove this folder out
+    # from under a running process even though config.py creates it on
+    # import — re-ensure it exists right before every save instead of
+    # trusting the one-time startup makedirs().
+    os.makedirs(UNPROCESSED_DATASETS_DIR, exist_ok=True)
     f.save(raw_path)
-
-    # Keep a canonical-name copy for future duplicate checks
-    shutil.copy2(raw_path, orig_path)
 
     year, semester = _parse_filename_meta(f.filename)
     size_kb = round(size_bytes / 1024, 1)
@@ -348,7 +400,6 @@ def api_upload_dataset():
     # ── Create DB record ──────────────────────────────────────
     record = UploadedDataset(
         original_filename = f.filename,
-        stored_filename   = stored_name,
         raw_path          = raw_path,
         status            = 'pending',
         uploaded_by       = user.acaduser_id,
@@ -358,7 +409,16 @@ def api_upload_dataset():
         sheet_count       = sheet_count,
     )
     db.session.add(record)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        if os.path.exists(raw_path):
+            os.remove(raw_path)
+        return jsonify({
+            'ok': False,
+            'error': f"Could not save upload record: {exc}",
+        }), 500
 
     # ── Launch background training ────────────────────────────
     app    = current_app._get_current_object()
@@ -382,11 +442,10 @@ def api_upload_dataset():
 @upload_bp.route('/api/upload-record/<int:record_id>', methods=['DELETE'])
 def api_delete_upload_record(record_id: int):
     """
-    Permanently remove an upload record — used by the 'Remove' button on
-    the failed-upload floating card. Only 'failed' or still-'pending'
-    records may be removed this way; anything mid-flight ('processing')
-    or already 'done' should go through the reset-all-data flow instead,
-    not be silently deleted one row at a time.
+    Permanently remove a 'failed' or still-'pending' upload record —
+    used by the Remove/Reupload buttons on the failed-upload floating
+    card, so a failed filename doesn't stay blocked as a duplicate
+    forever. Not the soft-delete/backup feature — that's been removed.
     """
     user = _current_user()
     if not user:
@@ -404,275 +463,73 @@ def api_delete_upload_record(record_id: int):
             'error': f"Cannot remove a record with status '{record.status}'.",
         }), 400
 
-    # Belt-and-suspenders: the failure handler already deletes these, but
-    # clear any leftover files in case this record failed before that
-    # cleanup existed, or is still 'pending'.
-    canonical_path = os.path.join(
-        UNPROCESSED_DATASETS_DIR, _canonical_name(record.original_filename)
-    )
-    for stale_path in (record.raw_path, canonical_path):
-        if stale_path and os.path.exists(stale_path):
-            try:
-                os.remove(stale_path)
-            except OSError as cleanup_err:
-                print(f"[upload_routes] remove-record cleanup warning: {cleanup_err}")
-
+    _wipe_record_files(record)
     db.session.delete(record)
     db.session.commit()
 
     return jsonify({'ok': True, 'message': 'Upload record removed.'})
 
 
-def _most_recent_deletable_id():
+@upload_bp.route('/api/reset-database', methods=['POST'])
+def api_reset_database():
     """
-    ID of the ONE upload record that's currently eligible for the
-    "Delete" action — the most recent successfully-'done', non-deleted
-    record — but ONLY if a one-step-back backup is actually available to
-    restore. Only ever one semester can be deleted at a time: once its
-    backup is spent (by a delete or a cancel), nothing is deletable again
-    until the next upload creates a fresh backup.
-    """
-    if not backup_exists():
-        return None
-    latest = (
-        UploadedDataset.query
-        .filter_by(status='done', is_deleted=False)
-        .order_by(UploadedDataset.uploaded_at.desc())
-        .first()
-    )
-    return latest.id if latest else None
+    Wipes EVERY uploaded dataset, derived model-dataset table, trained
+    .pkl model, and training_state — for clearing demo/seed data before
+    a real deploy, so nobody sees leftover charts on first login.
 
+    Admin-only, and requires the request body to include
+    {"confirm": "RESET"} — a raw button click isn't enough for something
+    this destructive and irreversible.
 
-@upload_bp.route('/api/cancel-upload/<int:record_id>', methods=['POST'])
-def api_cancel_upload(record_id: int):
-    """
-    Cancel an upload that's still 'pending' or 'processing'. If the
-    background pipeline is already running, this only flags it — see
-    _CANCEL_REQUESTED above for why an instant kill isn't possible — and
-    _background_train rolls back to the pre-upload backup and discards
-    the record entirely as soon as the current pipeline run finishes.
-    If it's still 'pending' (thread hasn't started meaningful work yet),
-    it's discarded immediately.
+    Also clears the in-memory ml_route.ml_analysis caches (df_full_loaded
+    + every loaded .pkl) afterward — without this, the running process
+    keeps serving the just-deleted data until the server restarts, since
+    those are plain Python globals, not re-read from MySQL per request.
     """
     user = _current_user()
     if not user:
         return jsonify({'ok': False, 'error': 'Not logged in.'}), 401
-    if user.role not in UPLOAD_ALLOWED_ROLES:
-        return jsonify({'ok': False, 'error': 'Your role is not permitted to modify uploads.'}), 403
+    role = str(getattr(user, 'role', '') or '').strip().lower().replace(' ', '_').replace('-', '_')
+    if role != 'academic_affair':
+        return jsonify({'ok': False, 'error': f'Admin role required. (your role: {role or "none"})'}), 403
 
-    record = UploadedDataset.query.get(record_id)
-    if not record:
-        return jsonify({'ok': False, 'error': 'Record not found.'}), 404
+    body = request.get_json(silent=True) or {}
+    if body.get('confirm') != 'RESET':
+        return jsonify({'ok': False, 'error': 'Send {"confirm": "RESET"} to proceed.'}), 400
 
-    if record.status not in ('pending', 'processing'):
-        return jsonify({
-            'ok': False,
-            'error': f"Cannot cancel a record with status '{record.status}'.",
-        }), 400
-
-    if record.status == 'processing':
-        # Flag it — _background_train will roll back and clean up once
-        # the in-flight pipeline call returns.
-        _CANCEL_REQUESTED.add(record_id)
-        return jsonify({
-            'ok': True,
-            'message': 'Cancelling — finishing the current processing step, then rolling back.',
-            'immediate': False,
-        })
-
-    # 'pending' — nothing meaningful has started yet, discard right away.
-    _wipe_record_files(record)
-    db.session.delete(record)
-    db.session.commit()
-    return jsonify({'ok': True, 'message': 'Upload cancelled.', 'immediate': True})
-
-
-@upload_bp.route('/api/delete-recent-upload/<int:record_id>', methods=['DELETE'])
-def api_delete_recent_upload(record_id: int):
-    """
-    Soft-delete the single most recent successful upload and roll the
-    shared master CSV / long-form CSV / model_datasets CSVs / trained
-    .pkl files back to the one-step-back backup taken right before this
-    upload was merged in.
-
-    Only the record returned by _most_recent_deletable_id() may be
-    deleted this way — i.e. only the latest 'done' upload, and only
-    while its backup is still available. Once used, the backup slot is
-    empty again until another upload refills it, so a second delete
-    attempt right after this one will correctly report nothing left to
-    delete.
-    """
-    user = _current_user()
-    if not user:
-        return jsonify({'ok': False, 'error': 'Not logged in.'}), 401
-    if user.role not in UPLOAD_ALLOWED_ROLES:
-        return jsonify({'ok': False, 'error': 'Your role is not permitted to modify uploads.'}), 403
-
-    record = UploadedDataset.query.get(record_id)
-    if not record:
-        return jsonify({'ok': False, 'error': 'Record not found.'}), 404
-
-    deletable_id = _most_recent_deletable_id()
-    if deletable_id != record_id:
-        return jsonify({
-            'ok': False,
-            'error': (
-                'Only the most recently uploaded semester can be deleted, '
-                'and only while its backup is still available. Upload a '
-                'new semester first to create a fresh backup.'
-            ),
-        }), 400
-
-    if not restore_from_backup():
-        return jsonify({'ok': False, 'error': 'No backup available to restore.'}), 400
-
-    # Duplicate-checker copy must go too, or re-uploading this exact
-    # filename later would be wrongly rejected as a duplicate.
-    canonical_path = os.path.join(
-        UNPROCESSED_DATASETS_DIR, _canonical_name(record.original_filename)
-    )
-    if os.path.exists(canonical_path):
-        try:
-            os.remove(canonical_path)
-        except OSError as cleanup_err:
-            print(f"[upload_routes] delete-recent cleanup warning: {cleanup_err}")
-
-    record.is_deleted = True
-    record.deleted_at = datetime.utcnow()
-    db.session.commit()
-
-    _reload_ml_models()
-
-    return jsonify({
-        'ok': True,
-        'message': (
-            f"'{record.original_filename}' deleted. The dashboard and models "
-            "have been rolled back to the previous semester's state."
-        ),
-    })
-
-
-def _purge_expired_deleted():
-    """
-    Lazy sweep: permanently remove any soft-deleted record whose 30-day
-    expiry has passed, and its raw/canonical files. Called at the top of
-    /api/deleted-list since this app has no cron/scheduler — the trash
-    list is the natural place to check on every view.
-    """
-    cutoff = datetime.utcnow() - timedelta(days=SOFT_DELETE_EXPIRY_DAYS)
-    expired = (
-        UploadedDataset.query
-        .filter(UploadedDataset.is_deleted.is_(True))
-        .filter(UploadedDataset.deleted_at.isnot(None))
-        .filter(UploadedDataset.deleted_at < cutoff)
-        .all()
-    )
-    for record in expired:
-        _wipe_record_files(record)
-        db.session.delete(record)
-    if expired:
+    try:
+        # 1. Uploaded-record rows (ORM table, not in db_io.RESET_TABLES).
+        UploadedDataset.query.delete()
         db.session.commit()
 
+        # 2. Every MySQL table holding uploaded/derived data + trained
+        #    models + training_state.
+        from util.db_io import reset_all_data
+        reset_all_data()
 
-@upload_bp.route('/api/deleted-list')
-def api_deleted_list():
-    """Soft-deleted upload records ('Recently Deleted' trash table), each
-    with days_remaining before the 30-day expiry auto-purges it."""
-    _purge_expired_deleted()
+        # 3. Files on disk — same dirs api_upload_dataset() writes into.
+        import shutil
+        for dir_path in (UNPROCESSED_DATASETS_DIR, PROCESSED_DATASETS_DIR,
+                          PROCESSED_BY_YEAR_DIR, MODEL_DATASETS_DIR):
+            if dir_path and os.path.isdir(dir_path):
+                for name in os.listdir(dir_path):
+                    full = os.path.join(dir_path, name)
+                    try:
+                        shutil.rmtree(full) if os.path.isdir(full) else os.remove(full)
+                    except OSError as cleanup_err:
+                        print(f"[reset-database] file cleanup warning: {cleanup_err}")
+        if FINAL_MERGED_CSV and os.path.exists(FINAL_MERGED_CSV):
+            os.remove(FINAL_MERGED_CSV)
 
-    records = (
-        UploadedDataset.query
-        .filter_by(is_deleted=True)
-        .order_by(UploadedDataset.deleted_at.desc())
-        .all()
-    )
+        # 4. Drop the in-memory cache LAST, once everything backing it is
+        #    actually gone, so a request racing this one can't reload
+        #    from a half-cleared database.
+        _reload_ml_models()
 
-    out = []
-    for r in records:
-        d = r.to_dict()
-        if r.deleted_at:
-            expires_at = r.deleted_at + timedelta(days=SOFT_DELETE_EXPIRY_DAYS)
-            days_left  = max(0, (expires_at - datetime.utcnow()).days)
-        else:
-            days_left = SOFT_DELETE_EXPIRY_DAYS
-        d['days_remaining'] = days_left
-        out.append(d)
-
-    return jsonify(out)
-
-
-@upload_bp.route('/api/restore-deleted/<int:record_id>', methods=['POST'])
-def api_restore_deleted(record_id: int):
-    """
-    Restore a soft-deleted upload from the trash table. The one-step-back
-    backup was already spent when this record was deleted, so "restore"
-    means re-running the pipeline on the original raw .xlsx file (still
-    sitting in Unprocessed_Datasets/, since soft-delete only removes the
-    canonical duplicate-check copy) — same path a fresh upload takes.
-    """
-    user = _current_user()
-    if not user:
-        return jsonify({'ok': False, 'error': 'Not logged in.'}), 401
-    if user.role not in UPLOAD_ALLOWED_ROLES:
-        return jsonify({'ok': False, 'error': 'Your role is not permitted to modify uploads.'}), 403
-
-    record = UploadedDataset.query.get(record_id)
-    if not record or not record.is_deleted:
-        return jsonify({'ok': False, 'error': 'Deleted record not found.'}), 404
-
-    if not record.raw_path or not os.path.exists(record.raw_path):
-        return jsonify({
-            'ok': False,
-            'error': 'The original file for this upload is no longer on disk and cannot be restored.',
-        }), 400
-
-    # Re-create the canonical duplicate-check copy so future uploads of
-    # this filename are correctly blocked again once restored.
-    canonical_path = os.path.join(
-        UNPROCESSED_DATASETS_DIR, _canonical_name(record.original_filename)
-    )
-    if not os.path.exists(canonical_path):
-        shutil.copy2(record.raw_path, canonical_path)
-
-    record.is_deleted   = False
-    record.deleted_at   = None
-    record.status       = 'pending'
-    record.processed    = False
-    record.error_message = None
-    db.session.commit()
-
-    app    = current_app._get_current_object()
-    thread = threading.Thread(
-        target=_background_train,
-        args=(app, record.id, record.raw_path),
-        daemon=True,
-    )
-    thread.start()
-
-    return jsonify({
-        'ok': True,
-        'message': f"Restoring '{record.original_filename}' — reprocessing has started in the background.",
-    }), 202
-
-
-@upload_bp.route('/api/permanently-delete/<int:record_id>', methods=['DELETE'])
-def api_permanently_delete(record_id: int):
-    """Hard-delete a soft-deleted record ahead of its 30-day expiry."""
-    user = _current_user()
-    if not user:
-        return jsonify({'ok': False, 'error': 'Not logged in.'}), 401
-    if user.role not in UPLOAD_ALLOWED_ROLES:
-        return jsonify({'ok': False, 'error': 'Your role is not permitted to modify uploads.'}), 403
-
-    record = UploadedDataset.query.get(record_id)
-    if not record or not record.is_deleted:
-        return jsonify({'ok': False, 'error': 'Deleted record not found.'}), 404
-
-    _wipe_record_files(record)
-    db.session.delete(record)
-    db.session.commit()
-
-    return jsonify({'ok': True, 'message': 'Upload permanently deleted.'})
+        return jsonify({'ok': True, 'message': 'Database reset. All uploads, models, and training state cleared.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @upload_bp.route('/api/failed-uploads')
@@ -956,144 +813,22 @@ def api_processed_list():
         .all()
     )
 
-    deletable_id = _most_recent_deletable_id()
-
-    # Model dataset files on disk — Recent (current MODEL_DATASETS_DIR) and,
-    # if a one-step-back backup exists, the Backup set too, each tagged via
-    # the Status column so the two are never confused for duplicates.
-    model_files  = _list_model_files(MODEL_DATASETS_DIR, 'Recent')
-    model_files += _list_model_files(BACKUP_MODEL_DATASETS_DIR, 'Backup')
+    # Model dataset files currently on disk.
+    model_files = _list_model_files(MODEL_DATASETS_DIR, 'Recent')
 
     state   = load_state()
     horizon = state.get('horizon', {})
 
-    records_out = []
-    for r in records:
-        d = r.to_dict()
-        d['is_most_recent_deletable'] = (r.id == deletable_id)
-        records_out.append(d)
+    records_out = [r.to_dict() for r in records]
 
     return jsonify({
         'uploaded_records'  : records_out,
         'model_files'       : model_files,
         'merged_csv_exists' : os.path.exists(FINAL_MERGED_CSV),
         'horizon'           : horizon,
-        'backup_available'  : deletable_id is not None,
-    })
-
-
-# ─────────────────────────────────────────────────────────────
-# RESET / CLEAR ALL DATA
-# ─────────────────────────────────────────────────────────────
-#
-# Everything the training pipeline produces lives in a handful of
-# SHARED, app-wide files/tables — Final_Merged_Student_Data.csv,
-# Final_LongForm_Student_Grades.csv, the model_datasets/*.csv exports,
-# every trained .pkl in ML_MODEL_DIR, training_state.json, and the
-# UploadedDataset rows — none of it is scoped per user. That's why a
-# fresh account can see populated charts / a trained Model Eval card
-# despite never having uploaded anything themselves: whoever uploaded
-# first left data sitting in these shared files, and everyone reads
-# the same copy. This route wipes all of it back to a clean slate.
-
-def _delete_files_in(dir_path: str, patterns=('*',)) -> list[str]:
-    """Delete files (not subdirectories) directly inside dir_path matching
-    any of `patterns`. Returns the list of deleted paths. Safe no-op if
-    dir_path doesn't exist."""
-    deleted = []
-    if not dir_path or not os.path.isdir(dir_path):
-        return deleted
-    for pattern in patterns:
-        for fpath in glob.glob(os.path.join(dir_path, pattern)):
-            if os.path.isfile(fpath):
-                try:
-                    os.remove(fpath)
-                    deleted.append(fpath)
-                except OSError as e:
-                    print(f"[upload_routes] reset: failed to delete {fpath}: {e}")
-    return deleted
-
-
-@upload_bp.route('/api/reset-all-data', methods=['POST'])
-def api_reset_all_data():
-    """
-    Wipes the shared master dataset, every trained model, and the
-    upload history — back to the exact 'no model has been trained yet'
-    state a brand-new install starts in. This is destructive and
-    affects EVERY user of the app, not just the caller, since none of
-    the underlying storage is per-user.
-
-    Requires:
-      - an authenticated user whose role is in UPLOAD_ALLOWED_ROLES
-        (same permission gate as uploading — tighten this to a
-        dedicated 'admin' role if/when one exists)
-      - a JSON body of {"confirm": "RESET"} as a deliberate
-        speed-bump against an accidental call (e.g. a stray button
-        click or a retried request)
-    """
-    user = _current_user()
-    if not user:
-        return jsonify({'ok': False, 'error': 'Not logged in.'}), 401
-    if user.role not in UPLOAD_ALLOWED_ROLES:
-        return jsonify({'ok': False, 'error': 'Your role is not permitted to reset data.'}), 403
-
-    body = request.get_json(silent=True) or {}
-    if body.get('confirm') != 'RESET':
-        return jsonify({
-            'ok': False,
-            'error': 'Destructive action. Resend with JSON body {"confirm": "RESET"} to proceed.',
-        }), 400
-
-    deleted = {
-        'model_artifacts'   : _delete_files_in(ML_MODEL_DIR, ('*.pkl', '*.json')),
-        'model_datasets'    : _delete_files_in(MODEL_DATASETS_DIR, ('*.csv',)),
-        'master_csvs'       : [],
-        'raw_uploads'       : _delete_files_in(UNPROCESSED_DATASETS_DIR, ('*',)),
-        'processed_csvs'    : _delete_files_in(PROCESSED_DATASETS_DIR, ('*.csv',)),
-        # The one-step-back backup snapshot is meaningless once everything
-        # it would restore has itself been wiped — clear it too so a
-        # post-reset "Delete" click can't try to restore stale data.
-        'backup_model_datasets' : _delete_files_in(BACKUP_MODEL_DATASETS_DIR, ('*.csv',)),
-        'backup_model_artifacts': _delete_files_in(BACKUP_ML_MODEL_DIR, ('*.pkl', '*.json')),
-        'backup_master_csvs'    : _delete_files_in(
-            BACKUP_DIR, ('Final_Merged_Student_Data.csv', 'Final_LongForm_Student_Grades.csv')
-        ),
-    }
-
-    # FINAL_MERGED_CSV and the long-form CSV live in PROCESSED_DATASETS_DIR
-    # too, so the glob above already caught them — but call out explicitly
-    # for the response in case that path ever changes.
-    long_form_csv = os.path.join(PROCESSED_DATASETS_DIR, 'Final_LongForm_Student_Grades.csv')
-    for p in (FINAL_MERGED_CSV, long_form_csv):
-        if p not in deleted['processed_csvs'] and os.path.exists(p):
-            try:
-                os.remove(p)
-                deleted['master_csvs'].append(p)
-            except OSError as e:
-                print(f"[upload_routes] reset: failed to delete {p}: {e}")
-
-    # Clear upload history (DB) so the audit trail matches reality.
-    deleted_records = UploadedDataset.query.delete()
-    db.session.commit()
-
-    # Hot-reload the in-memory ML models so dashboards/model-eval stop
-    # serving stale predictions from before the reset, same mechanism
-    # used after a normal upload finishes training.
-    try:
-        from ml_route.ml_analysis import reload_models
-        reload_models()
-    except Exception as _re:
-        print(f"[upload_routes] reset: reload_models warning: {_re}")
-
-    total_files_deleted = sum(len(v) for v in deleted.values() if isinstance(v, list))
-
-    return jsonify({
-        'ok': True,
-        'message': (
-            f"Reset complete. Deleted {total_files_deleted} file(s) and "
-            f"{deleted_records} upload record(s). The dashboard and Model "
-            "Eval will show 'no data' until the next upload."
-        ),
-        'deleted': deleted,
-        'deleted_records': deleted_records,
+        # Auto-train gate: models don't (re)train until this many
+        # semesters have data — see run_full_pipeline() in auto_train.py.
+        'semesters_collected': state.get('semesters_collected', 0),
+        'semesters_needed'   : MIN_SEMESTERS_FOR_TRAINING,
+        'training_status'   : state.get('training_status'),
     })

@@ -1,5 +1,6 @@
 import os
 import re
+import io
 import json
 import time
 import shutil
@@ -11,9 +12,9 @@ import pandas as pd
 import numpy as np
 import joblib
 
-from sklearn.linear_model    import LinearRegression
+from sklearn.linear_model    import LinearRegression, Ridge
 from sklearn.ensemble        import RandomForestRegressor, RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.metrics         import (
     r2_score, mean_squared_error, mean_absolute_error,
     accuracy_score, f1_score,
@@ -21,8 +22,36 @@ from sklearn.metrics         import (
 
 # Import our preprocessor
 from preprocessing.preprocess import (
-    process_file, export_model_datasets,
-    FINAL_COLUMNS, PROCESSED_DIR, MODEL_DATA_DIR, FINAL_OUTPUT,
+    process_file, export_model_datasets, load_all_semesters, count_semesters_with_data,
+    FINAL_COLUMNS, PROCESSED_DIR, MODEL_DATA_DIR, FINAL_OUTPUT, BY_YEAR_DIR,
+)
+
+# Writes each trained model's eval metrics live into MySQL's trained_models
+# table (db_io.py already had this function defined, it just was never
+# called from here — every training run before this only ever saved to
+# training_state.json on disk, so trained_models stayed empty forever).
+#
+# read_semester_csvs: FIX (2026-09-15) — since preprocess.py's
+# export_model_datasets()/build_model_datasets() stopped writing the
+# 02-15 model_datasets/*.csv files to disk (out_dir is now always None,
+# data lives only in MySQL as per-semester CSV-blob rows — see
+# _store_csv_blob() in preprocess.py), the trainers below were still
+# doing pd.read_csv() against paths that no longer exist, which is why
+# every trained_models row came back with everything NULL except
+# model_name/status/error_message/horizon_year/trained_at (the trainer
+# raised FileNotFoundError before computing anything else). See
+# _dataset_from_table() / _as_df() below and the trainers list further
+# down for the fix.
+#
+# record_training_summary: NEW — writes the same run-level "COMPUTED
+# DATA STATISTICS & ANALYSIS ACCURACY" numbers _print_summary() already
+# prints to the console into a `training_summary` MySQL table, so that
+# info is queryable instead of only living in a log line. See
+# _record_training_summary() below; requires the training_summary table
+# from create_training_summary_table.sql to exist first.
+from util.db_io import (
+    record_trained_model, read_semester_csvs, record_training_summary,
+    save_model_blob, save_training_state, load_training_state,
 )
 
 # PATHS
@@ -32,21 +61,17 @@ except ImportError:
     MODEL_DIR = "Machine_Learning_Model"  # fallback for standalone CLI use
 
 try:
-    from configs.config import (
-        BACKUP_DIR, BACKUP_MODEL_DATASETS_DIR, BACKUP_ML_MODEL_DIR,
-        BACKUP_FINAL_MERGED_CSV, BACKUP_LONGFORM_CSV,
-    )
+    from configs.config import PROCESSED_BY_YEAR_DIR, MIN_SEMESTERS_FOR_TRAINING
 except ImportError:
-    BACKUP_DIR                = "Backup"
-    BACKUP_MODEL_DATASETS_DIR = os.path.join(BACKUP_DIR, "model_datasets")
-    BACKUP_ML_MODEL_DIR       = os.path.join(BACKUP_DIR, "Machine_Learning_Model")
-    BACKUP_FINAL_MERGED_CSV   = os.path.join(BACKUP_DIR, "Final_Merged_Student_Data.csv")
-    BACKUP_LONGFORM_CSV       = os.path.join(BACKUP_DIR, "Final_LongForm_Student_Grades.csv")
+    PROCESSED_BY_YEAR_DIR = BY_YEAR_DIR
+    MIN_SEMESTERS_FOR_TRAINING = 6  # fallback for standalone CLI use
 
-for _d in (BACKUP_DIR, BACKUP_MODEL_DATASETS_DIR, BACKUP_ML_MODEL_DIR):
-    os.makedirs(_d, exist_ok=True)
-
-STATE_FILE  = os.path.join(MODEL_DIR, "training_state.json")
+# NOTE: the one-step-back backup feature (Backup/, snapshot_to_backup(),
+# restore_from_backup(), clear_backup(), backup_exists()) was removed on
+# 2026-09-15 — no more file-based rollback of the most recent upload. If
+# your upload route still calls any of those four functions (the
+# "delete most recent upload" button), that call site needs updating —
+# it wasn't in this file, so it wasn't touched here.
 HORIZON_DEFAULT_STEPS = 3   # predict this many years beyond latest data year
 # Rule of thumb: don't extrapolate further into the future than the length
 # of real history backing the trend. With only `completed` years of actual
@@ -55,12 +80,20 @@ HORIZON_DEFAULT_STEPS = 3   # predict this many years beyond latest data year
 # "flattens out / doesn't predict anything" forecasts. HORIZON_MAX_STEPS
 # hard-caps the total horizon so it scales with — and never wildly outruns —
 # the data actually backing it.
-HORIZON_MIN_STEPS = 2       # always show at least this many forecast years,
-                             # even with very little history
+HORIZON_MIN_STEPS = 3       # always show at least this many forecast years,
+                             # even with very little history — matches
+                             # ml_analysis.py's _INC_FORECAST_YEARS=3, so
+                             # every chart on the shared horizon agrees
+                             # with the INC forecast's fixed 3-year window
+                             # instead of dropping to 2 while
+                             # completed_years is still 1 or 2
 HORIZON_MAX_STEPS_FACTOR = 1.0  # cap = completed_years * this factor
 
-os.makedirs(MODEL_DIR, exist_ok=True)
-
+# MODEL_DIR is no longer created on disk — trained models are stored as
+# MySQL BLOBs now (see _save() below / db_io.save_model_blob()). It's
+# kept as a name only because a lot of the trainer code below still
+# refers to "MODEL_DIR" in comments/filenames; nothing writes to the
+# actual folder anymore.
 
 
 # HELPERS
@@ -72,142 +105,54 @@ def _log(msg: str):
 
 
 def _save(obj, filename: str):
-    path = os.path.join(MODEL_DIR, filename)
-    joblib.dump(obj, path)
-    return path
+    """Used to be joblib.dump(obj, os.path.join(MODEL_DIR, filename)) —
+    every one of the ~30 call sites below is unchanged, they just now
+    land in MySQL's trained_model_files table (keyed by filename)
+    instead of a .pkl file on disk. See db_io.save_model_blob()."""
+    save_model_blob(filename, obj)
+    return filename
 
 
-# ══════════════════════════════════════════════════════════════════════════
-#  ONE-STEP-BACK BACKUP / RESTORE
-#  ──────────────────────────────────────────────────────────────────────
-#  There is only ever ONE backup slot: the exact state of the shared
-#  master CSV / long-form CSV / model_datasets CSVs / trained .pkl files
-#  right before the most recent upload was merged in. snapshot_to_backup()
-#  is called once, at the very start of a new upload's merge, and
-#  OVERWRITES whatever backup existed — so backups never accumulate and
-#  never cost more than one extra copy of the shared data.
-#
-#  restore_from_backup() copies everything back over the live files and
-#  then CLEARS the backup slot (it has been "spent"), which is why a
-#  second delete/cancel in a row has nothing to roll back to until
-#  another upload creates a fresh backup.
-# ══════════════════════════════════════════════════════════════════════════
+def _as_df(source) -> pd.DataFrame:
+    """Accept either an already-loaded DataFrame (the normal case now —
+    see _dataset_from_table() below) or a legacy on-disk CSV path
+    string, and return a DataFrame either way. Lets every trainer
+    function below keep its existing `df = _as_df(df_path)`-shaped
+    body (just swap in `_as_df(df_path)`) without caring whether the
+    thing it was handed came from MySQL or an actual file."""
+    if isinstance(source, pd.DataFrame):
+        return source.copy()
+    return pd.read_csv(source)
+
+
+def _dataset_from_table(table_name: str) -> pd.DataFrame:
+    """Rebuild one of the 02-15 model-dataset CSVs (see preprocess.py's
+    FILENAME_TO_TABLE) from MySQL instead of disk.
+
+    FIX (2026-09-15): these datasets used to be flat CSV files under
+    Processed_Datasets/model_datasets/. Since build_model_datasets() /
+    export_model_datasets() moved to MySQL-only (out_dir=None always),
+    each one now lives as one CSV-blob ROW PER SEMESTER in its own
+    table (same shape as semester_uploads — see _store_csv_blob() in
+    preprocess.py), not a single combined file anywhere. This reads
+    every semester's row for `table_name` and concatenates them back
+    into one combined DataFrame, matching what the old on-disk CSV
+    held. Returns an empty DataFrame if the table doesn't exist yet or
+    has no rows (e.g. right after a schema reset) — trainers already
+    handle an empty/too-small dataset via their own row-count checks.
+    """
+    rows = read_semester_csvs(table_name)
+    if rows.empty or "csv_file" not in rows.columns:
+        return pd.DataFrame()
+    frames = [pd.read_csv(io.StringIO(text)) for text in rows["csv_file"].dropna()]
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
 
 _LONGFORM_CSV_NAME = "Final_LongForm_Student_Grades.csv"
 
 
 def _longform_csv_path() -> str:
     return os.path.join(PROCESSED_DIR, _LONGFORM_CSV_NAME)
-
-
-def backup_exists() -> bool:
-    """Whether a one-step-back backup is currently available to restore."""
-    return os.path.exists(BACKUP_FINAL_MERGED_CSV)
-
-
-def snapshot_to_backup():
-    """
-    Copy the CURRENT ("Recent") master CSV, long-form CSV, model_datasets
-    CSVs, and every trained .pkl + training_state.json into Backup/,
-    overwriting any previous backup. No-op (does nothing, leaves any
-    existing backup alone) if there is no master CSV yet — i.e. the very
-    first upload has nothing to back up.
-    """
-    if not os.path.exists(FINAL_OUTPUT):
-        return False
-
-    os.makedirs(BACKUP_DIR, exist_ok=True)
-    shutil.copy2(FINAL_OUTPUT, BACKUP_FINAL_MERGED_CSV)
-
-    long_csv = _longform_csv_path()
-    if os.path.exists(long_csv):
-        shutil.copy2(long_csv, BACKUP_LONGFORM_CSV)
-    elif os.path.exists(BACKUP_LONGFORM_CSV):
-        os.remove(BACKUP_LONGFORM_CSV)
-
-    # model_datasets/*.csv
-    if os.path.isdir(BACKUP_MODEL_DATASETS_DIR):
-        shutil.rmtree(BACKUP_MODEL_DATASETS_DIR)
-    os.makedirs(BACKUP_MODEL_DATASETS_DIR, exist_ok=True)
-    if os.path.isdir(MODEL_DATA_DIR):
-        for fname in os.listdir(MODEL_DATA_DIR):
-            if fname.endswith(".csv"):
-                shutil.copy2(os.path.join(MODEL_DATA_DIR, fname),
-                             os.path.join(BACKUP_MODEL_DATASETS_DIR, fname))
-
-    # trained .pkl models + training_state.json
-    if os.path.isdir(BACKUP_ML_MODEL_DIR):
-        shutil.rmtree(BACKUP_ML_MODEL_DIR)
-    os.makedirs(BACKUP_ML_MODEL_DIR, exist_ok=True)
-    if os.path.isdir(MODEL_DIR):
-        for fname in os.listdir(MODEL_DIR):
-            if fname.endswith(".pkl") or fname == "training_state.json":
-                shutil.copy2(os.path.join(MODEL_DIR, fname),
-                             os.path.join(BACKUP_ML_MODEL_DIR, fname))
-
-    _log("Backup snapshot taken (previous Recent state saved to Backup/)")
-    return True
-
-
-def restore_from_backup() -> bool:
-    """
-    Restore the master CSV, long-form CSV, model_datasets CSVs, and
-    trained .pkl files from the one-step-back backup, then CLEAR the
-    backup slot (it has been consumed). Returns False (no-op) if there
-    is no backup to restore.
-    """
-    if not backup_exists():
-        return False
-
-    shutil.copy2(BACKUP_FINAL_MERGED_CSV, FINAL_OUTPUT)
-
-    long_csv = _longform_csv_path()
-    if os.path.exists(BACKUP_LONGFORM_CSV):
-        shutil.copy2(BACKUP_LONGFORM_CSV, long_csv)
-    elif os.path.exists(long_csv):
-        os.remove(long_csv)
-
-    # model_datasets/*.csv — replace the live set entirely with the backup set
-    if os.path.isdir(MODEL_DATA_DIR):
-        for fname in os.listdir(MODEL_DATA_DIR):
-            if fname.endswith(".csv"):
-                os.remove(os.path.join(MODEL_DATA_DIR, fname))
-    os.makedirs(MODEL_DATA_DIR, exist_ok=True)
-    if os.path.isdir(BACKUP_MODEL_DATASETS_DIR):
-        for fname in os.listdir(BACKUP_MODEL_DATASETS_DIR):
-            shutil.copy2(os.path.join(BACKUP_MODEL_DATASETS_DIR, fname),
-                         os.path.join(MODEL_DATA_DIR, fname))
-
-    # trained .pkl models + training_state.json
-    if os.path.isdir(MODEL_DIR):
-        for fname in os.listdir(MODEL_DIR):
-            if fname.endswith(".pkl") or fname == "training_state.json":
-                os.remove(os.path.join(MODEL_DIR, fname))
-    os.makedirs(MODEL_DIR, exist_ok=True)
-    if os.path.isdir(BACKUP_ML_MODEL_DIR):
-        for fname in os.listdir(BACKUP_ML_MODEL_DIR):
-            shutil.copy2(os.path.join(BACKUP_ML_MODEL_DIR, fname),
-                         os.path.join(MODEL_DIR, fname))
-
-    # Clear the backup slot — it's been spent. Nothing to roll back to
-    # again until the next upload takes a fresh snapshot.
-    clear_backup()
-
-    _log("Restored from backup (rolled back to the pre-upload state)")
-    return True
-
-
-def clear_backup():
-    """Empties the backup slot without restoring it (used right after a
-    restore, and safe to call any time the slot should be considered
-    'spent')."""
-    for path in (BACKUP_FINAL_MERGED_CSV, BACKUP_LONGFORM_CSV):
-        if os.path.exists(path):
-            os.remove(path)
-    for d in (BACKUP_MODEL_DATASETS_DIR, BACKUP_ML_MODEL_DIR):
-        if os.path.isdir(d):
-            shutil.rmtree(d)
-            os.makedirs(d, exist_ok=True)
 
 
 def _r2(y_true, y_pred) -> float:
@@ -437,42 +382,65 @@ def compute_horizon(df: pd.DataFrame,
 #       Chart(s): GWA trend line (per-college, dean & main dashboards)
 #        R^2=0.598, down from Ridge's 0.759 — cost of the restricted pool.
 #
-#   train_inc_forecast     -> inc_rate_model.pkl  (RandomForestRegressor)
+#   train_inc_forecast     -> inc_rate_model.pkl  (Ridge)
 #       Consumed by: /api/get_inc_forecast (helper: _inc_rate_series)
 #       Chart(s): "INC Rate Forecast (Incomplete Grades)" line chart
-#        R^2=0.276, UNRELIABLE (std=0.83) — down from Ridge's 0.883, the
-#        single biggest loss from dropping Ridge. Live chart uses
-#        forecast_series() in ml_analysis.py (per-college/per-course linear
-#        fit, numpy-only) for the actual dashboard forecast, so this
-#        trained model doesn't reach students directly either.
+#        RESTORED 2026-09-15 with Ridge, at College x Course granularity
+#        (preprocess.py's "06" block was College-only before, the actual
+#        root cause of the old R^2=0.276/UNRELIABLE score — see
+#        train_inc_forecast's docstring for the full fix). Model-first,
+#        forecast_series() fallback for any College/Course combo not
+#        covered in training data.
 #
-#   train_irreg_reg        -> status_forest_model.pkl  (RandomForestRegressor)
-#       Consumed by: /api/get_status_pie, /api/get_status_by_course
-#       Chart(s): Irregular-rate multiline / status-by-course views
-#        R^2=0.213, UNRELIABLE (std=0.87) — down from Ridge's 0.848. Unlike
-#        dropout_spike/inc_forecast, THIS chart reads the .pkl's predictions
-#        directly (no forecast_series() fallback) — worth a closer look
-#        before shipping, see caution above.
+#   train_irreg_reg        -> status_pie_model.pkl  (RandomForestClassifier)
+#       Consumed by: /api/get_status_pie (forecast mode)
+#       Chart(s): Irregular-rate donut (see train_irreg_reg's own
+#        docstring — switched from cohort-level regression to a
+#        per-student classifier, accuracy ~0.94). Status Trend's
+#        Irregular%/INC% by college/course lines are a SEPARATE chart —
+#        see train_status_trend below, added 2026-09-15.
+#
+#   train_status_trend     -> status_trend_irregular_model.pkl,
+#                              status_trend_inc_model.pkl  (Ridge x2)
+#       Consumed by: /api/get_status_trend (by=college/course modes)
+#       Chart(s): Status Trend — Irregular% line, INC% line
+#        NEW 2026-09-15 — this chart had no trainer at all before,
+#        forecast_series() was the entire design. Reads the same
+#        College x Course "07" table inc_forecast reads.
+#
+#   train_dropout_combined -> retention_trend_chart_all_dropout_model.pkl
+#                              (RandomForestRegressor)
+#       Consumed by: /api/get_status_trend (gender='all', Dropped% line)
+#       Chart(s): Status Trend — Dropped% (combined, not gender-split)
+#        NEW 2026-09-15 — male/female each had a dedicated model already
+#        (see train_gender_performance_male/female below), 'all' fell
+#        back to forecast_series() until now. Same shape/algorithm as
+#        the gender-specific halves, fit on the combined cohort table.
 #
 #   train_kpi (gwa half)   -> kpi_gwa_model.pkl  (LinearRegression)
 #       Consumed by: /api/get_kpi_metrics
 #       Chart(s): Dean-dashboard KPI tiles (predicted average GWA)
 #        R^2=0.054 — needs better features, not a model swap.
 #
-#   train_kpi (enroll half)-> kpi_enrollment_model.pkl  (LinearRegression)
-#       Consumed by: /api/get_kpi_metrics
+#   train_kpi (enroll half)-> kpi_tiles_enrollment_model.pkl  (Ridge)
+#       Consumed by: /api/get_kpi_metrics (fallback path only — primary
+#        path is _college_enrollment_forecast()'s damped forecast_series()
+#        in ml_analysis.py)
 #       Chart(s): Dean-dashboard KPI tiles (predicted headcount)
-#        R^2=0.888, narrowly beats RandomForestRegressor's 0.888/0.8925 —
-#        swapped from RandomForestRegressor since LinearRegression is now
-#        the technical winner of the 2-model comparison; practically a wash.
+#        FIXED 2026-09-15 — predicts log1p(Headcount) with each college's
+#        training target capped at 3x its own historical max, instead of
+#        an uncapped straight-line fit on raw Headcount (the old version's
+#        "millions of students" bug several years out). Callers must
+#        np.expm1() the prediction.
 #
-#   train_subject_top      -> subject_grade_model.pkl  (LinearRegression)
+#   train_subject_top      -> subject_grade_model.pkl, subject_fail_rate_model.pkl  (Ridge x2)
 #       Consumed by: /api/get_subject_forecast, /api/get_hardest_subjects_by_course
 #       Chart(s): "Top 5 Hardest Subjects" line charts (main + per-course)
-#        R^2=0.108, down from Ridge's 0.262. Live chart uses
-#        forecast_series() in ml_analysis.py (a per-subject linear fit
-#        computed on the fly) for the actual dashboard forecast, so this
-#        trained model doesn't reach students directly.
+#        RESTORED 2026-09-15 with Ridge (the old RandomForestRegressor
+#        couldn't extrapolate past its training years, which is why it
+#        was removed 2026-09-06). Subjects with <4 years of history are
+#        excluded from training and always use the forecast_series()
+#        fallback instead.
 #
 #   train_performance_band -> performance_band_model.pkl  (RandomForestRegressor)
 #       Consumed by: NOTHING YET — no endpoint reads this model.
@@ -541,7 +509,7 @@ def train_dropout_risk(df_path: str) -> dict:
     chart expects — no endpoint changes needed.
     """
     _log("Training dropout_risk model …")
-    df = pd.read_csv(df_path)
+    df = _as_df(df_path)
 
     # Year_Level_Num encodes 1=1st Year...4=4th Year, -1=Irregular,
     # 0=Unknown (see preprocess.py's parse_year_level()). -1 and 0 are
@@ -610,48 +578,83 @@ def train_dropout_risk(df_path: str) -> dict:
     _save(model,              "dropout_pie_model.pkl")
     _save(X.columns.tolist(), "dropout_pie_features.pkl")
 
-    return {
-        "status": "ok",
-        "r2":   _r2(y_test, y_pred),
-        "rmse": _rmse(y_test, y_pred),
-    }
+    # FIX (2026-09-15): this used to hand-build {"r2":..., "rmse":...}
+    # only, unlike every sibling trainer (dropout_spike, gwa_ranking,
+    # etc.), which all return **_reg_metrics(...) — the full r2/rmse/
+    # mse/mae bundle. That's why trained_models' dropout_risk row only
+    # ever had r2_score filled with mse/mae NULL: mae/mse were simply
+    # never computed for it. Switched to _reg_metrics() so it matches
+    # its siblings.
+    return {"status": "ok", **_reg_metrics(y_test, y_pred)}
 
 
 def train_dropout_spike(df_path: str) -> dict:
-    """RandomForestRegressor — cohort dropout rate trend.
+    """Ridge — cohort dropout rate trend, scored with real held-out CV.
 
     Powers: /api/get_dropout_spike -> "Dropout Trend & Spike Detection" chart.
 
-    Restricted-candidate model_comparison.py run shows RandomForestRegressor
-    as the technical "winner" here, but with R^2=-0.9764 and a fold std of
-    1.35 — that's WORSE than predicting the mean every time, and flagged
-    unreliable on top of it. This is a genuine loss versus the previous
-    Ridge model (R^2=0.6347), not a real improvement; Ridge's coefficient
-    shrinkage handled the College_ dummy columns on this small dataset far
-    better than either LinearRegression or RandomForestRegressor manage.
-    Kept as the "winner" here for consistency with the restricted-pool
-    decision, but treat this .pkl as a placeholder rather than trustworthy.
-    Note: the live chart itself uses forecast_series() in ml_analysis.py
-    (a per-college linear fit computed on the fly) for the actual
-    dashboard forecast, so this trained model doesn't reach students
-    directly — mainly kept for consistency/reference/documentation.
+    FIX (2026-09-15): the old version did model.fit(X, y) then
+    model.predict(X) — scored on the SAME rows it trained on. That's why
+    trained_models showed R^2=0.90 in the DB while the real held-out
+    score (from the earlier model_comparison.py run) was R^2=-0.9764 —
+    worse than predicting the mean every time. Two changes:
+    1. Switched to K-fold cross_val_score so the reported R^2 reflects
+       generalization, not memorization.
+    2. Model swapped from RandomForestRegressor to Ridge — this dataset
+       is small (few years x colleges) and dominated by College dummy
+       columns; Ridge's coefficient shrinkage handles that shape far
+       better than RF (Ridge scored R^2=0.6347 in the original
+       comparison, RF scored -0.9764).
+    3. Added a lag feature (each college's own PRIOR year Dropout_Rate)
+       plus cohort size when available — trend continuation and cohort
+       size are the two strongest real signals for a rate like this.
+
+    Still gated behind the same bar before this can replace the live
+    forecast_series() call in ml_analysis.py: it needs to beat both a
+    naive average AND forecast_series()'s own output on held-out folds,
+    not just be "less negative than before".
     """
     _log("Training dropout_spike model …")
-    df = pd.read_csv(df_path)
+    df = _as_df(df_path)
     if len(df) < 3:
         return {"status": "skipped", "reason": "too few cohort points"}
 
+    df = df.sort_values(["College", "Year_Numeric"]).reset_index(drop=True)
+    df["Dropout_Rate_Prev"] = df.groupby("College")["Dropout_Rate"].shift(1)
+    df["Dropout_Rate_Prev"] = df["Dropout_Rate_Prev"].fillna(df["Dropout_Rate"].median())
+
+    size_col = next((c for c in ("Total_Students", "Enrollment", "Headcount") if c in df.columns), None)
+
     X = pd.get_dummies(df[["College"]], prefix="College")
-    X["Year_Numeric"] = df["Year_Numeric"]
+    X["Year_Numeric"]       = df["Year_Numeric"]
+    X["Dropout_Rate_Prev"]  = df["Dropout_Rate_Prev"]
+    if size_col:
+        X[size_col] = df[size_col]
     y = df["Dropout_Rate"]
 
-    model = RandomForestRegressor(n_estimators=200, max_depth=6, random_state=42)
-    model.fit(X, y)
-    y_pred = model.predict(X)
+    if len(df) < 10:
+        # Too few rows for a meaningful K-fold split — fit on everything
+        # but flag the reported score as in-sample only, not a real
+        # generalization estimate.
+        model = Ridge(alpha=1.0).fit(X, y)
+        metrics = _reg_metrics(y, model.predict(X))
+        metrics["note"] = "in-sample only -- too few rows for cross-validation"
+    else:
+        n_splits = min(5, len(df))
+        cv = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        cv_scores = cross_val_score(Ridge(alpha=1.0), X, y, cv=cv, scoring="r2")
+        model = Ridge(alpha=1.0).fit(X, y)  # final model refit on all data for saving
+        metrics = {
+            "r2":     round(float(cv_scores.mean()), 4),
+            "r2_std": round(float(cv_scores.std()), 4),
+            "rmse":   _rmse(y, model.predict(X)),  # in-sample, kept for reference only
+            "mse":    _mse(y, model.predict(X)),
+            "mae":    _mae(y, model.predict(X)),
+        }
 
     _save(model,              "dropout_trend_chart_model.pkl")
     _save(X.columns.tolist(), "dropout_trend_chart_features.pkl")
-    return {"status": "ok", **_reg_metrics(y, y_pred)}
+    return {"status": "ok", **metrics}
 
 
 def train_dropout_ranking(df_path: str) -> dict:
@@ -672,7 +675,7 @@ def train_dropout_ranking(df_path: str) -> dict:
     meaningfully.
     """
     _log("Training dropout_ranking model …")
-    df = pd.read_csv(df_path)
+    df = _as_df(df_path)
 
     X = pd.get_dummies(df[["College","Semester"]], drop_first=False)
     X["Year_Numeric"] = df["Year_Numeric"]
@@ -704,7 +707,7 @@ def train_gwa_ranking(df_path: str) -> dict:
     as a rough estimate until richer features are added.
     """
     _log("Training gwa_ranking model …")
-    df = pd.read_csv(df_path)
+    df = _as_df(df_path)
     df = df[(df["GWA"] >= 1.0) & (df["GWA"] <= 5.0)].dropna(subset=["GWA","College","Year_Numeric"])
 
     if len(df) < 10:
@@ -735,7 +738,7 @@ def train_gwa_trend(df_path: str) -> dict:
     dropping Ridge from the candidate pool on this dataset.
     """
     _log("Training gwa_trend model …")
-    df = pd.read_csv(df_path)
+    df = _as_df(df_path)
     # 05_gwa_trend_timeseries.csv uses Avg_GWA column
     df = df.dropna(subset=["Avg_GWA","College","Year_Numeric"])
     df = df[(df["Avg_GWA"] >= 1.0) & (df["Avg_GWA"] <= 5.0)]
@@ -788,7 +791,7 @@ def train_irreg_reg(df_path: str) -> dict:
     train_dropout_risk's docstring.
     """
     _log("Training irreg_reg model (classifier) …")
-    df = pd.read_csv(df_path)
+    df = _as_df(df_path)
 
     if len(df) < 20 or "is_irregular" not in df.columns or df["is_irregular"].nunique() < 2:
         _log("  [SKIP] Insufficient data or only one class present.")
@@ -863,7 +866,7 @@ def train_kpi(gwa_path: str, enroll_path: str, drop_path: str = None) -> dict:
     results = {}
 
     # GWA model
-    df_gwa = pd.read_csv(gwa_path)
+    df_gwa = _as_df(gwa_path)
     df_gwa = df_gwa[(df_gwa["GWA"] >= 1.0) & (df_gwa["GWA"] <= 5.0)].dropna()
     if len(df_gwa) >= 10:
         X = pd.get_dummies(df_gwa[["College"]], prefix="College")
@@ -878,21 +881,63 @@ def train_kpi(gwa_path: str, enroll_path: str, drop_path: str = None) -> dict:
         results["gwa"] = {"status": "skipped"}
 
     # Enrollment model
-    df_en = pd.read_csv(enroll_path)
+    # FIX (2026-09-15): this used to fit LinearRegression directly on raw
+    # Headcount, with no damping and no ceiling anywhere in training --
+    # exactly what produced the "millions of students" bug several years
+    # out (_college_enrollment_forecast() in ml_analysis.py now bypasses
+    # this model for its primary predictions because of that; this model
+    # is still used as a last-resort fallback when a college has zero
+    # real history at all). Two changes so the fallback itself is safe:
+    #   1. Target is log1p(Headcount) instead of raw Headcount, so a
+    #      constant-slope Ridge fit in log-space is a DECELERATING curve
+    #      in real headcount space, not a straight line.
+    #   2. Each college's Headcount is capped at 3x that college's own
+    #      historical max BEFORE fitting -- same ceiling
+    #      _college_enrollment_forecast() applies at serve time, now
+    #      baked into what the model is even allowed to learn from.
+    # NOTE: callers must now wrap predictions in np.expm1(...) -- this
+    # model predicts log1p(Headcount), not Headcount directly. See the
+    # get_kpi_metrics() fallback-path call site in ml_analysis.py.
+    df_en = _as_df(enroll_path)
     if len(df_en) >= 3:
+        df_en = df_en.sort_values(["College", "Year_Numeric"]).reset_index(drop=True)
+        college_max = df_en.groupby("College")["Headcount"].transform("max")
+        df_en["Headcount_Capped"] = np.minimum(df_en["Headcount"], college_max * 3)
+        df_en["Headcount_Prev"] = df_en.groupby("College")["Headcount"].shift(1)
+        df_en["Headcount_Prev"] = df_en["Headcount_Prev"].fillna(df_en["Headcount"].median())
+
         X = pd.get_dummies(df_en[["College"]], prefix="College")
-        X["Year_Numeric"] = df_en["Year_Numeric"]
-        y = df_en["Headcount"]
-        m = LinearRegression().fit(X, y)
+        X["Year_Numeric"]     = df_en["Year_Numeric"]
+        X["Headcount_Prev"]   = df_en["Headcount_Prev"]
+        y_log = np.log1p(df_en["Headcount_Capped"])
+
+        m = Ridge(alpha=1.0).fit(X, y_log)
+        y_pred_real = np.expm1(m.predict(X))  # back to real headcount scale for reporting
+
+        if len(df_en) >= 10:
+            n_splits = min(5, len(df_en))
+            cv = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+            cv_scores = cross_val_score(Ridge(alpha=1.0), X, y_log, cv=cv, scoring="r2")
+            cv_extra = {"r2_cv": round(float(cv_scores.mean()), 4),
+                        "r2_cv_std": round(float(cv_scores.std()), 4)}
+        else:
+            cv_extra = {"note": "in-sample only -- too few rows for cross-validation"}
+
         _save(m,               "kpi_tiles_enrollment_model.pkl")
         _save(X.columns.tolist(), "kpi_tiles_enrollment_features.pkl")
-        results["enrollment"] = _reg_metrics(y, m.predict(X))
+        results["enrollment"] = {**_reg_metrics(df_en["Headcount"], y_pred_real), **cv_extra}
     else:
         results["enrollment"] = {"status": "skipped"}
 
     # Total Drop model — dedicated, separate from dropout_ranking's model.
-    if drop_path and os.path.exists(drop_path):
-        df_drop = pd.read_csv(drop_path)
+    # FIX (2026-09-15): `drop_path` used to always be a disk path, so
+    # `os.path.exists(drop_path)` was a valid "is there anything to
+    # load" check. It's now normally a MySQL-loaded DataFrame (see
+    # _dataset_from_table() and the trainers list), which os.path.exists
+    # can't handle — check for that instead, and still allow the old
+    # disk-path behavior too via _as_df().
+    df_drop = _as_df(drop_path) if drop_path is not None else pd.DataFrame()
+    if not df_drop.empty:
         if len(df_drop) >= 3:
             X = pd.get_dummies(df_drop[["College"]], prefix="College")
             X["Year_Numeric"] = df_drop["Year_Numeric"]
@@ -905,9 +950,209 @@ def train_kpi(gwa_path: str, enroll_path: str, drop_path: str = None) -> dict:
         else:
             results["drop"] = {"status": "skipped", "reason": "too few rows"}
     else:
-        results["drop"] = {"status": "skipped", "reason": "no drop_path provided"}
+        results["drop"] = {"status": "skipped", "reason": "no drop data available"}
 
     return results
+
+
+def train_inc_forecast(df_path: str) -> dict:
+    """Ridge — INC rate trend, trained at College x Course granularity.
+
+    Powers: /api/get_inc_forecast (helper: _inc_rate_series).
+
+    Dataset: inc_forecast_cohort, now grouped by (Year_Numeric,
+    Sem_Numeric, College, Course) — see the 2026-09-15 preprocess.py fix
+    to the "06" block. The original trainer for this chart was removed
+    2026-09-06 because the dataset was College-only, so every course
+    under a college silently got the same forecast. This restores the
+    trainer now that the data-layer root cause is fixed.
+
+    Ridge over RandomForest for the same reason as dropout_spike: small,
+    College/Course-dummy-heavy dataset where coefficient shrinkage beats
+    tree ensembles.
+    """
+    _log("Training inc_forecast model …")
+    df = _as_df(df_path)
+    if len(df) < 10 or "Course" not in df.columns:
+        return {"status": "skipped", "reason": "too few rows or missing Course column -- apply the preprocess.py dataset-06 fix first"}
+
+    df = df.sort_values(["College", "Course", "Year_Numeric", "Sem_Numeric"]).reset_index(drop=True)
+    df["INC_Rate_Prev"] = df.groupby(["College", "Course"])["INC_Rate"].shift(1)
+    df["INC_Rate_Prev"] = df["INC_Rate_Prev"].fillna(df["INC_Rate"].median())
+
+    X = pd.get_dummies(df[["College", "Course"]], prefix=["College", "Course"])
+    X["Year_Numeric"]  = df["Year_Numeric"]
+    X["Sem_Numeric"]   = df["Sem_Numeric"]
+    X["INC_Rate_Prev"] = df["INC_Rate_Prev"]
+    if "Total_Students" in df.columns:
+        X["Total_Students"] = df["Total_Students"]
+    y = df["INC_Rate"]
+
+    if len(df) >= 15:
+        n_splits = min(5, len(df))
+        cv = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        cv_scores = cross_val_score(Ridge(alpha=1.0), X, y, cv=cv, scoring="r2")
+        cv_metrics = {"r2_cv": round(float(cv_scores.mean()), 4),
+                      "r2_cv_std": round(float(cv_scores.std()), 4)}
+    else:
+        cv_metrics = {"note": "in-sample only -- too few rows for cross-validation"}
+
+    model = Ridge(alpha=1.0).fit(X, y)
+    _save(model,              "inc_rate_model.pkl")
+    _save(X.columns.tolist(), "inc_rate_features.pkl")
+    return {"status": "ok", **_reg_metrics(y, model.predict(X)), **cv_metrics}
+
+
+def train_subject_top(df_path: str) -> dict:
+    """Ridge — per-subject Avg_Grade and Fail_Rate trend.
+
+    Powers: /api/get_subject_forecast, /api/get_hardest_subjects_by_course.
+
+    Dataset: subject_grade_forecast (already has College/Course/Subject
+    granularity in preprocess.py — no data-layer fix needed here, unlike
+    inc_forecast). The original trainer was removed 2026-09-06 because
+    RandomForestRegressor can't extrapolate past its training years;
+    Ridge (a real linear trend) can.
+
+    Subjects with fewer than 4 years of history are dropped from
+    training entirely — a 2-3-point "trend" is noise, not signal, and
+    those subjects should keep using the forecast_series() fallback
+    instead of a memorized non-trend.
+    """
+    _log("Training subject_top models (Avg_Grade + Fail_Rate) …")
+    df = _as_df(df_path)
+    if len(df) < 10:
+        return {"status": "skipped", "reason": "too few rows"}
+
+    counts = df.groupby(["College", "Course", "Subject"])["Year_Numeric"].transform("count")
+    df = df[counts >= 3].copy()
+    if df.empty:
+        return {"status": "skipped", "reason": "no subject has >=3 years of history"}
+
+    df = df.sort_values(["College", "Course", "Subject", "Year_Numeric"]).reset_index(drop=True)
+    df["Avg_Grade_Prev"] = df.groupby(["College", "Course", "Subject"])["Avg_Grade"].shift(1)
+    df["Avg_Grade_Prev"] = df["Avg_Grade_Prev"].fillna(df["Avg_Grade"].median())
+
+    X = pd.get_dummies(df[["College", "Course", "Subject"]],
+                        prefix=["College", "Course", "Subject"])
+    X["Year_Numeric"]   = df["Year_Numeric"]
+    X["Avg_Grade_Prev"] = df["Avg_Grade_Prev"]
+    if "Student_Cnt" in df.columns:
+        X["Student_Cnt"] = df["Student_Cnt"]
+
+    results = {}
+
+    y_grade = df["Avg_Grade"]
+    m_grade = Ridge(alpha=1.0).fit(X, y_grade)
+    _save(m_grade,             "subject_grade_model.pkl")
+    _save(X.columns.tolist(),  "subject_grade_features.pkl")
+    results["avg_grade"] = _reg_metrics(y_grade, m_grade.predict(X))
+
+    if "Fail_Rate" in df.columns:
+        y_fail = df["Fail_Rate"]
+        m_fail = Ridge(alpha=1.0).fit(X, y_fail)
+        _save(m_fail,              "subject_fail_rate_model.pkl")
+        _save(X.columns.tolist(),  "subject_fail_rate_features.pkl")
+        results["fail_rate"] = _reg_metrics(y_fail, m_fail.predict(X))
+    else:
+        results["fail_rate"] = {"status": "skipped", "reason": "Fail_Rate column missing"}
+
+    return {"status": "ok", **results}
+
+
+def train_status_trend(df_path: str) -> dict:
+    """Two Ridge models — Irregular_Rate and INC_Rate trend, at
+    College x Course granularity.
+
+    Powers: /api/get_status_trend (by=college/course modes, both the
+    Irregular% line and the INC% line). New — these charts had no
+    trainer at all before; forecast_series() was the entire design.
+
+    Dataset: irreg_reg_cohort, same College x Course table
+    train_inc_forecast() reads — INC_Rate is duplicated across that
+    table and inc_forecast_cohort by construction, but trained
+    separately here so this endpoint's accuracy is visible on its own
+    and doesn't silently depend on inc_forecast's model staying in sync.
+    """
+    _log("Training status_trend models (Irregular_Rate + INC_Rate) …")
+    df = _as_df(df_path)
+    if len(df) < 10 or "Course" not in df.columns:
+        return {"status": "skipped", "reason": "too few rows or missing Course column -- apply the preprocess.py dataset-07 fix first"}
+
+    df = df.sort_values(["College", "Course", "Year_Numeric", "Sem_Numeric"]).reset_index(drop=True)
+    df["Irregular_Rate_Prev"] = df.groupby(["College", "Course"])["Irregular_Rate"].shift(1)
+    df["Irregular_Rate_Prev"] = df["Irregular_Rate_Prev"].fillna(df["Irregular_Rate"].median())
+    df["INC_Rate_Prev"] = df.groupby(["College", "Course"])["INC_Rate"].shift(1)
+    df["INC_Rate_Prev"] = df["INC_Rate_Prev"].fillna(df["INC_Rate"].median())
+
+    X_base = pd.get_dummies(df[["College", "Course"]], prefix=["College", "Course"])
+    X_base["Year_Numeric"] = df["Year_Numeric"]
+    X_base["Sem_Numeric"]  = df["Sem_Numeric"]
+    if "Total_Students" in df.columns:
+        X_base["Total_Students"] = df["Total_Students"]
+
+    results = {}
+
+    X_irreg = X_base.copy()
+    X_irreg["Irregular_Rate_Prev"] = df["Irregular_Rate_Prev"]
+    y_irreg = df["Irregular_Rate"]
+    m_irreg = Ridge(alpha=1.0).fit(X_irreg, y_irreg)
+    _save(m_irreg,                   "status_trend_irregular_model.pkl")
+    _save(X_irreg.columns.tolist(),  "status_trend_irregular_features.pkl")
+    results["irregular_rate"] = _reg_metrics(y_irreg, m_irreg.predict(X_irreg))
+
+    X_inc = X_base.copy()
+    X_inc["INC_Rate_Prev"] = df["INC_Rate_Prev"]
+    y_inc = df["INC_Rate"]
+    m_inc = Ridge(alpha=1.0).fit(X_inc, y_inc)
+    _save(m_inc,                   "status_trend_inc_model.pkl")
+    _save(X_inc.columns.tolist(),  "status_trend_inc_features.pkl")
+    results["inc_rate"] = _reg_metrics(y_inc, m_inc.predict(X_inc))
+
+    return {"status": "ok", **results}
+
+
+def train_dropout_combined(df_path: str, enroll_path: str) -> dict:
+    """RandomForestRegressor — combined (all-gender) Dropout_Rate trend
+    by College. Same shape as _train_gender_half()'s Dropout_Rate half,
+    fit on the combined (ungendered) cohort table instead of a
+    single-gender split.
+
+    Powers: /api/get_status_trend (gender='all', single-line Dropped%
+    mode) — previously the only gender value on this endpoint with no
+    dedicated model, since male/female each got one but 'all' fell back
+    to forecast_series().
+
+    df_path should be a College x Year_Numeric table with Dropout_Rate
+    computed directly from is_drop over ALL students (not a plain
+    average of the existing male/female rate columns — that would
+    misweight colleges with an uneven gender split).
+    """
+    _log("Training dropout_combined (status_trend, gender=all) model …")
+    df = _as_df(df_path)
+    if len(df) < 10:
+        return {"status": "skipped", "reason": "too few rows"}
+
+    # kpi_drop_college only has Drop_Count (no Headcount) -- pull
+    # Headcount from kpi_enrollment_college and merge on College+Year
+    # to derive the rate.
+    if "Dropout_Rate" not in df.columns:
+        df_en = _as_df(enroll_path)[["College", "Year_Numeric", "Headcount"]]
+        df = df.merge(df_en, on=["College", "Year_Numeric"], how="inner")
+        df["Dropout_Rate"] = df["Drop_Count"] / df["Headcount"].replace(0, pd.NA)
+        df = df.dropna(subset=["Dropout_Rate"])
+        if len(df) < 10:
+            return {"status": "skipped", "reason": "too few rows after rate calc"}
+
+    X = pd.get_dummies(df[["College"]], prefix="College")
+    X["Year_Numeric"] = df["Year_Numeric"]
+    y = df["Dropout_Rate"]
+
+    model = RandomForestRegressor(n_estimators=200, max_depth=6, random_state=42).fit(X, y)
+
+    _save(model,              "retention_trend_chart_all_dropout_model.pkl")
+    _save(X.columns.tolist(), "retention_trend_chart_all_dropout_features.pkl")
+    return {"status": "ok", **_reg_metrics(y, model.predict(X))}
 
 
 def train_performance_band(df_path: str) -> dict:
@@ -934,7 +1179,7 @@ def train_performance_band(df_path: str) -> dict:
     anything the dashboard shows.
     """
     _log("Training performance_band model …")
-    df = pd.read_csv(df_path)
+    df = _as_df(df_path)
 
     if len(df) < 10:
         return {"status": "skipped", "reason": "too few rows"}
@@ -979,7 +1224,7 @@ def _train_gender_half(df_path: str, gender: str) -> dict:
     into that call, so its own accuracy is visible on its own card.
     """
     _log(f"Training gender_performance ({gender}) models …")
-    df = pd.read_csv(df_path)
+    df = _as_df(df_path)
 
     if len(df) < 10:
         return {"status": "skipped", "reason": "too few rows"}
@@ -1071,7 +1316,7 @@ def train_year_level_performance(df_path: str) -> dict:
     fallback logic.
     """
     _log("Training year_level_performance models (5, one per band) …")
-    df = pd.read_csv(df_path)
+    df = _as_df(df_path)
 
     if len(df) < 10:
         return {"status": "skipped", "reason": "too few rows"}
@@ -1127,7 +1372,7 @@ def train_year_level_inc_irreg(df_path: str) -> dict:
     Powers: prediction-mode companion to /api/get_year_level_inc_irreg.
     """
     _log("Training year_level_inc_irreg models …")
-    df = pd.read_csv(df_path)
+    df = _as_df(df_path)
 
     if len(df) < 10:
         return {"status": "skipped", "reason": "too few rows"}
@@ -1200,102 +1445,156 @@ def run_full_pipeline(new_file: str = None) -> dict:
         "errors"       : [],
     }
 
-    # ── Step 1: Preprocess new file (if any) ────────────────
+    # ── Step 1: Preprocess new file into its OWN, standalone semester
+    #    folder — nothing gets combined on disk ─────────────────────────
+    # process_file() writes this upload into its own folder under
+    # by_year/ (see preprocessing.preprocess.write_semester_folder) — it
+    # never reads or merges with any other semester's or year's data, not
+    # even a different semester of the same academic year. The shared
+    # master CSV / model_datasets are only ever rebuilt, wholesale, from
+    # ALL semester folders together — see Step 2/3 below — and only once
+    # enough distinct years exist to be worth training on.
     if new_file:
         _log(f"Preprocessing new file: {new_file}")
         try:
-            # Snapshot the CURRENT ("Recent") state to Backup/ BEFORE
-            # merging this file in, so deleting/canceling this upload
-            # later can restore exactly what was here a moment ago.
-            # No-op if this is the very first upload (nothing yet to
-            # back up) — see snapshot_to_backup()'s docstring.
-            snapshot_to_backup()
-
             new_df = process_file(new_file)
             if new_df.empty:
                 raise ValueError("Preprocessor returned empty DataFrame.")
 
-            # Merge with existing master
-            if os.path.exists(FINAL_OUTPUT):
-                existing = pd.read_csv(FINAL_OUTPUT)
-                merged   = pd.concat([existing, new_df], ignore_index=True)
-            else:
-                merged = new_df
-
-            merged = merged.drop_duplicates(
-                subset=["Student_ID", "Semester", "Year"], keep="last"
-            )
-            keep   = [c for c in FINAL_COLUMNS if c in merged.columns]
-            merged = merged[keep]
-            merged["GWA"] = pd.to_numeric(merged["GWA"], errors="coerce").round(2)
-            merged.to_csv(FINAL_OUTPUT, index=False)
-
-            export_model_datasets(merged, MODEL_DATA_DIR)
-            state["rows_in_master"] = len(merged)
-            _log(f"Master CSV updated: {len(merged):,} rows")
+            state["rows_in_file"] = len(new_df)
+            _log(f"File processed: {len(new_df):,} student rows saved to its own standalone semester folder")
 
         except Exception as e:
             state["errors"].append({"step": "preprocess", "error": str(e)})
             _log(f"[ERROR] Preprocess failed: {e}")
             traceback.print_exc()
+            _save_state(state)
+            return state
 
-    # ── Step 2: Load master CSV ───────────────────────────────
-    if not os.path.exists(FINAL_OUTPUT):
-        _log("[ERROR] No master CSV found. Aborting training.")
-        state["errors"].append({"step": "load", "error": "Master CSV missing."})
+    # ── Step 2: Gate training on how many SEMESTERS have data ──────────
+    # CHANGED (2026-09-15): this used to gate on count_years_with_data()
+    # (distinct academic years) against MIN_YEARS_FOR_TRAINING=3, on the
+    # assumption every year contributes exactly 2 semesters. Uploads
+    # don't actually land 2-per-year in practice — a year can show up as
+    # "collected" off a single semester — so the old gate could let
+    # training fire with only 4 or 5 semesters actually uploaded, or
+    # (less obviously) also delay it past 6 if some year had 3+ semesters
+    # padding the year count without new distinct years. Gating on the
+    # raw semester count directly (count_semesters_with_data) is what
+    # actually matches "wait for all 6 semesters before training."
+    #
+    # Below MIN_SEMESTERS_FOR_TRAINING, this upload's own data is already
+    # safely saved in its own semester folder (Step 1) — we just don't
+    # rebuild the shared master CSV / model_datasets or train anything
+    # yet, since the trend-based models need multiple semesters of
+    # history to mean anything. Once the threshold is reached, ALL
+    # semesters collected so far are combined (in memory only — see
+    # load_all_semesters()) and it keeps growing from there; it is never
+    # a rolling window that drops old semesters.
+    semesters_collected = count_semesters_with_data(PROCESSED_BY_YEAR_DIR)
+    state["semesters_collected"] = semesters_collected
+    state["semesters_needed"]    = MIN_SEMESTERS_FOR_TRAINING
+
+    if semesters_collected < MIN_SEMESTERS_FOR_TRAINING:
+        state["training_status"] = "waiting_for_more_semesters"
+        state["elapsed_seconds"] = round(time.time() - start_time, 1)
+        _log(
+            f"Only {semesters_collected}/{MIN_SEMESTERS_FOR_TRAINING} semesters "
+            f"collected — data saved, but skipping training for now."
+        )
         _save_state(state)
         return state
 
-    master_df = pd.read_csv(FINAL_OUTPUT)
-    state["rows_in_master"] = state.get("rows_in_master", len(master_df))
+    state["training_status"] = "trained"
 
-    md = MODEL_DATA_DIR   # shorthand
+    # ── Step 3: Rebuild the shared master CSV / long-form CSV / model
+    #    datasets from EVERY semester folder together. This is a full,
+    #    from-scratch regeneration each time (never an append) —
+    #    by_year/ (one standalone folder per semester) is the only
+    #    on-disk source of truth these are derived from, per
+    #    preprocessing.preprocess.load_all_semesters(). ─────────────────
+    master_df, long_df = load_all_semesters(PROCESSED_BY_YEAR_DIR)
+    if master_df.empty:
+        _log("[ERROR] No data found across semester folders. Aborting training.")
+        state["errors"].append({"step": "load", "error": "No data in by_year/ folders."})
+        _save_state(state)
+        return state
 
-    # Re-export model_datasets even on a plain retrain (no new_file). This
-    # used to only happen inside the `if new_file:` block above, so any
-    # aggregation fix in export_model_datasets (e.g. the Year_Level
-    # NaN-drop fix) required a full re-upload to take effect -- a manual
-    # retrain just kept re-training on the STALE, pre-fix CSVs already
-    # sitting in MODEL_DATA_DIR. Doing it here means "retrain" alone
-    # regenerates datasets 01-16 from the current master_df and picks up
-    # any preprocessing code change since the last upload.
-    if not new_file:
-        try:
-            export_model_datasets(master_df, MODEL_DATA_DIR)
-            _log("Re-exported model_datasets from existing master CSV (no new upload)")
-        except Exception as e:
-            state["errors"].append({"step": "reexport_datasets", "error": str(e)})
-            _log(f"[ERROR] Dataset re-export failed: {e}")
-            traceback.print_exc()
+    keep      = [c for c in FINAL_COLUMNS if c in master_df.columns]
+    master_df = master_df[keep]
+    master_df["GWA"] = pd.to_numeric(master_df["GWA"], errors="coerce").round(2)
 
-    # ── Step 3: Train all models ─────────────────────────────
+    # No longer written to disk (2026-09-15) — master_df/long_df live only
+    # in memory here; MySQL (semester_uploads/longform_uploads, already
+    # written by write_semester_folder) is the real source of truth. This
+    # used to write Final_Merged_Student_Data.csv / Final_LongForm_*.csv
+    # to Processed_Datasets/ every training run for no reader that needed
+    # them — that was the folder that kept filling up.
+    state["rows_in_master"] = len(master_df)
+    _log(f"Master data regenerated (in memory) from {semesters_collected} semesters: {len(master_df):,} rows")
+
+    try:
+        # out_dir=None: MySQL-only, no more model_datasets/*.csv on disk
+        # (was previously passed MODEL_DATA_DIR, writing 16 CSVs to disk
+        # on every single training run).
+        export_model_datasets(master_df, None, long_df=long_df)
+        _log("model_datasets regenerated (MySQL only)")
+    except Exception as e:
+        state["errors"].append({"step": "export_datasets", "error": str(e)})
+        _log(f"[ERROR] Dataset export failed: {e}")
+        traceback.print_exc()
+
+    # ── Step 4: Train all models ─────────────────────────────
+    # FIX (2026-09-15): trainers used to be handed an f"{md}/NN_....csv"
+    # disk path. Since export_model_datasets() above now writes datasets
+    # 02-15 to MySQL only (no CSV files land in MODEL_DATA_DIR anymore —
+    # see the import comment at the top of this file), every one of
+    # those paths pointed at a file that no longer exists, so every
+    # trainer below immediately raised FileNotFoundError before
+    # computing anything — which is why trained_models rows were coming
+    # back with everything NULL except model_name/status/error_message/
+    # horizon_year/trained_at. Each dataset is now loaded straight from
+    # its MySQL table via _dataset_from_table() (see FILENAME_TO_TABLE
+    # in preprocess.py for the file-number -> table-name mapping);
+    # dataset 01 was always "student_df itself" (see preprocess.py's "01
+    # –" comment) so it's just master_df here, no lookup needed.
     trainers = [
-        ("dropout_risk",     lambda: train_dropout_risk(f"{md}/01_dropout_risk_per_student_dropout_pie_status_pie.csv")),
-        ("dropout_spike",    lambda: train_dropout_spike(f"{md}/02_dropout_spike_cohort_dropout_trend_chart.csv")),
-        ("dropout_ranking",  lambda: train_dropout_ranking(f"{md}/03_dropout_ranking_college_college_ranking_chart.csv")),
-        ("gwa_ranking",      lambda: train_gwa_ranking(f"{md}/04_gwa_ranking_college_gwa_ranking_chart.csv")),
-        ("gwa_trend",        lambda: train_gwa_trend(f"{md}/05_gwa_trend_timeseries_gwa_trend_chart.csv")),
-        # inc_forecast (06) REMOVED 2026-09-06 — inc_rate_chart_model was
-        # only ever trained on College-level cohort data, so per-course
-        # forecasts silently fell back to one shared baseline and
-        # collapsed into each other. get_inc_forecast in ml_analysis.py
-        # was already forecasting each group's own INC-rate history
-        # directly with forecast_series() instead (see that function's
-        # own comment) — the model was loaded but never actually called
-        # anymore. Confirmed dead via full-codebase audit and removed
-        # end-to-end (ml_analysis.py's load/reload/health-check refs
-        # dropped too).
-        ("irreg_reg",        lambda: train_irreg_reg(f"{md}/01_dropout_risk_per_student_dropout_pie_status_pie.csv")),
-        ("kpi",              lambda: train_kpi(f"{md}/08_kpi_gwa_student_kpi_tiles.csv", f"{md}/09_kpi_enrollment_college_kpi_tiles.csv", f"{md}/15_kpi_drop_college_kpi_tiles.csv")),
-        # subject_grade (10) REMOVED 2026-09-06 — same story as
-        # inc_forecast above: hardest_subjects_chart_model was a
-        # RandomForestRegressor that couldn't extrapolate past its
+        ("dropout_risk",     lambda: train_dropout_risk(master_df)),
+        ("dropout_spike",    lambda: train_dropout_spike(_dataset_from_table("dropout_spike_cohort"))),
+        # dropout_combined (gender='all' Dropped% line) ADDED 2026-09-15 —
+        # see train_dropout_combined docstring. Swap kpi_drop_college for
+        # a dedicated ungendered cohort table if/when one exists; it's
+        # used here as-is since it already carries College x Year rows
+        # with no gender split.
+        ("dropout_combined", lambda: train_dropout_combined(_dataset_from_table("kpi_drop_college"), _dataset_from_table("kpi_enrollment_college"))),
+        ("dropout_ranking",  lambda: train_dropout_ranking(_dataset_from_table("dropout_ranking_college"))),
+        ("gwa_ranking",      lambda: train_gwa_ranking(_dataset_from_table("gwa_ranking_college"))),
+        ("gwa_trend",        lambda: train_gwa_trend(_dataset_from_table("gwa_trend_timeseries"))),
+        # inc_forecast (06) RESTORED 2026-09-15 — removed 2026-09-06
+        # because inc_rate_chart_model was only ever trained on
+        # College-level cohort data, so per-course forecasts silently
+        # fell back to one shared baseline and collapsed into each
+        # other. preprocess.py's "06" block now groups by College AND
+        # Course (root cause fixed), so train_inc_forecast can produce a
+        # real per-course model instead of a College-only one.
+        ("inc_forecast",     lambda: train_inc_forecast(_dataset_from_table("inc_forecast_cohort"))),
+        ("irreg_reg",        lambda: train_irreg_reg(master_df)),
+        # status_trend (Irregular%/INC% by college/course) ADDED
+        # 2026-09-15 — these charts never had a trainer at all before;
+        # forecast_series() was the entire design. Reads the same
+        # College x Course "07" table inc_forecast now reads too.
+        ("status_trend",     lambda: train_status_trend(_dataset_from_table("irreg_reg_cohort"))),
+        ("kpi",              lambda: train_kpi(_dataset_from_table("kpi_gwa_student"), _dataset_from_table("kpi_enrollment_college"), _dataset_from_table("kpi_drop_college"))),
+        # subject_grade (10) RESTORED 2026-09-15 — removed 2026-09-06,
+        # same story as inc_forecast above: hardest_subjects_chart_model
+        # was a RandomForestRegressor that couldn't extrapolate past its
         # training years, so get_subject_forecast/get_hardest_subjects_
         # by_course both already bypassed it in favor of forecast_series()
-        # on each subject's own grade history. Model was loaded but never
-        # called — confirmed dead and removed end-to-end.
-        ("gender_performance_male",   lambda: train_gender_performance_male(f"{md}/12_gender_performance_male_retention_trend_chart.csv")),
-        ("gender_performance_female", lambda: train_gender_performance_female(f"{md}/12_gender_performance_female_retention_trend_chart.csv")),
+        # on each subject's own grade history. Restored with Ridge
+        # instead (train_subject_top) so it can actually extrapolate.
+        ("subject_top",      lambda: train_subject_top(_dataset_from_table("subject_grade_forecast"))),
+        ("gender_performance_male",   lambda: train_gender_performance_male(_dataset_from_table("gender_performance_male"))),
+        ("gender_performance_female", lambda: train_gender_performance_female(_dataset_from_table("gender_performance_female"))),
         # 12_gender_performance.csv was previously skipped here (every
         # candidate scored negative R^2 in the unrestricted comparison).
         # The restricted LinearRegression/RandomForestRegressor comparison
@@ -1330,13 +1629,13 @@ def run_full_pipeline(new_file: str = None) -> dict:
         # longer cancels out genuinely different band trends. Falls back
         # to forecast_series() per year level (unchanged) if any band's
         # model isn't available yet.
-        ("year_level_performance",    lambda: train_year_level_performance(f"{md}/13_year_level_performance.csv")),
+        ("year_level_performance",    lambda: train_year_level_performance(_dataset_from_table("year_level_performance"))),
         #
         # performance_band (dataset 11) stays out: its target chart was
         # never built, so there's nothing to wire it to yet. If that chart
         # gets built, use forecast_series() per band, not a re-trained RF
         # regressor -- it would hit the same extrapolation ceiling.
-        ("year_level_inc_irreg",      lambda: train_year_level_inc_irreg(f"{md}/14_year_level_inc_irreg.csv")),
+        ("year_level_inc_irreg",      lambda: train_year_level_inc_irreg(_dataset_from_table("year_level_inc_irreg"))),
         # course_year_level_dropout (16) REMOVED 2026-09-06 — trained but
         # never actually loaded/used anywhere in ml_analysis.py at all
         # (the Course x Year-Level Dropout Heatmap is Recent-Data-only by
@@ -1358,13 +1657,71 @@ def run_full_pipeline(new_file: str = None) -> dict:
             _log(f"  ✗ {name}: {e}")
             traceback.print_exc()
 
-    # ── Step 4: Prediction horizon ────────────────────────────
+    # ── Step 5: Prediction horizon ────────────────────────────
     state["horizon"] = compute_horizon(master_df)
     _log(f"  Horizon: predict up to {state['horizon']['horizon_year']}")
     _log(f"  Prediction years: {state['horizon']['prediction_years']}")
 
+    # ── Step 4b: Write every model's eval metrics into MySQL's
+    #    trained_models table ───────────────────────────────────────────
+    # record_trained_model() already existed in db_io.py but was never
+    # called anywhere — training_state.json was the only place results
+    # ever landed, so trained_models stayed empty even after a full
+    # training run. Some trainers (kpi, gender_performance_*,
+    # year_level_performance, year_level_inc_irreg) return a NESTED dict
+    # (one sub-result per sub-model) instead of a flat metrics dict —
+    # each sub-model gets its own row here, named "{model}_{submodel}",
+    # same split used for the dashboard cards in upload_rotues.py.
+    for name, result in state["models"].items():
+        if not isinstance(result, dict):
+            continue
+        is_nested = any(isinstance(v, dict) for v in result.values())
+        sub_results = result.items() if is_nested else [(None, result)]
+        for sub_name, sub_result in sub_results:
+            if not isinstance(sub_result, dict):
+                continue
+            row_name = f"{name}_{sub_name}" if sub_name else name
+            pkl_path = os.path.join(MODEL_DIR, f"{row_name}.pkl")
+            try:
+                record_trained_model(
+                    model_name     = row_name,
+                    algorithm      = sub_result.get("algorithm"),
+                    target_column  = sub_result.get("target"),
+                    source_dataset = sub_result.get("source_dataset"),
+                    file_path      = pkl_path if os.path.exists(pkl_path) else None,
+                    status         = sub_result.get("status", "ok" if "error" not in sub_result else "error"),
+                    error_message  = sub_result.get("error") or sub_result.get("reason"),
+                    r2_score       = sub_result.get("r2"),
+                    mse            = sub_result.get("mse"),
+                    # FIX (2026-09-15): _reg_metrics() (used by every
+                    # regressor trainer) has always computed "rmse", but
+                    # nothing here ever read it out and trained_models
+                    # had no rmse column to put it in — so it was
+                    # computed every run and silently discarded. Added
+                    # the column (see create_training_summary_table.sql
+                    # note in add_rmse_column.sql) and wired it through.
+                    rmse           = sub_result.get("rmse"),
+                    mae            = sub_result.get("mae"),
+                    accuracy       = sub_result.get("accuracy"),
+                    f1_score       = sub_result.get("f1"),
+                    horizon_year   = state.get("horizon", {}).get("horizon_year"),
+                )
+            except Exception as e:
+                _log(f"  [WARN] record_trained_model failed for {row_name} (non-fatal): {e}")
+
     state["elapsed_seconds"] = round(time.time() - start_time, 1)
     _log(f"Pipeline complete in {state['elapsed_seconds']}s")
+
+    _print_summary(master_df, state)
+
+    # ── Step 4c: Write one "total summary of this validation run" row
+    #    into MySQL's training_summary table — same numbers
+    #    _print_summary() above prints to the console, plus a
+    #    trained/errored model rollup, so this run's overall dataset
+    #    stats + validation result are queryable later instead of only
+    #    ever existing as a log line. Requires the training_summary
+    #    table (see create_training_summary_table.sql) to exist.
+    _record_training_summary(master_df, state)
 
     _save_state(state)
 
@@ -1388,18 +1745,129 @@ def run_full_pipeline(new_file: str = None) -> dict:
     return state
 
 
+def _print_summary(master_df: pd.DataFrame, state: dict):
+    """
+    Console report shown after every full training run — same idea as the
+    'COMPUTED DATA STATISTICS & ANALYSIS ACCURACY' summary, adapted to
+    NovaSight's real schema (FINAL_COLUMNS: GWA, Gender, is_irregular, ...)
+    instead of the standalone script's Grade1/2/3-vs-GWA formula, which
+    doesn't apply here — R²/MAE/accuracy below come straight from each
+    trainer's own real evaluation in state['models'], not a recomputed
+    manual formula.
+    """
+    total_students = len(master_df)
+    gwa = pd.to_numeric(master_df.get("GWA"), errors="coerce")
+    gwa_mean, gwa_std = gwa.mean(), gwa.std()
+    gwa_min,  gwa_max = gwa.min(),  gwa.max()
+
+    gender_dist = (
+        master_df["Gender"].value_counts(normalize=True) * 100
+        if "Gender" in master_df.columns else {}
+    )
+
+    if "is_irregular" in master_df.columns:
+        irregular_pct = pd.to_numeric(master_df["is_irregular"], errors="coerce").mean() * 100
+        regular_pct   = 100 - irregular_pct
+    else:
+        regular_pct = irregular_pct = None
+
+    print("=" * 55)
+    print("     COMPUTED DATA STATISTICS & ANALYSIS ACCURACY     ")
+    print("=" * 55)
+    print(f"Total Student Sample  : {total_students:,}")
+    print(f"Mean GWA              : {gwa_mean:.4f} (Std: {gwa_std:.4f})")
+    print(f"GWA Range             : {gwa_min:.2f} to {gwa_max:.2f}")
+    print(f"Gender Demographics   : Male: {gender_dist.get('Male', 0):.2f}% | Female: {gender_dist.get('Female', 0):.2f}%")
+    if regular_pct is not None:
+        print(f"Academic Standing     : Regular: {regular_pct:.2f}% | Irregular: {irregular_pct:.2f}%")
+    print("-" * 55)
+    print("--- ANALYSIS ACCURACY (PER TRAINED MODEL) ---")
+    for name, result in state.get("models", {}).items():
+        if not isinstance(result, dict) or result.get("status") == "error":
+            continue
+        parts = []
+        if "accuracy" in result: parts.append(f"Accuracy {result['accuracy'] * 100:.2f}%")
+        if "r2"       in result: parts.append(f"R² {result['r2']:.4f}")
+        if "mae"      in result: parts.append(f"MAE {result['mae']:.4f}")
+        if "f1"       in result: parts.append(f"F1 {result['f1']:.4f}")
+        if parts:
+            print(f"{name:<28}: " + " | ".join(parts))
+    print("=" * 55)
+
+
+def _record_training_summary(master_df: pd.DataFrame, state: dict):
+    """Insert one row into MySQL's `training_summary` table — the
+    dataset-level stats _print_summary() prints (sample size, GWA
+    mean/std/range, gender split, regular/irregular split) plus a
+    rollup of this run itself (how many models trained OK vs errored,
+    the prediction horizon, overall status, elapsed time). This is the
+    "total summary of our validation" table: one row per full training
+    run, so it can be queried/charted over time instead of only ever
+    being printed to the console or buried per-model in trained_models.
+    Non-fatal on failure (e.g. table not created yet) — logged and
+    skipped, same pattern as the trained_models write above.
+    """
+    total_students = len(master_df)
+    gwa = pd.to_numeric(master_df.get("GWA"), errors="coerce")
+
+    gender_dist = (
+        master_df["Gender"].value_counts(normalize=True) * 100
+        if "Gender" in master_df.columns else {}
+    )
+
+    if "is_irregular" in master_df.columns:
+        irregular_pct = pd.to_numeric(master_df["is_irregular"], errors="coerce").mean() * 100
+        regular_pct   = 100 - irregular_pct
+    else:
+        regular_pct = irregular_pct = None
+
+    models = state.get("models", {})
+    models_trained = sum(
+        1 for r in models.values()
+        if isinstance(r, dict) and r.get("status") != "error"
+    )
+    models_errored = sum(
+        1 for r in models.values()
+        if isinstance(r, dict) and r.get("status") == "error"
+    )
+
+    def _clean(x):
+        """NaN/None -> None so MySQL gets NULL instead of a rejected 'nan'."""
+        return None if x is None or (isinstance(x, float) and np.isnan(x)) else float(x)
+
+    try:
+        record_training_summary(
+            total_students  = total_students,
+            gwa_mean        = _clean(gwa.mean())  if not gwa.empty else None,
+            gwa_std         = _clean(gwa.std())   if not gwa.empty else None,
+            gwa_min         = _clean(gwa.min())   if not gwa.empty else None,
+            gwa_max         = _clean(gwa.max())   if not gwa.empty else None,
+            male_pct        = _clean(gender_dist.get("Male", 0))   if len(gender_dist) else None,
+            female_pct      = _clean(gender_dist.get("Female", 0)) if len(gender_dist) else None,
+            regular_pct     = _clean(regular_pct),
+            irregular_pct   = _clean(irregular_pct),
+            models_trained  = models_trained,
+            models_errored  = models_errored,
+            horizon_year    = state.get("horizon", {}).get("horizon_year"),
+            training_status = state.get("training_status"),
+            elapsed_seconds = state.get("elapsed_seconds"),
+        )
+    except Exception as e:
+        _log(f"  [WARN] record_training_summary failed (non-fatal): {e}")
+
+
 def _save_state(state: dict):
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f, indent=2)
-    _log(f"State saved → {STATE_FILE}")
+    """Used to write MODEL_DIR/training_state.json; now upserts the same
+    dict into MySQL's training_state_kv table. See db_io.save_training_state()."""
+    save_training_state(state)
+    _log("State saved → training_state_kv (MySQL)")
 
 
 def load_state() -> dict:
-    """Read training_state.json; return empty dict if not found."""
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE) as f:
-            return json.load(f)
-    return {}
+    """Read training_state_kv; return empty dict if not found. Same
+    signature/behavior as before, just MySQL-backed instead of reading
+    training_state.json off disk."""
+    return load_training_state()
 
 
 

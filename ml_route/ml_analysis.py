@@ -11,7 +11,14 @@ from flask import Blueprint, jsonify, request, session
 
 from database.models import UploadedDataset
 
-from configs.config import FINAL_MERGED_CSV, ML_MODEL_DIR, MODEL_DATASETS_DIR
+from configs.config import FINAL_MERGED_CSV, ML_MODEL_DIR, MODEL_DATASETS_DIR, PROCESSED_BY_YEAR_DIR
+from util.db_io import read_table, read_model_dataset, load_model_blob
+# load_all_semesters() is the SAME MySQL-backed (semester_uploads table)
+# rebuild auto_train.py's run_full_pipeline() uses to build its master_df
+# for training -- reused here so the dashboard's "Recent Data" numbers and
+# the training data come from one single source of truth instead of two
+# (see _load_data()'s docstring below for why this replaced student_data).
+from preprocessing.preprocess import load_all_semesters
 
 ml_bp = Blueprint('ml_analysis', __name__)
 
@@ -293,12 +300,25 @@ def _load_data() -> pd.DataFrame:
     showing stale numbers after an upload even though forecast-mode charts
     (which call .predict() on the freshly-reloaded models) updated fine.
     """
-    if not os.path.exists(DATA_PATH):
-        print(" CSV not found")
-        return pd.DataFrame()
-
     try:
-        df = pd.read_csv(DATA_PATH)
+        # FIX (2026-09-15): "student_data" was never written to by ANYTHING
+        # in the codebase -- write_semester_folder() (preprocess.py) stores
+        # this exact same per-student data as CSV-blob rows in
+        # semester_uploads.csv_file instead, one row per (academic_year,
+        # semester) upload. read_table("student_data") was therefore always
+        # hitting a table that doesn't exist and silently returning an empty
+        # DataFrame, which is why every Recent-Data KPI/GWA/dropout "Actual"
+        # chart quietly went blank. load_all_semesters() rebuilds the exact
+        # same combined per-student DataFrame from MySQL that
+        # auto_train.py's run_full_pipeline() already uses as its training
+        # master_df -- one MySQL-backed source of truth for both, no more
+        # separate/dead student_data table, and still per-student (not
+        # aggregated) since dropout_risk/irreg_reg-style features need
+        # row-level data to mean anything.
+        df, _long_df = load_all_semesters(PROCESSED_BY_YEAR_DIR)
+        if df.empty:
+            print(" No semester data found (semester_uploads is empty)")
+            return pd.DataFrame()
 
         #  FIX: DO NOT REMOVE GWA = 0 (important for INC)
         df = df[df['GWA'].notna()].copy()
@@ -342,39 +362,45 @@ df_full_loaded = _load_data()
 
 def reload_data():
     """
-    Re-read the master CSV from disk into df_full_loaded.
-    Called alongside reload_models() so historical-mode charts pick up a
-    newly-uploaded dataset immediately, the same way forecast-mode charts
-    already do via the freshly-reloaded .pkl models.
+    Re-read the combined per-student data from MySQL (semester_uploads)
+    into df_full_loaded. Called alongside reload_models() so
+    historical-mode charts pick up a newly-uploaded dataset immediately,
+    the same way forecast-mode charts already do via the freshly-reloaded
+    .pkl models.
     """
     global df_full_loaded
     df_full_loaded = _load_data()
-    print("[reload_data] df_full_loaded refreshed from", DATA_PATH)
+    print("[reload_data] df_full_loaded refreshed from MySQL (semester_uploads)")
 
 
 
 def gender_masks(series: pd.Series):
     """
     Returns (is_male, is_female) boolean masks for a Gender column that may
-    be EITHER string values ("Male"/"Female") OR the numeric codes used in
-    the master CSV (0 = Male, 1 = Female, -1 = Unknown) -- see
-    Gender/Gender_Label in the gender-performance export.
-
-    Endpoints that did `series.astype(str).str.startswith('M'/'F')`
-    unconditionally silently matched ZERO students whenever Gender was
-    numeric, because `str(0)` / `str(1)` never start with "M"/"F". That
-    produced all-zero Male/Female buckets (looked like "no data") even
-    though get_dropout_pie's gender split -- which DOES branch on dtype --
-    was showing real numbers from the same rows.
+    contain a MIX of string labels ("Male"/"Female") and numeric codes
+    (0 = Male, 1 = Female, -1 = Unknown) WITHIN THE SAME column -- this
+    happens after concatenating semesters that were CSV-parsed
+    independently (see load_all_semesters): a numeric-only semester block
+    can end up sitting inside an otherwise object-dtype column as bare
+    ints/"0"/"1" instead of text labels. Branching once on series.dtype
+    missed that -- whichever encoding didn't match the chosen branch
+    produced is_male=False AND is_female=False for those rows, silently
+    dropping them from both buckets. This resolves each value on its own
+    instead of trusting the column-level dtype.
     """
-    if series.dtype == object:
-        norm = series.astype(str).str.strip().str.upper()
-        is_male = norm.str.startswith('M')
-        is_female = norm.str.startswith('F')
-    else:
-        numeric = pd.to_numeric(series, errors='coerce')
-        is_male = numeric == 0
-        is_female = numeric == 1
+    numeric = pd.to_numeric(series, errors='coerce')
+    is_numeric = numeric.notna()
+
+    text = series.astype(str).str.strip().str.upper()
+
+    is_male = pd.Series(False, index=series.index)
+    is_female = pd.Series(False, index=series.index)
+
+    is_male.loc[is_numeric]    = numeric.loc[is_numeric] == 0
+    is_female.loc[is_numeric]  = numeric.loc[is_numeric] == 1
+    is_male.loc[~is_numeric]   = text.loc[~is_numeric].str.startswith('M')
+    is_female.loc[~is_numeric] = text.loc[~is_numeric].str.startswith('F')
+
     return is_male, is_female
 
 
@@ -401,28 +427,33 @@ def get_forecast_years(latest_year: int) -> list:
     uploaded and retrained) rather than a separate hardcoded range, so
     every chart's "how far into the future" always agrees with each other
     and with whatever the models were actually trained to predict.
+
+    Returns [] (no forecast at all) unless training has actually run —
+    i.e. training_status == 'trained' (enough academic years/semesters
+    collected, see MIN_YEARS_FOR_TRAINING). Before that, there is no real
+    trained model behind any forecast, so charts should show history
+    only instead of guessing a short fallback horizon.
     """
     try:
         from training.auto_train import load_state as _load_state
-        horizon = _load_state().get('horizon', {})
+        state = _load_state()
+        if state.get('training_status') != 'trained':
+            return []
+        horizon = state.get('horizon', {})
         years = [int(y.split('-')[0]) for y in horizon.get('prediction_years', [])]
         years = sorted({y for y in years if y > latest_year})
-        if years:
-            return years
+        return years
     except Exception:
-        pass
-    # Only reached if training_state.json can't be loaded at all (e.g.
-    # before the very first training run). Kept short/conservative to
-    # match the same "don't outrun real history" philosophy as
-    # compute_horizon()'s HORIZON_MIN_STEPS, rather than defaulting to a
-    # long 6-year guess with zero data behind it.
-    return list(range(latest_year + 1, latest_year + 3))
+        return []
 
 
 # Load Models
 def load_model(filename):
-    path = os.path.join(MODEL_DIR, filename)
-    return joblib.load(path) if os.path.exists(path) else None
+    """Used to be joblib.load(os.path.join(MODEL_DIR, filename)) off
+    disk. Every call site below is unchanged — they just now come from
+    MySQL's trained_model_files table (see db_io.load_model_blob()),
+    keyed by the same filename auto_train.py's _save() wrote under."""
+    return load_model_blob(filename)
 drop_pie_model = load_model("dropout_pie_model.pkl")
 drop_pie_features = load_model("dropout_pie_features.pkl")
 
@@ -449,6 +480,24 @@ status_features = load_model("status_pie_features.pkl")
 
 dropout_spike_model = load_model("dropout_trend_chart_model.pkl")
 dropout_spike_features = load_model("dropout_trend_chart_features.pkl")
+
+# NEW/RESTORED 2026-09-15 — see auto_train.py's train_inc_forecast,
+# train_subject_top, train_status_trend, train_dropout_combined.
+inc_rate_model = load_model("inc_rate_model.pkl")
+inc_rate_features = load_model("inc_rate_features.pkl")
+
+subject_grade_model = load_model("subject_grade_model.pkl")
+subject_grade_features = load_model("subject_grade_features.pkl")
+subject_fail_rate_model = load_model("subject_fail_rate_model.pkl")
+subject_fail_rate_features = load_model("subject_fail_rate_features.pkl")
+
+status_trend_irregular_model = load_model("status_trend_irregular_model.pkl")
+status_trend_irregular_features = load_model("status_trend_irregular_features.pkl")
+status_trend_inc_model = load_model("status_trend_inc_model.pkl")
+status_trend_inc_features = load_model("status_trend_inc_features.pkl")
+
+dropout_all_model = load_model("retention_trend_chart_all_dropout_model.pkl")
+dropout_all_features = load_model("retention_trend_chart_all_dropout_features.pkl")
 
 # Per-gender models (male_/female_ prefixed — see auto_train.py's
 # train_gender_performance_male/_female). Dropout_Rate + INC_Rate halves
@@ -515,6 +564,12 @@ def reload_models():
     global kpi_drop_model, kpi_drop_features
     global status_model, status_features
     global dropout_spike_model, dropout_spike_features
+    global inc_rate_model, inc_rate_features
+    global subject_grade_model, subject_grade_features
+    global subject_fail_rate_model, subject_fail_rate_features
+    global status_trend_irregular_model, status_trend_irregular_features
+    global status_trend_inc_model, status_trend_inc_features
+    global dropout_all_model, dropout_all_features
     global male_gender_dropout_model, male_gender_dropout_features
     global male_gender_inc_model, male_gender_inc_features
     global female_gender_dropout_model, female_gender_dropout_features
@@ -546,6 +601,18 @@ def reload_models():
     status_features         = load_model("status_pie_features.pkl")
     dropout_spike_model     = load_model("dropout_trend_chart_model.pkl")
     dropout_spike_features  = load_model("dropout_trend_chart_features.pkl")
+    inc_rate_model                  = load_model("inc_rate_model.pkl")
+    inc_rate_features               = load_model("inc_rate_features.pkl")
+    subject_grade_model             = load_model("subject_grade_model.pkl")
+    subject_grade_features          = load_model("subject_grade_features.pkl")
+    subject_fail_rate_model         = load_model("subject_fail_rate_model.pkl")
+    subject_fail_rate_features      = load_model("subject_fail_rate_features.pkl")
+    status_trend_irregular_model    = load_model("status_trend_irregular_model.pkl")
+    status_trend_irregular_features = load_model("status_trend_irregular_features.pkl")
+    status_trend_inc_model          = load_model("status_trend_inc_model.pkl")
+    status_trend_inc_features       = load_model("status_trend_inc_features.pkl")
+    dropout_all_model               = load_model("retention_trend_chart_all_dropout_model.pkl")
+    dropout_all_features            = load_model("retention_trend_chart_all_dropout_features.pkl")
     male_gender_dropout_model    = load_model("retention_trend_chart_male_dropout_model.pkl")
     male_gender_dropout_features = load_model("retention_trend_chart_male_dropout_features.pkl")
     male_gender_inc_model        = load_model("retention_trend_chart_male_inc_model.pkl")
@@ -583,7 +650,10 @@ def api_reload_models():
     """
     try:
         reload_models()
-        loaded = {name: os.path.exists(os.path.join(MODEL_DIR, name))
+        # Used to check os.path.exists(os.path.join(MODEL_DIR, name)) on
+        # disk; now checks whether MySQL actually returned a blob for
+        # that name (load_model_blob returns None if there's no row).
+        loaded = {name: load_model_blob(name) is not None
                   for name in [
                       "dropout_pie_model.pkl", "gwa_ranking_chart_model.pkl",
                       "college_ranking_chart_model.pkl", "gwa_trend_chart_model.pkl",
@@ -591,6 +661,10 @@ def api_reload_models():
                       "status_pie_model.pkl", "dropout_trend_chart_model.pkl",
                       "retention_trend_chart_male_dropout_model.pkl",
                       "retention_trend_chart_female_dropout_model.pkl",
+                      "inc_rate_model.pkl", "subject_grade_model.pkl",
+                      "subject_fail_rate_model.pkl",
+                      "status_trend_irregular_model.pkl", "status_trend_inc_model.pkl",
+                      "retention_trend_chart_all_dropout_model.pkl",
                   ]}
         return jsonify({"status": "ok", "models_found": loaded})
     except Exception as e:
@@ -1463,7 +1537,15 @@ def get_kpi_metrics():
                     if col_feat in kpi_enroll_features:
                         X_enroll[col_feat] = 1
                     try:
-                        pred_count_f = max(0.0, float(kpi_enroll_model.predict(X_enroll)[0]))
+                        # FIX (2026-09-15): kpi_enroll_model was retrained
+                        # on log1p(Headcount) (see auto_train.py's
+                        # train_kpi enrollment half) so its own training
+                        # target can be capped per-college without the
+                        # old "millions of students" blow-up. Predictions
+                        # must be un-transformed with expm1() -- without
+                        # this the fallback returns a near-zero number
+                        # instead of a real headcount.
+                        pred_count_f = max(0.0, float(np.expm1(kpi_enroll_model.predict(X_enroll)[0])))
                         if sem_for_enrollment is not None:
                             pred_count_f /= 2.0
                     except Exception:
@@ -1684,21 +1766,107 @@ def _inc_rate_series(df_scope, feature_col_name, global_forecast_years):
         else:
             history_data.append(0)
 
-    # Fallback only fires if training_state.json couldn't be loaded at
-    # all — shortened to match the same conservative default as
-    # get_forecast_years()'s own fallback.
-    forecast_years = global_forecast_years or (
-        list(range(int(max(years)) + 1, int(max(years)) + 3)) if years else [2025, 2026]
-    )
+    # global_forecast_years is deliberately [] when training hasn't run
+    # yet (see get_inc_forecast) — that means "no forecast at all", not
+    # "use a fallback horizon". Only synthesize a fallback horizon when
+    # this helper is called directly without that gate ever running
+    # (global_forecast_years is None).
+    if global_forecast_years is None:
+        forecast_years = (
+            list(range(int(max(years)) + 1, int(max(years)) + 3)) if years else [2025, 2026]
+        )
+    else:
+        forecast_years = global_forecast_years
 
-    # Was: inc_model.predict() with a Course_/College_ dummy column that
-    # frequently didn't exist in inc_features (inc_model was only ever
-    # trained on College-level cohort data — see train_inc_forecast in
-    # auto_train.py), so every course silently fell back to the same
-    # baseline prediction and lines collapsed into each other.
-    # Now: forecast THIS group's own INC-rate history directly, so each
-    # college/course line reflects its own trend.
-    forecast_data = forecast_series(history_data, len(forecast_years), y_min=0, y_max=100)
+    if not forecast_years:
+        return [int(y) for y in years], history_data, [], []
+
+    # RESTORED 2026-09-15: inc_rate_model is trained at College x Course
+    # granularity now (see train_inc_forecast in auto_train.py — the
+    # dataset used to be College-only, which is why every course
+    # silently fell back to the same baseline and lines collapsed into
+    # each other). Try the model first for a SINGLE, unambiguous
+    # (College, Course) group; fall back to forecast_series() for
+    # anything broader (whole-college rollups mix many courses' rows,
+    # which the model wasn't trained to represent as one point) or for
+    # any group/feature combo the model doesn't recognize.
+    forecast_data = None
+    if (inc_rate_model is not None and inc_rate_features
+            and 'College' in df_scope.columns and 'Course' in df_scope.columns):
+        try:
+            colleges_here = df_scope['College'].dropna().astype(str).str.strip().str.upper().unique()
+            courses_here  = df_scope['Course'].dropna().astype(str).str.strip().unique()
+            if len(colleges_here) == 1 and len(courses_here) >= 1:
+                college_feat = f"College_{colleges_here[0]}"
+                # Model only ever predicts one (College, Course) pair per
+                # call. A whole-college scope (breakdown='college') mixes
+                # many courses, so run the model once PER COURSE actually
+                # present here and roll the results back up into a single
+                # line, weighted by each course's student count — instead
+                # of requiring an exact single-course match and returning
+                # no forecast at all for every multi-course group (which
+                # silently killed every college-level forecast line).
+                course_weights = df_scope.groupby('Course')['Student_ID'].nunique()
+                per_course_preds = []  # (weight, [pred_per_forecast_year])
+                if college_feat in inc_rate_features:
+                    for course_name in courses_here:
+                        course_feat = f"Course_{course_name}"
+                        if course_feat not in inc_rate_features:
+                            continue
+                        course_scope = df_scope[df_scope['Course'].astype(str).str.strip() == course_name]
+                        c_years = sorted(course_scope['Year_Numeric'].unique())
+                        c_hist = []
+                        for yr in c_years:
+                            yr_df = course_scope[course_scope['Year_Numeric'] == yr]
+                            total = yr_df['Student_ID'].nunique()
+                            if total == 0:
+                                continue
+                            if 'is_inc' in yr_df.columns:
+                                inc_students = yr_df.groupby('Student_ID')['is_inc'].max().sum()
+                            elif 'Status' in yr_df.columns:
+                                inc_students = yr_df[yr_df['Status'].astype(str).str.contains('INC', case=False, na=False)]['Student_ID'].nunique()
+                            else:
+                                inc_students = 0
+                            c_hist.append((inc_students / total) * 100)
+                        if not c_hist:
+                            continue
+
+                        X_row = pd.DataFrame(np.zeros((1, len(inc_rate_features))), columns=inc_rate_features)
+                        X_row[college_feat] = 1
+                        X_row[course_feat] = 1
+                        cur_prev = c_hist[-1]
+                        preds = []
+                        for fy in forecast_years:
+                            if 'Year_Numeric' in inc_rate_features:
+                                X_row['Year_Numeric'] = fy
+                            if 'Sem_Numeric' in inc_rate_features:
+                                X_row['Sem_Numeric'] = course_scope['Sem_Numeric'].mode().iloc[0] if 'Sem_Numeric' in course_scope.columns and not course_scope['Sem_Numeric'].empty else 1
+                            if 'INC_Rate_Prev' in inc_rate_features:
+                                X_row['INC_Rate_Prev'] = cur_prev
+                            pred = float(inc_rate_model.predict(X_row)[0])
+                            pred = max(0.0, min(100.0, pred))
+                            preds.append(pred)
+                            cur_prev = pred
+
+                        weight = float(course_weights.get(course_name, 1) or 1)
+                        per_course_preds.append((weight, preds))
+
+                if per_course_preds:
+                    total_weight = sum(w for w, _ in per_course_preds) or 1.0
+                    forecast_data = [
+                        round(sum(w * p[i] for w, p in per_course_preds) / total_weight, 2)
+                        for i in range(len(forecast_years))
+                    ]
+        except Exception:
+            forecast_data = None  # any mismatch -> fall through to forecast_series()
+
+    if forecast_data is None:
+        # No trained inc_rate_model available for this exact (College,
+        # Course) combo — do NOT fall back to a numpy trend guess.
+        # Prediction here must come from the trained .pkl only; if the
+        # model can't produce one for this group, this group simply has
+        # no forecast line (empty), same as "not predicted yet".
+        forecast_data = [None] * len(forecast_years)
 
     return [int(y) for y in years], history_data, forecast_years, forecast_data
 
@@ -1713,31 +1881,40 @@ def get_inc_forecast():
         # 'by' = '' (single line, original behavior), 'college', or 'course'
         breakdown = request.args.get('by', '').strip().lower()
 
-        # Shared forecast horizon (years driven by training_state.json)
+        # Shared forecast horizon (years driven by training_state.json).
+        # IMPORTANT: only trust this horizon — and only show a forecast
+        # at all — once actual training has run (years_collected >=
+        # MIN_YEARS_FOR_TRAINING, i.e. 6 semesters). Before that, models
+        # haven't been (re)trained yet, so there is no real .pkl to
+        # predict from — showing a forecast anyway would mean guessing.
         try:
             from training.auto_train import load_state as _load_state
-            _hs = _load_state().get('horizon', {})
-            global_forecast_years = [int(y.split('-')[0]) for y in _hs.get('prediction_years', [])]
+            _state = _load_state()
+            _hs = _state.get('horizon', {})
+            _is_trained = _state.get('training_status') == 'trained'
+            global_forecast_years = (
+                [int(y.split('-')[0]) for y in _hs.get('prediction_years', [])]
+                if _is_trained else []
+            )
         except Exception:
+            _is_trained = False
             global_forecast_years = []
 
         # INC Rate Forecast (Incomplete Grades) spans 3 forecast years,
-        # independent of the shared horizon every other chart uses.
-        # compute_horizon() caps the shared horizon based on how many full
-        # school years have been uploaded so far, which is often fewer
-        # than 3 early on — this chart specifically wants the full 3
-        # regardless. Anchored on the same starting year as the shared
-        # horizon (or the year right after the latest real data if the
-        # shared horizon isn't available yet) so it still lines up with
-        # every other forecast chart's first predicted year.
+        # independent of the shared horizon every other chart uses — but
+        # only once training has actually happened (see _is_trained
+        # above). Before that, there are simply no forecast years.
         _INC_FORECAST_YEARS = 3
-        if global_forecast_years:
+        if not _is_trained:
+            global_forecast_years = []
+        elif global_forecast_years:
             _inc_start_year = global_forecast_years[0]
+            global_forecast_years = [_inc_start_year + i for i in range(_INC_FORECAST_YEARS)]
         elif 'Year_Numeric' in df_full_loaded.columns and not df_full_loaded.empty:
             _inc_start_year = int(df_full_loaded['Year_Numeric'].max()) + 1
+            global_forecast_years = [_inc_start_year + i for i in range(_INC_FORECAST_YEARS)]
         else:
-            _inc_start_year = 2025
-        global_forecast_years = [_inc_start_year + i for i in range(_INC_FORECAST_YEARS)]
+            global_forecast_years = []
 
         df_base = df_full_loaded.copy()
 
@@ -1852,12 +2029,18 @@ def get_subject_forecast():
         # missing", which happened whenever df_full_loaded came back
         # empty (e.g. wrong/missing master CSV) since that endpoint had
         # no other source for subject-level data.
-        subject_csv_path = os.path.join(MODEL_DATASETS_DIR, "10_subject_grade_forecast_hardest_subjects_chart.csv")
+        # FIX (2026-09-15): subject_grade_forecast stores one gzip+base64 CSV-blob row
+        # PER (academic_year, semester) upload -- same shape as semester_uploads
+        # (see db_io.py / the actual novasight schema: academic_year, semester,
+        # student_rows, longform_rows, accuracy, csv_file). read_table() was
+        # returning those raw metadata/blob rows instead of the real chart
+        # columns (Year_Numeric, College, ...), which is why this route 500'd.
+        # read_model_dataset() decompresses + concatenates every semester's
+        # blob into one combined DataFrame instead.
+        df_scope = read_model_dataset("subject_grade_forecast")   # was: read_table("subject_grade_forecast")
 
-        if not os.path.exists(subject_csv_path):
+        if df_scope.empty:
             return jsonify({"error": "Subject dataset not found. Upload a dataset to generate it."}), 200
-
-        df_scope = pd.read_csv(subject_csv_path)
 
         if 'Subject' not in df_scope.columns:
             return jsonify({"error": "Subject column missing"})
@@ -1938,9 +2121,46 @@ def get_subject_forecast():
             # year; averaging that with last_val every step then converged
             # every subject toward one flat plateau by ~2027 — the bug
             # visible on the CEA/CTEC/COAS/CAHS "Top 5 Hardest Subjects"
-            # charts. Now forecast THIS subject's own grade history directly.
+            # charts.
+            # RESTORED 2026-09-15: subject_grade_model is Ridge now (see
+            # train_subject_top in auto_train.py), which CAN extrapolate
+            # a real trend instead of flatlining. Try it first for a
+            # single, unambiguous (College, Course, Subject) combo the
+            # model actually saw (subjects with <4 years of history were
+            # excluded from training); fall back to forecasting this
+            # subject's own grade history directly otherwise.
             if years_pred:
-                forecast_vals = forecast_series(data_points, len(years_pred), y_min=1.0, y_max=5.0)
+                forecast_vals = None
+                if (subject_grade_model is not None and subject_grade_features
+                        and {'College', 'Course'}.issubset(subj_rows.columns)):
+                    try:
+                        colleges_here = subj_rows['College'].dropna().astype(str).str.strip().str.upper().unique()
+                        courses_here  = subj_rows['Course'].dropna().astype(str).str.strip().unique()
+                        if len(colleges_here) == 1 and len(courses_here) == 1:
+                            college_feat = f"College_{colleges_here[0]}"
+                            course_feat  = f"Course_{courses_here[0]}"
+                            subject_feat = f"Subject_{subj}"
+                            if all(f in subject_grade_features for f in (college_feat, course_feat, subject_feat)):
+                                X_row = pd.DataFrame(np.zeros((1, len(subject_grade_features))), columns=subject_grade_features)
+                                X_row[college_feat] = 1
+                                X_row[course_feat] = 1
+                                X_row[subject_feat] = 1
+                                last_grade = data_points[-1] if data_points else float(overall_avg)
+                                preds = []
+                                for fy in years_pred:
+                                    if 'Year_Numeric' in subject_grade_features:
+                                        X_row['Year_Numeric'] = fy
+                                    if 'Avg_Grade_Prev' in subject_grade_features:
+                                        X_row['Avg_Grade_Prev'] = last_grade
+                                    pred = max(1.0, min(5.0, float(subject_grade_model.predict(X_row)[0])))
+                                    preds.append(round(pred, 2))
+                                    last_grade = pred
+                                forecast_vals = preds
+                    except Exception:
+                        forecast_vals = None
+
+                if forecast_vals is None:
+                    forecast_vals = forecast_series(data_points, len(years_pred), y_min=1.0, y_max=5.0)
                 data_points.extend(forecast_vals)
 
             fail_count, fail_rate = 0, 0.0
@@ -2010,11 +2230,17 @@ def get_hardest_subjects_by_course():
     try:
         college = request.args.get('college', 'all').strip()
 
-        subject_csv_path = os.path.join(MODEL_DATASETS_DIR, "10_subject_grade_forecast_hardest_subjects_chart.csv")
-        if not os.path.exists(subject_csv_path):
+        # FIX (2026-09-15): subject_grade_forecast stores one gzip+base64 CSV-blob row
+        # PER (academic_year, semester) upload -- same shape as semester_uploads
+        # (see db_io.py / the actual novasight schema: academic_year, semester,
+        # student_rows, longform_rows, accuracy, csv_file). read_table() was
+        # returning those raw metadata/blob rows instead of the real chart
+        # columns (Year_Numeric, College, ...), which is why this route 500'd.
+        # read_model_dataset() decompresses + concatenates every semester's
+        # blob into one combined DataFrame instead.
+        df_scope = read_model_dataset("subject_grade_forecast")   # was: read_table("subject_grade_forecast")
+        if df_scope.empty:
             return jsonify({"error": "Subject dataset not found. Upload a dataset to generate it."}), 200
-
-        df_scope = pd.read_csv(subject_csv_path)
 
         required_cols = {'Subject', 'Course', 'Year_Numeric'}
         if not required_cols.issubset(df_scope.columns):
@@ -2226,23 +2452,13 @@ def get_dropout_spike():
             else:
                 data_points.append(0)
 
-        # 4. PREDICTION — years driven by training_state.json horizon
-        try:
-            from training.auto_train import load_state as _load_state3
-            _hs3 = _load_state3().get('horizon', {})
-            years_pred = [int(y.split('-')[0]) for y in _hs3.get('prediction_years', [])]
-        except Exception:
-            years_pred = []
-        if not years_pred:
-            # Fallback only fires if training_state.json couldn't be
-            # loaded at all — shortened to match the same conservative
-            # default used elsewhere in this file.
-            _base = int(max(years_hist)) if years_hist else 2024
-            years_pred = list(range(_base + 1, _base + 3))
-        
-        # Filter out years we already have in history to avoid overlap
-        last_hist_year = years_hist[-1] if years_hist else 2024
-        years_pred = [y for y in years_pred if y > last_hist_year]
+        # 4. PREDICTION — years driven by training_state.json horizon.
+        # No forecast at all unless training has actually run (see
+        # get_forecast_years' docstring / MIN_YEARS_FOR_TRAINING) — before
+        # that there's no trained model behind this chart's forecast, so
+        # it should show history only instead of a guessed fallback range.
+        last_hist_year = years_hist[-1] if years_hist else get_latest_real_year()
+        years_pred = get_forecast_years(last_hist_year)
 
         # Was: dropout_spike_model.predict() — a LinearRegression fit across
         # ALL colleges at once via dummy variables, which only ever produces
@@ -2595,8 +2811,49 @@ def get_status_trend():
                 # dashboard uses, so this chart never disagrees with the
                 # rest of the dashboard about how far into the future to go.
                 fyrs = get_forecast_years(latest)
-                reg_fore = forecast_series(reg_pct, len(fyrs), y_min=0, y_max=100)
-                irr_fore = forecast_series(irr_pct, len(fyrs), y_min=0, y_max=100)
+
+                # RESTORED 2026-09-15 — see train_status_trend in
+                # auto_train.py. This chart had no trained model at all
+                # before; forecast_series() was the entire design. Model
+                # is trained at College x Course granularity, so it only
+                # applies cleanly to a single, unambiguous (College,
+                # Course) group — same restriction _inc_rate_series()
+                # applies above. Any mismatch falls back to
+                # forecast_series() exactly as before.
+                irr_fore = None
+                if (status_trend_irregular_model is not None and status_trend_irregular_features
+                        and 'College' in g_df.columns and 'Course' in g_df.columns):
+                    try:
+                        colleges_here = g_df['College'].dropna().astype(str).str.strip().str.upper().unique()
+                        courses_here  = g_df['Course'].dropna().astype(str).str.strip().unique()
+                        if len(colleges_here) == 1 and len(courses_here) == 1:
+                            college_feat = f"College_{colleges_here[0]}"
+                            course_feat  = f"Course_{courses_here[0]}"
+                            if college_feat in status_trend_irregular_features and course_feat in status_trend_irregular_features:
+                                X_row = pd.DataFrame(np.zeros((1, len(status_trend_irregular_features))), columns=status_trend_irregular_features)
+                                X_row[college_feat] = 1
+                                X_row[course_feat] = 1
+                                last_irr = irr_pct[-1] if irr_pct else 0
+                                preds = []
+                                for fy in fyrs:
+                                    if 'Year_Numeric' in status_trend_irregular_features:
+                                        X_row['Year_Numeric'] = fy
+                                    if 'Irregular_Rate_Prev' in status_trend_irregular_features:
+                                        X_row['Irregular_Rate_Prev'] = last_irr
+                                    pred = max(0.0, min(100.0, float(status_trend_irregular_model.predict(X_row)[0])))
+                                    preds.append(round(pred, 1))
+                                    last_irr = pred
+                                irr_fore = preds
+                    except Exception:
+                        irr_fore = None
+
+                if irr_fore is None:
+                    irr_fore = forecast_series(irr_pct, len(fyrs), y_min=0, y_max=100)
+                # Regular% stays the complement of Irregular%, same
+                # invariant pct_series() enforces on the historical side —
+                # keeps this line internally consistent even when
+                # irr_fore came from the model instead of Holt fit.
+                reg_fore = [round(100 - v, 1) for v in irr_fore]
 
                 # Forecast headcount for this group's furthest forecast
                 # year, so the % lines above can turn into real predicted
@@ -2701,6 +2958,12 @@ def get_status_trend():
             gender_model, gender_features = male_gender_dropout_model, male_gender_dropout_features
         elif gender_arg.lower() == 'female':
             gender_model, gender_features = female_gender_dropout_model, female_gender_dropout_features
+        elif gender_arg.lower() in ('all', ''):
+            # NEW 2026-09-15 — see train_dropout_combined in auto_train.py.
+            # Male/female each already had a dedicated model; 'all' used
+            # to always fall through to the generic Holt-fit forecast_series()
+            # below even though a real model now exists for it too.
+            gender_model, gender_features = dropout_all_model, dropout_all_features
 
         dropped_forecast = None
         if gender_model is not None and gender_features is not None:
@@ -2882,11 +3145,15 @@ def get_year_level_distribution():
         college_arg = request.args.get('college', 'all').strip()
         semester_arg = request.args.get('semester', 'all').strip()
 
-        yl_csv_path = os.path.join(MODEL_DATASETS_DIR, "13_year_level_performance.csv")
-        if not os.path.exists(yl_csv_path):
-            return jsonify({"error": "Year-level dataset not found. Upload a dataset to generate it."}), 200
-
-        df_scope = pd.read_csv(yl_csv_path)
+        # FIX (2026-09-15): year_level_performance stores one gzip+base64 CSV-blob row
+        # PER (academic_year, semester) upload -- same shape as semester_uploads
+        # (see db_io.py / the actual novasight schema: academic_year, semester,
+        # student_rows, longform_rows, accuracy, csv_file). read_table() was
+        # returning those raw metadata/blob rows instead of the real chart
+        # columns (Year_Numeric, College, ...), which is why this route 500'd.
+        # read_model_dataset() decompresses + concatenates every semester's
+        # blob into one combined DataFrame instead.
+        df_scope = read_model_dataset("year_level_performance")   # was: read_table("year_level_performance")
 
         if df_scope.empty:
             return jsonify({"labels": [], "datasets": [], "error": "No year-level data found"})
@@ -3193,11 +3460,15 @@ def get_year_level_inc_irreg():
         # in the UI to flip between INC / Irregular / Drop.
         metric_arg = request.args.get('metric', 'inc').strip().lower()
 
-        csv_path = os.path.join(MODEL_DATASETS_DIR, "14_year_level_inc_irreg.csv")
-        if not os.path.exists(csv_path):
-            return jsonify({"error": "Year-level INC/Irregular dataset not found. Upload a dataset to generate it."}), 200
-
-        df_scope = pd.read_csv(csv_path)
+        # FIX (2026-09-15): year_level_inc_irreg stores one gzip+base64 CSV-blob row
+        # PER (academic_year, semester) upload -- same shape as semester_uploads
+        # (see db_io.py / the actual novasight schema: academic_year, semester,
+        # student_rows, longform_rows, accuracy, csv_file). read_table() was
+        # returning those raw metadata/blob rows instead of the real chart
+        # columns (Year_Numeric, College, ...), which is why this route 500'd.
+        # read_model_dataset() decompresses + concatenates every semester's
+        # blob into one combined DataFrame instead.
+        df_scope = read_model_dataset("year_level_inc_irreg")   # was: read_table("year_level_inc_irreg")
         if df_scope.empty:
             return jsonify({"labels": [], "datasets": [], "error": "No year-level data found"})
 
@@ -3379,11 +3650,14 @@ def get_course_year_level_heatmap():
         college_arg = request.args.get('college', 'all').strip()
         semester_arg = request.args.get('semester', 'all').strip()
 
-        csv_path = os.path.join(MODEL_DATASETS_DIR, "16_course_year_level_dropout.csv")
-        if not os.path.exists(csv_path):
-            return jsonify({"error": "Course/Year-level dropout dataset not found. Upload a dataset to generate it."}), 200
-
-        df_scope = pd.read_csv(csv_path)
+        # FIX (2026-09-15): course_year_level_dropout stores one gzip+base64
+        # CSV-blob row PER (academic_year, semester) upload, same shape as
+        # semester_uploads (see db_io.py) -- read_table() returns those rows
+        # with `csv_file` still compressed, not the actual heatmap columns
+        # (Year_Numeric, Sem_Numeric, ...) this route needs. read_model_dataset()
+        # decompresses + concatenates every semester's blob into one combined
+        # DataFrame, matching what the retired on-disk CSV used to hold.
+        df_scope = read_model_dataset("course_year_level_dropout")   # was: pd.read_csv(csv_path)
         if df_scope.empty:
             return jsonify({"courses": [], "levels": [], "matrix": [], "error": "No year-level data found"})
 

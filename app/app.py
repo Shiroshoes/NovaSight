@@ -7,7 +7,7 @@ from sqlalchemy import inspect, text
 from routes.admin import admin_bp
 from routes.registrar import registrar_bp
 from routes.saso import saso_bp
-from routes.Academic_affair import academicaffair_bp
+from routes.MISO import MISO_bp
 from routes.cahs import cahs_bp
 from routes.cba import cba_bp
 from routes.ccst import ccst_bp
@@ -31,7 +31,7 @@ db.init_app(app)
 app.register_blueprint(admin_bp)
 app.register_blueprint(registrar_bp)
 app.register_blueprint(saso_bp)
-app.register_blueprint(academicaffair_bp)
+app.register_blueprint(MISO_bp)
 app.register_blueprint(cahs_bp)
 app.register_blueprint(cba_bp)
 app.register_blueprint(ccst_bp)
@@ -85,26 +85,44 @@ with app.app_context():
     # still count as two different accounts — COLLATE NOCASE fixes both
     # problems in one index (ASCII case-insensitive comparison, enforced
     # by SQLite itself on every insert/update from here on).
-    existing_indexes = {idx['name'] for idx in inspector.get_indexes('acad_user')}
-    if 'ix_acad_user_account_ci' not in existing_indexes:
-        try:
-            db.session.execute(text(
-                'CREATE UNIQUE INDEX ix_acad_user_account_ci '
-                'ON acad_user (account COLLATE NOCASE)'
-            ))
-            db.session.commit()
-            print("Migrated: added case-insensitive unique index on acad_user.account")
-        except Exception as e:
-            db.session.rollback()
-            print(f"WARNING: could not add case-insensitive unique index on acad_user.account: {e}")
-            dupes = db.session.execute(text(
-                'SELECT LOWER(account) AS acct, COUNT(*) AS c '
-                'FROM acad_user GROUP BY LOWER(account) HAVING c > 1'
-            )).fetchall()
-            if dupes:
-                print("These accounts only differ by case and must be manually merged/renamed first:")
-                for row in dupes:
-                    print(f"  - {row.acct}  ({row.c} accounts)")
+    # `COLLATE NOCASE` is SQLite-only syntax. On MySQL/XAMPP (the current
+    # DB), schema.sql already makes `account` case-insensitive by giving
+    # the column itself a utf8mb4_general_ci collation + UNIQUE key, so
+    # this block only needs to run for SQLite databases (e.g. local dev
+    # without XAMPP) — on MySQL it's a no-op instead of a silent failure.
+    if db.engine.dialect.name == 'sqlite':
+        existing_indexes = {idx['name'] for idx in inspector.get_indexes('acad_user')}
+        if 'ix_acad_user_account_ci' not in existing_indexes:
+            try:
+                db.session.execute(text(
+                    'CREATE UNIQUE INDEX ix_acad_user_account_ci '
+                    'ON acad_user (account COLLATE NOCASE)'
+                ))
+                db.session.commit()
+                print("Migrated: added case-insensitive unique index on acad_user.account")
+            except Exception as e:
+                db.session.rollback()
+                print(f"WARNING: could not add case-insensitive unique index on acad_user.account: {e}")
+                dupes = db.session.execute(text(
+                    'SELECT LOWER(account) AS acct, COUNT(*) AS c '
+                    'FROM acad_user GROUP BY LOWER(account) HAVING c > 1'
+                )).fetchall()
+                if dupes:
+                    print("These accounts only differ by case and must be manually merged/renamed first:")
+                    for row in dupes:
+                        print(f"  - {row.acct}  ({row.c} accounts)")
+    elif db.engine.dialect.name == 'mysql':
+        # Sanity check only — schema.sql's column-level collation already
+        # enforces this; this just warns if two accounts somehow differ
+        # only by case (e.g. rows inserted before the collation was set).
+        dupes = db.session.execute(text(
+            'SELECT LOWER(account) AS acct, COUNT(*) AS c '
+            'FROM acad_user GROUP BY LOWER(account) HAVING c > 1'
+        )).fetchall()
+        if dupes:
+            print("WARNING: these accounts only differ by case and must be manually merged/renamed:")
+            for row in dupes:
+                print(f"  - {row.acct}  ({row.c} accounts)")
 
     # Default admin's domain changed from gmail.com to the official
     # bpsu.edu.ph one. On a database created before this change, the old
@@ -123,7 +141,7 @@ with app.app_context():
             last_name='User',
             mi=None,
             account='admin@bpsu.edu.ph',
-            role='admin'
+            role='Academic_Affair'
         )
         admin_user.set_password('Admin123!')
         assign_avatar_color(admin_user)
@@ -190,10 +208,10 @@ def login():
 def _redirect_by_role(role):
     """Central role-to-URL mapper used in login and the already-logged-in guard."""
     routes = {
-        'admin':          '/NovaSight/admin',
+        'Academic_Affair':          '/NovaSight/admin',
         'Registrar':      '/NovaSight/registrar/home',
         'SASO':           '/NovaSight/saso/home',
-        'Academic_Affair': '/NovaSight/academicaffair/home',
+        'MISO': '/NovaSight/MISO/home',
         'CBAdean':        '/NovaSight/cba/home',
         'CCSTdean':       '/NovaSight/ccst/home',
         'CEAdean':        '/NovaSight/cea/home',

@@ -33,6 +33,18 @@ const ModeAwareCharts = {
     currentMode: 'recent',   // 'recent' | 'prediction'
     latestRealYear: null,    // filled in by init(), used for both modes
 
+    // Whether this page is even allowed to switch into Prediction mode.
+    // Set from window.DASHBOARD_PREDICTION_DISABLED (a page-level global
+    // a dashboard's own script sets BEFORE this file loads — see
+    // deandash.js, which sets it so dean dashboards only ever show real/
+    // CSV data, never forecasts, even though they share these exact
+    // canvas ids and this exact file with the main dashboard). Defaults
+    // to enabled so pages that never set the flag (maindash.js) are
+    // unaffected. Resolved in init() rather than at parse time since
+    // this file loads after the page sets the flag but we still want a
+    // single source of truth read once.
+    predictionEnabled: true,
+
     // Canvas ids for cards that have NO real trained forecast behind
     // them (or whose model's accuracy is too low to present as a
     // genuine prediction — e.g. GWA Ranking's gwa_ranking_model sits at
@@ -87,7 +99,17 @@ const ModeAwareCharts = {
         this._college = college;
         this._semester = semester;
         this.currentMode = 'recent';
+        this.predictionEnabled = !window.DASHBOARD_PREDICTION_DISABLED;
         this._syncToggleUI('recent');
+
+        // Prediction disabled for this page (dean dash) — hide the pill
+        // switch entirely instead of leaving a control on screen that
+        // would just bounce itself back to 'recent' if clicked. Recent
+        // mode's own UI (year/semester dropdowns, badges) is untouched.
+        if (!this.predictionEnabled) {
+            const wrap = document.getElementById('modeSwitchWrap');
+            if (wrap) wrap.style.display = 'none';
+        }
 
         // Stored so setMode()/toggle() can wait for this to resolve
         // instead of racing it — a fast Recent<->Prediction toggle
@@ -196,8 +218,13 @@ const ModeAwareCharts = {
         document.dispatchEvent(new CustomEvent('dashboardModeChanged', { detail: { mode } }));
     },
 
-    /** Called by the pill switch's onclick — flips mode and re-renders. */
+    /** Called by the pill switch's onclick — flips mode and re-renders.
+     *  No-ops when predictionEnabled is false (dean dash) — the switch
+     *  is already hidden in that case (see init()), but this guard
+     *  covers any other caller too (e.g. deandash.js's own filter
+     *  handlers checking ModeAwareCharts.currentMode). */
     toggle(college = 'all', semester = 'all') {
+        if (!this.predictionEnabled) return;
         const nextMode = this.currentMode === 'prediction' ? 'recent' : 'prediction';
         this.setMode(nextMode, college, semester);
     },
@@ -207,6 +234,11 @@ const ModeAwareCharts = {
      * exclusively by the toggle switch (directly or via toggle() above).
      */
     setMode(mode, college = 'all', semester = 'all') {
+        // Same guard as toggle() — belt-and-suspenders for any direct
+        // ModeAwareCharts.setMode('prediction', ...) call site (e.g. a
+        // filter handler) rather than relying only on the hidden switch.
+        if (!this.predictionEnabled) mode = 'recent';
+
         // If the initial year fetch hasn't resolved yet, wait for it
         // instead of rendering with year=null (which the backend was
         // happily returning valid, all-zero data for).

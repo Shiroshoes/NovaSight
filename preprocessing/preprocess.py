@@ -1,3 +1,4 @@
+import io
 import os
 import re
 import sys
@@ -8,6 +9,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import openpyxl
+
+from util.db_io import (
+    read_table, read_semester_csvs, write_table, write_full_replace,
+    write_partial_replace, upsert_semester_upload, delete_semester_upload,
+    count_distinct, count_rows,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -66,6 +73,8 @@ GRADE_ENCODING = {
     "NGA":  0.0,   # No Grade (treated as drop)
     "INC":  5.0,   # Incomplete (worst grade bucket)
     "W":    0.0,   # Withdrawn
+    "UDR":  0.0,   # Underload (registrar status, not a real grade point —
+                    # treated like a drop; seen in COBA/CTEC/CNM sheets)
 }
 
 # ── OFFICIAL COLLEGE GRADING SCALE ──────────────────────────────────────────
@@ -278,9 +287,18 @@ def extract_header_info(rows) -> tuple[str, str]:
 #  SHEET PARSER
 # ══════════════════════════════════════════════════════════════════════════════
 
-def parse_sheet(ws, college_name: str, semester: str, academic_year: str) -> list[dict]:
+def parse_sheet(ws, college_name: str, semester: str, academic_year: str,
+                 stats: dict | None = None) -> list[dict]:
     """
     Parse one sheet and return a list of long-form dicts, one per student×subject.
+
+    `stats`, if given, is a dict keyed by (academic_year, semester) that
+    this call accumulates {"total": n, "valid": n} grade-cell counts
+    into — every cell paired with a subject code counts toward `total`,
+    and every one that parse_grade() successfully resolves to a real
+    grade point (not None) counts toward `valid`. This is the raw input
+    to the per-upload "Accuracy" figure (valid / total) recorded in
+    course_year_level_dropout — see parse_workbook()/process_file().
 
     Sheet layout (repeating for each course block):
         Row N:   Course name in col 0
@@ -332,8 +350,11 @@ def parse_sheet(ws, college_name: str, semester: str, academic_year: str) -> lis
             if is_student_row(row):
                 student_seq = int(row[0])
                 gender_raw  = str(row[1]).strip() if row[1] is not None else "Unknown"
-                gender_val  = 1 if gender_raw.lower() == "female" else (
-                              0 if gender_raw.lower() == "male" else -1)
+                # Text label directly ("Male"/"Female"/"Unknown"), not a 1/0/-1
+                # code — this is what lands in csv_file and every downstream
+                # table, so SQL/CSV output reads Male/Female, not numbers.
+                gender_val  = "Female" if gender_raw.lower() == "female" else (
+                              "Male" if gender_raw.lower() == "male" else "Unknown")
 
                 year_level_num, year_level_label = parse_year_level(row[2])
 
@@ -343,6 +364,13 @@ def parse_sheet(ws, college_name: str, semester: str, academic_year: str) -> lis
                 for subj_i, subject_code in enumerate(prev_subjects):
                     raw_grade = grades_raw[subj_i] if subj_i < len(grades_raw) else None
                     grade_val = parse_grade(raw_grade)
+
+                    if stats is not None:
+                        key = (academic_year, semester)
+                        entry = stats.setdefault(key, {"total": 0, "valid": 0})
+                        entry["total"] += 1
+                        if grade_val is not None:
+                            entry["valid"] += 1
 
                     if grade_val is None:
                         # Skip cells that are clearly not grades (None, empty, summary)
@@ -389,12 +417,42 @@ def parse_sheet(ws, college_name: str, semester: str, academic_year: str) -> lis
 #  FILE PARSER
 # ══════════════════════════════════════════════════════════════════════════════
 
-def parse_workbook(filepath: str) -> pd.DataFrame:
-    """Parse all sheets of one xlsx file and return long-form DataFrame."""
-    log.info(f"  Parsing: {os.path.basename(filepath)}")
+# Matches the `userid_timestamp_` prefix that upload_routes._safe_stored_name()
+# puts in front of every uploaded file's ON-DISK name, e.g.
+# "1_1789446481_2022-1_Student-Performance_Dataset.xlsx". That prefix exists
+# for collision-safety and to avoid leaking real server filesystem paths (see
+# _safe_stored_name()'s docstring) -- it's intentional, NOT a bug, and the
+# actual file on disk should keep it. This regex is only used to strip it
+# back off again for LOG readability, so "Parsing: ..." shows a human the
+# real filename instead of the userid/timestamp-prefixed one.
+_STORED_NAME_PREFIX_RE = re.compile(r"^\d+_\d{9,}_")
+
+
+def _display_filename(filepath: str) -> str:
+    """
+    Human-readable version of an uploaded file's path, for logging only.
+    Strips the `userid_timestamp_` collision-safety prefix (see
+    _STORED_NAME_PREFIX_RE above) if present; falls back to the plain
+    basename unchanged for any file that was never through
+    _safe_stored_name() (e.g. CLI/manual runs).
+    """
+    name = os.path.basename(filepath)
+    return _STORED_NAME_PREFIX_RE.sub("", name, count=1) or name
+
+
+def parse_workbook(filepath: str) -> tuple[pd.DataFrame, dict]:
+    """
+    Parse all sheets of one xlsx file and return (long-form DataFrame,
+    stats). `stats` is a dict keyed by (academic_year, semester) with
+    {"total": n, "valid": n} grade-cell counts, accumulated across every
+    sheet in this file — the input to the per-upload Accuracy figure
+    (see parse_sheet()'s docstring / process_file()).
+    """
+    log.info(f"  Parsing: {_display_filename(filepath)}")
     wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
 
     all_records = []
+    stats: dict = {}
 
     for sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
@@ -411,12 +469,25 @@ def parse_workbook(filepath: str) -> pd.DataFrame:
 
         log.info(f"    Sheet: {sheet_name} → {college_name} | {semester} | {academic_year}")
 
-        records = parse_sheet(ws, college_name, semester, academic_year)
+        records = parse_sheet(ws, college_name, semester, academic_year, stats=stats)
         log.info(f"      → {len(records):,} subject-grade records")
         all_records.extend(records)
 
     wb.close()
-    return pd.DataFrame(all_records)
+    return pd.DataFrame(all_records), stats
+
+
+def _accuracy_pct(stats: dict, academic_year: str, semester: str) -> float | None:
+    """
+    Looks up (academic_year, semester) in a parse_workbook()/merged stats
+    dict and returns the validation accuracy as a percentage
+    (100 * valid / total grade cells), or None if there's no attempted
+    cell to compute a ratio from.
+    """
+    entry = stats.get((academic_year, semester))
+    if not entry or not entry.get("total"):
+        return None
+    return round(100 * entry["valid"] / entry["total"], 2)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -488,17 +559,188 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 #  MODEL DATASET BUILDERS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_dir: str):
-    """Build all 12 model-dataset CSVs."""
-    os.makedirs(out_dir, exist_ok=True)
+FILENAME_TO_TABLE = {
+    "02_dropout_spike_cohort_dropout_trend_chart.csv":              "dropout_spike_cohort",
+    "03_dropout_ranking_college_college_ranking_chart.csv":         "dropout_ranking_college",
+    "04_gwa_ranking_college_gwa_ranking_chart.csv":                 "gwa_ranking_college",
+    "05_gwa_trend_timeseries_gwa_trend_chart.csv":                  "gwa_trend_timeseries",
+    "06_inc_forecast_cohort_inc_rate_chart.csv":                    "inc_forecast_cohort",
+    "07_irreg_reg_cohort_status_trend_chart.csv":                   "irreg_reg_cohort",
+    "08_kpi_gwa_student_kpi_tiles.csv":                             "kpi_gwa_student",
+    "09_kpi_enrollment_college_kpi_tiles.csv":                      "kpi_enrollment_college",
+    "10_subject_grade_forecast_hardest_subjects_chart.csv":         "subject_grade_forecast",
+    "11_performance_band_dist_unused_gwa_distribution_chart.csv":   "performance_band_dist",
+    "12_gender_performance_male_retention_trend_chart.csv":         "gender_performance_male",
+    "12_gender_performance_female_retention_trend_chart.csv":       "gender_performance_female",
+    "13_year_level_performance.csv":                                "year_level_performance",
+    "14_year_level_inc_irreg.csv":                                  "year_level_inc_irreg",
+    "15_kpi_drop_college_kpi_tiles.csv":                            "kpi_drop_college",
+    # (see PARTIAL_REPLACE_KEYS below for how each is written back)
+    # "16_course_year_level_dropout.csv" is intentionally NOT mapped here.
+    # FIX (2026-09-15, part 4): `course_year_level_dropout` is a CSV-blob
+    # table (same shape as semester_uploads: academic_year, semester,
+    # student_rows, longform_rows, accuracy, csv_file) -- NOT a normal
+    # typed table, so it can't go through save()'s write_full_replace()
+    # path below (that expects the DataFrame's own columns to match the
+    # table 1:1). It's written explicitly instead, right after this
+    # dataset is computed -- see the "16 –" block further down.
+}
 
-    def save(df, name):
-        path = os.path.join(out_dir, name)
-        df.to_csv(path, index=False)
-        log.info(f"    Saved {name}: {len(df):,} rows")
+# Same principle as course_year_level_dropout: instead of TRUNCATEing
+# the whole table (write_full_replace), delete+insert only the rows for
+# each distinct Year_Numeric[, Sem_Numeric] group present — a new
+# upload only touches the group(s) it actually affects, every other
+# semester's/year's rows are left alone. Tables aggregated per YEAR
+# only (no Sem_Numeric column) use just Year_Numeric as the key.
+PARTIAL_REPLACE_KEYS = {
+    "dropout_spike_cohort":      ["Year_Numeric"],
+    "dropout_ranking_college":   ["Year_Numeric", "Sem_Numeric"],
+    "gwa_ranking_college":       ["Year_Numeric", "Sem_Numeric"],
+    "gwa_trend_timeseries":      ["Year_Numeric", "Sem_Numeric"],
+    "inc_forecast_cohort":       ["Year_Numeric", "Sem_Numeric"],
+    "irreg_reg_cohort":          ["Year_Numeric", "Sem_Numeric"],
+    "kpi_gwa_student":           ["Year_Numeric", "Sem_Numeric"],
+    "kpi_enrollment_college":    ["Year_Numeric", "Sem_Numeric"],
+    "subject_grade_forecast":    ["Year_Numeric"],
+    "performance_band_dist":     ["Year_Numeric", "Sem_Numeric"],
+    "gender_performance_male":   ["Year_Numeric"],
+    "gender_performance_female": ["Year_Numeric"],
+    "year_level_performance":    ["Year_Numeric", "Sem_Numeric"],
+    "year_level_inc_irreg":      ["Year_Numeric", "Sem_Numeric"],
+    "kpi_drop_college":          ["Year_Numeric", "Sem_Numeric"],
+}
 
-    # 01 – Dropout risk per student (the main student-level table)
-    save(student_df, "01_dropout_risk_per_student_dropout_pie_status_pie.csv")
+
+def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_dir: str = None):
+    """Build/refresh all model-dataset tables in MySQL, AND (when `out_dir`
+    is given) write each one's plain CSV alongside it in `out_dir`.
+
+    The MySQL table is the source of truth — it's what auto_train.py's
+    trainers and the live dashboard should read for analytics/predictions,
+    since it's always the freshest, fully-rebuilt copy. The CSV is written
+    purely so the 01-16 files keep existing on disk for
+    manual inspection/backup, exactly like before the MySQL migration.
+    Both are always kept in sync: every call below writes the same
+    DataFrame to the table AND (if out_dir is set) to its CSV in the same
+    step, so there's no window where one is stale relative to the other.
+
+    Every dataset is rebuilt fully each run — the table is TRUNCATEd and
+    re-inserted (write_full_replace(), NOT to_sql(if_exists="replace")),
+    so the manually-created schema for each table (see
+    create_model_dataset_tables.sql) stays intact across every rebuild
+    instead of getting dropped/recreated with pandas' own inferred types.
+    The CSV is a plain overwrite, same as before."""
+
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    _SEM_NUM_TO_LABEL = {1: "1sem", 2: "2sem", 3: "summer"}
+
+    def _pct_valid(df, cols):
+        """Per-dataset validation %: share of this dataset's OWN rows
+        where every column in `cols` (the fields that actually matter
+        for that chart/table) is non-null. Same idea as
+        course_year_level_dropout's own_accuracy below, generalized so
+        every one of the 01-17 CSVs gets a real number in its `accuracy`
+        column instead of the hardcoded None it had before — that
+        column was defined on every model-dataset table (see
+        novasight.sql) but never actually populated except for
+        semester_uploads and course_year_level_dropout."""
+        if df.empty:
+            return None
+        cols = [c for c in cols if c in df.columns]
+        if not cols:
+            return None
+        return round(100 * df[cols].notna().all(axis=1).mean(), 2)
+
+    def _store_csv_blob(df, table, key_columns, accuracy=None, student_count_col=None):
+        """
+        Store `df` as CSV-blob row(s) in `table` -- same shape as
+        semester_uploads/course_year_level_dropout (academic_year,
+        semester, student_rows, longform_rows, accuracy, csv_file).
+        `table` (via FILENAME_TO_TABLE) is what identifies whose CSV
+        this is; ONE upsert per distinct Year_Numeric[, Sem_Numeric]
+        group in `df`, keyed by that group's REAL academic_year/
+        semester -- only that group's row is touched, every other
+        semester's/year's row is left alone (same principle as the
+        "16 –" block below).
+
+        `student_rows`: FIX (2026-09-15, part 6) -- this used to always
+        be len(sub), i.e. this dataset's OWN row count (e.g. 6 for a
+        chart grouped down to one row per College), which is a
+        college/category count, not a student count. When
+        `student_count_col` names a column already present in `df`
+        that holds a per-row distinct-student count (e.g.
+        "Total_Students", "Student_Cnt"), we SUM that column across
+        this group instead -- each row's count comes from a mutually
+        exclusive slice (a College, a Perf_Band, ...), so the sum is
+        the real distinct-student total for this upload. When
+        `student_count_col` is omitted, `df` is already one row per
+        student (03/04/08's per-student tables), so len(sub) already
+        IS the student count and is kept as-is.
+        """
+    def _store_csv_blob(df, table, key_columns, accuracy=None, student_count_col=None, student_rows_lookup=None):
+        """
+        ... (see class docstring above for student_count_col) ...
+        `student_rows_lookup`: optional Series/dict indexed by this
+        group's key_vals, used INSTEAD of summing student_count_col
+        when a column-sum would double-count (e.g. dataset 10 groups by
+        Subject too, and a student takes several subjects, so summing
+        its per-subject Student_Cnt inflates way past the real
+        headcount). Falls back to the student_count_col sum, then to
+        len(sub), if no match is found.
+        """
+        for key_vals, sub in df.groupby(key_columns):
+            if not isinstance(key_vals, tuple):
+                key_vals = (key_vals,)
+            yr = int(key_vals[0])
+            academic_year = f"{yr}-{yr + 1}"
+            semester = (
+                _SEM_NUM_TO_LABEL.get(int(key_vals[1]), "1sem")
+                if len(key_vals) > 1 else "ALL"  # this table's own grain is per-YEAR only
+            )
+            lookup_key = key_vals[0] if len(key_vals) == 1 else key_vals
+            if student_rows_lookup is not None and lookup_key in student_rows_lookup:
+                rows_count = int(student_rows_lookup[lookup_key])
+            elif student_count_col and student_count_col in sub.columns:
+                rows_count = int(sub[student_count_col].sum())
+            else:
+                rows_count = len(sub)
+            try:
+                upsert_semester_upload(
+                    table, academic_year, semester,
+                    student_rows=rows_count, longform_rows=0,
+                    accuracy=accuracy, csv_file=sub.to_csv(index=False),
+                )
+            except Exception as e:
+                log.error(
+                    f"  Failed to store {table} CSV for {academic_year} "
+                    f"{semester} in MySQL (non-fatal): {e}"
+                )
+
+    def save(df, name, accuracy=None, student_count_col=None, student_rows_lookup=None):
+        table = FILENAME_TO_TABLE.get(name)
+        if table:
+            keys = PARTIAL_REPLACE_KEYS.get(table, ["Year_Numeric"])
+            _store_csv_blob(df, table, keys, accuracy=accuracy,
+                             student_count_col=student_count_col,
+                             student_rows_lookup=student_rows_lookup)
+        if out_dir:
+            csv_path = os.path.join(out_dir, name)
+            df.to_csv(csv_path, index=False)
+            if table:
+                log.info(f"    Saved -> {table} (MySQL) + {csv_path} (CSV): {len(df):,} rows")
+            else:
+                log.info(f"    Saved -> {csv_path} (CSV only, no table mapping): {len(df):,} rows")
+        elif table:
+            log.info(f"    Saved -> {table}: {len(df):,} rows")
+        else:
+            log.info(f"    Skipped {name}: no table mapping and no out_dir")
+
+    # 01 – Dropout risk per student = student_df itself, which IS
+    # student_data (already written by write_semester_folder / the
+    # migration script) — nothing to do here, kept only as a comment
+    # so this function's numbering still lines up with the old CSVs.
 
     # 02 – Dropout spike cohort (college × year dropout rate)
     spike = (
@@ -511,20 +753,24 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     )
     spike["Dropout_Rate"]    = (spike["Dropout_Count"] / spike["Total_Students"] * 100).round(2)
     spike["Non_Dropout_Pct"] = (100 - spike["Dropout_Rate"]).round(2)
-    save(spike, "02_dropout_spike_cohort_dropout_trend_chart.csv")
+    save(spike, "02_dropout_spike_cohort_dropout_trend_chart.csv",
+         accuracy=_pct_valid(spike, ["College", "Dropout_Rate"]),
+         student_count_col="Total_Students")
 
     # 03 – Dropout ranking college (student-level with key columns)
     save(
         student_df[["Student_ID", "College", "Course", "Semester",
                     "Sem_Numeric", "Year_Numeric", "GWA", "fail_rate", "is_drop"]],
-        "03_dropout_ranking_college_college_ranking_chart.csv"
+        "03_dropout_ranking_college_college_ranking_chart.csv",
+        accuracy=_pct_valid(student_df, ["College", "Course", "GWA"]),
     )
 
     # 04 – GWA ranking college (student-level)
     save(
         student_df[["Student_ID", "College", "Course",
                     "Year_Numeric", "Sem_Numeric", "GWA"]].dropna(subset=["GWA"]),
-        "04_gwa_ranking_college_gwa_ranking_chart.csv"
+        "04_gwa_ranking_college_gwa_ranking_chart.csv",
+        accuracy=_pct_valid(student_df, ["College", "Course", "GWA"]),
     )
 
     # 05 – GWA trend timeseries (college × year × sem)
@@ -540,11 +786,19 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     )
     trend["Avg_GWA"] = trend["Avg_GWA"].round(2)
     trend["Std_GWA"] = trend["Std_GWA"].round(2)
-    save(trend, "05_gwa_trend_timeseries_gwa_trend_chart.csv")
+    save(trend, "05_gwa_trend_timeseries_gwa_trend_chart.csv",
+         accuracy=_pct_valid(trend, ["Avg_GWA", "Std_GWA"]),
+         student_count_col="Student_Cnt")
 
     # 06 – INC forecast cohort
+    # FIX (this patch): grouped by College AND Course now — was
+    # College-only before, which is why the original inc_forecast
+    # trainer/model was abandoned (every course under a college silently
+    # reused the same college-wide forecast). A college-level rollup is
+    # just this table re-grouped without Course — no separate dataset
+    # needed for that case.
     inc = (
-        student_df.groupby(["Year_Numeric", "Sem_Numeric", "College"])
+        student_df.groupby(["Year_Numeric", "Sem_Numeric", "College", "Course"])
         .agg(
             Total_Students = ("Student_ID", "nunique"),
             INC_Count      = ("is_inc", "sum"),
@@ -552,11 +806,21 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
         .reset_index()
     )
     inc["INC_Rate"] = (inc["INC_Count"] / inc["Total_Students"] * 100).round(2)
-    save(inc, "06_inc_forecast_cohort_inc_rate_chart.csv")
+    save(inc, "06_inc_forecast_cohort_inc_rate_chart.csv",
+         accuracy=_pct_valid(inc, ["College", "Course", "INC_Rate"]),
+         student_count_col="Total_Students")
 
     # 07 – Irreg/Reg cohort
+    # FIX (this patch): grouped by College AND Course now (was
+    # College-only — see 06's comment above, same root cause). Also
+    # renamed off "_unused_legacy" now that get_status_trend's new
+    # per-college/per-course Irregular%/INC% models actually consume
+    # this table (see train_status_trend in auto_train.py) — it's no
+    # longer dead. FILENAME_TO_TABLE below still maps both old and new
+    # filenames to the same "irreg_reg_cohort" table, so nothing
+    # downstream in db_io.py needs to change.
     irreg = (
-        student_df.groupby(["Year_Numeric", "Sem_Numeric", "College"])
+        student_df.groupby(["Year_Numeric", "Sem_Numeric", "College", "Course"])
         .agg(
             Total_Students  = ("Student_ID", "nunique"),
             Irregular_Count = ("is_irregular", "sum"),
@@ -568,13 +832,16 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     irreg["Irregular_Rate"] = (irreg["Irregular_Count"] / irreg["Total_Students"] * 100).round(2)
     irreg["Drop_Rate"]      = (irreg["Drop_Count"]      / irreg["Total_Students"] * 100).round(2)
     irreg["INC_Rate"]       = (irreg["INC_Count"]       / irreg["Total_Students"] * 100).round(2)
-    save(irreg, "07_irreg_reg_cohort_unused_legacy.csv")
+    save(irreg, "07_irreg_reg_cohort_status_trend_chart.csv",
+         accuracy=_pct_valid(irreg, ["Irregular_Rate", "Drop_Rate", "INC_Rate"]),
+         student_count_col="Total_Students")
 
     # 08 – KPI GWA student (same as 04)
     save(
         student_df[["Student_ID", "College", "Course",
                     "Year_Numeric", "Sem_Numeric", "GWA"]].dropna(subset=["GWA"]),
-        "08_kpi_gwa_student_kpi_tiles.csv"
+        "08_kpi_gwa_student_kpi_tiles.csv",
+        accuracy=_pct_valid(student_df, ["College", "Course", "GWA"]),
     )
 
     # 09 – KPI enrollment college
@@ -589,18 +856,23 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
         (enroll["Headcount"] - enroll["Headcount_Prev"])
         / enroll["Headcount_Prev"] * 100
     ).round(2)
-    save(enroll, "09_kpi_enrollment_college_kpi_tiles.csv")
+    save(enroll, "09_kpi_enrollment_college_kpi_tiles.csv",
+         accuracy=_pct_valid(enroll, ["Headcount"]),
+         student_count_col="Headcount")
 
     # 15 – KPI drop college (college × year × sem drop counts) — dedicated
     # dataset for the "Total Drop" KPI tile, mirroring 09's shape so it can
     # get its own model instead of borrowing the dropout-ranking one.
     kpi_drop = (
         student_df.groupby(["Year_Numeric", "Sem_Numeric", "College"])
-        .agg(Drop_Count=("is_drop", "sum"))
+        .agg(Drop_Count=("is_drop", "sum"),
+             Total_Students=("Student_ID", "nunique"))
         .reset_index()
         .sort_values(["College", "Year_Numeric", "Sem_Numeric"])
     )
-    save(kpi_drop, "15_kpi_drop_college_kpi_tiles.csv")
+    save(kpi_drop, "15_kpi_drop_college_kpi_tiles.csv",
+         accuracy=_pct_valid(kpi_drop, ["Drop_Count"]),
+         student_count_col="Total_Students")
 
     # 10 – Subject grade forecast (long_df aggregated per subject)
     subj = (
@@ -617,7 +889,14 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     subj["Avg_Grade"] = subj["Avg_Grade"].round(2)
     subj["Std_Grade"] = subj["Std_Grade"].round(2)
     subj["Fail_Rate"] = (subj["Fail_Count"] / subj["Student_Cnt"] * 100).round(2)
-    save(subj, "10_subject_grade_forecast_hardest_subjects_chart.csv")
+    # A student takes several subjects, so summing this dataset's own
+    # per-subject Student_Cnt (student_count_col) would inflate way past
+    # the real headcount -- look up the true distinct-student count per
+    # Year_Numeric from long_df directly instead.
+    subj_student_rows = long_df.dropna(subset=["Year_Numeric"]).groupby("Year_Numeric")["Student_ID"].nunique()
+    save(subj, "10_subject_grade_forecast_hardest_subjects_chart.csv",
+         accuracy=_pct_valid(subj, ["Avg_Grade", "Fail_Rate"]),
+         student_rows_lookup=subj_student_rows)
 
     # 11 – Performance band distribution
     def perf_band(gwa):
@@ -643,7 +922,9 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     )
     band = band.merge(total_map, on=["Year_Numeric", "Sem_Numeric", "College"], how="left")
     band["Pct"] = (band["Count"] / band["Total"] * 100).round(2)
-    save(band, "11_performance_band_dist_unused_gwa_distribution_chart.csv")
+    save(band, "11_performance_band_dist_unused_gwa_distribution_chart.csv",
+         accuracy=_pct_valid(band, ["Perf_Band", "Count"]),
+         student_count_col="Count")
 
     # 13 – Year-level performance distribution (college × course × year
     # level × perf band). Same bucketing as 11, sliced by Year_Level
@@ -675,7 +956,9 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     year_level = year_level.sort_values(
         ["College", "Course", "Year_Level_Num"]
     )
-    save(year_level, "13_year_level_performance.csv")
+    save(year_level, "13_year_level_performance.csv",
+         accuracy=_pct_valid(year_level, ["College"]),
+         student_count_col="Count")
 
     # 14 – INC / Irregular(behavioral) / Drop rate by year level
     # Same metrics + idiom as dataset 07 (Irreg/Reg cohort), just sliced
@@ -716,7 +999,9 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     yl_inc["Drop_Rate"]      = (yl_inc["Drop_Count"]      / yl_inc["Total_Students"] * 100).round(2)
     yl_inc["INC_Rate"]       = (yl_inc["INC_Count"]       / yl_inc["Total_Students"] * 100).round(2)
     yl_inc = yl_inc.sort_values(["College", "Course", "Year_Level_Num"])
-    save(yl_inc, "14_year_level_inc_irreg.csv")
+    save(yl_inc, "14_year_level_inc_irreg.csv",
+         accuracy=_pct_valid(yl_inc, ["College"]),
+         student_count_col="Total_Students")
 
     # 16 – Course x Year-Level dropout heatmap. Split off from 14
     # (2026-09-04) so the heatmap has its own file and its own trainer
@@ -730,6 +1015,69 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     ]].copy()
     save(course_yl_dropout, "16_course_year_level_dropout.csv")
 
+    # course_year_level_dropout (MySQL) — written directly here rather
+    # than through save()'s FILENAME_TO_TABLE/write_full_replace path,
+    # because this table is a CSV-blob table (same shape as
+    # semester_uploads: academic_year, semester, student_rows,
+    # longform_rows, accuracy, csv_file), not a typed table matching
+    # course_yl_dropout's own columns. Reuses upsert_semester_upload()'s
+    # existing atomic delete+insert + gzip-compression logic (see
+    # db_io.py) instead of duplicating it.
+    #
+    # CHANGED (2026-09-15): this used to collapse EVERY semester's
+    # heatmap rows into ONE blob row under a fixed ("ALL", "ALL")
+    # sentinel key, rebuilt from the full cumulative history and
+    # overwriting that single row on every upload. That defeated the
+    # whole point of this table having its own academic_year/semester
+    # columns -- uploading ONE new file silently replaced the combined
+    # heatmap for every OTHER semester too, even though nothing about
+    # those semesters' own data had changed.
+    #
+    # Fixed: course_yl_dropout is already grouped by (Year_Numeric,
+    # Sem_Numeric) -- it already has a natural per-semester split, we
+    # just weren't using it for storage. Now: one upsert PER distinct
+    # semester present in the cumulative history, keyed by that
+    # semester's REAL academic_year/semester (not a sentinel). Each
+    # upsert only deletes+inserts ITS OWN row, so uploading a new file
+    # only touches that file's own semester row -- every other
+    # semester's row is left completely alone, same as semester_uploads.
+    # `accuracy` here is THIS table's own validation, not a copy of
+    # semester_uploads' parse-time accuracy: % of that semester's
+    # students who had a real Year_Level from the registrar (not the
+    # "Unknown"/0 fallback used above so they wouldn't just vanish from
+    # the groupby). Measures how complete/trustworthy THIS heatmap's own
+    # classification is, since that's what could make a row here wrong
+    # even when the underlying grades parsed fine.
+    _SEM_NUM_TO_LABEL = {1: "1sem", 2: "2sem", 3: "summer"}
+
+    for (yr_num, sem_num), sub in course_yl_dropout.groupby(["Year_Numeric", "Sem_Numeric"]):
+        yr = int(yr_num)
+        academic_year = f"{yr}-{yr + 1}"
+        semester = _SEM_NUM_TO_LABEL.get(int(sem_num), "1sem")
+        sem_mask = (yl_inc_src["Year_Numeric"] == yr_num) & (yl_inc_src["Sem_Numeric"] == sem_num)
+        # `student_rows` here means "students in THIS semester" (matches
+        # what student_rows means everywhere else in this table's
+        # shape), not the heatmap's own row count for this semester.
+        sem_student_rows = int(yl_inc_src.loc[sem_mask, "Student_ID"].nunique())
+        known_rows = int(student_df.loc[
+            (student_df["Year_Numeric"] == yr_num) & (student_df["Sem_Numeric"] == sem_num),
+            "Year_Level",
+        ].notna().sum())
+        total_rows = int(sem_mask.sum())
+        own_accuracy = round(100 * known_rows / total_rows, 2) if total_rows else None
+        try:
+            upsert_semester_upload(
+                "course_year_level_dropout", academic_year, semester,
+                student_rows=sem_student_rows, longform_rows=0,
+                accuracy=own_accuracy,
+                csv_file=sub.to_csv(index=False),
+            )
+        except Exception as e:
+            log.error(
+                f"  Failed to store course_year_level_dropout CSV for "
+                f"{academic_year} {semester} in MySQL (non-fatal): {e}"
+            )
+
     # 12 – Gender performance
     gender = (
         student_df.groupby(["Year_Numeric", "College", "Gender"])
@@ -742,7 +1090,9 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     )
     gender["Dropout_Rate"]   = gender["Dropout_Rate"].round(2)
     gender["INC_Rate"]       = gender["INC_Rate"].round(2)
-    gender["Gender_Label"]   = gender["Gender"].map({1: "Female", 0: "Male", -1: "Unknown"})
+    # Gender is already the text label ("Male"/"Female"/"Unknown") coming
+    # out of parse_sheet() now, so no numeric→label mapping needed here.
+    gender["Gender_Label"]   = gender["Gender"]
 
     # Split into a Male-only and a Female-only CSV instead of one combined
     # file with a Gender_Label dummy column. Two reasons:
@@ -760,8 +1110,12 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     # Male vs Female.
     gender_male   = gender[gender["Gender_Label"] == "Male"].drop(columns=["Gender", "Gender_Label"]).reset_index(drop=True)
     gender_female = gender[gender["Gender_Label"] == "Female"].drop(columns=["Gender", "Gender_Label"]).reset_index(drop=True)
-    save(gender_male,   "12_gender_performance_male_retention_trend_chart.csv")
-    save(gender_female, "12_gender_performance_female_retention_trend_chart.csv")
+    save(gender_male,   "12_gender_performance_male_retention_trend_chart.csv",
+         accuracy=_pct_valid(gender_male, ["Dropout_Rate", "INC_Rate"]),
+         student_count_col="Student_Count")
+    save(gender_female, "12_gender_performance_female_retention_trend_chart.csv",
+         accuracy=_pct_valid(gender_female, ["Dropout_Rate", "INC_Rate"]),
+         student_count_col="Student_Count")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -801,12 +1155,17 @@ def run_preprocessing(
     log.info(f"Found {len(xlsx_files)} xlsx files in {input_dir}")
 
     all_long_dfs = []
+    merged_stats: dict = {}
 
     for fpath in xlsx_files:
         try:
-            df = parse_workbook(str(fpath))
+            df, stats = parse_workbook(str(fpath))
             if not df.empty:
                 all_long_dfs.append(df)
+            for key, entry in stats.items():
+                merged = merged_stats.setdefault(key, {"total": 0, "valid": 0})
+                merged["total"] += entry["total"]
+                merged["valid"] += entry["valid"]
         except Exception as e:
             log.error(f"  Failed to parse {fpath.name}: {e}")
             continue
@@ -820,19 +1179,35 @@ def run_preprocessing(
     log.info(f"Unique students:         {long_df['Student_ID'].nunique():,}")
     log.info(f"Unique subjects:         {long_df['Subject'].nunique():,}")
 
-    # Save the raw long-form (subject-level) master CSV
-    long_csv_path = os.path.join(output_dir, "Final_LongForm_Student_Grades.csv")
-    long_df.to_csv(long_csv_path, index=False)
-    log.info(f"Saved long-form CSV: {long_csv_path}")
-
-    # Feature engineering → student-level aggregates
+    # Feature engineering → student-level aggregates. Do this BEFORE
+    # writing longform_grades: engineer_features() is what adds
+    # Year_Numeric (a real column on the table) to long_df.
     student_df, long_df = engineer_features(long_df)
     log.info(f"Student-level rows: {len(student_df):,}")
 
-    # Save the student-level master CSV (used by ml_analysis.py as FINAL_MERGED_CSV)
-    merged_csv_path = os.path.join(output_dir, "Final_Merged_Student_Data.csv")
-    student_df.to_csv(merged_csv_path, index=False)
-    log.info(f"Saved student CSV: {merged_csv_path}")
+    # Save the raw long-form (subject-level) master data to
+    # Final_LongForm_Student_Grades.csv (kept on disk for backup/
+    # inspection) and split the combined frame back into per-semester
+    # groups, writing each one via write_semester_folder() — the disk
+    # folder under by_year/ is the source of truth; MySQL only gets each
+    # semester's row counts (semester_uploads), same as process_file()'s
+    # single-upload path.
+    long_csv_path = os.path.join(output_dir, "Final_LongForm_Student_Grades.csv")
+    long_df.to_csv(long_csv_path, index=False)
+    log.info(f"Saved long-form data -> {long_csv_path}")
+
+    # Save the student-level master data to Final_Merged_Student_Data.csv
+    # (kept on disk for backup/inspection).
+    student_csv_path = os.path.join(output_dir, "Final_Merged_Student_Data.csv")
+    student_df.to_csv(student_csv_path, index=False)
+    log.info(f"Saved student data -> {student_csv_path}")
+
+    by_year_dir = os.path.join(output_dir, "by_year")
+    for (ay, sem), s_slice in student_df.groupby(["Year", "Semester"], dropna=True):
+        l_slice = long_df[(long_df["Year"] == ay) & (long_df["Semester"] == sem)]
+        accuracy = _accuracy_pct(merged_stats, ay, sem)
+        write_semester_folder(s_slice, l_slice, by_year_dir, ay, sem, accuracy=accuracy)
+
 
     # Build and save all 12 model datasets
     log.info("Building model datasets...")
@@ -866,6 +1241,7 @@ try:
         MODEL_DATASETS_DIR      as _MODEL_DATA_DIR,
         FINAL_MERGED_CSV        as _FINAL_OUTPUT,
         UNPROCESSED_DATASETS_DIR as _UNPROCESSED_DIR,
+        PROCESSED_BY_YEAR_DIR   as _BY_YEAR_DIR,
     )
 except ImportError:
     # Fallback for standalone / CLI use outside the Flask app
@@ -873,11 +1249,13 @@ except ImportError:
     _MODEL_DATA_DIR  = os.path.join(_PROCESSED_DIR, "model_datasets")
     _FINAL_OUTPUT    = os.path.join(_PROCESSED_DIR, "Final_Merged_Student_Data.csv")
     _UNPROCESSED_DIR = os.path.join(os.path.dirname(__file__), "..", "Unprocessed_Datasets")
+    _BY_YEAR_DIR     = os.path.join(_PROCESSED_DIR, "by_year")
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 PROCESSED_DIR   = _PROCESSED_DIR
 MODEL_DATA_DIR  = _MODEL_DATA_DIR
 FINAL_OUTPUT    = _FINAL_OUTPUT
+BY_YEAR_DIR     = _BY_YEAR_DIR  
 
 # Columns that auto_train.py keeps when it de-dupes the master CSV.
 # Must match the student-level CSV produced by engineer_features().
@@ -892,92 +1270,299 @@ FINAL_COLUMNS = [
 ]
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+#  PER-SEMESTER STORAGE (no combining, ever, on disk)
+#  ─────────────────────────────────────────────────────────────────────────────
+#  Every upload gets its OWN folder under BY_YEAR_DIR, keyed by academic
+#  year + semester — e.g. BY_YEAR_DIR/2022-2023_1sem/{Student_Data,
+#  LongForm_Grades}.csv — holding ONLY that one file's rows. Uploading a
+#  new semester NEVER reads, appends to, or merges with any other
+#  semester's folder, including a different semester of the SAME year.
+#  Two semesters of the same year sit in two completely separate folders.
+#  The only place separate semesters are ever combined is in memory, at
+#  train time, by load_all_semesters() — nothing on disk is ever rewritten
+#  as a combined/merged file except the derived master CSV/model_datasets,
+#  which are fully regenerated (not appended to) each time training runs.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _semester_dir_name(academic_year: str, semester: str) -> str:
+    return f"{academic_year}_{semester}"
+
+
+def write_semester_folder(student_df: pd.DataFrame, long_df: pd.DataFrame,
+                           by_year_dir: str, academic_year: str, semester: str,
+                           accuracy: float | None = None) -> str:
+    """
+    Records this semester's upload as a single row in MySQL's
+    semester_uploads table via upsert_semester_upload() — row
+    counts, an optional validation Accuracy percentage, and the actual
+    STUDENT-LEVEL data as CSV text in the `csv_file` column (same shape
+    as dataset 01, "01_dropout_risk_per_student_dropout_pie_status_pie.csv"
+    from build_model_datasets() — i.e. student_df.to_csv()).
+
+    CHANGED (2026-09-15): this used to write Student_Data.csv +
+    LongForm_Grades.csv to by_year_dir/<academic_year>_<semester>/ on
+    disk, with the disk folder as the source of truth and MySQL holding
+    only row-count metadata (no CSV blob). That disk write is REMOVED —
+    `by_year_dir` is kept as a parameter only for call-site
+    compatibility and is no longer touched.
+
+    `long_df` itself is no longer persisted anywhere by this function —
+    only its row count goes into `longform_rows`, same as before.
+
+    `accuracy` is the % of grade cells in this upload that parse_grade()
+    successfully resolved to a real grade point, out of every cell
+    paired with a subject code (see parse_sheet()'s `stats` param) — a
+    rough measure of how cleanly this particular file parsed. Pass None
+    when it isn't known (e.g. a caller that doesn't have parse stats).
+
+    upsert_semester_upload() deletes-then-inserts on (academic_year,
+    semester), so a re-upload of the same semester just overwrites that
+    one row (a re-upload replaces that one semester's csv_file, it
+    doesn't get combined with the old copy).
+
+    ⚠ Anything that previously read by_year/<academic_year>_<semester>/
+    directly off disk (e.g. a load_all_semesters()-style training
+    loader, or auto_train.run_full_pipeline()'s MIN_YEARS_FOR_TRAINING
+    gate) will need to be repointed at this table/column instead, since
+    that folder is no longer populated here.
+
+    FIX (2026-09-15, part 5): `long_df` IS now also persisted — as its
+    own CSV blob in a separate `longform_uploads` table (same
+    (academic_year, semester, ..., csv_file) shape as semester_uploads,
+    auto-created on first write same as every other CSV-blob table
+    here). Before this fix, long_df's row count went into
+    `longform_rows` but the actual subject-level rows were never
+    written anywhere, so load_all_semesters() could only ever return an
+    empty long_df — which silently zeroed out dataset 10
+    (subject_grade_forecast) on every rebuild after the first upload.
+    """
+    csv_file = student_df.to_csv(index=False)
+
+    upsert_semester_upload("semester_uploads", academic_year, semester,
+                            student_rows=len(student_df), longform_rows=len(long_df),
+                            accuracy=accuracy, csv_file=csv_file)
+
+    try:
+        upsert_semester_upload("longform_uploads", academic_year, semester,
+                                student_rows=len(student_df), longform_rows=len(long_df),
+                                accuracy=accuracy, csv_file=long_df.to_csv(index=False))
+    except Exception as e:
+        # Never let a longform-storage hiccup fail the student-level
+        # upload above — worst case dataset 10 stays stale/empty for
+        # this semester, everything else (already written) is fine.
+        log.error(f"  Failed to store longform_uploads CSV for {academic_year} {semester} (non-fatal): {e}")
+
+    acc_log = f", accuracy {accuracy}%" if accuracy is not None else ""
+    log.info(
+        f"  Semester recorded: {academic_year} {semester} -> "
+        f"{len(student_df):,} student rows, {len(long_df):,} long-form rows{acc_log} "
+        f"(csv_file: {len(csv_file):,} chars)"
+    )
+    return f"{academic_year}_{semester}"
+
+
+def count_years_with_data(by_year_dir: str) -> int:
+    """
+    Distinct ACADEMIC YEARS represented across all semester folders under
+    by_year_dir (a year counts as soon as any one of its semesters has
+    been uploaded). This is the MIN_YEARS_FOR_TRAINING gate
+    auto_train.py checks before it will (re)build the master CSV /
+    model_datasets and train — e.g. 3 years (6 semesters, at 2 per year)
+    before the first training run.
+    """
+    # `by_year_dir` param kept for call-site compatibility but unused now.
+    # semester_uploads has one row per (academic_year, semester) upload —
+    # COUNT(DISTINCT academic_year) is exactly this, no filesystem scan.
+    return count_distinct("semester_uploads", "academic_year")
+
+
+def count_semesters_with_data(by_year_dir: str) -> int:
+    """Total number of individual semester uploads with data — the raw
+    upload count, as opposed to count_years_with_data()'s distinct-year
+    count. Handy for surfacing '4/6 semesters uploaded' style progress."""
+    # `by_year_dir` param kept for call-site compatibility but unused now.
+    # One row per (academic_year, semester) in semester_uploads, so
+    # COUNT(*) is exactly this.
+    return count_rows("semester_uploads")
+
+
+def load_all_semesters(by_year_dir: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Rebuilds the combined student-level DataFrame across every uploaded
+    semester by reading the `csv_file` column back out of MySQL's
+    semester_uploads table (one row per (academic_year,
+    semester) upload) and concatenating them.
+
+    CHANGED (2026-09-15): this used to read
+    by_year_dir/<academic_year>_<semester>/Student_Data.csv +
+    LongForm_Grades.csv off disk — write_semester_folder() no longer
+    writes either file (see its docstring), so reading disk here always
+    came back empty and made every upload past MIN_YEARS_FOR_TRAINING
+    fail with "No data in by_year/ folders." `by_year_dir` is kept as a
+    parameter only for call-site compatibility and is no longer touched.
+
+    FIX (2026-09-15, part 5): long-form (subject-level) rows are now
+    read back from their own `longform_uploads` table (written by
+    write_semester_folder() — see its docstring) instead of always
+    being returned empty. Before this fix, dataset 10
+    ("10_subject_grade_forecast_hardest_subjects_chart.csv") — and
+    anything trained off it — always got 0 rows here even though the
+    source .xlsx parsed subject-level data just fine, because nothing
+    downstream of the initial upload ever stored it anywhere.
+    """
+    # read_semester_csvs() (not read_table()) — csv_file is stored
+    # gzip+base64 compressed since 2026-09-15 (see db_io.py), so this
+    # decompresses each row back into plain CSV text before we parse it.
+    rows = read_semester_csvs("semester_uploads")
+
+    student_frames = []
+    if not rows.empty and "csv_file" in rows.columns:
+        for csv_text in rows["csv_file"].dropna():
+            try:
+                student_frames.append(pd.read_csv(io.StringIO(csv_text)))
+            except Exception as e:
+                log.error(f"  Failed to parse a stored csv_file blob: {e}")
+
+    student_df = pd.concat(student_frames, ignore_index=True) if student_frames else pd.DataFrame()
+    if student_df.empty:
+        student_df = pd.DataFrame(columns=FINAL_COLUMNS)
+
+    long_rows = read_semester_csvs("longform_uploads")
+    long_frames = []
+    if not long_rows.empty and "csv_file" in long_rows.columns:
+        for csv_text in long_rows["csv_file"].dropna():
+            try:
+                long_frames.append(pd.read_csv(io.StringIO(csv_text)))
+            except Exception as e:
+                log.error(f"  Failed to parse a stored longform csv_file blob: {e}")
+
+    long_df = (
+        pd.concat(long_frames, ignore_index=True) if long_frames else
+        pd.DataFrame(columns=["Student_ID", "College", "Course", "Subject", "Grade", "Year_Numeric"])
+    )
+    return student_df, long_df
+
+
 def process_file(xlsx_path: str) -> pd.DataFrame:
     """
     Compatibility wrapper called by auto_train.run_full_pipeline(new_file=...).
 
-    Parses a single .xlsx file and returns a student-level DataFrame with
-    all FINAL_COLUMNS populated.  The caller (auto_train) then merges this
-    with the existing master CSV, de-dupes, and calls export_model_datasets().
+    Parses a single .xlsx file and writes the result into ONLY that file's
+    own standalone semester folder under BY_YEAR_DIR (see
+    write_semester_folder) — it does NOT touch any shared/master CSV and
+    does NOT read or merge with any other semester's or year's data, not
+    even a different semester of the same academic year. The caller
+    (auto_train) decides separately whether enough years now exist to
+    rebuild the shared master CSV / model_datasets and (re)train — see
+    load_all_semesters() / count_years_with_data().
 
-    Also persists the long-form (subject-level) records to
-    Final_LongForm_Student_Grades.csv, merging with whatever is already
-    there. This file previously was only ever written by the standalone
-    run_preprocessing() CLI path — which the upload pipeline never calls —
-    so on a fresh install export_model_datasets() always fell back to an
-    empty long_df, dataset 10 (subject_grade_forecast) always came out with
-    0 rows, and train_subject_top() always skipped with "too few aggregated
-    rows" no matter how much real data had been uploaded.
+    Returns the student-level DataFrame for THIS FILE ONLY (all
+    FINAL_COLUMNS populated), so the caller can log/report on it.
     """
-    log.info(f"process_file: {xlsx_path}")
+    log.info(f"process_file: {_display_filename(xlsx_path)}")
 
-    long_df = parse_workbook(xlsx_path)
+    long_df, parse_stats = parse_workbook(xlsx_path)
     if long_df.empty:
         log.warning("process_file: no records extracted — returning empty DataFrame")
         return pd.DataFrame(columns=FINAL_COLUMNS)
 
-    # ── Persist long-form rows so export_model_datasets() can read them ────
-    # Add Year_Numeric before saving: export_model_datasets() re-reads this
-    # file fresh from disk on a later, possibly separate call, so it can't
-    # rely on the in-place mutation engineer_features() does below to the
-    # in-memory long_df — the saved CSV needs the column itself.
-    long_df["Year_Numeric"] = (
-        long_df["Year"].astype(str).str.extract(r"^(\d{4})")[0].astype(float)
-    )
-
-    long_csv_path = os.path.join(PROCESSED_DIR, "Final_LongForm_Student_Grades.csv")
-    try:
-        os.makedirs(PROCESSED_DIR, exist_ok=True)
-        if os.path.exists(long_csv_path):
-            existing_long = pd.read_csv(long_csv_path)
-            combined_long = pd.concat([existing_long, long_df], ignore_index=True)
-        else:
-            combined_long = long_df
-        # Same de-dupe key auto_train.py uses for the student-level master CSV
-        dedupe_cols = [c for c in ["Student_ID", "Subject", "Semester", "Year"]
-                       if c in combined_long.columns]
-        if dedupe_cols:
-            combined_long = combined_long.drop_duplicates(subset=dedupe_cols, keep="last")
-        combined_long.to_csv(long_csv_path, index=False)
-        log.info(f"  Long-form CSV updated: {len(combined_long):,} rows -> {long_csv_path}")
-    except Exception as e:
-        log.error(f"  Failed to persist long-form CSV: {e}")
-
-    student_df, _ = engineer_features(long_df)
+    student_df, long_df = engineer_features(long_df)
 
     # Ensure all FINAL_COLUMNS exist (fill missing with sensible defaults)
     for col in FINAL_COLUMNS:
         if col not in student_df.columns:
             student_df[col] = np.nan
+    student_df = student_df[FINAL_COLUMNS]
 
-    return student_df[FINAL_COLUMNS]
+    # ── Persist into this file's own standalone semester folder(s) ─────
+    # Normally a grade sheet covers exactly one academic year + semester;
+    # guard against a stray multi-year/multi-sem file by splitting per
+    # (year, semester) pair so a folder never receives another upload's
+    # rows.
+    combos = (
+        student_df[["Year", "Semester"]]
+        .dropna()
+        .drop_duplicates()
+        .itertuples(index=False, name=None)
+    )
+    combos = list(combos)
+    if len(combos) > 1:
+        log.warning(f"  File spans multiple year/semester combos {combos} — splitting per folder")
+    elif not combos:
+        log.warning("  File has no parseable academic year/semester — nothing written to disk")
+
+    for ay, sem in combos:
+        s_slice = student_df[(student_df["Year"] == ay) & (student_df["Semester"] == sem)].copy()
+        l_slice = long_df[(long_df["Year"] == ay) & (long_df["Semester"] == sem)].copy()
+        accuracy = _accuracy_pct(parse_stats, ay, sem)
+        write_semester_folder(s_slice, l_slice, BY_YEAR_DIR, ay, sem, accuracy=accuracy)
+
+    # ── Refresh the 01-16 model-dataset tables on EVERY upload ─────────
+    # FIX (2026-09-15): these tables used to only get (re)built inside
+    # auto_train.run_full_pipeline()'s full training pass, which is gated
+    # behind MIN_YEARS_FOR_TRAINING (currently 3 years). That's fine for
+    # the actual trained models/.pkl files, but several of these tables
+    # (subject_grade_forecast, year_level_performance, year_level_inc_irreg,
+    # semester_uploads, etc.) also back plain historical charts in
+    # ml_analysis.py that have nothing to do with prediction — those charts
+    # were showing 0 rows for any deployment with fewer than 3 years of data,
+    # even though the by_year/ disk data (used for the KPI/GWA charts) was
+    # already fully populated from every single upload.
+    #
+    # Rebuilding here mirrors how write_semester_folder() above already
+    # writes this upload's folder to by_year/ on every upload: pull the
+    # FULL cumulative history back off disk (this upload's rows included,
+    # since they were just written above) and rebuild all 16 tables from
+    # that. This is pure pandas aggregation (no model fitting), so it's
+    # cheap enough to run on every upload rather than waiting for the
+    # training gate. run_full_pipeline()'s own call into
+    # build_model_datasets() after a successful training pass just
+    # rebuilds these same tables again from the same full history — safe,
+    # idempotent, no double-counting.
+    if combos:
+        try:
+            all_student_df, all_long_df = load_all_semesters(BY_YEAR_DIR)
+            # FIX: this used to pass MODEL_DATA_DIR as out_dir, so EVERY
+            # upload also wrote all 17 CSVs to disk (Processed_Datasets/
+            # model_datasets/) — a local folder your VS Code workspace
+            # picked up, even though MySQL is the actual source of truth
+            # now. out_dir=None means build_model_datasets() only writes
+            # to MySQL (see save()'s `if out_dir:` guard below), nothing
+            # touches the filesystem on a normal web upload anymore.
+            build_model_datasets(all_student_df, all_long_df, out_dir=None)
+        except Exception as e:
+            # Never let a chart-table refresh failure fail the upload
+            # itself — this upload's by_year/ folder is already safely
+            # written by this point.
+            log.error(f"  build_model_datasets refresh failed (non-fatal): {e}")
+
+    return student_df
 
 
-def export_model_datasets(merged_df: pd.DataFrame, out_dir: str):
+def export_model_datasets(merged_df: pd.DataFrame, out_dir: str, long_df: pd.DataFrame | None = None):
     """
-    Compatibility wrapper called by auto_train after it updates the master CSV.
+    Compatibility wrapper called by auto_train after it rebuilds the master
+    CSV from all semester folders (see load_all_semesters()).
 
-    Rebuilds the long-form subject table from the master student CSV and
-    writes all 12 model-dataset CSVs to out_dir.
+    CHANGED (2026-09-15): `out_dir` is now IGNORED — data now lives fully
+    in MySQL (moved off XAMPP's filesystem storage). No CSV files or
+    folders (model_datasets/, etc.) are written to disk anymore, even
+    during a full training pass — this matches process_file()'s regular
+    upload path, which has been MySQL-only (out_dir=None) since the
+    2026-09-15 migration. `out_dir` is kept as a parameter only so
+    auto_train.py's existing call site doesn't need to change.
 
-    Note: because auto_train passes a student-level (aggregated) DataFrame,
-    we use it directly for the student-based datasets (01–09, 11–12) and
-    re-read the long-form CSV for subject-level data (10) if it exists.
+    `long_df` should normally be passed in by the caller (it already has it
+    from load_all_semesters() and re-reading would be redundant); if
+    omitted, it's rebuilt here from MySQL via load_all_semesters().
     """
-    log.info(f"export_model_datasets → {out_dir}")
+    log.info("export_model_datasets → MySQL only (disk CSV export disabled)")
 
-    # Try to load the long-form CSV for subject-level dataset (10)
-    long_csv = os.path.join(PROCESSED_DIR, "Final_LongForm_Student_Grades.csv")
-    if os.path.exists(long_csv):
-        long_df = pd.read_csv(long_csv)
-    else:
-        # Fallback: create a minimal long_df from student-level data
-        # (subject-level detail will be empty but won't crash)
-        log.warning("Long-form CSV not found; subject dataset (10) will be empty")
-        long_df = pd.DataFrame(columns=["Student_ID", "College", "Course",
-                                         "Subject", "Grade", "Year_Numeric"])
+    if long_df is None:
+        _, long_df = load_all_semesters(BY_YEAR_DIR)
 
-    build_model_datasets(merged_df, long_df, out_dir)
+    build_model_datasets(merged_df, long_df, out_dir=None)
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────

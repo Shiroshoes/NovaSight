@@ -11,3 +11,4 @@ matplotlib
 Pillow
 gunicorn
 flask-limiter
+pymysql

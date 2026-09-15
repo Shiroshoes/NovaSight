@@ -21,6 +21,22 @@ var hardestSubjectCharts = {};      // one Top-5-hardest-subjects line chart per
 // minus the "MAIN CAMPUS"/"ALL" aggregate entries).
 const ALL_COLLEGE_CODES = ['CAHS', 'CBA', 'CCST', 'CEA', 'COAS', 'CTEC'];
 
+/**
+ * Trims a combined [history..., forecast...] array down to just its
+ * real/history portion (the first historyCount entries) on pages that
+ * have disabled prediction entirely (window.DASHBOARD_PREDICTION_DISABLED
+ * — set by maindash.js / deandash.js). No-op — returns arr unchanged —
+ * on pages where prediction is still enabled. Used by the handful of
+ * charts (INC Forecast, Hardest Subjects, Dropout Spike) that always
+ * rendered their full real+forecast horizon in one fetch regardless of
+ * the Recent/Prediction toggle, so hiding the toggle alone didn't stop
+ * them from still showing a forecast segment.
+ */
+function trimForecast(arr, historyCount) {
+    if (!window.DASHBOARD_PREDICTION_DISABLED || !arr) return arr;
+    return arr.slice(0, historyCount);
+}
+
 // ── COLOR UTILITIES ──────────────────────────────────────────────────
 // RESTORED (2026-09-05): getGroupColor, hexToRgba, getGenderShade,
 // getIncColor, getRiskColor, and renderColorLegend were called from ~25
@@ -93,6 +109,7 @@ const COURSE_COLORS = {
 // 1. Add your Ground-truth algorithm mapping in JS
 const ML_ALGO_META = {
     LinearRegression:       { label: 'Linear Regression',        color: '#1cc88a' },
+    Ridge:                  { label: 'Ridge Regression',         color: '#36b9cc' },
     RandomForestRegressor:  { label: 'Random Forest Regression',  color: '#2A86FD' },
     RandomForestClassifier: { label: 'Random Forest Classifier',  color: '#8e44ad' },
 };
@@ -106,13 +123,20 @@ function mlAlgoMeta(algorithmKey) {
 
     // 1. Check for exact matches first
     if (algorithmKey.startsWith("dropout_risk"))              matchedAlgo = "LinearRegression";
-    else if (algorithmKey.startsWith("dropout_spike"))         matchedAlgo = "RandomForestRegressor";
+    else if (algorithmKey.startsWith("dropout_spike"))         matchedAlgo = "Ridge";
+    else if (algorithmKey.startsWith("dropout_combined"))      matchedAlgo = "RandomForestRegressor";
     else if (algorithmKey.startsWith("dropout_ranking"))       matchedAlgo = "RandomForestRegressor";
     else if (algorithmKey.startsWith("gwa_ranking"))           matchedAlgo = "LinearRegression";
     else if (algorithmKey.startsWith("gwa_trend"))             matchedAlgo = "LinearRegression";
+    else if (algorithmKey.startsWith("inc_forecast"))          matchedAlgo = "Ridge";
     else if (algorithmKey.startsWith("irreg_reg"))             matchedAlgo = "RandomForestClassifier";
+    else if (algorithmKey.startsWith("status_trend"))          matchedAlgo = "Ridge";
+    else if (algorithmKey.startsWith("subject_top"))           matchedAlgo = "Ridge";
     
     // 2. Catch multi-part keys (e.g., kpi_gwa, kpi_enrollment)
+    // NOTE: kpi's "drop" sub-target is actually Ridge (log-space fit,
+    // auto_train.py ~line 914) but stays LinearRegression here since
+    // this only matches on the shared "kpi" prefix, not the sub-key.
     else if (algorithmKey.startsWith("kpi"))                   matchedAlgo = "LinearRegression";
     
     // 3. Catch gender splits (e.g., gender_performance_male_dropout_rate)
@@ -1156,6 +1180,58 @@ function renderKpiTrend(prefix, trendValues, pctChange, goodDirection) {
     }
 }
 
+/**
+ * Renders the Total Drop KPI card's badge as a RATE — drop ÷ total
+ * enrollment × 100 — instead of a period-over-period trend. A raw
+ * "+X% vs last period" badge on a drop COUNT was misleading (e.g. it
+ * reads as "worse" even when enrollment grew by more than the drop
+ * count did), so this shows what share of the CURRENT cohort actually
+ * dropped instead of comparing to a previous period at all.
+ *
+ * No goodDirection/up-down arrow here — there's no "before" being
+ * compared, so it's not a trend, just a rate. Kept maroon to match the
+ * Total Drop card's fixed warning color in both Recent and Prediction
+ * mode (see updateKPIMetrics' Total Drop styling comment below).
+ */
+function renderKpiDropRatio(prefix, dropCount, totalEnrollment, pctChange) {
+    const pctEl = document.getElementById(`kpi-pct-${prefix}`);
+    if (!pctEl) return;
+
+    if (!totalEnrollment || totalEnrollment <= 0) {
+        // No enrollment to divide by — ratio is undefined, so leave
+        // the badge blank rather than showing a misleading 0% or NaN.
+        pctEl.innerHTML = '';
+        return;
+    }
+
+    const ratio = (dropCount / totalEnrollment) * 100;
+
+    // Arrow direction comes straight from the backend's pct_change.drop
+    // (same field Students/GWA read via renderKpiTrend) — NOT a
+    // session-tracked "vs. last render" comparison, so the arrow shows
+    // immediately on first load exactly like the other two badges do,
+    // instead of staying blank until a second fetch has something to
+    // compare against. Fewer drops is always the good outcome, so a
+    // rising drop count is red/bad and a falling one is green/good.
+    let arrow = '';
+    let color = '#800000';
+    if (pctChange !== null && pctChange !== undefined && typeof _KPI_TREND_ARROW_UP !== 'undefined') {
+        if (pctChange === 0) {
+            arrow = '— ';
+            color = '#858796';
+        } else if (pctChange > 0) {
+            arrow = `${_KPI_TREND_ARROW_UP} `;
+            color = '#e74a3b';
+        } else {
+            arrow = `${_KPI_TREND_ARROW_DOWN} `;
+            color = '#1cc88a';
+        }
+    }
+
+    pctEl.style.color = color;
+    pctEl.innerHTML = `${arrow}${ratio.toFixed(1)}%`;
+}
+
 function updateKPIMetrics(year, semester, college) {
     // Defensive: the #filterCollege "All Colleges" option's value is
     // literally "Main Campus", not "all" — sanitize here too in case
@@ -1238,6 +1314,27 @@ function updateKPIMetrics(year, semester, college) {
                 titleDrop.innerText = `${dropLabel} ${suffix}`;
             }
             if (cardDrop) cardDrop.style.borderLeftColor = '#800000';
+
+            // 4. Trend indicators. Students/GWA use the period-over-
+            // period %-change badge (same call regardless of Recent vs
+            // Prediction mode — see renderKpiTrend's doc comment: every
+            // period walked back to is guaranteed real data, even when
+            // the CURRENT period itself is a forecast).
+            //
+            // Drop does NOT use that before/after comparison — it's a
+            // straight ratio of this period's drop count to this
+            // period's total enrollment (drop/totalEnrollment*100), so
+            // it reads as "what share of the current cohort dropped"
+            // instead of "more or fewer drops than last period".
+            if (typeof renderKpiTrend === 'function') {
+                const trend = data.trend || {};
+                const pctChange = data.pct_change || {};
+                renderKpiTrend('students', trend.students, pctChange.students, 'up');
+                renderKpiTrend('gwa', trend.gwa, pctChange.gwa, 'down');
+            }
+            if (typeof renderKpiDropRatio === 'function') {
+                renderKpiDropRatio('drop', safeDrop, data.students);
+            }
         })
         .catch(err => console.error("KPI Error:", err));
 }
@@ -1743,6 +1840,18 @@ function updateRiskByCollege(year, semester) {
         }
 
         function renderModelCard(model) {
+          // TEMP PATCH (2026-09-16): status_trend and subject_top were
+          // wired into real charts (get_status_trend / hardest subjects)
+          // but training_state.json's "label" text is stale and still
+          // says "Not Used in Any Chart Yet" — backend fix (auto_train.py)
+          // pending. Strip the stale suffix client-side for just these
+          // two; dropout_combined etc. keep the suffix since it's still
+          // genuinely unused. Remove this block once the backend label
+          // is regenerated correctly.
+          if (model.label && /^(status_trend|subject_top)\b/i.test(model.name || model.key || model.label)) {
+            model = { ...model, label: model.label.replace(/\s*—\s*Not Used in Any Chart Yet\s*$/i, '') };
+          }
+
           const statusKey = STATUS_COLORS[model.status] ? model.status : 'skipped';
           const palette = STATUS_COLORS[statusKey];
           const headline = (model.headline_value !== null && model.headline_value !== undefined)
@@ -1788,6 +1897,7 @@ function updateRiskByCollege(year, semester) {
         function renderErrors(errors) {
           const wrap = document.getElementById('mp-errors');
           const list = document.getElementById('mp-errors-list');
+          if (!wrap || !list) return;
           if (!errors || !errors.length) {
             wrap.style.display = 'none';
             return;
@@ -1797,13 +1907,17 @@ function updateRiskByCollege(year, semester) {
         }
 
         function loadModelPerformance() {
+          const grid = document.getElementById('mp-grid');
+          const empty = document.getElementById('mp-empty-state');
+          const trainedAtEl = document.getElementById('mp-trained-at');
+          // Not every dashboard has the Model Performance card (only the
+          // dedicated Model Performance page does) — no-op instead of
+          // crashing on null when this page doesn't have these elements.
+          if (!grid || !empty || !trainedAtEl) return;
+
           fetch('/api/model-performance')
             .then(res => res.json())
             .then(data => {
-              const grid = document.getElementById('mp-grid');
-              const empty = document.getElementById('mp-empty-state');
-              const trainedAtEl = document.getElementById('mp-trained-at');
-
               if (data.status === 'no_training_yet' || !data.models || !data.models.length) {
                 grid.style.display = 'none';
                 empty.style.display = 'block';
@@ -1824,7 +1938,6 @@ function updateRiskByCollege(year, semester) {
             })
             .catch(err => {
               console.error('Model performance fetch failed:', err);
-              const trainedAtEl = document.getElementById('mp-trained-at');
               trainedAtEl.textContent = 'Unable to load model performance.';
             });
         }
