@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify, session, render_template, current
 from werkzeug.utils import secure_filename
 
 from database.models import db, AcadUser, UploadedDataset
+from util.db_io import list_model_dataset_files
 from configs.config import (
     UNPROCESSED_DATASETS_DIR,
     PROCESSED_DATASETS_DIR,
@@ -813,8 +814,9 @@ def api_processed_list():
         .all()
     )
 
-    # Model dataset files currently on disk.
-    model_files = _list_model_files(MODEL_DATASETS_DIR, 'Recent')
+    # Model dataset files -- read from MySQL, not disk (see
+    # list_model_dataset_files()'s docstring for why).
+    model_files = list_model_dataset_files()
 
     state   = load_state()
     horizon = state.get('horizon', {})

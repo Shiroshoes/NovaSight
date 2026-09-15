@@ -31,6 +31,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY environment variable is not set.")
 
+
 # Minimum acceptable password length, enforced everywhere a password is
 # created or changed (admin.py's add_user/update_user, and every role's
 # own update_password route). Kept here as one shared constant so the
@@ -137,12 +138,15 @@ DATASET_ALLOWED_EXTENSIONS = {'xlsx'}
 # realistic single-semester grade sheet while still bounding the worst case.
 DATASET_MAX_SIZE_MB = 50
 
-# Accepted filename formats (spaces OR underscores between parts):
+# Accepted filename formats. Year-semester separator must be a dash
+# (2022-1). Everywhere else, any run of spaces/underscores/dashes is
+# accepted between words, e.g. all of these match:
 #   2022-1 Student-Performance Dataset.xlsx
 #   2022-1_Student-Performance_Dataset.xlsx
-#   2025-2 Student-Performance Dataset.xlsx
+#   2022-1_Student_Performance_Dataset.xlsx
+#   2025-2   Student-Performance   Dataset.xlsx
 DATASET_FILENAME_REGEX = re.compile(
-    r'^\d{4}-[12][_ ]Student-Performance[_ ]Dataset\.xlsx$',
+    r'^\d{4}-[12][_\-\s]+Student[_\-\s]+Performance[_\-\s]+Dataset\.xlsx$',
     re.IGNORECASE
 )
 

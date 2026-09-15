@@ -574,7 +574,7 @@ footer{
 
 /* Precise Sizing Classes */
 .card-mini { grid-column: span 2; min-height: 65px; padding: 15px;}
-.card-mini1 { grid-column: span 3; min-height: 65px; padding: 15px;}
+.card-mini1 { grid-column: span 5; min-height: 65px; padding: 15px;}
 .card-mini2 { grid-column: span 4; min-height: 65px; padding: 15px;}
 .card-wide { grid-column: span 5; min-height: 510px; padding: 20px; padding-bottom: 70px;}
 .card-wide1 { grid-column: span 10; min-height: 490px; padding: 20px; padding-bottom: 70px;}

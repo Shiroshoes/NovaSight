@@ -628,6 +628,54 @@ def read_model_dataset(table_name: str) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
+def list_model_dataset_files() -> list:
+    """
+    Model Dataset Files list for the Upload File page — one row per
+    (table, academic_year, semester) that currently has data in MySQL.
+    Replaces the old disk-based _list_model_files(MODEL_DATASETS_DIR, ...)
+    in upload_rotues.py, which always returned empty: export_model_datasets()
+    stopped writing CSVs to disk once these tables moved to MySQL (see
+    config.py's MODEL_DATASETS_DIR comment). Only reads the lightweight
+    metadata columns (academic_year, semester, accuracy) -- NOT the
+    compressed csv_file blob itself, so this stays fast even with many
+    rows. 'has_csv' just tells the frontend whether a csv_file blob is
+    present for that row, e.g. to show a download icon/link.
+    """
+    # Every model-dataset table -- same list as RESET_TABLES minus the
+    # 5 non-model-dataset tables (app_storage, semester_uploads,
+    # longform_uploads, trained_models, training_summary). Keep in sync
+    # with RESET_TABLES whenever a new model-dataset table is added.
+    model_tables = [
+        t for t in RESET_TABLES
+        if t not in (
+            "app_storage", "semester_uploads", "longform_uploads",
+            "trained_models", "training_summary",
+        )
+    ]
+
+    out = []
+    for table_name in model_tables:
+        if not _table_exists(table_name):
+            continue
+        df = pd.read_sql(
+            f"SELECT academic_year, semester, accuracy, "
+            f"(csv_file IS NOT NULL) AS has_csv FROM {table_name}",
+            _engine,
+        )
+        model_label = table_name.replace('_', ' ').title()
+        for _, row in df.iterrows():
+            out.append({
+                'model'        : model_label,
+                'academic_year': row['academic_year'],
+                'semester'     : row['semester'],
+                'accuracy'     : (
+                    float(row['accuracy']) if pd.notna(row['accuracy']) else None
+                ),
+                'has_csv'      : bool(row['has_csv']),
+            })
+    return out
+
+
 def latest_model_runs() -> pd.DataFrame:
     """One row per model_name — its most recent training run. Used by the
     Model Performance dashboard instead of parsing training_state.json."""

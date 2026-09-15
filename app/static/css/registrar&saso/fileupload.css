@@ -255,9 +255,9 @@
 .file-table__head.processed-head {
   grid-template-columns: 2fr 1fr 0.8fr 1fr 1.4fr 1.5fr 2fr;
 }
-/* Model files: 3 cols */
+/* Model files: 5 cols */
 .file-table__head.model-head {
-  grid-template-columns: 3fr 1fr 2fr;
+  grid-template-columns: 2.5fr 1.2fr 1fr 1fr 1fr;
 }
 
 .file-table__row {
@@ -285,7 +285,7 @@
   grid-template-columns: 2fr 1fr 0.8fr 1fr 1.4fr 1.5fr 2fr;
 }
 .file-table__row.model-row {
-  grid-template-columns: 3fr 1fr 2fr;
+  grid-template-columns: 2.5fr 1.2fr 1fr 1fr 1fr;
 }
 
 .file-table__empty {

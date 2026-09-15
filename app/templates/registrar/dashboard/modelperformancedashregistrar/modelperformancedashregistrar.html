@@ -248,13 +248,23 @@
            ml_eval.js already fetches for #mp-grid further down. See
            renderAlgorithmBreakdown() in ml_eval.js. -->
       <div id="chartViewContainer" style="display:contents;">
-      <div class="card card-mini2" data-tab-category="overview" style="min-height: 190px;">
+      <div class="card card-mini1" data-tab-category="overview" style="min-height: 190px;">
         <div class="algo-kpi-card" style="--algo-color:#1cc88a;">
           <div class="algo-kpi-label"><span class="dot"></span>Linear Regression</div>
           <div class="algo-kpi-formula">ŷ = β₀ + β₁x₁ + β₂x₂ + ... + βₙxₙ</div>
           <p class="algo-kpi-desc">A straight-line trend fit used for every forecast target (GWA, enrollment, INC/irregular/drop rate).</p>
 
           <p style="background: #1cc88a; color: #ffffff; width: 50px; border-radius: 50px; align-items: center; text-align: center; font-weight: bold; padding: 2px;">14</p>
+        </div>
+      </div>
+
+      <div class="card card-mini1" data-tab-category="overview" style="min-height: 190px;">
+        <div class="algo-kpi-card" style="--algo-color:#36b9cc;">
+          <div class="algo-kpi-label"><span class="dot"></span>Ridge Regression</div>
+          <div class="algo-kpi-formula">ŷ = argmin_β ‖y − Xβ‖² + α‖β‖²</div>
+          <p class="algo-kpi-desc">Straight-line fit with L2 shrinkage for sparse/correlated predictors (per-course, per-college cohorts) — more stable than plain Linear Regression.</p>
+
+          <p style="background: #36b9cc; color: #ffffff; width: 50px; border-radius: 50px; align-items: center; text-align: center; font-weight: bold; padding: 2px;">6</p>
         </div>
       </div>
 
@@ -294,7 +304,7 @@
               </div>
               <div id="modelAlgoLegend" class="model-algo-legend"></div>
               <div class="chart-explanation" style="margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px dashed #e3e6f0; font-size: 0.82rem; color: #4b5563; line-height: 1.45;">
-                <strong>What it shows:</strong> the donut is how many trained models belong to each algorithm family (Linear Regression, Random Forest Regression, Random Forest Classifier); the bar chart is each individual model's headline score, colored by that same family, so you can see which algorithm is carrying the dashboard rather than just one total count.
+                <strong>What it shows:</strong> the donut is how many trained models belong to each algorithm family (Linear Regression, Ridge Regression, Random Forest Regression, Random Forest Classifier); the bar chart is each individual model's headline score, colored by that same family, so you can see which algorithm is carrying the dashboard rather than just one total count.
               </div>
           </div>
         </div>

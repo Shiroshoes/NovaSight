@@ -396,10 +396,11 @@
             ? `<div class="file-table__empty"><p>No model files generated yet.</p></div>`
             : modelFiles.map((f) => `
               <div class="file-table__row model-row">
-                <span class="cell-filename" title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</span>
-                <span>${escapeHtml(f.size_kb)}</span>
-                <span>${escapeHtml(f.modified)}</span>
-                <span><span class="status-badge ${f.status === 'Recent' ? 'badge--done' : 'badge--pending'}">${escapeHtml(f.status)}</span></span>
+                <span class="cell-filename" title="${escapeHtml(f.model)}">${escapeHtml(f.model)}</span>
+                <span>${escapeHtml(f.academic_year)}</span>
+                <span>${escapeHtml(f.semester)}</span>
+                <span>${f.has_csv ? '<span class="status-badge badge--done">Available</span>' : '—'}</span>
+                <span>${f.accuracy != null ? `${Number(f.accuracy).toFixed(1)}%` : '—'}</span>
               </div>`).join('');
         }
       })
