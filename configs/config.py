@@ -27,7 +27,9 @@ SQLALCHEMY_TRACK_MODIFICATIONS = False
 # forge a valid login session for ANY user, including admin. Must come from
 # the environment (set it before starting the app: see the deployment
 # guides' systemd Environment= line), never hardcoded here.
-SECRET_KEY = os.environ.get('SECRET_KEY', '9f8263ca7b11202e861d87134371a393c042da182375a02dc2119efca8234851')
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable is not set.")
 
 
 # Minimum acceptable password length, enforced everywhere a password is
