@@ -40,6 +40,27 @@
     d.textContent = s == null ? '' : String(s);
     return d.innerHTML;
   };
+
+  // fetch() + JSON, but a non-2xx response becomes an Error carrying the
+  // server's own message ({"error": "..."} from the API, or a hint when Flask
+  // returned its HTML error page). Without this a 500 from a list endpoint was
+  // either swallowed or rendered as an empty table ("No ... found").
+  async function fetchJson(url, opts) {
+    const r = await fetch(url, opts);
+    const text = await r.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (e) { /* not JSON */ }
+    if (!r.ok) {
+      let msg = data && (data.error || data.message);
+      if (!msg) msg = (text && !text.trim().startsWith('<') && text.length < 300)
+        ? text.trim()
+        : 'server error page returned — check the server log';
+      const err = new Error(`HTTP ${r.status}: ${msg}`);
+      err.status = r.status;
+      throw err;
+    }
+    return data;
+  }
   const fmt = (b) => {
     if (!b && b !== 0) return '';
     const kb = b / 1024;
@@ -1149,8 +1170,7 @@
     const tbody = document.getElementById('invalidTableBody');
     showTableSkeleton(tbody, 9);
 
-    fetch('/api/uploads-with-warnings')
-      .then(r => r.json())
+    fetchJson('/api/uploads-with-warnings')
       .then(rows => {
         if (!rows.length) {
           tbody.innerHTML = '<tr><td colspan="9" class="tbl-empty">No flagged uploads found.</td></tr>';
@@ -1176,8 +1196,9 @@
             </td>
           </tr>`).join('');
       })
-      .catch(() => {
-        tbody.innerHTML = '<tr><td colspan="9" class="tbl-empty">Failed to load.</td></tr>';
+      .catch(err => {
+        console.error('[fileupload] table load failed:', err);
+        tbody.innerHTML = `<tr><td colspan="9" class="tbl-empty">Failed to load — ${esc(err.message)}</td></tr>`;
       });
   };
 
@@ -1186,8 +1207,7 @@
     const tbody = document.getElementById('trainingTableBody');
     showTableSkeleton(tbody, 8);
 
-    fetch('/api/training-csv-list')
-      .then(r => r.json())
+    fetchJson('/api/training-csv-list')
       .then(rows => {
         if (!rows.length) {
           tbody.innerHTML = '<tr><td colspan="8" class="tbl-empty">No confirmed uploads yet.</td></tr>';
@@ -1213,8 +1233,9 @@
             </td>
           </tr>`).join('');
       })
-      .catch(() => {
-        tbody.innerHTML = '<tr><td colspan="8" class="tbl-empty">Failed to load.</td></tr>';
+      .catch(err => {
+        console.error('[fileupload] table load failed:', err);
+        tbody.innerHTML = `<tr><td colspan="8" class="tbl-empty">Failed to load — ${esc(err.message)}</td></tr>`;
       });
   };
 
@@ -1228,8 +1249,7 @@
     const tbody = document.getElementById('separationTableBody');
     showTableSkeleton(tbody, 7);
 
-    fetch('/api/model-datasets-list')
-      .then(r => r.json())
+    fetchJson('/api/model-datasets-list')
       .then(rows => {
         if (!rows.length) {
           tbody.innerHTML = '<tr><td colspan="7" class="tbl-empty">No chart datasets yet. Confirm an upload to generate them.</td></tr>';
@@ -1253,8 +1273,9 @@
             </td>
           </tr>`).join('');
       })
-      .catch(() => {
-        tbody.innerHTML = '<tr><td colspan="7" class="tbl-empty">Failed to load.</td></tr>';
+      .catch(err => {
+        console.error('[fileupload] table load failed:', err);
+        tbody.innerHTML = `<tr><td colspan="7" class="tbl-empty">Failed to load — ${esc(err.message)}</td></tr>`;
       });
   };
 
@@ -1263,8 +1284,7 @@
     const tbody = document.getElementById('archiveTableBody');
     showTableSkeleton(tbody, 8);
 
-    fetch('/api/archives-list')
-      .then(r => r.json())
+    fetchJson('/api/archives-list')
       .then(rows => {
         if (!rows.length) {
           tbody.innerHTML = '<tr><td colspan="8" class="tbl-empty">No archives yet.</td></tr>';
@@ -1289,8 +1309,9 @@
             </td>
           </tr>`).join('');
       })
-      .catch(() => {
-        tbody.innerHTML = '<tr><td colspan="8" class="tbl-empty">Failed to load.</td></tr>';
+      .catch(err => {
+        console.error('[fileupload] table load failed:', err);
+        tbody.innerHTML = `<tr><td colspan="8" class="tbl-empty">Failed to load — ${esc(err.message)}</td></tr>`;
       });
   };
 
@@ -1384,8 +1405,7 @@
   const ACTIVE_STATUSES = ['pending', 'processing', 'preprocessing_done', 'separating'];
 
   function resumeActiveUpload() {
-    fetch('/api/unprocessed-list')
-      .then(r => r.json())
+    fetchJson('/api/unprocessed-list')
       .then(records => {
         const active = (records || []).find(r => ACTIVE_STATUSES.includes(r.status));
         if (!active) { resumeTraining(); return; }   // no upload in flight — maybe a training run is
@@ -1419,7 +1439,7 @@
           pollStatus(currentUploadId);
         }
       })
-      .catch(() => {});   // no active upload / network hiccup — page just loads normally
+      .catch(err => console.warn('[fileupload] could not check for an active upload:', err.message));
   }
 
   // ── Init ───────────────────────────────────────────────────
