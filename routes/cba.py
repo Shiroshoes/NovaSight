@@ -23,12 +23,6 @@ def preddash_cba():
         return redirect(url_for('home'))
     return render_template('deans/CBAdean/dashboard/predictiondashboardcba.html', college_type='all')
 
-# model dash
-@cba_bp.route('/modeldashboard')
-def modeldash_cba():
-    if 'user_id' not in session or session.get('role') != 'CBAdean':
-        return redirect(url_for('home'))
-    return render_template('deans/CBAdean/dashboard/modelperformancedashcba.html', college_type='all')
 
 # Profile Page (CBA Dean)
 @cba_bp.route('/profile')

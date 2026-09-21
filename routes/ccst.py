@@ -23,12 +23,6 @@ def preddash_ccst():
         return redirect(url_for('home'))
     return render_template('deans/CCSTDean/dashboard/predictiondashboardccst.html', college_type='all')
 
-# model dash
-@ccst_bp.route('/modeldashboard')
-def modeldash_ccst():
-    if 'user_id' not in session or session.get('role') != 'CCSTdean':
-        return redirect(url_for('home'))
-    return render_template('deans/CCSTDean/dashboard/modelperformancedashccst.html', college_type='all')
 
 # Profile Page (CCST Dean)
 @ccst_bp.route('/profile')

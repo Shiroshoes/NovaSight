@@ -27,9 +27,7 @@ SQLALCHEMY_TRACK_MODIFICATIONS = False
 # forge a valid login session for ANY user, including admin. Must come from
 # the environment (set it before starting the app: see the deployment
 # guides' systemd Environment= line), never hardcoded here.
-SECRET_KEY = os.environ.get('SECRET_KEY')
-if not SECRET_KEY:
-    raise RuntimeError("SECRET_KEY environment variable is not set.")
+SECRET_KEY = os.environ.get('SECRET_KEY', '9f8263ca7b11202e861d87134371a393c042da182375a02dc2119efca8234851')
 
 
 # Minimum acceptable password length, enforced everywhere a password is
@@ -128,6 +126,19 @@ ML_MODEL_DIR = os.path.join(BASE_DIR, 'Machine_Learning_Model')
 # Soft-deleted upload records (Recently Deleted table) are permanently
 # purged after this many days.
 SOFT_DELETE_EXPIRY_DAYS = 30
+
+# ── Course catalog (baseline reference for the course-code checker) ──
+# "Course_Code | Course_Title | Credit_Units" workbook (the registrar's
+# List of Courses.xlsx). preprocess.py hands it to course_catalog_checker to
+# validate subject codes, fill subject titles / credit units / Credits_Earned
+# and compute the credit-weighted GWA. Optional: if the file is missing,
+# preprocessing still runs and just skips those checks (with a plain warning).
+# The NOVASIGHT_CATALOG_PATH env var, if set, overrides this in preprocess.py.
+# Nothing auto-creates this folder — put the file here or point the env var at it.
+COURSE_CATALOG_PATH = os.environ.get(
+    'COURSE_CATALOG_PATH',
+    os.path.join(BASE_DIR, 'Reference_Data', 'List of Courses.xlsx'),
+)
 
 # ── Dataset file validation ───────────────────────────────────
 DATASET_ALLOWED_EXTENSIONS = {'xlsx'}

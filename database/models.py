@@ -180,52 +180,28 @@ class AcadUser(db.Model):
 
 
 class UploadedDataset(db.Model):
-    """
-    Tracks every Excel grade-sheet uploaded by a user.
-
-    Columns
-    -------
-    id                  PK
-    original_filename   The exact filename as uploaded (used as duplicate checker)
-    stored_filename     Collision-safe name on disk (user_id + timestamp + filename)
-    raw_path            Absolute path in Unprocessed_Datasets/
-    processed           Whether preprocessing completed successfully
-    processed_path      Absolute path of the merged CSV in Processed_Datasets/
-    status              'pending' | 'processing' | 'done' | 'failed' | 'duplicate'
-    error_message       Human-readable failure reason (if any)
-    uploaded_at         UTC timestamp of upload
-    uploaded_by         FK → AcadUser.acaduser_id
-    academic_year       Extracted from filename  e.g. '2022-2023'
-    semester            Extracted from filename  e.g. '1sem'
-    file_size_kb        Original file size in KB
-    sheet_count         Number of sheets found in the workbook
-    row_count           Total long-form rows produced after preprocessing
-    is_deleted          Soft-delete flag — set when a user deletes the most
-                         recent upload (rolls back to the one-step-back
-                         backup) or restores/discards it from the "Recently
-                         Deleted" trash table. The row is KEPT (not removed)
-                         until it's restored or the 30-day expiry purges it.
-    deleted_at          UTC timestamp the soft-delete happened, used to
-                         compute the 30-day expiry countdown.
-    """
     __tablename__ = 'uploaded_dataset'
 
-    id                = db.Column(db.Integer,      primary_key=True)
-    original_filename = db.Column(db.String(255),  nullable=False)
-    raw_path          = db.Column(db.String(512),  nullable=False)
-    processed         = db.Column(db.Boolean,      default=False, nullable=False)
-    processed_path    = db.Column(db.String(512),  nullable=True)
-    status            = db.Column(db.String(30),   default='pending', nullable=False)
-    error_message     = db.Column(db.Text,         nullable=True)
-    uploaded_at       = db.Column(db.DateTime,     server_default=db.func.now(), nullable=False)
-    uploaded_by       = db.Column(db.Integer,      db.ForeignKey('acad_user.acaduser_id'), nullable=False)
-    academic_year     = db.Column(db.String(20),   nullable=True)
-    semester          = db.Column(db.String(20),   nullable=True)
-    file_size_kb      = db.Column(db.Float,        nullable=True)
-    sheet_count       = db.Column(db.Integer,      nullable=True)
-    row_count         = db.Column(db.Integer,      nullable=True)
-    is_deleted        = db.Column(db.Boolean,      default=False, nullable=False)
-    deleted_at        = db.Column(db.DateTime,     nullable=True)
+    id                 = db.Column(db.Integer,      primary_key=True)
+    original_filename  = db.Column(db.String(255),  nullable=False)
+    raw_path           = db.Column(db.String(512),  nullable=False)
+    processed          = db.Column(db.Boolean,      default=False, nullable=False)
+    processed_path     = db.Column(db.String(512),  nullable=True)
+    status              = db.Column(db.String(30),   default='pending', nullable=False)
+    error_message      = db.Column(db.Text,         nullable=True)
+    uploaded_at        = db.Column(db.DateTime,     server_default=db.func.now(), nullable=False)
+    uploaded_by        = db.Column(db.Integer,      db.ForeignKey('acad_user.acaduser_id'), nullable=False)
+    academic_year      = db.Column(db.String(20),   nullable=True)
+    semester           = db.Column(db.String(20),   nullable=True)
+    file_size_kb        = db.Column(db.Float,        nullable=True)
+    sheet_count         = db.Column(db.Integer,      nullable=True)
+    row_count           = db.Column(db.Integer,      nullable=True)
+    training_row_count  = db.Column(db.Integer,      nullable=True)   # ← add
+    excluded_row_count  = db.Column(db.Integer,      nullable=True)   # ← add
+    accuracy             = db.Column(db.Numeric(5, 2), nullable=True)  # ← add
+    file_hash            = db.Column(db.String(64),  nullable=True)    # ← add
+    is_deleted          = db.Column(db.Boolean,      default=False, nullable=False)
+    deleted_at          = db.Column(db.DateTime,     nullable=True)
 
     def to_dict(self):
         return {

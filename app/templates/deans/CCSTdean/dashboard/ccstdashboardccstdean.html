@@ -4,21 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CCST Dashboard</title>
+  <link rel="icon" href="{{url_for('static', filename='image/logo3.png')}}" type="image/x-icon">
   <link rel="stylesheet" href="{{url_for('static', filename='css/deans/dashboarddean.css')}}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/logout/logout.css') }}">
   <link rel="stylesheet" href="{{url_for('static', filename='css/chart/kebabMenu.css')}}">
   <link rel="stylesheet" href="{{url_for('static', filename='css/chart/modelEval.css')}}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/tutorial/page-video-modal.css') }}">
 
   <style>.print-header { display: none; }</style>
   <link rel="stylesheet" href="{{url_for('static', filename='css/print/dashboard-print.css')}}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tutorial/page-video-modal.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
 
   <link rel="stylesheet" href="{{url_for('static', filename='css/shared/dashboard-shared.css')}}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/skeleton.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/responsive.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/pdf-export.css') }}">
 </head>
-<body>
+<body data-lock-college="CCST">
   <!-- fixed side bar -->
   <aside class="sidebar">
     <nav class="pad">
@@ -61,14 +65,6 @@
 
     <span>Prediction Analysis</span></a>
 
-    <a href="{{url_for('ccst_bp.modeldash_ccst')}}" class="menu-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
-      </svg>
-    </div>
-
-    <span>Model Performance</span></a>
 
 </div>
       <div>
@@ -122,15 +118,16 @@
   </aside>
 <main>
 
+  <!-- Print-only header: shown only when the Print Dashboard button is used -->
   <div class="print-header">
     <img src="{{url_for('static', filename='image/logo2.png')}}" alt="BPSU Logo" class="print-header-logo">
     <div class="print-header-text">
       <h2>Bataan Peninsula State University - Main Campus</h2>
-      <h3>CCST Dashboard</h3>
+      <h3>Main Dashboard</h3>
     </div>
     <img src="{{url_for('static', filename='image/logo.png')}}" alt="NovaSight Logo" class="print-header-logo">
   </div>
- 
+
   <!--header -->
         <header class="topmenu">
             <div class="brand">
@@ -168,598 +165,709 @@
             </a>
         </header>
 
-    <section class="dashboard-grid">
-      <script>
-          // Was a fixed Python-injected value per college route
-          // ({{ college_type }}); now this page covers every college, so
-          // it's a plain reassignable `let` — the new Department dropdown
-          // below updates it directly instead of the page being reloaded
-          // at a different route per college.
-          let COLLEGE_NAME = "CCST";
+  <section class="dash-wrap">
 
-          // Every department's course list, used to (a) populate the
-          // Course dropdown whenever Department changes, and (b) as the
-          // single source of truth other pages (Prediction Analysis)
-          // can reuse for the same two-dropdown pattern.
-          window.DEPARTMENT_COURSES = {
-              CCST: [
-                  "Bachelor of Science in Information Technology",
-                  "Bachelor of Science in Data Science",
-                  "Bachelor of Science in Computer Science",
-                  "Bachelor of Science in Entertainment and Multimedia Computing"
-              ]
-          };
-
-          // Short label shown in the Course dropdown — long BS-in-X names
-          // are truncated to "BS in X" the same way each old per-college
-          // page hardcoded it.
-          function shortCourseLabel(course) {
-              return course
-                  .replace(/^Bachelor of Science in /, 'BS in ')
-                  .replace(/^Bachelor of Arts in /, 'BA in ')
-                  .replace(/^Bachelor of /, 'B ');
-          }
-
-          function populateCourseDropdown(department) {
-              const sel = document.getElementById('filterCollege');
-              if (!sel) return;
-              const courses = window.DEPARTMENT_COURSES[department] || [];
-              sel.innerHTML = `<option value="${department}">All Courses</option>` +
-                  courses.map(c => `<option value="${c}">${shortCourseLabel(c)}</option>`).join('');
-          }
-
-          // The Male/Female Retention card titles ("Male Retention & Risk:
-          // CAHS") are plain text, not JS-driven anywhere yet — updated
-          // here so switching departments doesn't leave the old college's
-          // name showing next to fresh data.
-          function updateDepartmentLabels(department) {
-              const m = document.getElementById('dp-college-name-m');
-              const f = document.getElementById('dp-college-name-f');
-              if (m) m.textContent = department;
-              if (f) f.textContent = department;
-          }
-
-          function handleDepartmentChange() {
-              const dept = document.getElementById('filterDepartment').value;
-              COLLEGE_NAME = dept;
-              populateCourseDropdown(dept);
-              updateDepartmentLabels(dept);
-              if (typeof triggerUpdate === 'function') triggerUpdate();
-              if (typeof ModeAwareCharts !== 'undefined') {
-                  const semester = document.getElementById('filterSemester').value;
-                  ModeAwareCharts.init(dept, semester);
-              }
-          }
-      </script>
-
-      <!-- Recent Data / Prediction Mode — pill-style toggle switch -->
-    <div class="card card-mini no-print" style="position:relative;">
-        <label>DATA MODE</label>
-        <div class="mode-switch" id="displayFormatSwitchWrap"> 
-            <div class="mode-switch-thumb"></div> 
-            <span type="button" id="displayFormatChartBtn" class="mode-switch-option" data-value="recent" data-value="chart">Chart</span> 
-            <span type="button" id="displayFormatTableBtn" class="mode-switch-option" data-value="prediction" data-value="table">Table</span> 
-        </div> 
+    <!-- ── Page title + global filters ───────────────────────── -->
+    <div class="dash-titlebar">
+      <div class="dash-titlebar-left">
+        <h2 class="dash-title">CCST Dashboard</h2>
+        <span class="dash-badge">Historical</span>
+      </div>
+      <div class="dash-actions">
+        <button class="btn-action" id="btnDownloadPdf" title="Download as PDF">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:15px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5ZM10 8a.75.75 0 0 1 .75.75v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75A.75.75 0 0 1 10 8Z" clip-rule="evenodd"/></svg>
+          Download PDF
+        </button>
+      </div>
     </div>
 
-      <!-- kebab-menu.css (linked in <head>) now provides these styles -->
 
-      <script>
-          // triggerUpdate() (your page's own function) renders every
-          // chart once on load using whatever year is selected in
-          // #globalYearFilter (defaults to the latest real year).
-          // ModeAwareCharts separately fetches the latest real year for
-          // its OWN internal use (Prediction mode's forecast start year).
-          document.addEventListener('DOMContentLoaded', () => {
-              populateCourseDropdown(COLLEGE_NAME);
+    <div class="dash-grid" id="dashGrid">
 
-              if (typeof triggerUpdate === 'function') triggerUpdate();
+      <!-- ══════════════════════════════════════════════════════
+           CARD 1 — KPI
+           ══════════════════════════════════════════════════════ -->
+      <div class="card card-full kpi-card" id="kpiCard">
 
-              const college = document.getElementById('filterCollege').value;
-              const semester = document.getElementById('filterSemester').value;
-              ModeAwareCharts.init(college, semester);
-          });
-      </script>
-
-      <div class="card card-mini no-print">
-        <label>Department</label>
-        <select id="filterDepartment" class="form-select" onchange="handleDepartmentChange()">
-            <option value="CCST">CCST</option>
-        </select>
-      </div>
-
-      <div class="card card-mini no-print">
-        <label>Semester</label>
-        <select id="filterSemester" class="form-select">
-            <option value="1sem">1st Sem</option>
-            <option value="2sem">2nd Sem</option>
-
-        </select>
-      </div>
-
-      <div class="card card-mini no-print">
-        <label>Course</label>
-        <select id="filterCollege" class="form-select">
-            <option value="CCST">All Courses</option>
-            <option value="Bachelor of Science in Information Technology">BS in Information Technology</option>
-            <option value="Bachelor of Science in Data Science">BS in Data Science</option>
-            <option value="Bachelor of Science in Computer Science">BS in Computer Science</option>
-            <option value="Bachelor of Science in Entertainment and Multimedia Computing">BS in Entertainment and Multimedia Computing</option>
-        </select>
-      </div> 
-
-
-      <div class="card card-mini no-print">
-        <label>Year</label>
-        <select id="globalYearFilter" class="form-select">
-        </select>
-      </div> 
-
-
-      <!-- ─────────────────────────────────────────────────────────
-           Category tabs: only one group of cards shows at a time.
-           See js/dashboard-tabs.js.
-           ───────────────────────────────────────────────────────── -->
-      <nav class="dash-tabs no-print" id="dashTabs" role="tablist" aria-label="Dashboard categories" style="position: relative;">
-        <button type="button" class="dash-tab-btn" data-tab="overview" role="tab">
-          Overview
-        </button>
-        <button type="button" class="dash-tab-btn" data-tab="enrollment" role="tab">
-          Enrollment &amp; Retention <span class="dash-tab-count">4</span>
-        </button>
-        <button type="button" class="dash-tab-btn" data-tab="academic" role="tab">
-          Academic Performance <span class="dash-tab-count">3</span>
-        </button>
-        <button type="button" class="dash-tab-btn" data-tab="risk" role="tab">
-          Risk &amp; Dropout <span class="dash-tab-count">4</span>
-        </button>
-
-        <div class="print-btn-wrap no-print">
-          <button type="button" class="print-dashboard-btn" style="position: absolute; right: 10px; top: 30.5%; transform: translateY(-50%);" onclick="window.print()">
-            <i class="fas fa-print"></i> Print Dashboard
-          </button>
-        </div>
-      </nav>
-
-      <!-- Table Mode renders here instead of the charts below (see table-view.js) -->
-      <div id="chartViewContainer" style="display:contents;">
-      <div class="card card-mini2" data-tab-category="overview">
-        <div id="kpi-card-students" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
-            <div style="align-items: center; display: flex; justify-content: space-between;" >
-                <div>
-                    <div style="font-size: smaller; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #6B7280;" id="kpi-title-students">
-                        Total Enrollment
-                    </div>
-                    <div style="font-weight: 800; font-size: x-large;" id="kpi-val-students">
-                        ---
-                    </div>
+        <!-- KPI header row: title left, filters right -->
+        <div class="kpi-card-header">
+          <div class="kpi-card-title-wrap">
+            <h3 class="card-title">Key Performance Indicators</h3>
+            <p class="card-subtitle">Student performance overview for the selected period</p>
+          </div>
+          <div class="kpi-header-actions">
+            <!-- View as table -->
+            <button class="btn-icon" id="kpiViewTable" title="View as table">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M.99 5.24A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25l.01 9.5A2.25 2.25 0 0 1 16.76 17H3.26A2.272 2.272 0 0 1 1 14.75l-.01-9.5Zm8.26 9.52v-.625a.75.75 0 0 0-1.5 0v.375H3.26a.75.75 0 0 1-.75-.75L2.5 15h5.25v-.008ZM10 8.5H7.75V10H10v-1.5Zm0 2.5H7.75v1.5H10V11Zm2.25-2.5H10V10h2.25V8.5Zm0 2.5H10v1.5h2.25V11Zm2.25-2.5h-2.25V10h2.25V8.5Zm0 2.5h-2.25v1.5h2.25V11Zm-6.75-6H5.5v1.5h2.25V5.5Zm0 2.25H5.5v.75h2.25V7.75Zm2.25-2.25H7.75v1.5H10V5.5Zm0 2.25H7.75v.75H10V7.75Zm2.25-2.25H10v1.5h2.25V5.5Zm0 2.25H10v.75h2.25V7.75Zm2.25-2.25h-2.25v1.5h2.25V5.5Zm0 2.25h-2.25v.75h2.25V7.75Z" clip-rule="evenodd"/></svg>
+            </button>
+            <!-- Filter icon: opens compact filter popover -->
+            <div class="kpi-filter-wrap">
+              <button class="btn-icon" id="kpiFilterToggle" title="Filters" aria-expanded="false" aria-controls="kpiFilterPopover">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z" clip-rule="evenodd"/></svg>
+              </button>
+              <div class="kpi-filter-popover hidden" id="kpiFilterPopover">
+                <div class="kpi-filter-popover-header">
+                  <span>KPI Filters</span>
+                  <button class="kpi-filter-popover-close" id="kpiFilterClose" aria-label="Close filters">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:20px"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                  </button>
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; min-width: 58px;">
-                    <span id="kpi-pct-students" style="font-size: 1.2rem; font-weight: 700; white-space: nowrap;"></span>
+                <div class="kpi-filter-popover-body">
+                  <div class="gf-group">
+                    <label class="gf-label">Academic Year</label>
+                    <select class="gf-select" id="kpi-year"><option value="">All Years</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Semester</label>
+                    <select class="gf-select" id="kpi-sem">
+                      <option value="">All</option>
+                      <option value="1sem">1st Semester</option>
+                      <option value="2sem">2nd Semester</option>
+                    </select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Department</label>
+                    <select class="gf-select" id="kpi-dept"><option value="">All</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Course</label>
+                    <select class="gf-select" id="kpi-course"><option value="">All</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Year Level</label>
+                    <select class="gf-select" id="kpi-yearlevel">
+                      <option value="">All</option>
+                      <option value="1">1st</option>
+                      <option value="2">2nd</option>
+                      <option value="3">3rd</option>
+                      <option value="4">4th</option>
+                      <option value="IRREG">Irregular</option>
+                    </select>
+                  </div>
                 </div>
+                <div class="kpi-filter-popover-footer">
+                  <button class="btn-apply" id="kpiBtnApply">Apply</button>
+                </div>
+              </div>
             </div>
+            <!-- Refresh: always visible, resets to default filters -->
+            <button class="btn-icon" id="kpiBtnReset" title="Reset to default filters">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z" clip-rule="evenodd"/></svg>
+            </button>
+            <!-- Fullscreen toggle -->
+            <button class="btn-icon btn-fullscreen" data-fullscreen-target="kpiCard" title="Expand">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path d="m13.28 7.78 3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.747.747 0 0 1-.75-.75ZM12.22 13.28l3.22 3.22h-2.69a.75.75 0 0 0 0 1.5h4.5a.747.747 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.69l-3.22-3.22a.75.75 0 1 0-1.06 1.06ZM3.5 4.56l3.22 3.22a.75.75 0 0 0 1.06-1.06L4.56 3.5h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0V4.56Z"/></svg>
+            </button>
+          </div>
         </div>
-      </div>
 
-
-      <div class="card card-mini1" data-tab-category="overview">
-        <div id="kpi-card-gwa" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
-            <div style="align-items: center; display: flex; justify-content: space-between;">
-                <div>
-                    <div style="font-size: smaller; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #6B7280" id="kpi-title-gwa">
-                        Average GWA
-                    </div>
-                    <div style="font-weight: 800; font-size: x-large;" id="kpi-val-gwa">
-                        ---
-                    </div>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; min-width: 58px;">
-                    <span id="kpi-pct-gwa" style="font-size: 1.2rem; font-weight: 700; white-space: nowrap;"></span>
-                </div>
+        <div class="kpi-layout" id="kpiLayoutArea">
+          <!-- LEFT: Total Enrollment -->
+          <div class="kpi-main">
+            <div class="kpi-main-header">
+              <span class="kpi-main-label" id="kpiEnrollLabel">Total Enrollment</span>
+              <div class="kpi-metrics-btns">
+                <button class="metric-btn active" data-kpi-metric="all">All</button>
+                <button class="metric-btn" data-kpi-metric="regular">Regular</button>
+                <button class="metric-btn" data-kpi-metric="irregular">Irregular</button>
+              </div>
             </div>
-        </div>
-      </div>
-
-      <div class="card card-mini1" data-tab-category="overview">
-        <div id="kpi-card-drop" style="border-radius: 10px; background: white; padding: 10px; height: 70px;">
-            <div style="align-items: center; display: flex; justify-content: space-between;">
-                <div>
-                    <div style="font-size: smaller; font-weight: bold; text-transform: uppercase; margin-bottom: 1; color: #6B7280;" id="kpi-title-drop">
-                        Total Drop
-                    </div>
-                    <div style="font-weight: 800; font-size: x-large;" id="kpi-val-drop">
-                        ---
-                    </div>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; min-width: 58px;">
-                    <span id="kpi-pct-drop" style="font-size: 1.2rem; font-weight: 700; white-space: nowrap;"></span>
-                </div>
+            <div class="kpi-main-body" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <div class="kpi-main-value" id="kpiEnrollVal">—</div>
+              <span id="kpiEnrollPct"></span>
             </div>
-        </div>
-      </div>
-
-      <!-- Course x Year-Level Dropout Heatmap -->
-      <div class="card card-full-width1" id="heatmapCard" data-tab-category="risk">
-        <div style="background-color: white; border-radius: 10px;">
-          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
-              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                  Dropout Rate Heatmap: Course &times; Year Level
-              </h6>
-              <div style="display: flex; align-items: center; gap: 0.6rem;">
-                  <label for="heatmapCourseFilter" style="margin: 0; font-size: 0.78rem; font-weight: 600; color: #5a5c69;">Course:</label>
-                  <select id="heatmapCourseFilter" class="form-select">
-                      <option value="all">All Courses</option>
-                  </select>
-                  <span id="heatmap-year-badge" style="color: #5a5c69; font-size: 1rem; font-weight: 700; padding: 0.25rem 0.6rem;"></span>
+            <div class="kpi-main-sub" style="display:flex;align-items:center;gap:8px;">
+              <span id="kpiEnrollDelta"></span>
+              <span class="kpi-delta-label" style="color:#fecaca;">vs previous semester</span>
+            </div>
+            <!-- Regular vs Irregular split -->
+            <div class="kpi-regirreg-section" id="kpiRegIrregSection">
+              <div class="kpi-regirreg-label">Regular vs Irregular</div>
+              <div class="kpi-regirreg-bar">
+                <div class="kpi-regirreg-bar-fill regular" id="kpiRegIrregFillReg" style="flex-basis:50%;"></div>
+                <div class="kpi-regirreg-bar-fill irregular" id="kpiRegIrregFillIrreg" style="flex-basis:50%;"></div>
               </div>
-          </div>
-          <div style="padding: 1.25rem;">
-              <div id="courseYearLevelHeatmap">
-                  <p style="color:#858796; text-align:center;">Loading heatmap...</p>
+              <div class="kpi-regirreg-legend">
+                <span><i class="dot regular"></i>Regular <b id="kpiRegIrregRegVal">—</b><span class="pct" id="kpiRegIrregRegPct"></span></span>
+                <span><i class="dot irregular"></i>Irregular <b id="kpiRegIrregIrregVal">—</b><span class="pct" id="kpiRegIrregIrregPct"></span></span>
               </div>
-              <div class="chart-explanation">
-<dl class="learn-more-body">
-                  <dt>What it shows</dt>
-                  <dd>Every course inside the selected department, broken down by year level. Darker red = higher dropout rate for that program's students at that year. Hover a cell for exact headcount. Use the Course dropdown above to narrow it to a single program.</dd>
-                  <dt>What to expect</dt>
-                  <dd>Rates are usually low and fairly even for 1st and 2nd year, then rise in later years as harder major subjects and clinical/practicum requirements kick in — a normal pattern, not necessarily a problem on its own.</dd>
-                  <dt>What it means</dt>
-                  <dd>A cell much darker than the rest of its row or column flags a specific course-year combination worth a closer look. This chart has no Prediction mode; it only ever shows Recent Data.</dd>
-                </dl>
-</div>
-          </div>
-        </div>
-      </div>
-
-      
-
-      <div class="card card-wide" data-tab-category="enrollment">
-          <div style="background-color: #fff; border-radius: 0.35rem; margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
-              <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
-                  <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                      <span style="display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px;" ></span>
-                      Male Retention & Risk: <span id="dp-college-name-m" style="color: #5a5c69;">CAHS</span>
-                  </h6>
-                  <span id="drop-pie-badge-m" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>
-              </div>
-              <div style="padding: 1.25rem;">
-                  <div id="maleStatusGridContainer" style="display:flex; flex-wrap:wrap; justify-content:center;">
-                      <p style="color:#858796; text-align:center; width:100%;">Loading male status breakdown…</p>
-                  </div>
-                  <div class="chart-explanation">
-<dl class="learn-more-body">
-                      <dt>What it shows</dt>
-                      <dd>Male students in the selected department, split by course, and within each course split again into Regular / INC / Dropped. It's a status snapshot, not a trend line.</dd>
-                      <dt>What to expect</dt>
-                      <dd>Most slices should be "Regular" — INC and Dropped are usually the smaller minority. In Prediction mode the badge switches to "Predicted Data" and the numbers become an estimate for the selected future term.</dd>
-                      <dt>What it means</dt>
-                      <dd>A course whose Dropped or INC slice looks unusually large relative to the others is worth flagging for follow-up. Comparing this card against its Female counterpart can also surface whether risk is skewed toward one gender in a particular course.</dd>
-                    </dl>
-</div>
-              </div>
-          </div>
-      </div>
-
-      <div class="card card-wide" data-tab-category="enrollment">
-          <div style="background-color: #fff; border-radius: 0.35rem; margin-bottom: 1.5rem; font-family: 'Nunito', sans-serif;">
-              <div style="padding: 0.75rem 1.25rem; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-top-left-radius: 0.35rem; border-top-right-radius: 0.35rem;">
-                  <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                      <span style="display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px;" ></span>
-                      Female Retention & Risk: <span id="dp-college-name-f" style="color: #5a5c69;">CAHS</span>
-                  </h6>
-                  <span id="drop-pie-badge-f" style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; background-color: #ffc107; color: #212529;">Forecast</span>
-              </div>
-              <div style="padding: 1.25rem;">
-                  <div id="femaleStatusGridContainer" style="display:flex; flex-wrap:wrap; justify-content:center;">
-                      <p style="color:#858796; text-align:center; width:100%;">Loading female status breakdown…</p>
-                  </div>
-                  <div class="chart-explanation">
-<dl class="learn-more-body">
-                      <dt>What it shows</dt>
-                      <dd>Female students in the selected department, split by course, and within each course split again into Regular / INC / Dropped. It's a status snapshot, not a trend line.</dd>
-                      <dt>What to expect</dt>
-                      <dd>Most slices should be "Regular" — INC and Dropped are usually the smaller minority. In Prediction mode the badge switches to "Predicted Data" and the numbers become an estimate for the selected future term.</dd>
-                      <dt>What it means</dt>
-                      <dd>A course whose Dropped or INC slice looks unusually large relative to the others is worth flagging for follow-up. Comparing this card against its Male counterpart can also surface whether risk is skewed toward one gender in a particular course.</dd>
-                    </dl>
-</div>
-              </div>
-          </div>
-      </div>
-
-      <div class="card card-wide1" data-tab-category="academic">
-          <div style="width: 100%;">
-              <div style="background-color: #fff; background-clip: border-box; border-radius: 0.35rem; margin-bottom: 1.5rem;">
-
-                  <!-- Header with Dynamic Subtitle -->
-                  <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
-                      <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                          GWA Distribution (Student Scatter)
-                          <!-- THIS SPAN SHOWS THE FILTERS -->
-                          <span id="scatterSubtitle" style="font-weight: 400; color: #858796; margin-left: 10px; font-size: 0.85rem;">
-                              (Loading...)
-                          </span>
-                      </h6>
-                  </div>
-
-                  <div style=" padding: 1.25rem;">
-                      <div style="position: relative; height: 400px; width: 100%;">
-                          <canvas id="gwaScatterChart"></canvas>
-                      </div>
-
-                      <!-- Dynamic legend: one chip per COURSE, colors match every other chart -->
-                      <div id="scatterColorLegend" style="margin-top: 0.75rem; text-align: center;"></div>
-
-                      <div class="chart-explanation">
-<dl class="learn-more-body">
-                          <dt>What it shows</dt>
-                          <dd>Each dot is one student. Dots near the top = better grades (closer to 1.0). Dot color shows the student's course (see legend above). The dashed line is the overall average.</dd>
-                          <dt>What to expect</dt>
-                          <dd>A dense cluster near the average line with a thinner scatter of dots trailing toward the bottom (worse grades) is the typical shape — most students perform close to average, with a smaller tail struggling more.</dd>
-                          <dt>What it means</dt>
-                          <dd>A course whose dots sit consistently below the dashed average line, or a cluster of forecast points trending downward in Prediction mode, is worth a closer look at that program specifically.</dd>
-                        </dl>
-</div>
-                  </div>
-              </div>
-          </div>
-      </div>
-
-      <!-- Year-Level Risk Grid -->
-      <div class="card card-full-width1" data-tab-category="academic">
-        <div style="background-color: white; border-radius: 10px;">
-          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
-              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                  Performance by Year Level
-              </h6>
-          </div>
-          <div style="padding: 1.25rem;">
-              <div style="position: relative; height: 350px; width: 100%;">
-                  <canvas id="yearLevelChart"></canvas>
-              </div>
-              <div class="chart-explanation">
-<dl class="learn-more-body">
-                  <dt>What it shows</dt>
-                  <dd>Each bar (one year level) is segmented by course inside the selected department. Hover a segment for exact headcount and its performance-band mix (Excellent → Failing).</dd>
-                  <dt>What to expect</dt>
-                  <dd>Bar heights naturally shrink from 1st to 4th year as some students drop or stop out along the way — that funnel shape is expected, not itself a red flag.</dd>
-                  <dt>What it means</dt>
-                  <dd>Watch the performance-band mix inside each segment rather than just the bar height: a year level where a course's "Below Average"/"Failing" bands grow noticeably wider than its own earlier years is the more meaningful signal.</dd>
-                </dl>
-</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- INC / Irregular / Drop Rate by Year Level -->
-      <div class="card card-full-width1" data-tab-category="risk">
-        <div style="background-color: white; border-radius: 10px;">
-          <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc;">
-              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                  INC / Irregular / Drop Rate by Year Level
-              </h6>
-          </div>
-          <div style="padding: 1.25rem;">
-              <div class="inc-irreg-metric-selector" style="display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 0.75rem;">
-                  <button type="button" class="inc-irreg-metric-btn active" data-metric="inc" data-color="#f6c23e" onclick="setIncIrregMetric('inc')"
-                      style="border: 1px solid #f6c23e; background: #f6c23e; color: #fff; border-radius: 20px; padding: 0.3rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">INC Rate</button>
-                  <button type="button" class="inc-irreg-metric-btn" data-metric="irregular" data-color="#6f42c1" onclick="setIncIrregMetric('irregular')"
-                      style="border: 1px solid #6f42c1; background: #fff; color: #6f42c1; border-radius: 20px; padding: 0.3rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">Irregular Rate</button>
-                  <button type="button" class="inc-irreg-metric-btn" data-metric="drop" data-color="#e74a3b" onclick="setIncIrregMetric('drop')"
-                      style="border: 1px solid #e74a3b; background: #fff; color: #e74a3b; border-radius: 20px; padding: 0.3rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">Drop Rate</button>
-              </div>
-              <div style="position: relative; height: 350px; width: 100%;">
-                  <canvas id="yearLevelIncIrregChart"></canvas>
-              </div>
-              <div class="chart-explanation">
-<dl class="learn-more-body">
-                  <dt>What it shows</dt>
-                  <dd>One rate at a time (pick INC / Irregular / Drop with the buttons above), broken down by year level and course. "Irregular Rate" here is behavioral (had an INC or dropped a subject this term) — separate from the "Irregular" registrar classification used elsewhere.</dd>
-                  <dt>What to expect</dt>
-                  <dd>All three rates are usually a small minority of students per year level; Drop Rate is typically the smallest of the three, INC Rate the largest.</dd>
-                  <dt>What it means</dt>
-                  <dd>A year level/course combination where any of these rates climbs well above its usual range is worth investigating — it often lines up with the same courses flagged in the Dropout Rate Heatmap.</dd>
-                </dl>
-</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Top 5 Hardest Subjects — one real, separate full-width .card
-           PER COURSE (matches the Main dashboard's per-department card
-           style), built dynamically since the course list changes with
-           the Department dropdown. data-card-layout="separate" tells
-           deandash.js's updateHardestSubjectsByCourse() to use
-           renderHardestSubjectsSeparateCards() instead of the legacy
-           shared-wrapper layout (the bug that was showing every course
-           squeezed into one card). This element itself stays
-           display:contents so every generated .card below becomes its
-           own direct sibling in .dashboard-grid, not nested inside one
-           big wrapper card. -->
-      <div id="hardestSubjectsByCourseContainer" data-card-layout="separate" style="display:contents;">
-        <div class="card card-full-width" data-tab-category="academic">
-          <div style="padding: 1.25rem; text-align:center; color:#858796;">Loading subject difficulty…</div>
-        </div>
-      </div>
-
-      <!-- ── Regular Student Status -->
-      <div class="card third-square" data-tab-category="enrollment">
-        <div style="background-color: white; border-radius: 10px; margin-top: 10px;">
-          
-
-          <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
-
-              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                  Student Status Overview (Regular)
-              </h6>
-              <h6 id="status-chart-title" style="margin: 0; color: #000000; font-size: 1rem;">
-                  Student Status Overview
-              </h6>
-              <span id="status-badge" data-mode-badge style="display: inline-block; padding: 0.25rem 0.5rem; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.35rem; color: #fff; background-color: #858796;">Loading...</span>
+            </div>
+            <!-- Year-Level Percentage breakdown (1st–4th + Irreg, no 5th) -->
+            <div class="kpi-yl-section">
+              <div class="kpi-yl-label">Year-Level Percentage</div>
+              <div class="kpi-yearlevel-row" id="kpiYearLevelRow"></div>
+            </div>
           </div>
 
-
-          <div style="padding: 1.25rem; flex: 1 1 auto;">
-
-              <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                  <div style="flex: 1 1 200px; text-align: center;">
-                      <div style="position: relative; height: 220px; width: 100%;">
-                          <canvas id="statusRegularChart"></canvas>
-                      </div>
-                      <div style="margin-top: 0.75rem;">
-                          <i id="status-dot-regular" class="fas fa-circle" style="color: #1cc88a;"></i>
-                          <span id="status-label-regular">Regular</span>
-                          <div id="val-regular" style="font-weight: 700; font-size: 1.25rem; margin-top: 0.25rem; color: #5a5c69;">0</div>
-                      </div>
-                  </div>
+          <!-- RIGHT: 3 mini KPIs stacked -->
+          <div class="kpi-mini-stack">
+            <!-- Avg GWA -->
+            <div class="kpi-mini" id="kpiGwaCard">
+              <div class="kpi-mini-top">
+                <span class="kpi-mini-label">Average GWA</span>
+                <span class="kpi-mini-badge">1.00 = highest</span>
               </div>
-              <div class="chart-explanation">
-<dl class="learn-more-body">
-                  <dt>What it shows</dt>
-                  <dd>The count/share of students in the selected department who are "Regular" — no failed (5.0) or dropped subject on record.</dd>
-                  <dt>What to expect</dt>
-                  <dd>This should be the large majority of the student body most terms.</dd>
-                  <dt>What it means</dt>
-                  <dd>Read this alongside its Irregular counterpart card — together they always add up to the full department population, so a dip here is a mirror-image rise there.</dd>
-                </dl>
-</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Irregular Student Status -->
-      <div class="card third-square1" data-tab-category="enrollment">
-        <div style="background-color: white; border-radius: 10px; margin-top: 10px;">
-          
-
-          <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
-
-              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                  Student Status Overview (Irregular)
-              </h6>
-              <h6 id="status-chart-title" style="margin: 0; color: #000000; font-size: 1rem;">
-                  Student Status Overview
-              </h6>
-              <span id="status-badge" data-mode-badge style="display: inline-block; padding: 0.25rem 0.5rem; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.35rem; color: #fff; background-color: #858796;">Loading...</span>
-          </div>
-
-
-          <div style="padding: 1.25rem; flex: 1 1 auto;">
-
-              <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                  <div style="flex: 1 1 200px; text-align: center;">
-                      <div style="position: relative; height: 220px; width: 100%;">
-                          <canvas id="statusIrregularChart"></canvas>
-                      </div>
-                      <div style="margin-top: 0.75rem;">
-                          <i id="status-dot-irregular" class="fas fa-circle" style="color: #e74a3b;"></i>
-                          <span id="status-label-irregular">Irregular</span>
-                          <div id="val-irregular" style="font-weight: 700; font-size: 1.25rem; margin-top: 0.25rem; color: #5a5c69;">0</div>
-                      </div>
-                  </div>
+              <div class="kpi-mini-body">
+                <div class="kpi-mini-value" id="kpiGwaVal">—</div>
+                <span class="kpi-mini-pct-badge flat" id="kpiGwaPct">—</span>
               </div>
-
-              <div style="text-align: center; margin-top: 0.5rem;">
-                  <small style="color: #858796; font-style: italic;">
-                      *Irregular = Students with ≥1 Failed (5.0) or Dropped subject.
-                  </small>
+              <div class="kpi-mini-delta">
+                <span id="kpiGwaDelta"></span>
+                <span class="kpi-delta-label"> vs previous semester</span>
               </div>
-              <div class="chart-explanation">
-<dl class="learn-more-body">
-                  <dt>What it shows</dt>
-                  <dd>The count/share of students in the selected department flagged Irregular — at least one failed (5.0) or dropped subject on record.</dd>
-                  <dt>What to expect</dt>
-                  <dd>This is normally the smaller of the two Regular/Irregular groups; a sudden jump term over term is the thing to watch for, not the raw number alone.</dd>
-                  <dt>What it means</dt>
-                  <dd>A rising Irregular share is an early academic-risk signal worth cross-checking against the INC/Irregular/Drop Rate by Year Level chart to see which course and year level is driving it.</dd>
-                </dl>
-</div>
-          </div>
-        </div>
-      </div>
-
-
-
-      <div class="card card-bottom-large" data-tab-category="risk">
-        <div style="background-color: #fff; background-clip: border-box; border-radius: 0.35rem; margin-bottom: 1.5rem;">
-
-            <div style="padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: #f8f9fc; border-bottom: 1px solid #e3e6f0; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
-                <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                    <i class="fas fa-chart-line" style="margin-right: 0.25rem;"></i> Dropout Trend & Spike Detection
-                </h6>
-
-                <span style="display: inline-block; padding: 0.25rem 0.5rem; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.35rem; color: #fff; background-color: #e74a3b;">
-                    <i class="fas fa-circle" style="font-size: 8px;"></i> Red Dot = High Risk Spike
-                </span>
             </div>
 
-            <div style="flex: 1 1 auto; padding: 1.25rem;">
-                <div style="position: relative; height: 350px; width: 100%;">
-                    <canvas id="dropoutSpikeChart"></canvas>
-                </div>
-                <!-- One colored chip per course; solid = history, dashed = forecast -->
-                <div id="dropoutSpikeLegend" style="margin-top: 0.5rem; text-align: center;"></div>
-                <div class="chart-explanation">
-<dl class="learn-more-body">
-                    <dt>What it shows</dt>
-                    <dd>Each line is one course in the selected department, always shown in that course's own color. A solid line is real historical data; a dashed line is the model's future prediction. A red dot flags a term where a course's dropout rate spiked well above its own normal range.</dd>
-                    <dt>What to expect</dt>
-                    <dd>Lines should move gradually term to term; red spike dots should be rare, not a fixture on every line.</dd>
-                    <dt>What it means</dt>
-                    <dd>A red spike dot, or a dashed forecast line trending sharply upward, marks a course worth investigating for that specific term — as an early-warning signal, not a guarantee.</dd>
-                  </dl>
-</div>
-            </div>
-        </div>
-      </div>
-
-
-      <div class="card card-bottom-small" data-tab-category="risk">
-        <div style="border-radius: 10px; background-color: white;">
-          <div style="border-radius: 10px 10px 0px 0px; padding-top: 10px; border-bottom: 1px solid #e3e6f0; background-color: #f8f9fc; display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
-              <h6 style="margin: 0; font-weight: 700; color: #000000; font-size: 1rem;">
-                  <i class="fas fa-clock" style="margin-right: 0.25rem;"></i> INC Rate Forecast (Incomplete Grades)
-              </h6>
-          </div>
-          <div style="padding: 1.25rem; flex: 1 1 auto;">
-  
-              <div style="position: relative; height: 350px; width: 100%;">
-                  <canvas id="incForecastChart"></canvas>
+            <!-- Avg Completion Rate -->
+            <div class="kpi-mini" id="kpiCompCard">
+              <div class="kpi-mini-top">
+                <span class="kpi-mini-label">Avg Completion Rate</span>
+                <span class="kpi-mini-badge">Credits Earned ÷ Enrolled</span>
               </div>
+              <div class="kpi-mini-body">
+                <div class="kpi-mini-value" id="kpiCompVal">—</div>
+                <span class="kpi-mini-pct-badge flat" id="kpiCompPct">—</span>
+              </div>
+              <div class="kpi-mini-delta">
+                <span id="kpiCompDelta"></span>
+                <span class="kpi-delta-label"> vs previous semester</span>
+              </div>
+            </div>
 
-              <!-- One colored chip per course; solid = history, dashed = forecast -->
-              <div id="incForecastLegend" style="margin-top: 0.5rem; text-align: center;"></div>
-              <div class="chart-explanation">
-<dl class="learn-more-body">
-                  <dt>What it shows</dt>
-                  <dd>Predicts the percentage of students in the selected department who will receive an 'INC' status, based on college trends. Each line is one course, always shown in that course's own color. A solid line is real historical data; a dashed line is the model's future prediction.</dd>
-                  <dt>What to expect</dt>
-                  <dd>INC rates tend to move gradually term to term rather than spike suddenly — a slow upward or downward drift is normal to see in the forecast portion.</dd>
-                  <dt>What it means</dt>
-                  <dd>A course whose dashed (forecast) line trends sharply upward is projected to see more Incomplete grades in the coming term(s) if current patterns hold — useful as an early-warning signal, not a guarantee.</dd>
-                </dl>
-</div>
+            <!-- Status Breakdown -->
+            <div class="kpi-mini kpi-status" id="kpiStatusCard">
+              <div class="kpi-mini-top">
+                <span class="kpi-mini-label">Status Breakdown</span>
+                <div class="kpi-metrics-btns" style="gap:3px">
+                  <button class="metric-btn active" data-status-metric="all">All</button>
+                  <button class="metric-btn" data-status-metric="FAILED">Failed</button>
+                  <button class="metric-btn" data-status-metric="DRP">DRP</button>
+                  <button class="metric-btn" data-status-metric="INC">INC</button>
+                  <button class="metric-btn" data-status-metric="UDR">UDR</button>
+                  <button class="metric-btn" data-status-metric="W">W</button>
+                  <button class="metric-btn" data-status-metric="NGA">NGA</button>
+                </div>
+              </div>
+              <div class="kpi-mini-value" id="kpiStatusVal">—</div>
+              <div class="kpi-status-breakdown" id="kpiStatusBreakdown"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI glossary — explains what each card above is showing -->
+        <div class="kpi-explainer" id="kpiExplainerArea">
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Total Enrollment</span>
+            <p class="kpi-explainer-desc">Unique students with at least one grade record this semester, across all CCST courses.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Regular vs Irregular</span>
+            <p class="kpi-explainer-desc">Regular students are on pace with their year level's standard load; Irregular students have delayed, overloaded, or mismatched subjects.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Average GWA</span>
+            <p class="kpi-explainer-desc">Mean General Weighted Average across enrolled students (Philippine scale — 1.00 is highest).</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Avg Completion Rate</span>
+            <p class="kpi-explainer-desc">Average share of enrolled credit units actually earned (Units Earned ÷ Units Enrolled).</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Status Breakdown</span>
+            <p class="kpi-explainer-desc">Non-passing outcomes this semester — Failed, Dropped (DRP), Incomplete (INC), Unofficial Drop (UDR), Withdrawn (W), No Grade Assigned (NGA).</p>
+          </div>
+        </div>
+
+        <!-- KPI table view — floating modal, opened by the table icon -->
+        <div class="kpi-table-modal hidden" id="kpiTableModal">
+          <div class="kpi-table-modal-card" id="kpiTableModalCard">
+            <div class="kpi-table-modal-header">
+              <span>KPI — Table View</span>
+              <div class="kpi-table-modal-header-actions">
+                <button class="btn-icon" id="kpiTableDownloadCsv" title="Download CSV">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:18px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clip-rule="evenodd"/></svg>
+                </button>
+                <button class="kpi-filter-popover-close" id="kpiTableModalClose" aria-label="Close table view">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:20px"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="kpi-table-modal-body" id="kpiTableInner"></div>
           </div>
         </div>
       </div>
 
-      <!-- Model Performance & Accuracy has moved to its own page
-           (Model Performance, admin_bp.modeldash_admin) since it isn't
-           department-scoped — models are trained on the whole dataset,
-           not one per college. See modelperformancedashAdmin.html. -->
-      </div><!-- /#chartViewContainer -->
-    </section>
+      <!-- ══════════════════════════════════════════════════════
+           CARD 2 — Risk Heatmap
+           ══════════════════════════════════════════════════════ -->
+      <div class="card card-full heatmap-card" id="heatmapCard">
 
-    <script src="{{url_for('static', filename='js/chart-helpers.js')}}"></script>
-    <script src="{{url_for('static', filename='js/prediction-mode-visuals.js')}}"></script>
-    <script src="{{url_for('static', filename='js/deandash.js')}}"></script>
-    <script src="{{url_for('static', filename='js/mode-toggle.js')}}"></script>
-    <script src="{{url_for('static', filename='js/kebabMenu.js')}}"></script>
-    <script src="{{url_for('static', filename='js/tableView.js')}}?v=1"></script>
-    <script src="{{url_for('static', filename='js/dashboard-tabs.js')}}?v=1"></script>
+        <!-- Heatmap header row: title left, icon actions right (same pattern as KPI) -->
+        <div class="kpi-card-header">
+          <div class="kpi-card-title-wrap">
+            <h3 class="card-title">Risk Heatmap</h3>
+            <p class="card-subtitle">Failure density by course &times; year level — redder = more at-risk</p>
+          </div>
+          <div class="kpi-header-actions">
+            <!-- Sort order: lives outside the filter popover, applies immediately -->
+            <select class="chart-filter hm-sort" id="hmSort" title="Sort order" aria-label="Sort order">
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+            <!-- View as table -->
+            <button class="btn-icon" id="hmViewTable" title="View as table">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M.99 5.24A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25l.01 9.5A2.25 2.25 0 0 1 16.76 17H3.26A2.272 2.272 0 0 1 1 14.75l-.01-9.5Zm8.26 9.52v-.625a.75.75 0 0 0-1.5 0v.375H3.26a.75.75 0 0 1-.75-.75L2.5 15h5.25v-.008ZM10 8.5H7.75V10H10v-1.5Zm0 2.5H7.75v1.5H10V11Zm2.25-2.5H10V10h2.25V8.5Zm0 2.5H10v1.5h2.25V11Zm2.25-2.5h-2.25V10h2.25V8.5Zm0 2.5h-2.25v1.5h2.25V11Zm-6.75-6H5.5v1.5h2.25V5.5Zm0 2.25H5.5v.75h2.25V7.75Zm2.25-2.25H7.75v1.5H10V5.5Zm0 2.25H7.75v.75H10V7.75Zm2.25-2.25H10v1.5h2.25V5.5Zm0 2.25H10v.75h2.25V7.75Zm2.25-2.25h-2.25v1.5h2.25V5.5Zm0 2.25h-2.25v.75h2.25V7.75Z" clip-rule="evenodd"/></svg>
+            </button>
+            <!-- Filter icon: opens compact filter popover -->
+            <div class="kpi-filter-wrap">
+              <button class="btn-icon" id="hmFilterToggle" title="Filters" aria-expanded="false" aria-controls="hmFilterPopover">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z" clip-rule="evenodd"/></svg>
+              </button>
+              <div class="kpi-filter-popover hidden" id="hmFilterPopover">
+                <div class="kpi-filter-popover-header">
+                  <span>Heatmap Filters</span>
+                  <button class="kpi-filter-popover-close" id="hmFilterClose" aria-label="Close filters">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:20px"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                  </button>
+                </div>
+                <div class="kpi-filter-popover-body">
+                  <div class="gf-group">
+                    <label class="gf-label">Academic Year</label>
+                    <select class="gf-select" id="hmYear"><option value="">All Years</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Semester</label>
+                    <select class="gf-select" id="hmSem">
+                      <option value="">All</option>
+                      <option value="1sem">1st Semester</option>
+                      <option value="2sem">2nd Semester</option>
+                    </select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Department</label>
+                    <select class="gf-select" id="hmDept"><option value="">All</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Course</label>
+                    <select class="gf-select" id="hmCourse"><option value="">All</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Year Level</label>
+                    <select class="gf-select" id="hmYearLevel">
+                      <option value="">All</option>
+                      <option value="1">1st</option>
+                      <option value="2">2nd</option>
+                      <option value="3">3rd</option>
+                      <option value="4">4th</option>
+                      <option value="5">5th</option>
+                      <option value="IRREG">Irregular</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="kpi-filter-popover-footer">
+                  <button class="btn-apply" id="hmBtnApply">Apply</button>
+                </div>
+              </div>
+            </div>
+            <!-- Refresh: always visible, resets to default filters -->
+            <button class="btn-icon" id="hmBtnReset" title="Reset to default filters">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z" clip-rule="evenodd"/></svg>
+            </button>
+            <!-- Fullscreen toggle -->
+            <button class="btn-icon btn-fullscreen" data-fullscreen-target="heatmapCard" title="Expand">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path d="m13.28 7.78 3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.747.747 0 0 1-.75-.75ZM12.22 13.28l3.22 3.22h-2.69a.75.75 0 0 0 0 1.5h4.5a.747.747 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.69l-3.22-3.22a.75.75 0 1 0-1.06 1.06ZM3.5 4.56l3.22 3.22a.75.75 0 0 0 1.06-1.06L4.56 3.5h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0V4.56Z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Status metric buttons (outside the filter popover, applies immediately — same style as the KPI metric buttons) -->
+        <div class="hm-toolbar">
+          <span class="hm-toolbar-label">Status</span>
+          <div class="kpi-metrics-btns" id="hmStatusBtns">
+            <button class="metric-btn active" data-hm-status="FAILED">Failed</button>
+            <button class="metric-btn" data-hm-status="INC">INC</button>
+            <button class="metric-btn" data-hm-status="DRP">DRP</button>
+            <button class="metric-btn" data-hm-status="W">W</button>
+            <button class="metric-btn" data-hm-status="UDR">UDR</button>
+          </div>
+          <span class="hm-toolbar-label hm-toolbar-sep">Show</span>
+          <div class="kpi-metrics-btns" id="hmMetricBtns">
+            <button class="metric-btn active" data-hm-metric="rate">Percentage</button>
+            <button class="metric-btn" data-hm-metric="count">No. of Students</button>
+          </div>
+        </div>
+
+        <div class="chart-area" id="hmChartArea">
+          <canvas id="heatmapCanvas"></canvas>
+        </div>
+
+        <!-- Heatmap glossary — explains how to read the grid above -->
+        <div class="kpi-explainer" id="hmExplainerArea">
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Cell Value</span>
+            <p class="kpi-explainer-desc">Percentage: students with the selected status ÷ students enrolled in that course and year level. No. of Students: how many students that is. A dash means no enrolled students.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Colour Scale</span>
+            <p class="kpi-explainer-desc">Colour shows the share of enrolled students in that course and year level who have the selected status — green is low, dark red is 100%. It is the same in both views, so a cell keeps its colour when you switch.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Status</span>
+            <p class="kpi-explainer-desc">Failed, Incomplete (INC), Dropped (DRP), Withdrawn (W) or Unofficial Drop (UDR) — switch between them with the Status buttons above the heatmap.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Row Order</span>
+            <p class="kpi-explainer-desc">Courses are ranked by their combined rate across all year levels; flip the direction with the sort selector in the header.</p>
+          </div>
+        </div>
+
+        <!-- Heatmap table view — floating modal, opened by the table icon -->
+        <div class="kpi-table-modal hidden" id="hmTableModal">
+          <div class="kpi-table-modal-card" id="hmTableModalCard">
+            <div class="kpi-table-modal-header">
+              <span>Risk Heatmap — Table View</span>
+              <div class="kpi-table-modal-header-actions">
+                <button class="btn-icon" id="hmTableDownloadCsv" title="Download CSV">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:18px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clip-rule="evenodd"/></svg>
+                </button>
+                <button class="kpi-filter-popover-close" id="hmTableModalClose" aria-label="Close table view">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:20px"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="kpi-table-modal-body" id="hmTableInner"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           CARD 3 — Gender & Status Breakdown
+           ══════════════════════════════════════════════════════ -->
+      <div class="card card-full gender-card" id="genderCard">
+
+        <!-- Header row: title left, icon actions right (same pattern as KPI + Heatmap) -->
+        <div class="kpi-card-header">
+          <div class="kpi-card-title-wrap">
+            <h3 class="card-title">Gender &amp; Status Breakdown</h3>
+            <p class="card-subtitle">Status distribution by gender — each chart sits beside its department breakdown</p>
+          </div>
+          <div class="kpi-header-actions">
+            <!-- Sort order: lives outside the filter popover, applies immediately -->
+            <select class="chart-filter hm-sort" id="gdTableSort" title="Sort order" aria-label="Sort order">
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+            <!-- View as table -->
+            <button class="btn-icon" id="gdViewTable" title="View as table">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M.99 5.24A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25l.01 9.5A2.25 2.25 0 0 1 16.76 17H3.26A2.272 2.272 0 0 1 1 14.75l-.01-9.5Zm8.26 9.52v-.625a.75.75 0 0 0-1.5 0v.375H3.26a.75.75 0 0 1-.75-.75L2.5 15h5.25v-.008ZM10 8.5H7.75V10H10v-1.5Zm0 2.5H7.75v1.5H10V11Zm2.25-2.5H10V10h2.25V8.5Zm0 2.5H10v1.5h2.25V11Zm2.25-2.5h-2.25V10h2.25V8.5Zm0 2.5h-2.25v1.5h2.25V11Zm-6.75-6H5.5v1.5h2.25V5.5Zm0 2.25H5.5v.75h2.25V7.75Zm2.25-2.25H7.75v1.5H10V5.5Zm0 2.25H7.75v.75H10V7.75Zm2.25-2.25H10v1.5h2.25V5.5Zm0 2.25H10v.75h2.25V7.75Zm2.25-2.25h-2.25v1.5h2.25V5.5Zm0 2.25h-2.25v.75h2.25V7.75Z" clip-rule="evenodd"/></svg>
+            </button>
+            <!-- Filter icon: opens compact filter popover -->
+            <div class="kpi-filter-wrap">
+              <button class="btn-icon" id="gdFilterToggle" title="Filters" aria-expanded="false" aria-controls="gdFilterPopover">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z" clip-rule="evenodd"/></svg>
+              </button>
+              <div class="kpi-filter-popover hidden" id="gdFilterPopover">
+                <div class="kpi-filter-popover-header">
+                  <span>Gender &amp; Status Filters</span>
+                  <button class="kpi-filter-popover-close" id="gdFilterClose" aria-label="Close filters">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:20px"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                  </button>
+                </div>
+                <div class="kpi-filter-popover-body">
+                  <div class="gf-group">
+                    <label class="gf-label">Academic Year</label>
+                    <select class="gf-select" id="gdYear"><option value="">All Years</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Semester</label>
+                    <select class="gf-select" id="gdSem">
+                      <option value="">All</option>
+                      <option value="1sem">1st Semester</option>
+                      <option value="2sem">2nd Semester</option>
+                    </select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Department</label>
+                    <select class="gf-select" id="gdDept"><option value="">All</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Course</label>
+                    <select class="gf-select" id="gdCourse"><option value="">All</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Year Level</label>
+                    <select class="gf-select" id="gdYearLevel">
+                      <option value="">All</option>
+                      <option value="1">1st</option>
+                      <option value="2">2nd</option>
+                      <option value="3">3rd</option>
+                      <option value="4">4th</option>
+                      <option value="IRREG">Irregular</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="kpi-filter-popover-footer">
+                  <button class="btn-apply" id="gdBtnApply">Apply</button>
+                </div>
+              </div>
+            </div>
+            <!-- Refresh: always visible, resets to default filters -->
+            <button class="btn-icon" id="gdBtnReset" title="Reset to default filters">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z" clip-rule="evenodd"/></svg>
+            </button>
+            <!-- Fullscreen toggle -->
+            <button class="btn-icon btn-fullscreen" data-fullscreen-target="genderCard" title="Expand">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path d="m13.28 7.78 3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.747.747 0 0 1-.75-.75ZM12.22 13.28l3.22 3.22h-2.69a.75.75 0 0 0 0 1.5h4.5a.747.747 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.69l-3.22-3.22a.75.75 0 1 0-1.06 1.06ZM3.5 4.56l3.22 3.22a.75.75 0 0 0 1.06-1.06L4.56 3.5h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0V4.56Z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Enrollment type + status (outside the popover, applies immediately — same style as the heatmap toolbar).
+             Continuing is always included as the baseline; pick one extra status or all of them. -->
+        <div class="hm-toolbar">
+          <span class="hm-toolbar-label">Enrollment</span>
+          <div class="kpi-metrics-btns">
+            <button class="metric-btn active" data-gd-enroll="all">All</button>
+            <button class="metric-btn" data-gd-enroll="regular">Regular</button>
+            <button class="metric-btn" data-gd-enroll="irregular">Irregular</button>
+          </div>
+          <span class="hm-toolbar-label hm-toolbar-sep">Status</span>
+          <div class="kpi-metrics-btns">
+            <button class="metric-btn active" data-gd-metric="all">All</button>
+            <button class="metric-btn" data-gd-metric="DRP">DRP</button>
+            <button class="metric-btn" data-gd-metric="INC">INC</button>
+            <button class="metric-btn" data-gd-metric="FAILED">Failed</button>
+            <button class="metric-btn" data-gd-metric="UDR">UDR</button>
+            <button class="metric-btn" data-gd-metric="NGA">NGA</button>
+          </div>
+        </div>
+
+        <div class="hm-notice hidden" id="gdNotice"></div>
+        <div class="chart-empty hidden" id="gdEmpty"></div>
+
+        <!-- One row per gender: chart on the left, its department table on the right -->
+        <div class="gender-rows" id="gdBody">
+          <section class="gender-row">
+            <div class="gender-row-head male"><span class="gender-row-tag">Male</span></div>
+            <div class="gender-row-body">
+              <div class="gender-donut-wrap">
+                <canvas id="genderMaleCanvas"></canvas>
+                <div class="gender-donut-center" id="genderMaleCenter"></div>
+              </div>
+              <div class="gender-table-wrap" id="gdMaleTable"></div>
+            </div>
+          </section>
+          <section class="gender-row">
+            <div class="gender-row-head female"><span class="gender-row-tag">Female</span></div>
+            <div class="gender-row-body">
+              <div class="gender-donut-wrap">
+                <canvas id="genderFemaleCanvas"></canvas>
+                <div class="gender-donut-center" id="genderFemaleCenter"></div>
+              </div>
+              <div class="gender-table-wrap" id="gdFemaleTable"></div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Glossary — explains how to read the charts above -->
+        <div class="kpi-explainer" id="gdExplainerArea">
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Chart Labels</span>
+            <p class="kpi-explainer-desc">Each slice shows the status name, its percentage of that gender's students in the chart, and the number of students in brackets. The number in the middle is the total shown.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Counting</span>
+            <p class="kpi-explainer-desc">Unique students, using the same filters as the KPI card, so Male + Female add up to the enrollment. With Status = All, each student sits in one slice — their most serious status (Dropped, Unofficial Drop, Failed, Incomplete, No Grade), otherwise Continuing. Pick one status to compare students with it against everyone else.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Department Tables</span>
+            <p class="kpi-explainer-desc">Number of students per course and status, with the share of that gender's total beside it. Click a column heading to sort; the sort arrow in the header flips the direction.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Filters</span>
+            <p class="kpi-explainer-desc">Opens on the most recent academic year and semester. Use the filter icon to change period, course or year level; the refresh icon returns to the default view.</p>
+          </div>
+        </div>
+
+        <!-- Table view — floating modal, opened by the table icon -->
+        <div class="kpi-table-modal hidden" id="gdTableModal">
+          <div class="kpi-table-modal-card" id="gdTableModalCard">
+            <div class="kpi-table-modal-header">
+              <span id="gdTableModalTitle">Gender &amp; Status — Table View</span>
+              <div class="kpi-table-modal-header-actions">
+                <button class="btn-icon" id="gdTableDownloadCsv" title="Download CSV">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:18px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clip-rule="evenodd"/></svg>
+                </button>
+                <button class="kpi-filter-popover-close" id="gdTableModalClose" aria-label="Close table view">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:20px"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="kpi-table-modal-body" id="gdTableInner"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           CARD 4 — Top Hardest Subjects
+           ══════════════════════════════════════════════════════ -->
+      <div class="card card-full hardest-card" id="hardestCard">
+
+        <!-- Header row: title left, icon actions right (same pattern as KPI + Heatmap + Gender) -->
+        <div class="kpi-card-header">
+          <div class="kpi-card-title-wrap">
+            <h3 class="card-title">Top Hardest Subjects</h3>
+            <p class="card-subtitle">Ranked by failure density — bar chart, ranked cards, and grade trend</p>
+          </div>
+          <div class="kpi-header-actions">
+            <!-- Sort order: lives outside the filter popover, applies immediately -->
+            <select class="chart-filter hm-sort" id="hsSort" title="Sort order" aria-label="Sort order">
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+            <!-- View as table: whole card = every subject, clicking a single bar = just that subject -->
+            <button class="btn-icon" id="hsViewTable" title="View as table">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M.99 5.24A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25l.01 9.5A2.25 2.25 0 0 1 16.76 17H3.26A2.272 2.272 0 0 1 1 14.75l-.01-9.5Zm8.26 9.52v-.625a.75.75 0 0 0-1.5 0v.375H3.26a.75.75 0 0 1-.75-.75L2.5 15h5.25v-.008ZM10 8.5H7.75V10H10v-1.5Zm0 2.5H7.75v1.5H10V11Zm2.25-2.5H10V10h2.25V8.5Zm0 2.5H10v1.5h2.25V11Zm2.25-2.5h-2.25V10h2.25V8.5Zm0 2.5h-2.25v1.5h2.25V11Zm-6.75-6H5.5v1.5h2.25V5.5Zm0 2.25H5.5v.75h2.25V7.75Zm2.25-2.25H7.75v1.5H10V5.5Zm0 2.25H7.75v.75H10V7.75Zm2.25-2.25H10v1.5h2.25V5.5Zm0 2.25H10v.75h2.25V7.75Zm2.25-2.25h-2.25v1.5h2.25V5.5Zm0 2.25h-2.25v.75h2.25V7.75Z" clip-rule="evenodd"/></svg>
+            </button>
+            <!-- Filter icon: opens compact filter popover -->
+            <div class="kpi-filter-wrap">
+              <button class="btn-icon" id="hsFilterToggle" title="Filters" aria-expanded="false" aria-controls="hsFilterPopover">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z" clip-rule="evenodd"/></svg>
+              </button>
+              <div class="kpi-filter-popover hidden" id="hsFilterPopover">
+                <div class="kpi-filter-popover-header">
+                  <span>Hardest Subjects Filters</span>
+                  <button class="kpi-filter-popover-close" id="hsFilterClose" aria-label="Close filters">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:20px"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                  </button>
+                </div>
+                <div class="kpi-filter-popover-body">
+                  <div class="gf-group">
+                    <label class="gf-label">Top</label>
+                    <select class="gf-select" id="hsTopN">
+                      <option value="5">Top 5</option><option value="10" selected>Top 10</option><option value="15">Top 15</option><option value="20">Top 20</option><option value="all">All</option>
+                    </select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Academic Year</label>
+                    <select class="gf-select" id="hsYear"><option value="">All Years</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Semester</label>
+                    <select class="gf-select" id="hsSem">
+                      <option value="">All</option>
+                      <option value="1sem">1st Semester</option>
+                      <option value="2sem">2nd Semester</option>
+                    </select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Department</label>
+                    <select class="gf-select" id="hsDept"><option value="">All</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Course</label>
+                    <select class="gf-select" id="hsCourse"><option value="">All</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Year Level</label>
+                    <select class="gf-select" id="hsYearLevel">
+                      <option value="">All</option>
+                      <option value="1">1st</option>
+                      <option value="2">2nd</option>
+                      <option value="3">3rd</option>
+                      <option value="4">4th</option>
+                      <option value="5">5th</option>
+                      <option value="IRREG">Irregular</option>
+                    </select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Subject</label>
+                    <select class="gf-select" id="hsSubject"><option value="">All Subjects</option></select>
+                  </div>
+                </div>
+                <div class="kpi-filter-popover-footer">
+                  <button class="btn-apply" id="hsBtnApply">Apply</button>
+                </div>
+              </div>
+            </div>
+            <!-- Refresh: always visible, resets to default filters -->
+            <button class="btn-icon" id="hsBtnReset" title="Reset to default filters">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z" clip-rule="evenodd"/></svg>
+            </button>
+            <!-- Fullscreen toggle -->
+            <button class="btn-icon btn-fullscreen" data-fullscreen-target="hardestCard" title="Expand">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path d="m13.28 7.78 3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.747.747 0 0 1-.75-.75ZM12.22 13.28l3.22 3.22h-2.69a.75.75 0 0 0 0 1.5h4.5a.747.747 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.69l-3.22-3.22a.75.75 0 1 0-1.06 1.06ZM3.5 4.56l3.22 3.22a.75.75 0 0 0 1.06-1.06L4.56 3.5h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0V4.56Z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metric buttons (outside the filter popover, applies immediately — same style as Heatmap's Status row) -->
+        <div class="hm-toolbar">
+          <span class="hm-toolbar-label">Metric</span>
+          <div class="kpi-metrics-btns">
+            <button class="metric-btn active" data-hs-metric="avg_grade">Avg Grade</button>
+            <button class="metric-btn" data-hs-metric="FAILED">Failed</button>
+            <button class="metric-btn" data-hs-metric="INC">INC</button>
+            <button class="metric-btn" data-hs-metric="DRP">DRP</button>
+            <button class="metric-btn" data-hs-metric="UDR">UDR</button>
+            <button class="metric-btn" data-hs-metric="W">W</button>
+          </div>
+        </div>
+
+        <!-- Sub-view tabs -->
+        <div class="sub-tabs">
+          <button class="sub-tab active" data-hs-view="bar">Bar Chart</button>
+          <button class="sub-tab" data-hs-view="cards">Ranked Cards</button>
+          <button class="sub-tab" data-hs-view="trend">Grade Trend</button>
+        </div>
+        <div class="chart-area clickable" id="hsBarArea"><canvas id="hsBarCanvas"></canvas></div>
+        <div class="chart-area hidden" id="hsCardsArea"></div>
+        <div class="chart-area hidden" id="hsTrendArea"><canvas id="hsTrendCanvas"></canvas></div>
+
+        <!-- Hardest Subjects glossary — explains what the card above is showing -->
+        <div class="kpi-explainer" id="hsExplainerArea">
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Ranking</span>
+            <p class="kpi-explainer-desc">Subjects ranked by the selected Metric among students with a final grade this semester; Top N and Sort order in the filter control how many are shown and in which direction.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Metric</span>
+            <p class="kpi-explainer-desc">Avg Grade is a share/average across the subject's students; Failed, INC, DRP, UDR and W are raw counts of that outcome.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Views</span>
+            <p class="kpi-explainer-desc">Bar Chart and Ranked Cards show the same ranking two ways; Grade Trend follows the ranked subjects' average grade across academic years and semesters.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Table &amp; Chips</span>
+            <p class="kpi-explainer-desc">Click a bar or a ranked card to open its full breakdown as a table; the small chips (F, INC, DRP, UDR, W, GWA) are that subject's outcome counts and average grade.</p>
+          </div>
+        </div>
+
+        <!-- Table view — floating modal, opened by the table icon, or by clicking the chart
+             (the whole bar area = every subject; a single bar = just that subject). -->
+        <div class="kpi-table-modal hidden" id="hsTableModal">
+          <div class="kpi-table-modal-card" id="hsTableModalCard">
+            <div class="kpi-table-modal-header">
+              <span id="hsTableModalTitle">Top Hardest Subjects — Table View</span>
+              <div class="kpi-table-modal-header-actions">
+                <button class="btn-icon" id="hsTableDownloadCsv" title="Download CSV">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:18px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clip-rule="evenodd"/></svg>
+                </button>
+                <button class="kpi-filter-popover-close" id="hsTableModalClose" aria-label="Close table view">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:20px"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="kpi-table-modal-body" id="hsTableInner"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /dash-grid -->
   </section>
 
-      <!-- Logout Modal Structure -->
+  
+    <!-- Logout Modal Structure -->
   <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
     <div class="logout-card">
       <h1 class="brand-name">NovaSight</h1>
@@ -787,7 +895,7 @@
           </div>
       </div>
   </div>
-
+  
   <footer class="footer">
     <div class="footer-content">
         <span class="page-label">Page/</span><span class="page-name">CCST Dashboard</span>
@@ -811,5 +919,9 @@
   </div>
 </div>
 <script src="{{ url_for('static', filename='js/page-video-modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/college-lock.js') }}"></script>
+<script src="{{ url_for('static', filename='js/maindash.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/pdf-export.js') }}" defer></script>
 </body>
 </html>

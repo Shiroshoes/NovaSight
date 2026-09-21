@@ -23,14 +23,6 @@ def preddash_ctec():
         return redirect(url_for('home'))
     return render_template('deans/CTECdean/dashboard/predictiondashboardctec.html', college_type='all')
 
-# model dash
-@ctec_bp.route('/modeldashboard')
-def modeldash_ctec():
-    if 'user_id' not in session or session.get('role') != 'CTECdean':
-        return redirect(url_for('home'))
-    return render_template('deans/CTECdean/dashboard/modelperformancedashctec.html', college_type='all')
-
-
 # Profile Page (CTEC Dean)
 @ctec_bp.route('/profile')
 def profile_ctec():

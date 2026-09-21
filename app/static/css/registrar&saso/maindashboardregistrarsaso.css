@@ -1,752 +1,1044 @@
-:root {
-    --font-sans: "Inter", sans-serif;
-    --font-display: "Outfit", sans-serif;
-    --bg-dark: #ffffff;
-    --bg-col: #ffffff;
-    --bg-glow: #2A86FD;
-    --grey-input: #D9D9D9;
-    --danger: #000000;
-}
+/* ==========================================================================
+   maindash.css — Main Dashboard (historical-only redesign)
+   ========================================================================== */
 
+/* ── Layout ──────────────────────────────────────────────────────────────── */
 body {
-    background-color: #F6F4F0;
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    font-family: var(--font-sans);
-    display: flex; 
-    height: 100vh;
-    margin: 0;
-    overflow: hidden;
-}
-
-
-.sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 275px;
+  background: #F6F4F0;
+  font-family: 'Inter', sans-serif;
+  display: flex;
   height: 100vh;
-  background-color: #ffffff;
-  border-right: 1px solid #DCD6C9;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;      /* sidebar itself doesn't scroll — the nav inside it does */
-}
-
-.pad {
-  flex: 1;                /* fills remaining sidebar height so overflow works */
-  margin-top: 10%;
-  gap: 10px;
-  overflow-y: auto;       /* THIS is what scrolls */
-  overflow-x: hidden;
-  padding: 20px;
-  box-sizing: border-box;
-  margin-bottom: 20%;
-}
-
-.sidebardivider {
-  border: none;
-  height: 1px;
-  background-color: rgba(0, 0, 0, 0.15);
-  width: 100%;
-  margin: 8px 0;
-}
-
-.sidebar-section-label {
-  margin: 0 0 4px 0;
-}
-
-.sidebar-section-label + .dash-btn,
-.sidebar-section-label + .menu-btn {
-  margin-top: 0;
-}
-
-
-.pad::-webkit-scrollbar {
-    width: 5px;
-}
-.pad::-webkit-scrollbar-thumb {
-    background: #DCD6C9;
-    border-radius: 3px;
-}
-.pad::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.menu-active {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    border-radius: 12px;
-    background: rgba(120, 90, 90, 0.5);
-    color: #000000;
-    font-size: 16px;
-    text-decoration: none;
-    width: 210px;
-    font-weight: bold;
-    border-width: 2px;
-    border: 1px solid #000000;
-}
-
-.active-bordericon {
-  width: 35px;
-  height: 33px;
-  border-radius: 10px;
-  background-color: #800000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.active-icon {
-  width: 24px;
-  height: 24px;
-  color: #ffff;
-}
-
-.menu-btn {
-    width: 210px;
-    align-items: center;
-    display: flex;
-    margin-top: 10px;
-    padding: 12px;
-    gap: 12px;
-    border-radius: 12px;
-    color: #000000;
-    font-size: 16px;
-    transition: 0.3s;
-    text-decoration: none;
-}
-
-.non-active-icon {
-  width: 24px;
-  height: 24px;
-  color: #ffffff;
-}
-
-.non-active-bordericon {
-  width: 35px;
-  height: 33px;
-  border-radius: 10px;
-  background-color: #785a5a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.menu-btn:hover {
-  margin-bottom: 10px;
-  background: #785a5a64;
-  color: #000000;
-  width: 210px;
-  font-weight: bold;
-}
-
-.menu-btn:hover .non-active-bordericon {
-  background-color: #c72828;
-}
-
-.sidebar-divider {
-  border: none;
-  height: 1px;
-  background-color: #000000, transparent 80%;
-  width: 100%;
-}
-
-/* --- Dashboard Button Styling --- */
-.dash-btn {
-    width: 200px;
-    align-items: center;
-    display: flex;
-    margin-top: 10px;
-    padding: 12px;
-    gap: 12px;
-    border-radius: 12px;
-    color: #000000;
-    font-size: 16px;
-    transition: 0.3s;
-    text-decoration: none;
-}
-
-.non-active-icondash {
-  width: 24px;
-  height: 24px;
-  color: #ffffff;
-}
-
-.non-active-bordericondash {
-  width: 35px;
-  height: 33px;
-  border-radius: 10px;
-  background-color: #785a5a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dash-btn:hover {
-  background: #785a5a64;
-  margin-bottom: 10px;
-  color: #000000;
-  width: 200px;
-  font-weight: bold;
-}
-
-.dash-btn:hover .non-active-bordericondash {
-  background-color: #c72828;
-}
-
-
-.dash-active {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    border-radius: 12px;
-    background: rgba(120, 90, 90, 0.5);
-    color: #000000;
-    font-size: 16px;
-    text-decoration: none;
-    width: 200px;
-    font-weight: bold;
-    border-width: 2px;
-    border: 1px solid #000000;
-}
-
-.active-bordericondash {
-  width: 35px;
-  height: 33px;
-  border-radius: 10px;
-  background-color: #800000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.active-icondash {
-  width: 24px;
-  height: 24px;
-  color: #ffff;
-}
-
-/* header  */
- /* --- FIX: Main Content Container --- */
-main {
-    flex: 1;                     /* Take up remaining width */
-    margin-left: 265px;          /* Sidebar width (230px) + its padding (40px) */
-    height: 100vh;
-    overflow-y: auto;            /* Allow scrolling inside the main area */
-}
-
-/* --- FIX: Sticky Header --- */
-header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(5, 10, 20, 0.6); /* Translucent */
-    backdrop-filter: blur(15px);     /* Glass effect */
-    padding: 20px 0;                 /* Vertical padding */
-    margin-bottom: 20px;
-}
-
-/* Header Brand Layout */
-.topmenu {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #800000;
-    backdrop-filter: blur(15px);
-    padding: 20px 40px;
-    margin-left: 24px;
-    /* FIX: was a hardcoded width: 1320px, which never shrank as the
-       browser window narrowed -- it just overflowed main's actual
-       available width instead of resizing with it. margin-right
-       mirrors margin-left so it keeps the same inset on both sides
-       at any window size. */
-    margin-right: 24px;
-    width: auto;
-    box-sizing: border-box;
-    border-radius: 20px;
-    margin-top: 15px;
-}
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-.logo-sq {
-    width: 80px;
-    height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-   
-}
-
-.brand-logo {
-    width: 90px;       /* Adjust this % to make the logo bigger or smaller inside the square */
-    height: 90px;      /* Keep this the same as width */
-    object-fit: contain; /* Ensures the logo isn't stretched */
-}
-
-.brand-text h1 {
-    color: white;
-    font-size: 1.2rem;
-    margin: 0;
-    letter-spacing: 1px;
-}
-
-.brand-text span {
-    color: #ffffff;
-    font-size: 0.65rem;
-    display: block;
-}
-
-/* Profile Section */
-.user-profile .avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover; 
-  margin-left: 8px; 
-  color: #ffff;
-}
-
-.user-profile {
-    display: flex;
-    align-items: center;
-    text-decoration: none;
-    color: #ffff;
-}
-
-.user-profile span {
-    margin-right: 8px; 
-}
-
-/* content */
-/* --- Dashboard Grid Layout --- */
-.dashboard-grid {
-  display: grid;
-  /* Splits main area into two equal columns, max width 1fr */
-  grid-template-columns: repeat(2, 1fr); 
-  gap: 30px; /* Space between the cards */
-  padding-bottom: 60px; /* Space for the breadcrumb at the bottom */
-  padding-right: 10px; /* Add right padding to prevent content from touching the edge */
-  align-items: flex-start; /* Prevents cards from stretching vertically */
-}
-
-/* --- Common Card Styling (Glassmorphism Effect) --- */
-.card {
+  margin: 0;
   overflow: hidden;
 }
 
-/* --- Welcome Card Specifics (Centering) --- */
-.welcome-card {
-  padding: 80px 40px; /* Large vertical padding to push content center */
+main {
+  flex: 1;
+  margin-left: 265px;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Topbar (reuses studentaffair.css classes) ───────────────────────────── */
+.topmenu {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #800000;
+  backdrop-filter: blur(15px);
+  padding: 20px 40px;
+  margin: 15px 24px 0;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+.brand          { display: flex; align-items: center; gap: 15px; }
+.logo-sq        { width: 80px; height: 80px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.brand-logo     { width: 90px; height: 90px; object-fit: contain; }
+.brand-text h1  { color: #fff; font-size: 1.2rem; margin: 0; letter-spacing: 1px; }
+.brand-text span{ color: #fff; font-size: 0.65rem; display: block; }
+.user-profile   { display: flex; align-items: center; text-decoration: none; color: #fff; }
+.user-profile span { margin-right: 8px; }
+.avatar         { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-left: 8px; }
+
+/* ── Dash wrapper ────────────────────────────────────────────────────────── */
+.dash-wrap { flex: 1; padding: 20px 24px 40px; overflow: visible; }
+
+/* ── Title bar ───────────────────────────────────────────────────────────── */
+.dash-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.dash-titlebar-left { display: flex; align-items: center; gap: 10px; }
+.dash-title  { font-size: 1.6rem; font-weight: 700; margin: 0; color: #111; }
+.dash-badge  {
+  font-size: 20px; font-weight: 600;
+  background: #ecfdf5; color: #065f46;
+  padding: 3px 10px; border-radius: 20px;
+  border: 1px solid #d1fae5;
+}
+.dash-actions { display: flex; gap: 8px; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn-action {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 12px; font-weight: 500;
+  cursor: pointer; color: #374151;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-action:hover { background: #f9fafb; border-color: #800000; color: #800000; }
+
+.btn-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  border: 1px solid #e5e7eb; background: #fff;
+  border-radius: 7px; cursor: pointer; color: #6b7280;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.btn-icon:hover { background: #f3f4f6; color: #800000; border-color: #800000; }
+
+.btn-apply {
+  padding: 7px 18px;
+  background: #800000; color: #fff;
+  border: none; border-radius: 8px;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: background 0.2s;
+  white-space: nowrap;
+}
+.btn-apply:hover { background: #a00000; }
+
+.btn-reset-filters {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border: 1px solid #e5e7eb; background: #fff;
+  border-radius: 8px; cursor: pointer; color: #6b7280;
+  transition: background 0.15s;
+}
+.btn-reset-filters:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+
+/* ── Chart filter (inside card headers) ──────────────────────────────────── */
+.chart-filter {
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 11px; font-family: 'Inter', sans-serif;
+  background: #fff; color: #374151;
+  cursor: pointer; outline: none;
+  transition: border-color 0.15s;
+}
+.chart-filter:focus { border-color: #800000; }
+
+/* ── Metric buttons ──────────────────────────────────────────────────────── */
+.kpi-metrics-btns,
+.metric-toggle-group { display: flex; gap: 4px; flex-wrap: wrap; }
+.metric-btn {
+  padding: 3px 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb; color: #000;
+  border-radius: 20px; font-size: 15px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+  font-family: 'Inter', sans-serif;
+}
+.metric-btn:hover { border-color: #800000; color: #800000; }
+.metric-btn.active { background: #800000; color: #fff; border-color: #800000; }
+
+/* ── Sub tabs (hardest subjects view toggle) ─────────────────────────────── */
+.sub-tabs {
+  display: flex; gap: 4px;
+  border-bottom: 1.5px solid #e5e7eb;
+  margin: 0 0 16px;
+  padding-bottom: 0;
+}
+.sub-tab {
+  padding: 8px 18px;
+  border: none; background: none;
+  font-size: 12px; font-weight: 500; color: #6b7280;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -1.5px; transition: color 0.15s, border-color 0.15s;
+  font-family: 'Inter', sans-serif;
+}
+.sub-tab:hover:not(.active) { color: #374151; }
+.sub-tab.active { color: #800000; border-bottom-color: #800000; font-weight: 600; }
+
+/* ── Dashboard grid ──────────────────────────────────────────────────────── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 20px;
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+.card-full { grid-column: span 10; }
+.card-half { grid-column: span 5; }
+
+/* ── Card header ─────────────────────────────────────────────────────────── */
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.card-header-left  { flex: 1; min-width: 0; }
+.card-header-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+.card-title    { font-size: 18px; font-weight: 700; margin: 0 0 2px; color: #111; }
+.card-subtitle { font-size: 15px; color: #666; margin: 0; }
+
+/* ── Chart / table areas ─────────────────────────────────────────────────── */
+.chart-area { position: relative; width: 100%; min-height: 300px; }
+.chart-area.clickable { cursor: pointer; }
+.chart-area.clickable:hover::after {
+  content: 'Click to view as table';
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(31,41,55,0.85); color: #fff;
+  font-size: 10px; font-weight: 600; padding: 4px 8px;
+  border-radius: 6px; pointer-events: none; z-index: 2;
+}
+.table-area { width: 100%; overflow-x: auto; }
+.table-area-header {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 8px; font-size: 12px; font-weight: 600;
+  color: #800000; cursor: pointer; width: fit-content;
+}
+.table-area-header:hover { text-decoration: underline; }
+.hidden     { display: none !important; }
+
+/* ── KPI layout ──────────────────────────────────────────────────────────── */
+
+/* ── KPI card header (title left, filters right) ────────────────────────── */
+.kpi-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: nowrap;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f0ece8;
+}
+/* .card defaults to overflow:hidden (for rounded-corner clipping on charts);
+   the KPI and heatmap cards need to allow their filter popovers to overflow the card edge. */
+.kpi-card,
+.heatmap-card,
+.gender-card,
+.hardest-card { overflow: visible; }
+
+.kpi-card-title-wrap { flex-shrink: 0; min-width: 200px; }
+
+/* ── Compact header actions (filter / refresh / fullscreen icons) ───────── */
+.kpi-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.kpi-filter-wrap { position: relative; }
+.kpi-filter-wrap .btn-icon[aria-expanded="true"] {
+  background: #800000; color: #fff; border-color: #800000;
+}
+
+/* ── KPI filter popover (compact, opens on click, doesn't eat card space) ── */
+.kpi-filter-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 400px;
+  max-width: calc(100vw - 48px);
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(0,0,0,0.14);
+  z-index: 40;
+  padding: 20px;
+  animation: kpiPopoverIn 0.12s ease-out;
+}
+@keyframes kpiPopoverIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.kpi-filter-popover-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 17px; font-weight: 700; color: #111;
+  margin-bottom: 16px;
+}
+.kpi-filter-popover-close {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border: none; background: none; color: #9ca3af;
+  cursor: pointer; border-radius: 6px;
+}
+.kpi-filter-popover-close:hover { background: #f3f4f6; color: #374151; }
+.kpi-filter-popover-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.kpi-filter-popover .gf-group { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.kpi-filter-popover .gf-label { font-size: 14px; font-weight: 600; color: #374151; }
+.kpi-filter-popover .gf-select {
+  font-size: 15px; padding: 10px 12px;
+  width: 100%; max-width: none;
+  border-radius: 8px;
+}
+.kpi-filter-popover-footer {
+  margin-top: 18px;
+  display: flex; justify-content: flex-end;
+}
+.kpi-filter-popover-footer .btn-apply { width: 100%; padding: 11px 18px; font-size: 14px; }
+
+/* ── KPI table view (floating modal) ─────────────────────────────────────── */
+.kpi-table-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(17,17,17,0.45);
+  z-index: 1100;
   display: flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  margin-left: 24px;
+  padding: 24px;
+  animation: kpiPopoverIn 0.12s ease-out;
 }
-
-.welcome-content {
-  max-width: 500px; /* Keeps text paragraphs readable */
-}
-
-.welcome-content h2 {
-  color: rgb(0, 0, 0);
-  font-size: 2.2rem;
-  margin-bottom: 20px;
-  margin-top: 0;
-  font-family: var(--font-sans);
-}
-
-.welcome-content p {
-  color: #000000; /* Muted text color */
-  font-size: 1.1rem;
-  line-height: 1.6;
-  margin-bottom: 40px; /* Space before the button */
-}
-
-/* --- Dashboard Card Specifics --- */
-.dashboard-card {
-  padding: 25px;
+.kpi-table-modal-card {
+  background: #fff;
+  border-radius: 16px;
+  width: 780px;
+  max-width: 100%;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
-  width: 800px;
-  height: 590px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+.kpi-table-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 26px;
+  font-size: 18px; font-weight: 700; color: #111;
+  border-bottom: 1px solid #f0ece8;
+  flex-shrink: 0;
+}
+.kpi-table-modal-header-actions { display: flex; align-items: center; gap: 8px; }
+.kpi-table-modal-header-actions .btn-icon { width: 34px; height: 34px; }
+.kpi-table-modal-body {
+  padding: 16px 26px 26px;
+  overflow-y: auto;
 }
 
-/* The Grey Placeholder Box */
-.visual-placeholder {
-  background-color: #5A607C; /* Match the grey from image */
-  width: 100%;
-  height: 250px; /* Height for the graphic placeholder */
+/* Bigger table text/padding, scoped to the KPI + heatmap modals only so the other
+   dashboard tables (gender, hardest subjects) stay as they are. */
+.kpi-table-modal-body .dash-table    { font-size: 15px; }
+.kpi-table-modal-body .dash-table th { font-size: 14px; padding: 12px 16px; }
+.kpi-table-modal-body .dash-table td { padding: 11px 16px; }
+.kpi-table-modal-body .dash-table .sort-arrow { font-size: 12px; }
+
+/* ── Fullscreen card toggle ──────────────────────────────────────────────── */
+.card.is-fullscreen {
+  position: fixed;
+  inset: 16px;
+  z-index: 1000;
+  overflow-y: auto;
+  max-width: none;
+  grid-column: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+.card.is-fullscreen .chart-area { min-height: calc(100vh - 220px); }
+body.fullscreen-lock { overflow: hidden; }
+
+/* Bigger, easier-to-read text while a card is expanded. Chart.js canvases
+   are scaled separately in JS (CSS can't reach into canvas-drawn text). */
+.card.is-fullscreen .card-title        { font-size: 18px; }
+.card.is-fullscreen .card-subtitle     { font-size: 13px; }
+.card.is-fullscreen .chart-filter      { font-size: 13px; padding: 6px 12px; }
+.card.is-fullscreen .metric-btn        { font-size: 13px; padding: 5px 14px; }
+.card.is-fullscreen .sub-tab           { font-size: 14px; }
+
+.card.is-fullscreen .kpi-main-label       { font-size: 34px; }
+.card.is-fullscreen .kpi-main-value       { font-size: 4.6rem; }
+.card.is-fullscreen .kpi-regirreg-legend  { font-size: 16px; }
+.card.is-fullscreen .kpi-regirreg-desc    { font-size: 14px; }
+.card.is-fullscreen .kpi-explainer-term   { font-size: 13px; }
+.card.is-fullscreen .kpi-explainer-desc   { font-size: 14px; }
+.card.is-fullscreen .kpi-yl-chip-num      { font-size: 19px; }
+.card.is-fullscreen .kpi-yl-chip-label    { font-size: 13px; }
+.card.is-fullscreen .kpi-yl-chip-pct      { font-size: 14px; }
+.card.is-fullscreen .kpi-mini-label       { font-size: 15px; }
+.card.is-fullscreen .kpi-mini-value       { font-size: 2.9rem; }
+.card.is-fullscreen .status-chip-val      { font-size: 20px; }
+.card.is-fullscreen .status-chip-label    { font-size: 14px; }
+.card.is-fullscreen .kpi-delta.up,
+.card.is-fullscreen .kpi-delta.down       { font-size: 15px; }
+.card.is-fullscreen .kpi-delta-label      { font-size: 14px; }
+
+.card.is-fullscreen .dash-table            { font-size: 14px; }
+.card.is-fullscreen .dash-table th         { font-size: 13px; padding: 10px 14px; }
+.card.is-fullscreen .dash-table td         { padding: 9px 14px; }
+.card.is-fullscreen .table-area-header     { font-size: 14px; }
+
+.card.is-fullscreen .heatmap-table         { font-size: 13px; }
+.card.is-fullscreen .heatmap-row-label     { font-size: 13px; }
+
+.card.is-fullscreen .rb-title              { font-size: 15px; }
+.card.is-fullscreen .rb-value              { font-size: 1.1rem; }
+.card.is-fullscreen .rb-code,
+.card.is-fullscreen .rb-meta               { font-size: 12px; }
+.card.is-fullscreen .rb-track              { height: 12px; }
+.fullscreen-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(17,17,17,0.45);
+  z-index: 999;
+}
+
+/* ── Year-level percentage section ──────────────────────────────────────── */
+.kpi-yl-section { margin-top: auto; padding-top: 12px; }
+.kpi-yl-label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  opacity: 0.7; margin-bottom: 6px;
+}
+
+.kpi-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 20px;
+  align-items: stretch;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* KPI main (left big block) */
+.kpi-main {
+  background: linear-gradient(135deg, #800000 0%, #a00000 100%);
+  border-radius: 14px;
+  padding: 22px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+.kpi-main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.kpi-main-label { font-size: 25px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.9; }
+.kpi-main .kpi-metrics-btns .metric-btn {
+  background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.3); color: #fff;
+  font-size: 13px; padding: 6px 14px;
+}
+.kpi-main .kpi-metrics-btns .metric-btn.active {
+  background: #fff; color: #800000; border-color: #fff;
+}
+.kpi-main-value { font-size: 3.8rem; font-weight: 800; line-height: 1; }
+.kpi-main-sub   { font-size: 14px; opacity: 0.85; display: flex; align-items: center; gap: 6px; }
+
+/* Regular vs Irregular split bar (fills the middle space of the Total
+   Enrollment card) */
+.kpi-regirreg-section { margin: 18px 0; }
+.kpi-regirreg-label {
+  font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; opacity: 0.85; margin-bottom: 10px;
+}
+.kpi-regirreg-bar {
+  display: flex; width: 100%; height: 14px; border-radius: 8px;
+  overflow: hidden; background: rgba(255,255,255,0.15);
+}
+.kpi-regirreg-bar-fill { height: 100%; transition: flex-basis 0.3s ease; }
+.kpi-regirreg-bar-fill.regular   { background: #15803d; }
+.kpi-regirreg-bar-fill.irregular { background: #fcd34d; }
+.kpi-regirreg-legend { display: flex; gap: 22px; margin-top: 12px; font-size: 14px; font-weight: 600; }
+.kpi-regirreg-legend .dot {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px;
+}
+.kpi-regirreg-legend .dot.regular   { background: #15803d; }
+.kpi-regirreg-legend .dot.irregular { background: #fcd34d; }
+.kpi-regirreg-legend .pct { opacity: 0.75; font-weight: 500; margin-left: 4px; }
+
+/* KPI glossary — sits below the whole KPI grid, explains every card */
+.kpi-explainer {
+  margin-top: 20px; padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px 24px;
+}
+.kpi-explainer-item { display: flex; flex-direction: column; gap: 3px; }
+.kpi-explainer-term {
+  font-size: 11px; font-weight: 700; color: #800000;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.kpi-explainer-desc { font-size: 12px; color: #000; line-height: 1.5; margin: 0; }
+.kpi-regirreg-desc {
+  font-size: 12px; font-weight: 400; line-height: 1.5;
+  opacity: 0.75; margin-top: 10px; max-width: 90%;
+}
+
+/* Year level mini breakdown */
+.kpi-yearlevel-row {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;
+}
+.kpi-yl-chip {
+  background: rgba(255,255,255,0.15);
+  border-radius: 6px; padding: 5px 9px;
+  font-size: 10px; font-weight: 600;
+  display: flex; flex-direction: column; gap: 1px; align-items: center;
+  min-width: 46px;
+}
+.kpi-yl-chip-num   { font-size: 16px; font-weight: 700; line-height: 1.2; }
+.kpi-yl-chip-label { font-size: 11px; font-weight: 600; opacity: 0.75; text-transform: uppercase; }
+.kpi-yl-chip-pct   { font-size: 12px; font-weight: 500; opacity: 0.85; }
+
+/* Mini KPI stack (right) */
+.kpi-mini-stack { display: flex; flex-direction: column; gap: 10px; }
+.kpi-mini { flex: 1; min-height: 0; }
+.kpi-mini {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
-  margin-bottom: 25px;
+  padding: 14px 16px;
+  min-height: 120px;
+}
+.kpi-mini-top  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px; }
+.kpi-mini-label{ font-size: 13px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.04em; }
+.kpi-mini-badge{ font-size: 12px; color: #000; }
+/* Value + pct-badge side by side */
+.kpi-mini-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+.kpi-mini-value{ font-size: 2.4rem; font-weight: 800; color: #111; line-height: 1.1; }
+.kpi-mini-pct-badge {
+  font-size: 1.1rem; font-weight: 700;
+  padding: 6px 14px; border-radius: 8px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.kpi-mini-pct-badge.up   { background: #dcfce7; color: #15803d; }
+.kpi-mini-pct-badge.down { background: #fee2e2; color: #b91c1c; }
+.kpi-mini-pct-badge.flat { background: #f3f4f6; color: #6b7280; }
+.kpi-mini-delta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 4px;
 }
 
-.dashboard-text p {
-  color: rgb(0, 0, 0);
-  text-align: justify;
-  text-indent: 40px;
-  font-size: 1rem;
-  line-height: 1.6;
-  max-width: 700px;
-  margin: 0 auto;
+/* Status breakdown chips */
+.kpi-status-breakdown { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.status-chip {
+  display: flex; flex-direction: column; align-items: center;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 8px; padding: 5px 10px;
+  font-size: 10px;
+}
+.status-chip-val   { font-size: 17px; font-weight: 700; color: #111; }
+.status-chip-label { color: #9ca3af; font-weight: 500; margin-top: 1px; font-size: 12px; }
+
+/* KPI delta colors */
+.kpi-delta.up   { color: #059669; font-weight: 700; font-size: 13px; }
+.kpi-delta.down { color: #dc2626; font-weight: 700; font-size: 13px; }
+.kpi-delta.flat { color: #6b7280; }
+.kpi-delta-label{ color: #000; font-size: 12px; }
+
+/* ── Gender & Status card ────────────────────────────────────────────────── */
+/* Male / Female each get a row: chart on the left, department table on the right,
+   vertically centred on each other so the table lines up with its chart. */
+.gender-rows { display: flex; flex-direction: column; gap: 28px; transition: opacity 0.15s; }
+.gender-rows.gd-busy { opacity: 0.5; pointer-events: none; }
+
+.gender-row {
+  border: 1px solid #f0ece8;
+  border-radius: 14px;
+  padding: 14px 22px 18px;
+}
+.gender-row-head { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+.gender-row-tag  { display: inline-flex; align-items: center; gap: 8px; }
+.gender-row-tag::before {
+  content: ''; width: 10px; height: 10px; border-radius: 50%; background: currentColor;
+}
+.gender-row-head.male   { color: #1d4ed8; }
+.gender-row-head.female { color: #be185d; }
+
+.gender-row-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
 }
 
+.gender-donut-wrap { position: relative; width: 100%; height: 340px; }
+.gender-donut-wrap canvas { display: block; }
+.gender-donut-wrap.clickable { cursor: pointer; }
+.gender-donut-wrap.clickable:hover::after {
+  content: 'Click to view as table';
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(31,41,55,0.85); color: #fff;
+  font-size: 10px; font-weight: 600; padding: 4px 8px;
+  border-radius: 6px; pointer-events: none; z-index: 2;
+}
+.gender-donut-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+  font-size: 12px; color: #6b7280;
+  text-align: center; line-height: 1.3;
+}
+.gender-donut-center strong {
+  font-size: 24px; font-weight: 800;
+  color: #111; display: block;
+}
+.gd-nodata { font-size: 13px; color: #9ca3af; }
 
-/* --- Responsive Layout (Phones/Tablets) ---
-   NOTE: this used to live here, but a later unconditional
-   `.dashboard-grid { grid-template-columns: ... }` rule further down
-   this file has the same selector and always came AFTER this in
-   source order, so it silently won at every window size, even when
-   this @media query matched -- the stacking below never actually ran.
-   Moved down to right after that later rule, in the real "Grid
-   Proportions" section, so it actually wins when it matches. --- */
+/* Department tables */
+.gender-table-wrap { min-width: 0; overflow-x: auto; }
+.gd-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px;
+}
+.gd-table th {
+  background: #f9fafb;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 12px; font-weight: 600; color: #374151;
+  border-bottom: 1.5px solid #e5e7eb;
+  white-space: nowrap; cursor: pointer; user-select: none;
+}
+.gd-table th:hover { background: #f0f0ef; }
+.gd-th-dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 6px; vertical-align: 1px;
+}
+.gd-table td {
+  padding: 7px 10px;
+  border-bottom: 0.5px solid #f3f4f6;
+  color: #111; white-space: nowrap;
+}
+.gd-table tr:last-child td { border-bottom: none; }
+.gd-table tr:hover td { background: #fafaf9; }
+.gd-dept  { font-weight: 600; }
+.gd-pct   { color: #6b7280; font-size: 11px; margin-left: 2px; }
+.gd-count { font-weight: 600; }
+.sort-arrow { font-size: 10px; color: #800000; margin-left: 3px; }
 
-/*drop down 
-dashboard*/
-/* Initially hide the submenu */
-/* --- Dropdown Animation --- */
-.submenu-container {
-    max-height: 0;          /* Start at zero height */
-    overflow: hidden;       /* Hide the content inside */
-    opacity: 0;             /* Start invisible */
-    display: flex;          /* Keep it flex, but height 0 hides it */
-    flex-direction: column;
-    transition: max-height 0.5s ease-in-out, opacity 0.3s ease; 
+/* Fullscreen: the two gender rows share the leftover screen height, so both charts fit without scrolling */
+.card.is-fullscreen.gender-card { display: flex; flex-direction: column; }
+.card.is-fullscreen.gender-card .kpi-card-header,
+.card.is-fullscreen.gender-card .hm-toolbar,
+.card.is-fullscreen.gender-card .hm-notice { flex-shrink: 0; }
+.card.is-fullscreen .gender-rows { flex: 1; min-height: 0; gap: 16px; }
+.card.is-fullscreen .gender-row  { flex: 1; min-height: 250px; display: flex; flex-direction: column; padding: 10px 22px 12px; }
+.card.is-fullscreen .gender-row-body { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.card.is-fullscreen .gender-donut-wrap { height: 100%; }
+.card.is-fullscreen .gender-table-wrap { max-height: 100%; overflow-y: auto; }
+.card.is-fullscreen.gender-card .kpi-explainer { flex-shrink: 0; margin-top: 12px; padding-top: 10px; gap: 8px 24px; }
+.card.is-fullscreen .gender-donut-center strong { font-size: 30px; }
+.card.is-fullscreen .gd-table    { font-size: 15px; }
+.card.is-fullscreen .gd-table th { font-size: 13px; }
+
+/* ── Hardest subjects: chart heights + fullscreen fit ───────────────────── */
+#hsBarArea, #hsTrendArea { height: var(--hs-h, 400px); min-height: 300px; }
+#hsCardsArea { height: auto; }
+.card.is-fullscreen.hardest-card { display: flex; flex-direction: column; }
+.card.is-fullscreen.hardest-card .kpi-card-header,
+.card.is-fullscreen.hardest-card .hm-toolbar,
+.card.is-fullscreen.hardest-card .sub-tabs,
+.card.is-fullscreen.hardest-card .kpi-explainer { flex-shrink: 0; }
+.card.is-fullscreen.hardest-card .chart-area:not(.hidden) { flex: 1; min-height: 0; height: auto; overflow-y: auto; }
+.card.is-fullscreen.hardest-card #hsBarArea,
+.card.is-fullscreen.hardest-card #hsTrendArea { min-height: 0; overflow: hidden; }
+.card.is-fullscreen.hardest-card .kpi-explainer { margin-top: 12px; padding-top: 10px; gap: 8px 24px; }
+
+/* ── Ranked cards (hardest subjects) — horizontal bar rows ───────────────── */
+@keyframes rbFadeIn {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ranked-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 6px 2px;
+}
+.rb-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: #fff;
+  border: 1px solid #edeef1;
+  border-radius: 14px;
+  padding: 13px 16px;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+  animation: rbFadeIn 0.4s ease backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+.rb-row:hover {
+  transform: translateY(-2px);
+  border-color: #e9d6d6;
+}
+.rb-rank {
+  flex: 0 0 auto;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #9a2626, #5c0000);
+  color: #fff;
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 1px;
+}
+/* Podium treatment for the top 3 — gold / silver / bronze */
+.rb-row:nth-child(1) .rb-rank {
+  width: 34px; height: 34px; font-size: 13px;
+  background: linear-gradient(135deg, #ffdd8a, #d4a13b);
+  color: #4a3300;
+}
+.rb-row:nth-child(2) .rb-rank {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, #eef1f4, #a7b0ba);
+  color: #2c333a;
+}
+.rb-row:nth-child(3) .rb-rank {
+  width: 31px; height: 31px;
+  background: linear-gradient(135deg, #e9b98a, #ab6a34);
+  color: #3c1f00;
+}
+.rb-body  { flex: 1; min-width: 0; }
+.rb-head  {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 7px;
+}
+.rb-title { font-size: 13.5px; font-weight: 700; color: #1e2025; line-height: 1.35; letter-spacing: .1px; }
+.rb-code  {
+  font-size: 10px; font-weight: 600; color: #767c87;
+  background: #f2f3f5; border: 1px solid #e7e8eb;
+  padding: 1px 7px; border-radius: 6px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+.rb-value {
+  margin-left: auto; font-size: 13.5px; font-weight: 800; color: #800000;
+  white-space: nowrap; background: #fdf1f1; padding: 3px 10px; border-radius: 20px;
+}
+.rb-track {
+  position: relative;
+  width: 100%;
+  height: 9px;
+  background: #eef0f3;
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 7px;
+  box-shadow: inset 0 1px 2px rgba(16,24,40,0.06);
+}
+.rb-fill {
+  height: 100%;
+  border-radius: 20px;
+  transition: width 0.55s cubic-bezier(.4,0,.2,1);
+}
+.rb-meta  {
+  font-size: 10.5px; color: #8a8f98; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 5px;
+}
+.rb-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.rc-chip {
+  font-size: 10px; font-weight: 700;
+  padding: 3px 9px; border-radius: 20px;
+  background: #fef2f2; color: #b42318;
+  border: 1px solid rgba(180,35,24,0.12);
+}
+.rc-chip.inc   { background: #fffbeb; color: #92400e; border-color: rgba(146,64,14,.14); }
+.rc-chip.drp   { background: #f5f3ff; color: #5b21b6; border-color: rgba(91,33,182,.14); }
+.rc-chip.udr   { background: #eff8ff; color: #0369a1; border-color: rgba(3,105,161,.14); }
+.rc-chip.w     { background: #ecfdf5; color: #065f46; border-color: rgba(6,95,70,.14); }
+.rc-chip.grade { background: #f0fdf4; color: #166534; border-color: rgba(22,101,52,.14); }
+
+/* ── Shared data table style ─────────────────────────────────────────────── */
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.dash-table th {
+  background: #800000;
+  color: #fff;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600; font-size: 11px;
+  border-bottom: 1.5px solid #690000;
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
+}
+.dash-table th:hover { background: #6e0000; }
+.dash-table td {
+  padding: 7px 12px;
+  border-bottom: 0.5px solid #f3f4f6;
+  color: #111;
+}
+.dash-table tr:last-child td { border-bottom: none; }
+.dash-table tr:hover td { background: #fafaf9; }
+.dash-table .sort-arrow { font-size: 10px; margin-left: 4px; color: #fde68a; }
+
+.dt-th-inner  { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dt-th-label  { cursor: pointer; }
+.dt-empty     { text-align: center; color: #9ca3af; padding: 20px 12px !important; font-style: italic; }
+
+/* ── Optional title + description, shown above the toolbar ───────────────── */
+.dt-heading     { margin-bottom: 14px; }
+.dt-title       { font-size: 15px; font-weight: 700; color: #111; margin: 0 0 3px; }
+.dt-description { font-size: 12px; color: #6b7280; margin: 0; line-height: 1.45; }
+
+/* ── Table toolbar: search box + download + column-visibility buttons ────── */
+.dt-toolbar        { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.dt-search-wrap     { flex: 1; min-width: 160px; }
+.dt-search {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid #e5e7eb; border-radius: 8px;
+  padding: 8px 12px; font-size: 12px; font-family: 'Inter', sans-serif;
+  background: #fff; color: #374151; outline: none;
+  transition: border-color 0.15s;
+}
+.dt-search:focus    { border-color: #800000; }
+.dt-toolbar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.dt-cols-wrap        { position: relative; }
+
+/* ── Per-column filter toggle (lives inside the maroon th) ───────────────── */
+.dt-filter-btn {
+  background: transparent; border: none; color: #fff; opacity: 0.75;
+  cursor: pointer; font-size: 10px; padding: 2px 5px; line-height: 1;
+  border-radius: 4px; flex-shrink: 0;
+}
+.dt-filter-btn:hover  { opacity: 1; background: rgba(255,255,255,0.18); }
+.dt-filter-btn.active { opacity: 1; color: #fde68a; }
+
+/* ── Filter / column-visibility popovers (fixed so they escape the
+   horizontal-scroll wrapper, matching the modal's z-index stack) ─────────── */
+.dt-filter-pop {
+  position: fixed; z-index: 1200;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+  min-width: 180px; max-width: 240px;
+  padding: 8px; cursor: default; white-space: normal;
+  animation: kpiPopoverIn 0.12s ease-out;
+}
+.dt-filter-list { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.dt-filter-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 6px; border-radius: 6px; font-size: 12px; color: #374151;
+  cursor: pointer; font-weight: 400;
+}
+.dt-filter-item:hover  { background: #f9fafb; }
+.dt-filter-item input  { accent-color: #800000; }
+.dt-filter-pop-footer {
+  display: flex; justify-content: space-between; gap: 6px;
+  margin-top: 6px; padding-top: 6px; border-top: 1px solid #f0ece8;
+}
+.dt-filter-pop-footer button {
+  border: none; background: transparent; font-size: 11px; font-weight: 600;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px;
+}
+.dt-filter-clear      { color: #6b7280; }
+.dt-filter-clear:hover{ background: #f3f4f6; }
+.dt-filter-apply       { color: #fff; background: #800000; }
+.dt-filter-apply:hover { background: #a00000; }
+
+/* ── Horizontal scroll wrapper + pagination footer ────────────────────────── */
+.dt-scroll { overflow-x: auto; }
+.dt-pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 12px; font-size: 12px; color: #6b7280; flex-wrap: wrap; gap: 8px;
+}
+.dt-page-btns { display: flex; gap: 8px; }
+.btn-action[disabled] { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.pct-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px; font-weight: 600;
+  background: #fee2e2; color: #991b1b;
+}
+.pct-pill.low { background: #dcfce7; color: #166534; }
+
+/* ── Loading / empty states ──────────────────────────────────────────────── */
+.chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  height: 200px;
+  color: #9ca3af;
+  font-size: 13px;
+}
+.chart-spinner {
+  width: 24px; height: 24px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #800000;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 180px;
+  color: #9ca3af;
+  font-size: 13px;
 }
 
-/* When the 'open' class is added via JS */
-.submenu-container.open {
-    max-height: 500px;      /* Set to a value larger than your content */
-    opacity: 1;             /* Fade in */
-    margin-bottom: 15px;    /* Add some spacing when open */
+/* ── Heatmap (matrix layout: y-axis title | grid | colour bar) ──────────── */
+.hm-sort { height: 40px; padding: 0 12px; font-size: 13px; }
+
+/* Status metric buttons row (sits between the header and the grid) */
+.hm-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.hm-toolbar-label { font-size: 14px; font-weight: 600; color: #374151; }
+.hm-toolbar-sep { margin-left: 10px; padding-left: 22px; border-left: 1px solid #e5e7eb; }
+
+.hm-figure { display: flex; align-items: stretch; gap: 14px; width: 100%; }
+.hm-main   { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hm-y-title,
+.hm-legend-title {
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  align-self: center;
+  font-size: 13px; font-weight: 600; color: #374151; letter-spacing: 0.02em;
+}
+.hm-x-title {
+  margin-top: 10px; text-align: center;
+  font-size: 13px; font-weight: 600; color: #374151; letter-spacing: 0.02em;
 }
 
-.submenu-item {
-    color: #000000;
-    text-decoration: none;
-    font-size: 14px;
-    padding: 10px 0;        /* Slightly more padding for easier clicking */
-    transition: color 0.2s ease;
+.heatmap-wrap { overflow-x: auto; }
+.heatmap-table {
+  width: 100%; min-width: 520px;
+  table-layout: fixed; border-collapse: collapse;
+  font-size: 12px;
+}
+.heatmap-table th {
+  padding: 8px 10px;
+  background: #f9fafb;
+  font-weight: 600; color: #374151;
+  border: 1px solid #e5e7eb;
+  white-space: nowrap; text-align: center;
+}
+.heatmap-table th:first-child { width: 280px; background: transparent; border: none; }
+.heatmap-table td {
+  height: 40px;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.7);
+  font-weight: 600;
+  transition: opacity 0.1s;
+}
+.heatmap-table td:hover { opacity: 0.8; }
+.heatmap-table td.heatmap-empty { background: #f3f4f6; color: #9ca3af; font-weight: 500; }
+.heatmap-table td.heatmap-row-label {
+  padding: 6px 12px;
+  font-weight: 500; color: #374151;
+  white-space: nowrap; text-align: left;
+  background: #fafaf9;
+  border: 1px solid #e5e7eb;
+  overflow: hidden; text-overflow: ellipsis;
 }
 
-.submenu-item:hover {
-    color: #fd2a2a;
+/* Park the "Click to view as table" hint in the grid's empty top-left corner so it never covers a column header */
+#hmChartArea.clickable:hover::after { right: auto; left: 52px; }
+
+.hm-notice {
+  margin-bottom: 12px; padding: 10px 14px;
+  background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px;
+  font-size: 13px; color: #92400e; line-height: 1.45;
 }
 
-/* paa ni rod --- */
-
-footer{
-    position: sticky;
-    bottom:0;
-    z-index:100;
-
-    background:#F6F4F0;
-
-    border-top:1px solid #DCD6C9;
-    border-left:1px solid #DCD6C9;
-    box-shadow:0 -4px 15px rgba(0,0,0,.06);
-
-    padding:25px 0;
+/* Colour bar (right side) — stays in view while scrolling a tall grid */
+.hm-legend {
+  display: flex; align-items: stretch; gap: 8px;
+  align-self: flex-start;
+  position: sticky; top: 12px;
+  height: 280px; margin-top: 40px;
+}
+.hm-legend-bar {
+  width: 18px; border-radius: 3px; border: 1px solid #e5e7eb;
+}
+.hm-legend-ticks {
+  display: flex; flex-direction: column; justify-content: space-between;
+  font-size: 11px; font-weight: 500; color: #374151; line-height: 1;
 }
 
-.footer-content {
-    display: flex;
-    justify-content: flex-end; /* Moves text to the right */
-    padding-right: 40px; /* Adds some space from the edge */
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+footer {
+  position: sticky; bottom: 0; z-index: 100;
+  background: #F6F4F0;
+  border-top: 1px solid #DCD6C9;
+  border-left: 1px solid #DCD6C9;
+  box-shadow: 0 -4px 15px rgba(0,0,0,.06);
+  padding: 25px 0;
 }
+.footer-content { display: flex; justify-content: flex-end; padding-right: 40px; }
+.page-label  { color: #6B7280; }
+.page-name   { color: #800000; font-weight: 700; }
+.footer { background: none; margin-left: 10px; }
 
-.page-label{
-    color:#6B7280;
+.footer-brand {
+  display: flex; flex-direction: column;
+  align-items: center; margin: 25px 0;
 }
-
-.page-name{
-    color:#800000;
-    font-weight:700;
+.footer-divider {
+  width: 500px; border: none;
+  border-top: 1px solid #4B4B4B; margin: 0 0 12px 0;
 }
+.footer-brand-content { display: flex; align-items: center; gap: 15px; }
+.footer-logo { width: 60px; height: 60px; object-fit: contain; border-radius: 12px; }
+.footer-brand-text h3 { margin: 0; font-size: 22px; font-weight: 700; color: #800000; }
+.footer-brand-text p  { margin: 4px 0; font-size: 14px; color: #000; }
+.footer-brand-text small { color: #6B7280; font-size: 12px; }
 
-/* Ensure the main container allows the footer to sit at the bottom */
-.footer {
-  background-color: none;
-  margin-left: 10px;
-  /* FIX: was a hardcoded width: 1416px -- same overflow issue as
-     .topmenu above, just for the footer bar. */
-  margin-right: 10px;
-  width: auto;
-  box-sizing: border-box;
+/* ── Sidebar (reuse from studentaffair.css) ──────────────────────────────── */
+.sidebar {
+  position: fixed; top: 0; left: 0;
+  width: 275px; height: 100vh;
+  background: #fff; border-right: 1px solid #DCD6C9;
+  display: flex; flex-direction: column; overflow: hidden;
 }
-
-
-.footer-brand{
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: 25px 0;
+.pad {
+  flex: 1; margin-top: 10%; gap: 10px;
+  overflow-y: auto; overflow-x: hidden;
+  padding: 20px; box-sizing: border-box; margin-bottom: 20%;
 }
+.pad::-webkit-scrollbar { width: 5px; }
+.pad::-webkit-scrollbar-thumb { background: #DCD6C9; border-radius: 3px; }
+.sidebardivider { border: none; height: 1px; background: rgba(0,0,0,0.15); width: 100%; margin: 8px 0; }
+.sidebar-section-label { margin: 0 0 4px 0; }
+.menu-btn { width: 210px; align-items: center; display: flex; margin-top: 10px; padding: 12px; gap: 12px; border-radius: 12px; color: #000; font-size: 16px; transition: 0.3s; text-decoration: none; }
+.menu-btn:hover { background: #785a5a64; margin-bottom: 10px; color: #000; width: 210px; font-weight: bold; }
+.menu-btn:hover .non-active-bordericon { background: #c72828; }
+.menu-active { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: rgba(120,90,90,0.5); color: #000; font-size: 16px; text-decoration: none; width: 210px; font-weight: bold; border: 1px solid #785a5a; }
+.active-bordericon { width: 35px; height: 33px; border-radius: 10px; background: #800000; display: flex; align-items: center; justify-content: center; }
+.active-icon { width: 24px; height: 24px; color: #fff; }
+.non-active-icon { width: 24px; height: 24px; color: #fff; }
+.non-active-bordericon { width: 35px; height: 33px; border-radius: 10px; background: #785a5a; display: flex; align-items: center; justify-content: center; }
+.dash-btn { width: 200px; align-items: center; display: flex; margin-top: 10px; padding: 12px; gap: 12px; border-radius: 12px; color: #000; font-size: 16px; transition: 0.3s; text-decoration: none; }
+.dash-btn:hover { background: #785a5a64; margin-bottom: 10px; color: #000; width: 200px; font-weight: bold; }
+.dash-btn:hover .non-active-bordericondash { background: #c72828; }
+.non-active-bordericondash { width: 35px; height: 33px; border-radius: 10px; background: #785a5a; display: flex; align-items: center; justify-content: center; }
+.non-active-icondash { width: 24px; height: 24px; color: #fff; }
+.dash-active { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: rgba(120,90,90,0.5); color: #000; font-size: 16px; text-decoration: none; width: 200px; font-weight: bold; border: 1px solid #000; }
+.active-bordericondash { width: 35px; height: 33px; border-radius: 10px; background: #800000; display: flex; align-items: center; justify-content: center; }
+.active-icondash { width: 24px; height: 24px; color: #fff; }
+.submenu-container { max-height: 0; overflow: hidden; opacity: 0; display: flex; flex-direction: column; transition: max-height 0.5s ease-in-out, opacity 0.3s ease; }
+.submenu-container.open { max-height: 500px; opacity: 1; margin-bottom: 15px; }
+.sidebar-footer { position: absolute; background: #fff; bottom: 0; left: 0; width: 100%; padding: 1px 0 0 0; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #DCD6C9; }
+.copyright { font-size: 10px; color: #666; margin-bottom: 20px; text-align: center; }
+.btn-privacy { color: #666; text-decoration: none; padding: 10px 10px 0 0; border-radius: 9999px; font-size: .8rem; display: inline-block; transition: 0.3s ease; }
+.btn-privacy:hover { color: #800000; font-weight: bold; text-decoration: underline; }
 
-.footer-divider{
-    width: 500px;      /* adjust length */
-    border: none;
-    border-top: 1px solid #4B4B4B;
-    margin: 0 0 12px 0; /* only 12px gap below */
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .kpi-layout { grid-template-columns: 1fr; }
+  .gender-row-body { grid-template-columns: 1fr; }
+  .card-half { grid-column: span 10; }
 }
-
-.footer-brand-content{
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.footer-logo{
-    width:60px;
-    height:60px;
-    object-fit:contain;
-    border-radius:12px;
-}
-
-.footer-brand-text h3{
-    margin:0;
-    font-size:22px;
-    font-weight:700;
-    color:#800000;
-}
-
-.footer-brand-text p{
-    margin:4px 0;
-    font-size:14px;
-    color:#000000;
-}
-
-.footer-brand-text small{
-    color:#6B7280;
-    font-size:12px;
-}
-
-/* Grid Proportions based */
-
-.dashboard-grid {
-    display: grid;
-    /* FIX: a bare `1fr` track has an implicit min-width of `auto`,
-       meaning it refuses to shrink below its content's min-content
-       size. On a narrower window, any card whose content (a wide
-       Chart.js canvas, a long legend) needed more room than that
-       narrower column had, forced the grid to overflow horizontally
-       instead of resizing -- that's what made the layout "stay in
-       that size" and let card content spill into neighboring cards.
-       minmax(0, 1fr) removes that floor so tracks (and the cards
-       inside them) actually shrink with the window. */
-    grid-template-columns: repeat(10, minmax(0, 1fr));
-    grid-gap: 20px;
-    padding-bottom: 80px;
-    margin-left: 24px;
-}
-
-.card {
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #DCD6C9;
-    /* FIX: pairs with minmax(0, 1fr) above -- without this, a grid
-       item's default min-width: auto can still force its own track
-       wider than the space actually given to it (e.g. a canvas or
-       wide legend inside), which is what let charts overlap the
-       card/column next to them instead of wrapping or scaling down. */
-    min-width: 0;
-}
-
-@media (max-width: 1024px) {
-    .dashboard-grid {
-        grid-template-columns: 1fr; /* Stack cards vertically on smaller screens */
-        gap: 20px;
-    }
-    /* Card span classes below assume a 10-column grid; on the
-       single-column stack above every card should just take the
-       full row instead of clamping to whatever span it was given. */
-    .card { grid-column: 1 / -1 !important; }
-}
-
-/* Precise Sizing Classes */
-.card-mini { grid-column: span 2; min-height: 65px; padding: 15px;}
-.card-mini1 { grid-column: span 3; min-height: 65px; padding: 15px;}
-.card-mini2 { grid-column: span 4; min-height: 65px; padding: 15px;}
-.card-wide { grid-column: span 5; min-height: 510px; padding: 20px 0 0 0;}
-.card-wide1 { grid-column: span 10; min-height: 490px; padding: 20px 0 0 0;}
-.card-square { grid-column: span 2; min-height: 350px; padding: 20px; }
-.card-full-width-bar { grid-column: span 10; min-height: 530px; padding: 10px; }
-.card-full-width-bar1 { grid-column: span 10; min-height: 500px; padding: 10px; }
-.card-full-width-bar2 { grid-column: span 10; min-height: 860px; padding: 10px; }
-.card-full-width { grid-column: span 5; min-height: 490px; padding: 10px; }
-
-/* Applied via JS when a single department is selected in the filter,
-   so that department's "Top 5 Hardest Subjects" card stretches across
-   the full 10-column grid instead of sitting at half width with an
-   empty gap next to it. */
-.card-full-width.dept-card-focused { grid-column: span 10; }
-.third-square { grid-column: span 5; min-height: 585px; padding: 10px; }
-.third-square1 { grid-column: span 5; min-height: 570px; padding: 10px; }
-
-.card-ranking {
-  border-radius: 10px;
-  background-color: white;
-}
-
-/* Bottom Row Proportions */
-.card-bottom-large { grid-column: span 10; min-height: 500px; padding: 10px;}
-.card-bottom-small { grid-column: span 10; min-height: 520px; padding: 10px;}
-.card-bottom-small-1 { grid-column: span 10; min-height: 1160px; padding: 10px;}
-
-/* --- Custom Select Styling --- */
-select.form-select {
-    width: 100%;
-    background-color: rgb(255, 255, 255); /* Matches sidebar depth */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://w3.org' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 16px;
-    color: #000000;
-    border: 1px solid rgba(184, 148, 148, 0.3);
-    border-radius: 10px;
-    padding: 10px 40px 10px 15px;
-    font-family: var(--font-sans);
-    font-size: 0.9rem;
-    appearance: none; /* Removes default arrow */
-    cursor: pointer;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(5px);
-}
-
-/* Hover State */
-select.form-select:hover {
-    background-color: #785a5a64;
-    font-weight: bold;
-}
-
-/* Focus State (Glow Effect) */
-select.form-select:focus {
-    outline: none;
-    border-color: #800000;
-}
-
-/* Styling the options inside the dropdown */
-select.form-select option {
-    background-color: #ffffff; /* Solid color for readability */
-    color: #000000;
-    padding: 10px;
-}
-
-/* Card-Mini Label Adjustment */
-.card-mini label {
-    color: #000000;
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 8px;
-    display: block;
-}
-
-
-
-
-/* UI Elements */
-.topmenu {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 30px;
-}
-
-
-
-.hidden {
-    display: none;
-}
-
-/* --- Table Mode (table-view.js) --- */
-#chartViewContainer.df-table-active .card:not(.card-mini):not(.card-mini1) {
-    height: auto;
-    overflow: visible;
-}
-
-.dashboard-grid:has(#chartViewContainer.df-table-active) {
-    align-items: stretch;
-}
-
-
-.sidebar-footer{
-    position: absolute;
-    background-color: #ffffff;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    padding: 3px 0 0 0;
-    text-align: center;
-    font-size: 12px;
-    color: #666;
-    border-top: 1px solid #DCD6C9;
-}
-
-.copyright {
-    font-size: 10px;
-    color: #666;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-.btn-privacy{
-    color:#666;
-    text-decoration: none;
-    padding: 10px 10px 0 0; /* Horizontal wide button */
-    border-radius: 9999px; /* Fully rounded */
-    font-size: .8rem;
-    display: inline-block;
-    transition: 0.3s ease;
-}
-
-.btn-privacy:hover {
-    color: #800000; /* Darker blue on hover */
-    transform: translateY(-2px);
-    font-weight: bold;
-    text-decoration: underline;
-}
-
-/* --- Chart explanation blocks (formerly collapsible "Learn more") ---
-   Always visible now — no <details>/<summary> toggle, just a quiet
-   inline explainer under each chart. */
-.chart-explanation {
-    margin-top: 0.9rem;
-    padding-top: 0.75rem;
-    border-top: 1px dashed #e3e6f0;
-}
-
-.chart-explanation .learn-more-body {
-    margin: 0;
-}
-
-.chart-explanation .learn-more-body dt {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    color: #800000;
-    margin-top: 0.6rem;
-}
-
-.chart-explanation .learn-more-body dt:first-child {
-    margin-top: 0;
-}
-
-.chart-explanation .learn-more-body dd {
-    margin: 0.15rem 0 0 0;
-    font-size: 0.8rem;
-    line-height: 1.45;
-    color: #5a5c69;
+@media (max-width: 768px) {
+  .dash-grid { grid-template-columns: 1fr; }
+  .card-full, .card-half { grid-column: span 1; }
 }

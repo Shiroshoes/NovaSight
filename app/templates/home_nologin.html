@@ -6,6 +6,7 @@
   <title>Home-nologin</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/no login/home_nologin.css') }}">
   <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/responsive.css') }}">
 </head>
 <body>
 
@@ -51,17 +52,17 @@
  
   <!--header -->
         <header class="topmenu">
-          <a href="/" class="brand-link">
-            <div class="brand">
+          <div class="brand">
+            <a href="/" class="brand-link">
               <div class="logo-sq">
                 <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="BPSU Logo" class="brand-logo">
               </div>
-                <div class="brand-text">
+              <div class="brand-text">
                     <h1>Bataan Peninsula State University</h1>
                     <span>ACADEMIC PREDICTION</span>
                 </div>
-            </div>
-          </a>
+            </a>
+          </div>
             
             <a href="/login" class="user-profile">
                 <span>Login</span>
@@ -316,6 +317,28 @@
 
       
 
+  <!-- loading placeholders: swapped for the real cards below once the hero image is ready -->
+  <section class="dashboard-grid skeleton-grid" id="dashboardSkeleton" aria-hidden="true">
+    <div class="card welcome-card">
+      <div class="welcome-content">
+        <span class="skel skel-title"></span>
+        <span class="skel skel-line"></span>
+        <span class="skel skel-line" style="width:88%"></span>
+        <span class="skel skel-line" style="width:70%"></span>
+        <span class="skel skel-btn-lg"></span>
+      </div>
+    </div>
+    <div class="card dashboard-card">
+      <span class="skel skel-visual"></span>
+      <div class="dashboard-text">
+        <span class="skel skel-line"></span><span class="skel skel-line"></span><span class="skel skel-line"></span>
+        <span class="skel skel-line"></span><span class="skel skel-line" style="width:82%"></span><span class="skel skel-line" style="width:60%"></span>
+      </div>
+    </div>
+  </section>
+  <noscript><style>#dashboardSkeleton{display:none}#dashboardContent[hidden]{display:block}</style></noscript>
+
+  <div id="dashboardContent" hidden>
   <section class="dashboard-grid">
   <div class="card welcome-card">
     <div class="welcome-content">
@@ -343,6 +366,30 @@
   </div>
 
   </section>
+  </div>
+
+  <script>
+    /* Show the real cards as soon as the hero image (the .visual-placeholder background) is loaded.
+       Cached image => instant, so the skeleton never flashes; 4 s cap in case the image never arrives. */
+    (function () {
+      var sk = document.getElementById('dashboardSkeleton'), real = document.getElementById('dashboardContent');
+      if (!sk || !real) return;
+      var done = false;
+      function show() {
+        if (done) return; done = true;
+        sk.parentNode && sk.parentNode.removeChild(sk);
+        real.hidden = false; real.classList.add('is-visible');
+      }
+      var hero = real.querySelector('.visual-placeholder');
+      var m = hero && /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(hero).backgroundImage || '');
+      if (!m) { show(); return; }
+      var img = new Image();
+      img.onload = img.onerror = show;
+      img.src = m[1];
+      if (img.complete) show();
+      setTimeout(show, 4000);
+    })();
+  </script>
 
   <div class="footer-brand">
       <hr class="footer-divider">
@@ -368,6 +415,7 @@
   </footer> 
 </main>
 
+<script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
 </body>
 
 </html>

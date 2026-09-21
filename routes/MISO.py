@@ -57,26 +57,12 @@ def maindash_MISO():
         return redirect(url_for('home'))
     return render_template('MISO/dashboard/maindashboardMISO/html/maindashboardMISO.html', college_type='all')
 
-# dept dash
-@MISO_bp.route('/deptdashboard')
-def deptdash_MISO():
-    if 'user_id' not in session or session.get('role') != 'MISO':
-        return redirect(url_for('home'))
-    return render_template('MISO/dashboard/deptdashAA/deptdashAA.html', college_type='CAHS')
-
 # pred dash
 @MISO_bp.route('/predictivedashboard')
 def preddash_MISO():
     if 'user_id' not in session or session.get('role') != 'MISO':
         return redirect(url_for('home'))
     return render_template('MISO/dashboard/predictiondashboardAA/predictiondashboardAA.html', college_type='all')
-
-# modal dash
-@MISO_bp.route('/modaldashboard')
-def modeldash_MISO():
-    if 'user_id' not in session or session.get('role') != 'MISO':
-        return redirect(url_for('home'))
-    return render_template('MISO/dashboard/modelperformancedashAA/modelperformancedashAA.html', college_type='all')
 
 
 # Update Password

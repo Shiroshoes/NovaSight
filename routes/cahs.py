@@ -23,13 +23,6 @@ def preddash_cahs():
         return redirect(url_for('home'))
     return render_template('deans/CAHSdean/dashboard/predictiondashboardcahs.html', college_type='all')
 
-# model dash
-@cahs_bp.route('/modeldashboard')
-def modeldash_cahs():
-    if 'user_id' not in session or session.get('role') not in CAHS_ROLES:
-        return redirect(url_for('home'))
-    return render_template('deans/CAHSdean/dashboard/modelperformancedashcahs.html', college_type='all')
-
 # Profile Page (CAHS)
 @cahs_bp.route('/profile')
 def profile_cahs():

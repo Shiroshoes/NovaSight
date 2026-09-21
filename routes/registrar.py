@@ -49,13 +49,6 @@ def maindash_registrar():
         return redirect(url_for('home'))
     return render_template('registrar/dashboard/maindashboardregistrar/html/maindashboardregistrar.html', college_type='all')
 
-# dept dash
-@registrar_bp.route('/deptdashboard')
-def deptdash_registrar():
-    if 'user_id' not in session or session.get('role') != 'Registrar':
-        return redirect(url_for('home'))
-    return render_template('registrar/dashboard/deptdashregistrar/deptdashregistrar.html', college_type='CAHS')
-
 # prwd dash
 @registrar_bp.route('/predictivedashboard')
 def preddash_registrar():
@@ -63,12 +56,6 @@ def preddash_registrar():
         return redirect(url_for('home'))
     return render_template('registrar/dashboard/predictiondashboardregistrar/predictiondashboardregistrar.html', college_type='all')
 
-# model dash
-@registrar_bp.route('/modeldashboard')
-def modeldash_registrar():
-    if 'user_id' not in session or session.get('role') != 'Registrar':
-        return redirect(url_for('home'))
-    return render_template('registrar/dashboard/modelperformancedashregistrar/modelperformancedashregistrar.html', college_type='all')
 
 
 # Update Password

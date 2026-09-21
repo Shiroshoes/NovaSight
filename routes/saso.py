@@ -56,12 +56,6 @@ def maindash_saso():
         return redirect(url_for('home'))
     return render_template('saso/dashboard/maindashboardsaso/html/maindashboardsaso.html', college_type='all')
 
-# deptDashboard (SASO)
-@saso_bp.route('/deptdashboard')
-def deptdash_saso():
-    if 'user_id' not in session or session.get('role') != 'SASO':
-        return redirect(url_for('home'))
-    return render_template('saso/dashboard/deptdashSASO/deptdashSASO.html', college_type='CAHS')
 
 # prped Dashboard (SASO)
 @saso_bp.route('/predictivedashboard')
@@ -70,12 +64,6 @@ def preddash_saso():
         return redirect(url_for('home'))
     return render_template('saso/dashboard/predictiondashboardSASO/predictiondashboardSASO.html', college_type='all')
 
-# model Dashboard (SASO)
-@saso_bp.route('/modeldashboard')
-def modeldash_saso():
-    if 'user_id' not in session or session.get('role') != 'SASO':
-        return redirect(url_for('home'))
-    return render_template('saso/dashboard/modelperformancedashSASO/modelperformancedashSASO.html', college_type='all')
 
 
 # --- Common Routes (Password Update, Image Upload) ---

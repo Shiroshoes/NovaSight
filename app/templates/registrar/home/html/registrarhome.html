@@ -52,16 +52,6 @@
     <span>Dashboard</span>
     </a>
 
-    <a href="{{url_for('registrar_bp.deptdash_registrar')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
-      </svg>
-    </div>
-
-      
-    <span>Department Dashboard</span></a>
-
 
       <div>
         <hr class="sidebardivider">
@@ -77,15 +67,6 @@
     </div>
 
     <span>Prediction Analysis</span></a>
-
-    <a href="{{url_for('registrar_bp.modeldash_registrar')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
-      </svg>
-    </div>
-
-    <span>Model Performance</span></a>
 
 </div>
       <div>
@@ -179,6 +160,27 @@
 
       
 
+  <!-- loading placeholders: swapped for the real cards below once the hero image is ready -->
+  <section class="dashboard-grid skeleton-grid" id="dashboardSkeleton" aria-hidden="true">
+    <div class="card welcome-card">
+      <div class="welcome-content">
+        <span class="skel skel-title"></span>
+        <span class="skel skel-line"></span>
+        <span class="skel skel-line" style="width:70%"></span>
+        <span class="skel skel-btn-lg"></span>
+      </div>
+    </div>
+    <div class="card dashboard-card">
+      <span class="skel skel-visual"></span>
+      <div class="dashboard-text">
+        <span class="skel skel-line"></span><span class="skel skel-line"></span><span class="skel skel-line"></span>
+        <span class="skel skel-line"></span><span class="skel skel-line" style="width:82%"></span><span class="skel skel-line" style="width:60%"></span>
+      </div>
+    </div>
+  </section>
+  <noscript><style>#dashboardSkeleton{display:none}#dashboardContent[hidden]{display:block}</style></noscript>
+
+  <div id="dashboardContent" hidden>
   <section class="dashboard-grid">
   <div class="card welcome-card">
     <div class="welcome-content">
@@ -209,6 +211,30 @@
   </div>
 
   </section>
+  </div>
+
+  <script>
+    /* Show the real cards as soon as the hero image (the .visual-placeholder background) is loaded.
+       Cached image => instant, so the skeleton never flashes; 4 s cap in case the image never arrives. */
+    (function () {
+      var sk = document.getElementById('dashboardSkeleton'), real = document.getElementById('dashboardContent');
+      if (!sk || !real) return;
+      var done = false;
+      function show() {
+        if (done) return; done = true;
+        sk.parentNode && sk.parentNode.removeChild(sk);
+        real.hidden = false; real.classList.add('is-visible');
+      }
+      var hero = real.querySelector('.visual-placeholder');
+      var m = hero && /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(hero).backgroundImage || '');
+      if (!m) { show(); return; }
+      var img = new Image();
+      img.onload = img.onerror = show;
+      img.src = m[1];
+      if (img.complete) show();
+      setTimeout(show, 4000);
+    })();
+  </script>
 
   <!-- Logout Modal Structure -->
   <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
@@ -496,5 +522,6 @@
   </div>
 </div>
 <script src="{{ url_for('static', filename='js/page-video-modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
 </body>
 </html>

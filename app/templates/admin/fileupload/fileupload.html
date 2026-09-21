@@ -2,169 +2,60 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Upload File — NovaSight</title>
-  <link rel="stylesheet" href="{{url_for('static', filename='css/registrar&saso/studentaffair.css')}}">
-  <link rel="stylesheet" href="{{url_for('static', filename='css/registrar&saso/fileupload.css')}}">
-  <link rel="icon" href="{{url_for('static', filename='image/logo3.png')}}" type="image/x-icon">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/registrar&saso/studentaffair.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/registrar&saso/fileupload.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tutorial/page-video-modal.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
 </head>
 <body>
-  <!-- fixed side bar -->
-  <aside class="sidebar">
-    <nav class="pad">
-      <a href="{{ url_for('admin_bp.dashboard') }}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icon">
-            <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
-            <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
-          </svg>
-        </div>
-        <span>Home</span>
-      </a>
-  <!-- drop down dashboard -->
-      <a href="javascript:void(0)" class="menu-btn" id="dashboardToggle">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.035-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z"/>
-          </svg>
-        </div>
-        <span>Data & Analysis</span>
-        <svg id="dashboardChevronIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6" style="width:16px;margin-left:auto;">
-          <path id="dashboardChevronPath" fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
-        </svg>
-        <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
-      </a>
 
-<div class="submenu-container" id="dashboardSubmenu">
-
-      <div>
-        <hr class="sidebardivider">
+<!-- ── Sidebar (unchanged from original) ──────────────────── -->
+<aside class="sidebar" id="appSidebar" aria-label="Main navigation">
+  <nav class="pad">
+    <a href="{{ url_for('admin_bp.dashboard') }}" class="menu-btn">
+      <div class="non-active-bordericon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icon"><path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z"/><path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z"/></svg>
       </div>
-  <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Overview</p>
-
-    <a href="{{url_for('admin_bp.maindash_admin')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-      </svg>
-    </div>
-    <span>Dashboard</span>
+      <span>Home</span>
     </a>
-
-    <a href="{{url_for('admin_bp.deptdash_admin')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
-      </svg>
+    <a href="javascript:void(0)" class="menu-btn" id="dashboardToggle">
+      <div class="non-active-bordericon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon"><path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.035-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z"/></svg>
+      </div>
+      <span>Data &amp; Analysis</span>
+      <svg id="dashboardChevronIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:16px;margin-left:auto;"><path id="dashboardChevronPath" fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd"/></svg>
+      <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    </a>
+    <div class="submenu-container" id="dashboardSubmenu">
+      <div><hr class="sidebardivider"></div>
+      <p class="sidebar-section-label" style="font-size:.9rem;color:#666;">Overview</p>
+      <a href="{{ url_for('admin_bp.maindash_admin') }}" class="dash-btn"><div class="non-active-bordericondash"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg></div><span>Dashboard</span></a>
+      <div><hr class="sidebardivider"></div>
+      <p class="sidebar-section-label" style="font-size:.9rem;color:#666;">Machine Learning &amp; Prediction</p>
+      <a href="{{ url_for('admin_bp.preddash_admin') }}" class="dash-btn"><div class="non-active-bordericondash"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg></div><span>Prediction Analysis</span></a>
     </div>
-
-      
-    <span>Department Dashboard</span></a>
-
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Machine Learning & Prediction</p>
-
-    <a href="{{url_for('admin_bp.preddash_admin')}}" class="dash-btn">
-    <div  class="non-active-bordericondash">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-    </svg>
+    <div><hr class="sidebardivider"></div>
+    <p class="sidebar-section-label" style="font-size:.9rem;color:#666;">Account Panel</p>
+    <a href="{{ url_for('admin_bp.profile') }}" class="menu-btn"><div class="non-active-bordericon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon"><path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd"/></svg></div><span>Profile</span></a>
+    <a href="{{ url_for('admin_bp.help_admin') }}" class="menu-btn"><div class="non-active-bordericon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd"/></svg></div><span>Help</span></a>
+    <div><hr class="sidebardivider"></div>
+    <p class="sidebar-section-label" style="font-size:.9rem;color:#666;">Admin Panel</p>
+    <a href="{{ url_for('admin_bp.admin_page') }}" class="menu-btn"><div class="non-active-bordericon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon"><path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 0 0-1.032 0 11.209 11.209 0 0 1-7.877 3.08.75.75 0 0 0-.722.515A12.74 12.74 0 0 0 2.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 0 0 .374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 0 0-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08Zm3.094 8.016a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd"/></svg></div><span>Admin</span></a>
+    <a href="{{ url_for('admin_bp.fileupload_admin') }}" class="menu-active"><div class="active-bordericon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon"><path d="M11.47 1.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 0 1-1.06-1.06l3-3ZM11.25 7.5V15a.75.75 0 0 0 1.5 0V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z"/></svg></div><span>Upload File</span></a>
+    <div><hr class="sidebardivider"></div>
+    <a href="#" id="logoutLink" class="menu-btn"><div class="non-active-bordericon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon"><path fill-rule="evenodd" d="M16.5 3.75a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5V15a.75.75 0 0 0-1.5 0v3.75a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5.25a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3V9A.75.75 0 1 0 9 9V5.25a1.5 1.5 0 0 1 1.5-1.5h6ZM5.78 8.47a.75.75 0 0 0-1.06 0l-3 3a.75.75 0 0 0 0 1.06l3 3a.75.75 0 0 0 1.06-1.06l-1.72-1.72H15a.75.75 0 0 0 0-1.5H4.06l1.72-1.72a.75.75 0 0 0 0-1.06Z" clip-rule="evenodd"/></svg></div><span>Logout</span></a>
+    <div class="sidebar-footer">
+      <a href="{{ url_for('admin_bp.privacy_policy_admin') }}" class="btn-privacy">&bull; Privacy Policy</a>
+      <p class="copyright">&copy; 2026 NovaSight Dev Team. All rights reserved.</p>
     </div>
+  </nav>
+</aside>
 
-    <span>Prediction Analysis</span></a>
-
-    <a href="{{url_for('admin_bp.modeldash_admin')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
-      </svg>
-    </div>
-
-    <span>Model Performance</span></a>
-
-</div>
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Account Panel</p>
-      
-      <a href="{{ url_for('admin_bp.profile') }}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <span>Profile</span>
-      </a>
-
-        <a href="{{ url_for('admin_bp.help_admin')}}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <span>Help</span>
-        </a>
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Admin Panel</p>
-
-        <a href="{{ url_for('admin_bp.admin_page') }}" class="menu-btn">
-          <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 0 0-1.032 0 11.209 11.209 0 0 1-7.877 3.08.75.75 0 0 0-.722.515A12.74 12.74 0 0 0 2.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 0 0 .374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 0 0-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08Zm3.094 8.016a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-
-          <span>Admin</span>
-        </a>
-
-        <a href="{{ url_for('admin_bp.fileupload_admin') }}" class="menu-active">
-          <div class="active-bordericon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon"><path d="M11.47 1.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 0 1-1.06-1.06l3-3ZM11.25 7.5V15a.75.75 0 0 0 1.5 0V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z"/></svg></div>
-          <span>Upload File</span>
-        </a>
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-        <a href="#" id="logoutLink" class="menu-btn">
-          <div class="non-active-bordericon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-              <path fill-rule="evenodd" d="M16.5 3.75a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5V15a.75.75 0 0 0-1.5 0v3.75a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5.25a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3V9A.75.75 0 1 0 9 9V5.25a1.5 1.5 0 0 1 1.5-1.5h6ZM5.78 8.47a.75.75 0 0 0-1.06 0l-3 3a.75.75 0 0 0 0 1.06l3 3a.75.75 0 0 0 1.06-1.06l-1.72-1.72H15a.75.75 0 0 0 0-1.5H4.06l1.72-1.72a.75.75 0 0 0 0-1.06Z" clip-rule="evenodd" />
-            </svg>
-          </div>
-
-          <span>Logout</span>
-        </a>
-
-      <div class="sidebar-footer">
-        <a href="{{ url_for('admin_bp.privacy_policy_admin') }}" class="btn-privacy">
-          &bull; Privacy Policy
-        </a>
-
-        <p class="copyright">
-          &copy; 2026 NovaSight Dev Team. All rights reserved.
-        </p>
-      </div>
-    </nav>
-  </aside>
-
-
-  <main>
-
-
+<main>
   <!--header -->
         <header class="topmenu">
             <div class="brand">
@@ -202,237 +93,259 @@
             </a>
         </header>
 
-    <section class="dashboard-grid">
+  <section class="dashboard-grid">
 
+    <!-- Page title -->
+    <div class="titleUpload">
+      <h2>File Uploader</h2>
+      <p>Upload the consolidated grade-sheet workbook (.xlsx). Filename must follow the pattern <strong>2022-1 Student-Performance Dataset.xlsx</strong>. After preprocessing, review the flagged rows and confirm — CSV datasets are then separated automatically, and the prediction models retrain once enough semesters are uploaded.</p>
+      <hr class="divider">
+    </div>
 
-      <div class="titleUpload">
-        <h2>File Uploader</h2>
-        <p>Upload the consolidated grade-sheet workbook (.xlsx). The filename must include the academic year (e.g. <strong>2022-1 Student-Performance Dataset</strong>). Each file is validated, cleaned, and merged into the AI model datasets automatically.</p>
-        <hr class="divider">
+    <!-- Upload zone -->
+    <div class="upload-zone-wrap">
+      <div class="upload-zone" id="dropZone">
+        <div class="upload-zone__icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:48px;height:48px;color:#800000;"><path fill-rule="evenodd" d="M10.5 3.75a6 6 0 0 0-5.98 6.496A5.25 5.25 0 0 0 6.75 20.25H18a4.5 4.5 0 0 0 2.206-8.423 3.75 3.75 0 0 0-4.133-4.303A6.001 6.001 0 0 0 10.5 3.75Zm2.03 5.47a.75.75 0 0 0-1.06 0l-3 3a.75.75 0 1 0 1.06 1.06l1.72-1.72v4.94a.75.75 0 0 0 1.5 0v-4.94l1.72 1.72a.75.75 0 1 0 1.06-1.06l-3-3Z" clip-rule="evenodd"/></svg>
+        </div>
+        <p class="upload-zone__title">Drag &amp; drop your .xlsx file here</p>
+        <p class="upload-zone__sub">or click to browse</p>
+        <p class="upload-zone__rule">Accepted: <strong>.xlsx</strong> · e.g. <em>2022-1 Student-Performance Dataset.xlsx</em> · Max 50 MB</p>
+        <input type="file" id="fileInput" accept=".xlsx" hidden>
+        <button class="btn-upload-browse" onclick="document.getElementById('fileInput').click()">Browse File</button>
       </div>
 
+      <div class="upload-alert hidden" id="uploadAlert"></div>
 
-      <div class="upload-zone-wrap">
-        <div class="upload-zone" id="dropZone">
-          <div class="upload-zone__icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6" style="width: 48px; height: 48px; color: #800000;">
-            <path fill-rule="evenodd" d="M10.5 3.75a6 6 0 0 0-5.98 6.496A5.25 5.25 0 0 0 6.75 20.25H18a4.5 4.5 0 0 0 2.206-8.423 3.75 3.75 0 0 0-4.133-4.303A6.001 6.001 0 0 0 10.5 3.75Zm2.03 5.47a.75.75 0 0 0-1.06 0l-3 3a.75.75 0 1 0 1.06 1.06l1.72-1.72v4.94a.75.75 0 0 0 1.5 0v-4.94l1.72 1.72a.75.75 0 1 0 1.06-1.06l-3-3Z" clip-rule="evenodd" />
-          </svg>
-          </div>
-          <p class="upload-zone__title">Drag &amp; drop your .xlsx file here</p>
-          <p class="upload-zone__sub">or click to browse</p>
-          <p class="upload-zone__rule">Accepted: <strong>.xlsx</strong> · Filename must include year range (e.g. <em>2022-1 Student-Performance Dataset</em>) · Max 50 MB</p>
-          <input type="file" id="fileInput" accept=".xlsx" hidden>
-          <button class="btn-upload-browse" onclick="document.getElementById('fileInput').click()">Browse File</button>
+      <div class="pipeline-card hidden" id="pipelineCard">
+        <div class="pipeline-file">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:22px;color:#800000;flex-shrink:0"><path fill-rule="evenodd" d="M17.663 3.118c.225.015.45.032.673.05C19.876 3.298 21 4.604 21 6.109v9.642a3 3 0 0 1-3 3V16.5c0-5.922-4.576-10.775-10.384-11.217.324-1.132 1.3-2.01 2.548-2.114.224-.019.448-.036.673-.051A3 3 0 0 1 13.5 1.5H15a3 3 0 0 1 2.663 1.618ZM12 4.5A1.5 1.5 0 0 1 13.5 3H15a1.5 1.5 0 0 1 1.5 1.5H12Z" clip-rule="evenodd"/><path d="M3 8.625c0-1.036.84-1.875 1.875-1.875h.375A3.75 3.75 0 0 1 9 10.5v1.875c0 1.036.84 1.875 1.875 1.875h1.875A3.75 3.75 0 0 1 16.5 18v2.625c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625v-12Z"/><path d="M10.5 10.5a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963 5.23 5.23 0 0 0-3.434-1.279h-1.875a.375.375 0 0 1-.375-.375V10.5Z"/></svg>
+          <span id="pipelineFilename">filename.xlsx</span>
+          <span class="pipeline-size" id="pipelineSize"></span>
         </div>
-
-
-        <div class="upload-alert hidden" id="uploadAlert"></div>
-
-
-        <div class="pipeline-card hidden" id="pipelineCard">
-          <div class="pipeline-file">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6" style="width:22px;color:#800000;flex-shrink:0">
-              <path fill-rule="evenodd" d="M17.663 3.118c.225.015.45.032.673.05C19.876 3.298 21 4.604 21 6.109v9.642a3 3 0 0 1-3 3V16.5c0-5.922-4.576-10.775-10.384-11.217.324-1.132 1.3-2.01 2.548-2.114.224-.019.448-.036.673-.051A3 3 0 0 1 13.5 1.5H15a3 3 0 0 1 2.663 1.618ZM12 4.5A1.5 1.5 0 0 1 13.5 3H15a1.5 1.5 0 0 1 1.5 1.5H12Z" clip-rule="evenodd" />
-              <path d="M3 8.625c0-1.036.84-1.875 1.875-1.875h.375A3.75 3.75 0 0 1 9 10.5v1.875c0 1.036.84 1.875 1.875 1.875h1.875A3.75 3.75 0 0 1 16.5 18v2.625c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625v-12Z" />
-              <path d="M10.5 10.5a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963 5.23 5.23 0 0 0-3.434-1.279h-1.875a.375.375 0 0 1-.375-.375V10.5Z" />
-            </svg>
-            <span id="pipelineFilename">filename.xlsx</span>
-            <span class="pipeline-size" id="pipelineSize"></span>
-          </div>
-
-
-          <div class="pipeline-steps">
-            <div class="pipeline-step" id="step-validate">
-              <div class="step-dot"><span class="step-spinner"></span></div>
-              <div class="step-info">
-                <span class="step-label">Validating format</span>
-                <span class="step-desc">Checking extension, year range, and workbook structure</span>
-              </div>
-            </div>
-            <div class="pipeline-step" id="step-upload">
-              <div class="step-dot"><span class="step-spinner"></span></div>
-              <div class="step-info">
-                <span class="step-label">Saving to Unprocessed Datasets</span>
-                <span class="step-desc">File stored, duplicate check passed</span>
-              </div>
-            </div>
-            <div class="pipeline-step" id="step-clean">
-              <div class="step-dot"><span class="step-spinner"></span></div>
-              <div class="step-info">
-                <span class="step-label">Cleaning &amp; preprocessing</span>
-                <span class="step-desc">Parsing sheets, resolving INC/DROP grades, computing GWA</span>
-              </div>
-            </div>
-            <div class="pipeline-step" id="step-merge">
-              <div class="step-dot"><span class="step-spinner"></span></div>
-              <div class="step-info">
-                <span class="step-label">Merging into master dataset</span>
-                <span class="step-desc">De-duplicating and appending to Final_Merged_Student_Data.csv</span>
-              </div>
-            </div>
-            <div class="pipeline-step" id="step-models">
-              <div class="step-dot"><span class="step-spinner"></span></div>
-              <div class="step-info">
-                <span class="step-label">Rebuilding model datasets</span>
-                <span class="step-desc">Exporting 9 purpose-built CSVs for each AI model</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="pipeline-result hidden" id="pipelineResult"></div>
+        <div class="pipeline-steps">
+          <div class="pipeline-step" id="step-validate"><div class="step-dot"><span class="step-spinner"></span></div><div class="step-info"><span class="step-label">Validating format</span><span class="step-desc">Checking extension, filename pattern, and workbook structure</span></div></div>
+          <div class="pipeline-step" id="step-upload"><div class="step-dot"><span class="step-spinner"></span></div><div class="step-info"><span class="step-label">Saving file</span><span class="step-desc">Duplicate check passed · stored in Unprocessed Datasets</span></div></div>
+          <div class="pipeline-step" id="step-clean"><div class="step-dot"><span class="step-spinner"></span></div><div class="step-info"><span class="step-label">Preprocessing</span><span class="step-desc">Parsing sheets, resolving grades, computing GWA</span></div></div>
+          <div class="pipeline-step" id="step-confirm"><div class="step-dot"><span class="step-spinner"></span></div><div class="step-info"><span class="step-label">Awaiting confirmation</span><span class="step-desc">Review flagged rows then confirm or cancel</span></div></div>
+          <div class="pipeline-step" id="step-separate"><div class="step-dot"><span class="step-spinner"></span></div><div class="step-info"><span class="step-label">CSV separation</span><span class="step-desc">Building DS00–DS06 chart datasets</span></div></div>
+          <div class="pipeline-step" id="step-train"><div class="step-dot"><span class="step-spinner"></span></div><div class="step-info"><span class="step-label">Model training</span><span class="step-desc">Retraining the prediction models on all uploaded semesters</span></div></div>
         </div>
+        <div class="pipeline-result hidden" id="pipelineResult"></div>
       </div>
 
+      <!-- Auto-training result — filled by fileupload.js when a training run finishes -->
+      <div class="train-card hidden" id="trainCard" aria-live="polite"></div>
+    </div>
 
-      <div class="list-card" id="unprocessedCard">
-        <div class="list-card__header">
-          <div>
-            <h2>Unprocessed Datasets</h2>
-            <p>All uploaded raw grade-sheet files. Files here are used as the duplicate checker.</p>
+    <!-- Section tabs -->
+    <div style="margin-top:28px;">
+      <div class="section-tabs">
+        <button class="section-tab active" data-tab="tab-invalid">Files with Errors / Flags</button>
+        <button class="section-tab" data-tab="tab-training">Training CSV</button>
+        <button class="section-tab" data-tab="tab-separation">CSV Separation</button>
+        <button class="section-tab" data-tab="tab-archive">Archive</button>
+      </div>
+
+      <!-- Tab 1: Files with errors / invalid flags -->
+      <div class="tab-panel active" id="tab-invalid">
+        <div class="tbl-section" style="margin-top:20px;">
+          <div class="tbl-header">
+            <div><h3>Files with Errors or Flagged Rows</h3><p>Uploads that have null, highlight, or resolved-tier warnings from preprocessing. Click a row to view its detected flags.</p></div>
+            <button class="btn-refresh" onclick="loadInvalidTable()" title="Refresh">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd"/></svg>
+            </button>
           </div>
-          <button class="btn-refresh" onclick="loadUnprocessedList()" title="Refresh list">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:18px">
-              <path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd"/>
-            </svg>
-          </button>
-        </div>
-        <hr class="divider">
-
-
-        <div class="file-table">
-          <div class="file-table__head">
-            <span>Filename</span>
-            <span>Year</span>
-            <span>Sem</span>
-            <span>Size</span>
-            <span>Sheets</span>
-            <span>Uploaded By</span>
-            <span>Role</span>
-            <span>Uploaded At</span>
-            <span>Status</span>
-            <span>Actions</span>
-          </div>
-          <div class="file-table__body" id="unprocessedTableBody">
-            <div class="file-table__empty">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:36px;opacity:.3">
-                <path d="M19.5 21a3 3 0 0 0 3-3v-4.5a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3V18a3 3 0 0 0 3 3h15ZM1.5 10.146V6a3 3 0 0 1 3-3h5.379a2.25 2.25 0 0 1 1.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 0 1 3 3v1.146A4.483 4.483 0 0 0 19.5 9h-15a4.483 4.483 0 0 0-3 1.146Z" />
-              </svg>
-              <p>No files uploaded yet.</p>
-            </div>
+          <div class="tbl-wrap">
+            <table class="data-table">
+              <thead><tr><th>Filename</th><th>AY</th><th>Semester</th><th>Accuracy</th><th>Null</th><th>Highlight</th><th>Resolved</th><th>Uploaded</th><th>Actions</th></tr></thead>
+              <tbody id="invalidTableBody" aria-busy="true"><tr class="skel-row"><td><span class="sr-only">Loading…</span><span class="skel" style="width:72%"></span></td><td><span class="skel" style="width:29%"></span></td><td><span class="skel" style="width:32%"></span></td><td><span class="skel" style="width:39%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:61%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:63%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:39%"></span></td><td><span class="skel" style="width:46%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:26%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:52%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:70%"></span></td><td><span class="skel" style="width:27%"></span></td><td><span class="skel" style="width:30%"></span></td><td><span class="skel" style="width:53%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:28%"></span></td><td><span class="skel" style="width:59%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:61%"></span></td><td><span class="skel" style="width:34%"></span></td><td><span class="skel" style="width:37%"></span></td><td><span class="skel" style="width:44%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:50%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:68%"></span></td><td><span class="skel" style="width:25%"></span></td><td><span class="skel" style="width:28%"></span></td><td><span class="skel" style="width:51%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:26%"></span></td><td><span class="skel" style="width:57%"></span></td><td><span class="skel skel--btn"></span></td></tr></tbody>
+            </table>
           </div>
         </div>
       </div>
 
-
-      <div class="list-card" id="processedCard">
-        <div class="list-card__header">
-          <div>
-            <h2>Processed Datasets</h2>
-            <p>Cleaned and merged files ready for the AI models.</p>
+      <!-- Tab 2: Training CSV -->
+      <div class="tab-panel" id="tab-training">
+        <div class="tbl-section" style="margin-top:20px;">
+          <div class="tbl-header">
+            <div><h3>Training CSV — Processed Datasets</h3><p>Confirmed uploads stored as DS01 (kpi_student) — the primary ML training source. Click a row to view its CSV.</p></div>
+            <button class="btn-refresh" onclick="loadTrainingTable()" title="Refresh">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd"/></svg>
+            </button>
           </div>
-          <button class="btn-refresh" onclick="loadProcessedList()" title="Refresh list">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:18px">
-              <path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd"/>
-            </svg>
-          </button>
-        </div>
-        <hr class="divider">
-
-
-        <h3 class="list-subsection-title">Successfully Processed Uploads</h3>
-        <div class="file-table">
-          <div class="file-table__head processed-head">
-            <span>Filename</span>
-            <span>Year</span>
-            <span>Sem</span>
-            <span>Rows</span>
-            <span>Uploaded By</span>
-            <span>Uploaded At</span>
-            <span>Output CSV</span>
-            <span>Actions</span>
-          </div>
-          <div class="file-table__body" id="processedTableBody">
-            <div class="file-table__empty">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:36px;opacity:.3">
-                <path d="M19.5 21a3 3 0 0 0 3-3v-4.5a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3V18a3 3 0 0 0 3 3h15ZM1.5 10.146V6a3 3 0 0 1 3-3h5.379a2.25 2.25 0 0 1 1.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 0 1 3 3v1.146A4.483 4.483 0 0 0 19.5 9h-15a4.483 4.483 0 0 0-3 1.146Z" />
-              </svg>
-              <p>No processed files yet.</p>
-            </div>
-          </div>
-        </div>
-
-
-        <h3 class="list-subsection-title" style="margin-top:28px;">Model Dataset Files <span class="list-badge" id="modelFileBadge">—</span></h3>
-        <div class="file-table">
-          <div class="file-table__head model-head">
-            <span>Model</span>
-            <span>Academic Year</span>
-            <span>Semester</span>
-            <span>CSV File</span>
-            <span>Accuracy</span>
-          </div>
-          <div class="file-table__body" id="modelFilesBody">
-            <div class="file-table__empty">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:36px;opacity:.3">
-                <path fill-rule="evenodd" d="M2.25 2.25a.75.75 0 0 0 0 1.5H3v10.5a3 3 0 0 0 3 3h1.21l-1.172 3.513a.75.75 0 0 0 1.424.474l.329-.987h8.418l.33.987a.75.75 0 0 0 1.422-.474l-1.17-3.513H18a3 3 0 0 0 3-3V3.75h.75a.75.75 0 0 0 0-1.5H2.25Zm6.04 16.5.5-1.5h6.42l.5 1.5H8.29Zm7.46-12a.75.75 0 0 0-1.5 0v6a.75.75 0 0 0 1.5 0v-6Zm-3 2.25a.75.75 0 0 0-1.5 0v3.75a.75.75 0 0 0 1.5 0V9Zm-3 2.25a.75.75 0 0 0-1.5 0v1.5a.75.75 0 0 0 1.5 0v-1.5Z" clip-rule="evenodd" />
-              </svg>
-              <p>No model files generated yet.</p>
-            </div>
+          <div class="tbl-wrap">
+            <table class="data-table">
+              <thead><tr><th>AY</th><th>Semester</th><th>Student Rows</th><th>Training Rows</th><th>Excluded</th><th>Accuracy</th><th>Uploaded</th><th>Actions</th></tr></thead>
+              <tbody id="trainingTableBody" aria-busy="true"><tr class="skel-row"><td><span class="sr-only">Loading…</span><span class="skel" style="width:72%"></span></td><td><span class="skel" style="width:29%"></span></td><td><span class="skel" style="width:32%"></span></td><td><span class="skel" style="width:39%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:63%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:39%"></span></td><td><span class="skel" style="width:46%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:26%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:70%"></span></td><td><span class="skel" style="width:27%"></span></td><td><span class="skel" style="width:30%"></span></td><td><span class="skel" style="width:53%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:28%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:61%"></span></td><td><span class="skel" style="width:34%"></span></td><td><span class="skel" style="width:37%"></span></td><td><span class="skel" style="width:44%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:68%"></span></td><td><span class="skel" style="width:25%"></span></td><td><span class="skel" style="width:28%"></span></td><td><span class="skel" style="width:51%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:26%"></span></td><td><span class="skel skel--btn"></span></td></tr></tbody>
+            </table>
           </div>
         </div>
       </div>
 
-    </section>
+      <!-- Tab 3: CSV Separation -->
+      <div class="tab-panel" id="tab-separation">
+        <div class="tbl-section" style="margin-top:20px;">
+          <div class="tbl-header">
+            <div><h3>CSV Separation — Chart Datasets</h3><p>DS00–DS06 datasets separated by AY and semester. Each row is one chart dataset for one semester. Click to view its CSV.</p></div>
+            <button class="btn-refresh" onclick="loadSeparationTable()" title="Refresh">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+          <div class="tbl-wrap">
+            <table class="data-table">
+              <thead><tr><th>Dataset</th><th>Name</th><th>AY</th><th>Semester</th><th>Rows</th><th>Accuracy</th><th>Actions</th></tr></thead>
+              <tbody id="separationTableBody" aria-busy="true"><tr class="skel-row"><td><span class="sr-only">Loading…</span><span class="skel" style="width:72%"></span></td><td><span class="skel" style="width:29%"></span></td><td><span class="skel" style="width:32%"></span></td><td><span class="skel" style="width:39%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:63%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:39%"></span></td><td><span class="skel" style="width:46%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:26%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:70%"></span></td><td><span class="skel" style="width:27%"></span></td><td><span class="skel" style="width:30%"></span></td><td><span class="skel" style="width:53%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:61%"></span></td><td><span class="skel" style="width:34%"></span></td><td><span class="skel" style="width:37%"></span></td><td><span class="skel" style="width:44%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:68%"></span></td><td><span class="skel" style="width:25%"></span></td><td><span class="skel" style="width:28%"></span></td><td><span class="skel" style="width:51%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel skel--btn"></span></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
-    <div id="deleteConfirmModal" class="modal-overlay" style="display:none;">
-      <div class="logout-card">
-        <h1 class="brand-name">NovaSight</h1>
-        <p class="confirmation-text" id="deleteConfirmText">Do you want to delete this?</p>
-        <div class="button-group">
-          <button id="confirmDeleteBtn" class="btn btn-primary">Delete</button>
-          <button id="cancelDeleteBtn"  class="btn btn-primary">Back</button>
+      <!-- Tab 4: Archive -->
+      <div class="tab-panel" id="tab-archive">
+        <div class="tbl-section" style="margin-top:20px;">
+          <div class="tbl-header">
+            <div><h3>Archive</h3><p>Archived semesters. Restore brings all CSV blobs back to active tables. Blocked if the same AY+semester was re-uploaded.</p></div>
+            <button class="btn-refresh" onclick="loadArchiveTable()" title="Refresh">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+          <div class="tbl-wrap">
+            <table class="data-table">
+              <thead><tr><th>Filename</th><th>AY</th><th>Semester</th><th>Student Rows</th><th>Archived By</th><th>Archived At</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="archiveTableBody" aria-busy="true"><tr class="skel-row"><td><span class="sr-only">Loading…</span><span class="skel" style="width:72%"></span></td><td><span class="skel" style="width:29%"></span></td><td><span class="skel" style="width:32%"></span></td><td><span class="skel" style="width:39%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:63%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:39%"></span></td><td><span class="skel" style="width:46%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:26%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:70%"></span></td><td><span class="skel" style="width:27%"></span></td><td><span class="skel" style="width:30%"></span></td><td><span class="skel" style="width:53%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:28%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:61%"></span></td><td><span class="skel" style="width:34%"></span></td><td><span class="skel" style="width:37%"></span></td><td><span class="skel" style="width:44%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel skel--btn"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel" style="width:68%"></span></td><td><span class="skel" style="width:25%"></span></td><td><span class="skel" style="width:28%"></span></td><td><span class="skel" style="width:51%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:24%"></span></td><td><span class="skel" style="width:26%"></span></td><td><span class="skel skel--btn"></span></td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
 
-    <div id="logoutModal" class="modal-overlay" style="display:none;">
-      <div class="logout-card">
-        <h1 class="brand-name">NovaSight</h1>
-        <p class="confirmation-text">Are you sure you want to logout?</p>
-        <div class="button-group">
-          <button id="confirmLogoutBtn" class="btn btn-primary">Logout</button>
-          <button id="cancelLogoutBtn"  class="btn btn-primary">Back</button>
-        </div>
-      </div>
-    </div>
-    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+  </section>
 
+  <!-- Footer -->
   <div class="footer-brand">
-      <hr class="footer-divider">
-
-      <div class="footer-brand-content">
-          <img src="{{ url_for('static', filename='image/logo.png') }}"
-              alt="NovaSight Logo"
-              class="footer-logo">
-
-          <div class="footer-brand-text">
-              <h3>NovaSight</h3>
-              <p>Machine Learning-Based Student Performance Prediction System</p>
-              <small>2026 Bataan Peninsula State University</small>
-          </div>
-      </div>
+    <hr class="footer-divider">
+    <div class="footer-brand-content">
+      <img src="{{ url_for('static', filename='image/logo.png') }}" alt="NovaSight Logo" class="footer-logo">
+      <div class="footer-brand-text"><h3>NovaSight</h3><p>Machine Learning-Based Student Performance Prediction System</p><small>2026 Bataan Peninsula State University</small></div>
+    </div>
   </div>
-  
-    <footer class="footer">
-      <div class="footer-content">
-        <span class="page-label">Page/</span><span class="page-name">Upload File</span>
-      </div>
-    </footer>
-    <script src="{{ url_for('static', filename='js/fileupload.js') }}"></script>
-  </main>
+  <footer class="footer"><div class="footer-content"><span class="page-label">Page/</span><span class="page-name">Upload File</span></div></footer>
 
-<!-- Floating Page Tutorial Video Modal -->
+  <script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/fileupload.js') }}" defer></script>
+</main>
+
+<!-- ── Preprocessing confirmation modal ───────────────────── -->
+<div id="preprocModal" class="preproc-modal" role="dialog" aria-modal="true" aria-label="Preprocessing results">
+  <div class="preproc-card">
+    <div class="preproc-head">
+      <h2 id="preprocTitle">Preprocessing Complete</h2>
+      <p class="preproc-meta" id="preprocMeta">Review flagged rows before confirming.</p>
+      <div class="preproc-summary" id="preprocSummary"></div>
+      <div class="preproc-tabs" id="preprocTabBar"></div>
+    </div>
+    <div class="preproc-body" id="preprocBody">
+      <div class="skel-warn" aria-busy="true"><span class="sr-only">Loading warnings…</span><div class="skel-warn-row"><span class="skel" style="width:78%"></span><span class="skel" style="width:92%"></span><span class="skel" style="width:70%"></span></div><div class="skel-warn-row"><span class="skel" style="width:67%"></span><span class="skel" style="width:75%"></span><span class="skel" style="width:63%"></span></div><div class="skel-warn-row"><span class="skel" style="width:56%"></span><span class="skel" style="width:58%"></span><span class="skel" style="width:56%"></span></div><div class="skel-warn-row"><span class="skel" style="width:75%"></span><span class="skel" style="width:81%"></span><span class="skel" style="width:49%"></span></div><div class="skel-warn-row"><span class="skel" style="width:64%"></span><span class="skel" style="width:64%"></span><span class="skel" style="width:67%"></span></div><div class="skel-warn-row"><span class="skel" style="width:53%"></span><span class="skel" style="width:87%"></span><span class="skel" style="width:60%"></span></div></div>
+    </div>
+    <div class="preproc-footer">
+      <button class="btn-cancel-modal" id="preprocCancelBtn">Cancel/discard this upload</button>
+      <button class="btn-confirm" id="preprocConfirmBtn">Save &amp; separate CSVs</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Discard-upload confirm modal (replaces the old window.confirm()) ── -->
+<div id="discardUploadModal" class="archive-modal" role="dialog" aria-modal="true" aria-labelledby="discardUploadTitle">
+  <div class="archive-card">
+    <h2 id="discardUploadTitle">Cancel this upload?</h2>
+    <p id="discardUploadText">The file and all preprocessed data will be removed. This can't be undone.</p>
+    <div class="archive-btns">
+      <button class="btn-cancel-modal" id="discardUploadBackBtn">Back</button>
+      <button class="btn-confirm" id="discardUploadConfirmBtn">Discard upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CSV viewer modal ────────────────────────────────────── -->
+<div id="csvModal" class="csv-modal" role="dialog" aria-modal="true" aria-label="CSV viewer">
+  <div class="csv-card">
+    <div class="csv-head">
+      <div class="csv-titles">
+        <h3 id="csvModalTitle">CSV Viewer</h3>
+        <p class="csv-sub" id="csvSubtitle"></p>
+      </div>
+      <div class="csv-head-right">
+        <input type="text" class="csv-search" id="csvSearch" placeholder="Search all columns…">
+        <button type="button" class="btn-page btn-clear-filters hidden" id="csvClearFilters">Clear filters</button>
+        <button class="btn-dl" id="csvToggleViewBtn" style="display:none"></button>
+        <button class="btn-dl" id="csvDlBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:14px"><path fill-rule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd"/></svg>
+          Download
+        </button>
+        <button class="btn-close-modal" id="csvCloseBtn" aria-label="Close">&times;</button>
+      </div>
+    </div>
+    <div class="csv-meta" id="csvMeta"></div>
+    <div class="csv-wrap" id="csvWrap"><div class="csv-loading">Loading CSV…</div></div>
+    <div class="csv-pager">
+      <span id="csvPagerInfo">—</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn-page" id="csvPrevBtn">← Prev</button>
+        <button class="btn-page" id="csvNextBtn">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Archive confirm modal ───────────────────────────────── -->
+<div id="archiveConfirmModal" class="archive-modal" role="dialog" aria-modal="true">
+  <div class="archive-card">
+    <h2>Archive this semester?</h2>
+    <p id="archiveConfirmText">This will move all CSV data for this semester to the archive. You can restore it later unless the same AY+semester is re-uploaded.</p>
+    <div class="archive-btns">
+      <button class="btn-cancel-modal" id="archiveCancelBtn">Back</button>
+      <button class="btn-confirm" id="archiveDoBtn">Archive</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Restore confirm modal ───────────────────────────────── -->
+<div id="restoreConfirmModal" class="archive-modal" role="dialog" aria-modal="true" aria-labelledby="restoreConfirmTitle">
+  <div class="archive-card">
+    <h2 id="restoreConfirmTitle">Restore this semester?</h2>
+    <p id="restoreConfirmText">This will bring the semester back from the archive.</p>
+    <div class="archive-btns">
+      <button class="btn-cancel-modal" id="restoreCancelBtn">Back</button>
+      <button class="btn-confirm" id="restoreDoBtn">Restore</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Logout + delete modals (unchanged) ─────────────────── -->
+<div id="deleteConfirmModal" class="modal-overlay" style="display:none;">
+  <div class="logout-card">
+    <h1 class="brand-name">NovaSight</h1>
+    <p class="confirmation-text" id="deleteConfirmText">Do you want to delete this?</p>
+    <div class="button-group">
+      <button id="confirmDeleteBtn" class="btn btn-primary">Delete</button>
+      <button id="cancelDeleteBtn"  class="btn btn-primary">Back</button>
+    </div>
+  </div>
+</div>
+<div id="logoutModal" class="modal-overlay" style="display:none;">
+  <div class="logout-card">
+    <h1 class="brand-name">NovaSight</h1>
+    <p class="confirmation-text">Are you sure you want to logout?</p>
+    <div class="button-group">
+      <button id="confirmLogoutBtn" class="btn btn-primary">Logout</button>
+      <button id="cancelLogoutBtn"  class="btn btn-primary">Back</button>
+    </div>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+
+<!-- Tutorial modal (unchanged) -->
 <div id="pageTutorialModal" class="page-tutorial-overlay"
      data-video-src="{{ url_for('static', filename='video/tutorial/Fileupload1.mp4') }}"
      data-video-title="File Upload: Uploading Student Data"

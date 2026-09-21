@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login/login.css') }}">
   <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/login-responsive.css') }}">
 </head>
 <body>
 
@@ -18,7 +19,7 @@
                 <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
                 </svg>
 
-            <snap>Home</snap>
+            <span>Home</span>
             </a>
 
             <a href="/help" class="nav-link">
@@ -27,7 +28,7 @@
             </svg>
 
 
-            <snap>Help</snap></a>
+            <span>Help</span></a>
         </nav>
 
         <br>
@@ -66,13 +67,13 @@
                 <form action="/login" method="POST" class="login-form">
                     <div class="input-field">
                         <label>Email</label>
-                        <input type="email" name="account" placeholder="Account@bpsu.edu.ph" required>
+                        <input type="email" name="account" placeholder="Account@bpsu.edu.ph" autocomplete="username" required>
                     </div>
 
                     <div class="input-field">
                         <label>Password</label>
                         <div style="position: relative; display: flex; align-items: center;">
-                            <input type="password" name="password" id="password" placeholder="Your password" required style="width: 100%; padding-right: 40px;">
+                            <input type="password" name="password" id="password" placeholder="Your password" autocomplete="current-password" required style="width: 100%; padding-right: 40px;">
                             
                             <!-- Toggle Button -->
                             <button type="button" id="togglePassword" style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: #666; width: 24px; height: 24px; padding: 0;">

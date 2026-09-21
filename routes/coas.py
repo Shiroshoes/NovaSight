@@ -23,13 +23,6 @@ def preddash_coas():
         return redirect(url_for('home'))
     return render_template('deans/COASDean/dashboard/predictiondashboardcoas.html', college_type='all')
 
-# model dash
-@coas_bp.route('/modeldashboard')
-def modeldash_coas():
-    if 'user_id' not in session or session.get('role') != 'CoASdean':
-        return redirect(url_for('home'))
-    return render_template('deans/COASDean/dashboard/modelperformancedashcoas.html', college_type='all')
-
 # Profile Page (COAS Dean)
 @coas_bp.route('/profile')
 def profile_coas():

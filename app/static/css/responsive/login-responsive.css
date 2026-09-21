@@ -1,0 +1,58 @@
+/* ==========================================================================
+   login-responsive.css — the Login page on tablet and phone
+   --------------------------------------------------------------------------
+   Load AFTER css/login/login.css. Desktop is unchanged; at ≤ 900px the two
+   halves (maroon brand panel | form) stack: brand on top, form underneath,
+   and the Home / Help pill becomes a plain bar.
+   ========================================================================== */
+@media (max-width: 900px) {
+  html, body { height: auto; min-height: 100%; }
+  body { overflow: auto; }
+
+  .login-container { flex-direction: column; height: auto; min-height: 100vh; }
+  .login-container > br { display: none; }                          /* the stray <br> left a white gap under the nav */
+  @supports (height: 100dvh) { .login-container { min-height: 100dvh; } }
+
+  /* Home / Help */
+  .floating-nav {
+    position: static; transform: none; left: auto; top: auto;
+    order: 0; width: 100%; justify-content: center; gap: 36px;
+    padding: 14px 20px; border-radius: 0; border: 0;
+  }
+  .nav-link { font-size: .95rem; padding: 6px 4px; }
+
+  /* brand panel */
+  .login-left { flex: 0 0 auto; order: 1; padding: 28px 20px 34px; }
+  .logo-box-large { width: 104px; height: 104px; border-radius: 26px; margin-bottom: 14px; }
+  .brand-title h1 { font-size: 1.35rem; letter-spacing: 2px; line-height: 1.25; }
+  .brand-title span { font-size: .75rem; }
+  .watermark { display: none; }
+
+  /* form */
+  .login-right { order: 2; flex: 1 0 auto; justify-content: center; padding: 30px 20px 24px; }   /* centred on tablets */
+  .form-container { max-width: 440px; }
+  .form-header h2 { font-size: 1.6rem; }
+  .form-header p { margin-bottom: 26px; font-size: .92rem; }
+  .input-field { margin-bottom: 20px; }
+  .input-field input { font-size: 16px; padding: 14px 18px; }       /* 16px stops iOS zooming on focus */
+
+  /* credits: normal flow instead of pinned to the bottom */
+  .bottom-info { position: static; width: 100%; max-width: 440px; margin-top: 32px; padding: 0; }
+  .page-indicator { text-align: center; }
+}
+@media (max-width: 600px) {
+  .login-right { justify-content: flex-start; }                       /* phones: start at the top so the keyboard never hides the form */
+}
+@media (max-width: 480px) {
+  .floating-nav { gap: 28px; padding: 12px 16px; }
+  .login-left { padding: 22px 16px 26px; }
+  .logo-box-large { width: 84px; height: 84px; border-radius: 22px; margin-bottom: 10px; }
+  .brand-title h1 { font-size: 1.1rem; letter-spacing: 1.5px; }
+  .login-right { padding: 24px 16px 20px; }
+  .form-header h2 { font-size: 1.4rem; }
+}
+/* landscape phones: keep the form reachable */
+@media (max-width: 900px) and (max-height: 480px) {
+  .login-left { padding: 14px 20px; }
+  .logo-box-large { width: 64px; height: 64px; margin-bottom: 6px; }
+}

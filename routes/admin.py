@@ -77,23 +77,12 @@ def maindash_admin():
         return redirect(url_for('home'))
     return render_template('admin/dashboard/maindashboardadmin/html/maindashboardadmin.html', college_type='all')
 
-@admin_bp.route('/deptdash')
-def deptdash_admin():
-    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
-        return redirect(url_for('home'))
-    return render_template('admin/dashboard/deptdashAdmin/deptdashAdmin.html', college_type='all')
 
 @admin_bp.route('/preddash')
 def preddash_admin():
     if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
     return render_template('admin/dashboard/predictiondashboardAdmin/predictiondashboardAdmin.html', college_type='all')
-
-@admin_bp.route('/modeldash')
-def modeldash_admin():
-    if 'user_id' not in session or session.get('role') != 'Academic_Affair':
-        return redirect(url_for('home'))
-    return render_template('admin/dashboard/modelperformancedashAdmin/modelperformancedashAdmin.html', college_type='all')
 
 # ----------------- Privacy Policy Page ----------------
 @admin_bp.route('/privacypolicyAdmin')

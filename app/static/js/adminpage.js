@@ -540,4 +540,117 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // ---------------- RESET DATABASE MODAL ----------------
+    const resetDbBtn       = document.getElementById('resetDbBtn');
+    const resetDbModal     = document.getElementById('resetDbModal');
+    const confirmResetBtn  = document.getElementById('confirmResetBtn');
+    const cancelResetBtn   = document.getElementById('cancelResetBtn');
+    const resetPasswordInput = document.getElementById('resetPasswordInput');
+    const resetPwdError    = document.getElementById('resetPwdError');
+    const resetPwdToggle   = document.getElementById('resetPwdToggle');
+    const resetEyeOpen     = document.getElementById('resetEyeOpen');
+    const resetEyeClosed   = document.getElementById('resetEyeClosed');
+    const resetSuccessModal = document.getElementById('resetSuccessModal');
+    const resetErrorModal  = document.getElementById('resetErrorModal');
+    const resetErrorText   = document.getElementById('resetErrorText');
+
+    // Password eye toggle inside the reset modal
+    if (resetPwdToggle && resetPasswordInput) {
+        resetPwdToggle.addEventListener('click', () => {
+            const isHidden = resetPasswordInput.type === 'password';
+            resetPasswordInput.type = isHidden ? 'text' : 'password';
+            if (resetEyeOpen)   resetEyeOpen.style.display   = isHidden ? 'none' : '';
+            if (resetEyeClosed) resetEyeClosed.style.display = isHidden ? '' : 'none';
+        });
+    }
+
+    // Open reset modal
+    if (resetDbBtn) {
+        resetDbBtn.addEventListener('click', () => {
+            if (resetPasswordInput) {
+                resetPasswordInput.value = '';
+                resetPasswordInput.type  = 'password';
+                resetPasswordInput.style.borderColor = '';
+            }
+            if (resetEyeOpen)   resetEyeOpen.style.display   = '';
+            if (resetEyeClosed) resetEyeClosed.style.display = 'none';
+            if (resetPwdError)  { resetPwdError.textContent = ''; resetPwdError.style.display = 'none'; }
+            showModal(resetDbModal);
+        });
+    }
+
+    // Close on backdrop click
+    wireOverlayOutsideClick(resetDbModal);
+
+    // Cancel
+    if (cancelResetBtn) {
+        cancelResetBtn.addEventListener('click', () => hideModal(resetDbModal));
+    }
+
+    // Confirm — verify password then call API
+    if (confirmResetBtn) {
+        confirmResetBtn.addEventListener('click', async () => {
+            const pwd = resetPasswordInput ? resetPasswordInput.value.trim() : '';
+            if (!pwd) {
+                if (resetPwdError) {
+                    resetPwdError.textContent = 'Please enter your password.';
+                    resetPwdError.style.display = 'block';
+                }
+                if (resetPasswordInput) resetPasswordInput.style.borderColor = '#ff4d4d';
+                return;
+            }
+
+            confirmResetBtn.disabled = true;
+            confirmResetBtn.textContent = 'Resetting…';
+            if (resetPwdError) { resetPwdError.textContent = ''; resetPwdError.style.display = 'none'; }
+
+            try {
+                const res = await fetch('/api/reset-database', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ confirm: 'RESET', password: pwd }),
+                });
+                const data = await res.json();
+
+                if (data.ok) {
+                    hideModal(resetDbModal);
+                    showModal(resetSuccessModal);
+                    setTimeout(() => { hideModal(resetSuccessModal); location.reload(); }, 2500);
+                } else {
+                    // Wrong password or other error — show inline
+                    const msg = data.error || 'Reset failed. Please try again.';
+                    if (resetPwdError) {
+                        resetPwdError.textContent = msg;
+                        resetPwdError.style.display = 'block';
+                    }
+                    if (resetPasswordInput) {
+                        resetPasswordInput.style.borderColor = '#ff4d4d';
+                        resetPasswordInput.value = '';
+                        resetPasswordInput.focus();
+                    }
+                }
+            } catch (err) {
+                if (resetPwdError) {
+                    resetPwdError.textContent = 'Network error. Please try again.';
+                    resetPwdError.style.display = 'block';
+                }
+            } finally {
+                confirmResetBtn.disabled = false;
+                confirmResetBtn.textContent = 'Reset';
+            }
+        });
+    }
+
+    // Allow pressing Enter in the password field to trigger confirm
+    if (resetPasswordInput) {
+        resetPasswordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && confirmResetBtn) confirmResetBtn.click();
+        });
+        // Clear error styling on new input
+        resetPasswordInput.addEventListener('input', () => {
+            resetPasswordInput.style.borderColor = '';
+            if (resetPwdError) { resetPwdError.textContent = ''; resetPwdError.style.display = 'none'; }
+        });
+    }
 });

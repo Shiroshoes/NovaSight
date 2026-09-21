@@ -1,0 +1,52 @@
+/* ==========================================================================
+   pdf-export.css — the "Download PDF" preview dialog (see pdf-export.js)
+   Reuses the dashboard's .kpi-table-modal shell; only the content is new.
+   ========================================================================== */
+.pdf-modal-card { width: 1080px; max-height: 92vh; }
+.pdf-body-wrap {
+  display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 22px;
+  overflow-y: auto; padding: 18px 26px 10px;
+}
+.pdf-options { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.pdf-count { font-size: 16px; color: #111; padding: 12px 14px; background: #fdf2f2; border: 1px solid #f3c9c9; border-radius: 12px; }
+.pdf-count b { color: #800000; font-size: 20px; }
+.pdf-label { font-size: 12px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; display: block; }
+.pdf-checks { display: flex; flex-direction: column; gap: 6px; }
+.pdf-check { display: flex; align-items: center; gap: 9px; font-size: 14px; color: #111; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 10px; cursor: pointer; background: #fff; }
+.pdf-check:hover { border-color: #800000; }
+.pdf-check input { accent-color: #800000; width: 16px; height: 16px; flex: 0 0 auto; }
+.pdf-check em { margin-left: auto; font-size: 11px; color: #d97706; font-style: normal; font-weight: 600; }
+.pdf-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.pdf-field { display: flex; flex-direction: column; min-width: 0; flex: 1 1 120px; }
+.pdf-field .gf-select { width: 100%; padding: 9px 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: #fff; }
+.pdf-seg { display: flex; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+.pdf-seg button { flex: 1; padding: 9px 8px; border: 0; background: #fff; font-size: 13px; font-weight: 600; color: #4b5563; cursor: pointer; }
+.pdf-seg button + button { border-left: 1px solid #e5e7eb; }
+.pdf-seg button.active { background: #800000; color: #fff; }
+.pdf-pages { display: flex; flex-direction: column; gap: 6px; }
+.pdf-pageitem { font-size: 13px; color: #374151; padding: 8px 10px; background: #f9fafb; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.pdf-pageitem b { color: #800000; }
+.pdf-pageitem em { font-size: 11px; color: #d97706; font-style: normal; font-weight: 600; }
+.pdf-hint { font-size: 12.5px; color: #6b7280; margin: 0; line-height: 1.45; }
+
+.pdf-preview-col { min-width: 0; }
+.pdf-preview { position: relative; height: 62vh; min-height: 320px; overflow: auto; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 12px; }
+.pdf-sizer { position: relative; overflow: hidden; }
+.pdf-sizer iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: top left; background: #e5e7eb; pointer-events: none; }
+.pdf-busy { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 10px;
+  background: rgba(229, 231, 235, .85); color: #6b7280; font-size: 13px; z-index: 2; }
+.pdf-busy.on { display: flex; }
+
+.pdf-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 26px 20px; border-top: 1px solid #f0ece8; }
+.pdf-footer .btn-apply { padding: 11px 22px; font-size: 14px; }
+.pdf-footer .btn-apply:disabled { opacity: .5; cursor: not-allowed; }
+
+/* phones / small tablets: options on top, preview underneath */
+@media (max-width: 860px) {
+  .pdf-modal-card { max-height: 94vh; }
+  .pdf-body-wrap { grid-template-columns: minmax(0, 1fr); padding: 12px 14px 8px; gap: 14px; }
+  .pdf-preview { height: 46vh; }
+  .pdf-footer { padding: 12px 14px 16px; }
+  .pdf-footer .btn-apply { flex: 1; }
+  .pdf-count { font-size: 15px; }
+}

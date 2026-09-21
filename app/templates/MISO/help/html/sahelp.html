@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{{url_for('static', filename='css/aa/AcadAffair_Help.css')}}">
     <link rel="icon" href="{{url_for('static', filename='image/logo3.png')}}" type="image/x-icon">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/responsive.css') }}">
 </head>
 <body>
   <!-- fixed side bar -->
@@ -51,16 +52,6 @@
     <span>Dashboard</span>
     </a>
 
-    <a href="{{url_for('MISO_bp.deptdash_MISO')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
-      </svg>
-    </div>
-
-      
-    <span>Department Dashboard</span></a>
-
 
       <div>
         <hr class="sidebardivider">
@@ -76,15 +67,6 @@
     </div>
 
     <span>Prediction Analysis</span></a>
-
-    <a href="{{url_for('MISO_bp.modeldash_MISO')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
-      </svg>
-    </div>
-
-    <span>Model Performance</span></a>
 
 </div>
       <div>
@@ -221,16 +203,18 @@
                 Manage your account information, update your profile
                 picture, and change your password from the Profile page.
             </p>
-            
+
             <div class="help-topic">
               <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 17v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
               <h3>Upload File</h3>
             </div>
             <p>
                 Upload the official student grade Excel file from the
-                <strong>Upload File</strong> page. NovaSight automatically
-                processes the dataset, updates the database, and
-                regenerates prediction results across every dashboard.
+                <strong>Upload File</strong> page, one file per semester.
+                NovaSight cleans and stores each file, and once at least
+                <strong>6 semesters</strong> (3 school years) have been
+                uploaded it retrains its prediction models and refreshes
+                every dashboard automatically.
             </p>
 
             <h4>Accepted File</h4>
@@ -283,6 +267,15 @@
                 </span>
               </div>
 
+            <h4>After an Upload</h4>
+            <ul>
+                <li>A file that was already uploaded is detected as a duplicate.</li>
+                <li>When processing finishes, a training summary lists every
+                    model as <strong>Trained</strong>, <strong>Skipped</strong>
+                    or <strong>Error</strong>.</li>
+                <li>The more semesters you upload, the further ahead the
+                    Prediction Analysis charts can look.</li>
+            </ul>
 
         </div>
         <div class="help-col">
@@ -296,16 +289,55 @@
               <h3>Dashboards</h3>
             </div>
             <p>
-                The <strong>Main Dashboard</strong> gives a campus-wide
-                view across all colleges. Each college dashboard narrows
-                every chart down to that college alone. Every dashboard
-                has a mode toggle: <strong>Historical mode</strong> shows
-                real, already-recorded data, while
-                <strong>Prediction mode</strong> switches the same charts
-                to NovaSight's forecast for future years, look for the
-                dashed trend line and the "Predicted" label.
+                Two dashboards are available from the sidebar:
             </p>
+            <ul>
+                <li><strong>Dashboard</strong> (Overview) shows
+                    <strong>recorded data only</strong>: the KPI card, Risk
+                    Heatmap, Gender &amp; Status Breakdown and Top Hardest
+                    Subjects.</li>
+                <li><strong>Prediction Analysis</strong> (Machine Learning
+                    &amp; Prediction) shows <strong>forecasts only</strong>:
+                    the KPI card, Top Hardest Subjects, GWA Trend and
+                    At-Risk Forecast.</li>
+            </ul>
 
+            <div class="help-topic">
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                </svg>
+              </span>
+              <h3>Reading Prediction Analysis</h3>
+            </div>
+            <p>
+                Every value on this page is a forecast built from the
+                semesters already uploaded. The note at the top tells you
+                how many semesters the model learned from.
+            </p>
+            <ul>
+                <li><strong>KPI card</strong> - always <strong>1 semester
+                    ahead</strong>. Each badge compares the forecast with the
+                    last recorded semester.</li>
+                <li><strong>Top Hardest Subjects</strong> (Bar Chart and
+                    Ranked Cards) - the <strong>next semester</strong>,
+                    compared with each subject's last recorded offering. The
+                    gray bar is that earlier offering and the &#9650; / &#9660;
+                    badge is the change (red = harder, green = easier). Only
+                    subjects normally offered in that semester (1st or 2nd)
+                    are listed. <strong>Grade Trend</strong> follows each
+                    subject across recorded terms and into the forecast.</li>
+                <li><strong>GWA Trend</strong> and <strong>At-Risk
+                    Forecast</strong> - solid lines are recorded semesters;
+                    dashed lines and the shaded band are the forecast. GWA
+                    uses the Philippine scale, so 1.00 (best) is at the top
+                    and a line moving up means grades are improving.</li>
+                <li><strong>How far ahead</strong> - the charts look 2
+                    semesters ahead once 6 semesters are uploaded, and the
+                    range grows automatically as more semesters are added.
+                    Use the <strong>Forecast horizon</strong> in a card's
+                    filter to shorten it.</li>
+            </ul>
 
             <div class="help-topic">
               <span class="help-icon-badge">
@@ -313,16 +345,49 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" />
               </svg>
               </span>
-              <h3>Chart Mode &amp; Table Mode</h3>
+              <h3>Card Tools</h3>
             </div>
             <p>
-                Every dashboard has a 3-dot menu (⋮) in the top-right corner
-                of the View Mode card. <strong>Chart Mode</strong> is the default
-                visual view with charts and graphs; <strong>Table Mode</strong>
-                swaps every chart for a plain data table showing the exact same
-                numbers which is useful for reading precise figures or copying data out
-                of the dashboard. The KPI cards and the Model Performance card
-                look the same in either mode.
+                Every dashboard card has the same icons in its top-right
+                corner:
+            </p>
+            <ul>
+                <li><strong>Table</strong> - opens the numbers behind the
+                    chart as a table you can search, sort, filter and
+                    download as CSV. Clicking the chart does the same.</li>
+                <li><strong>Filter</strong> - pick a department, course,
+                    year level and more, then press <strong>Apply</strong>.
+                    Filters belong to their own card.</li>
+                <li><strong>Refresh</strong> - puts that card's filters back
+                    to their defaults.</li>
+                <li><strong>Expand</strong> - shows the card full screen.
+                    Press <strong>Esc</strong> to close it.</li>
+            </ul>
+            <p>
+                <strong>Download PDF</strong> (top right of a dashboard) opens a
+                preview first. Choose which charts to include, the paper size
+                and the orientation, and see how many pages the PDF will have
+                before you download it. Only the charts are printed. In the
+                print window that opens next, choose <strong>Save as PDF</strong>.
+            </p>
+
+            <div class="help-topic">
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                </svg>
+              </span>
+              <h3>Using NovaSight on a Phone or Tablet</h3>
+            </div>
+            <p>
+                On a tablet or phone the sidebar is hidden to give the
+                dashboards more room. Tap the <strong>&#9776;</strong>
+                button in the header (or swipe right from the left edge) to
+                open it; tap outside it, press <strong>&#10005;</strong>, or
+                swipe left to close it. Filters open as a panel at the
+                bottom of the screen, wide tables scroll sideways, and on a
+                phone each chart's description sits behind an
+                <strong>About this chart</strong> button.
             </p>
 
             <div class="help-topic">
@@ -331,19 +396,15 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
                 </svg>
               </span>
-              <h3>Model Performance &amp; Accuracy</h3>
+              <h3>Model Training Results</h3>
             </div>
             <p>
-                Every dashboard includes a <strong>Model Performance &amp;
-                Accuracy</strong> card showing how well NovaSight’s underlying
-                machine learning models are currently performing, using
-                statistics such as R² and RMSE. Each model is labeled
-                <strong>Trained</strong>, <strong>Skipped</strong>, or
-                <strong>Error</strong>, so you can see at a glance whether a
-                forecast on the page is backed by a reliable model or should be
-                read with caution.
+                After each upload, a training summary shows every model
+                labeled <strong>Trained</strong>, <strong>Skipped</strong>
+                (not enough data yet), or <strong>Error</strong> (the message
+                explains what went wrong), so you can tell at a glance
+                whether a forecast is backed by a trained model.
             </p>
-
             <p>
                 NovaSight is built for decision support, not evaluation.
                 Predictions are meant to help flag student cohorts who
@@ -357,43 +418,52 @@
               <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" fill="currentColor"/></svg></span>
               <h3>Common Issues</h3>
             </div>
-
             <details>
                 <summary>My Excel file won't upload.</summary>
                 <p>
-                    Confirm the file is .xlsx, that the file name matches
-                    the required format exactly, and that it isn't still
-                    open in Excel.
+                    Confirm the file is .xlsx, that the file name matches the required format exactly, and that it isn't still open in Excel.
                 </p>
             </details>
 
             <details>
                 <summary>No prediction appears after uploading.</summary>
                 <p>
-                    Verify that the uploaded dataset contains complete
-                    student information and valid grades before
-                    processing. Predictions also need at least a few
-                    years of historical data to generate a reliable trend.
+                    The models need at least 6 uploaded semesters with complete student information and valid grades, and a finished training run. Check the training summary: every model should read Trained.
+                </p>
+            </details>
+
+            <details>
+                <summary>Prediction Analysis says &ldquo;No prediction model yet&rdquo;.</summary>
+                <p>
+                    Fewer than 6 semesters have been uploaded, or training has not finished yet. Upload the remaining semesters and check the training summary.
+                </p>
+            </details>
+
+            <details>
+                <summary>Top Hardest Subjects is empty on Prediction Analysis.</summary>
+                <p>
+                    The Bar Chart and Ranked Cards only list subjects that are normally offered in the semester being predicted (1st or 2nd). Clear the filters to widen the list, and check that the subject model shows Trained in the training summary.
                 </p>
             </details>
 
             <details>
                 <summary>A chart shows a flat line or an unrealistic jump.</summary>
                 <p>
-                    Forecast charts need enough historical years to
-                    detect a reliable trend. With only a few years of
-                    data, a forecast can look unusually flat or steep. As more semesters are uploaded,
-                    this smooths out as more historical data is uploaded.
+                    Forecasts need enough history to detect a trend. With only a few semesters a forecast can look unusually flat or steep; it smooths out as more semesters are uploaded.
+                </p>
+            </details>
+
+            <details>
+                <summary>Cards show gray shapes instead of charts.</summary>
+                <p>
+                    Those placeholders appear while a card is loading. If they stay for more than a few seconds, refresh the page; if a message replaces them, it explains what is missing.
                 </p>
             </details>
 
             <details>
                 <summary>I can't log in.</summary>
                 <p>
-                    Double-check your email and password, and confirm
-                    Caps Lock is off. If you still can't sign in, contact
-                    the system administrator to verify your account is
-                    active.
+                    Double-check your email and password, and confirm Caps Lock is off. If you still can't sign in, contact the system administrator to verify your account is active.
                 </p>
             </details>
 
@@ -453,5 +523,6 @@
     </div>
   </footer> 
   </main>
+<script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
 </body>
 </html>

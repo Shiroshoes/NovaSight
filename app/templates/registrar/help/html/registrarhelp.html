@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{{url_for('static', filename='css/registrar&saso/registrarsasohelp.css')}}">
     <link rel="icon" href="{{url_for('static', filename='image/logo3.png')}}" type="image/x-icon">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/responsive.css') }}">
 </head>
 <body>
   <!-- fixed side bar -->
@@ -51,16 +52,6 @@
     <span>Dashboard</span>
     </a>
 
-    <a href="{{url_for('registrar_bp.deptdash_registrar')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
-      </svg>
-    </div>
-
-      
-    <span>Department Dashboard</span></a>
-
 
       <div>
         <hr class="sidebardivider">
@@ -76,15 +67,6 @@
     </div>
 
     <span>Prediction Analysis</span></a>
-
-    <a href="{{url_for('registrar_bp.modeldash_registrar')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
-      </svg>
-    </div>
-
-    <span>Model Performance</span></a>
 
 </div>
       <div>
@@ -184,63 +166,13 @@
       </div>
 
       <p class="help-intro">
-          This Help Center provides guidance for Registrar in
-          accessing student academic information, monitoring performance
-          dashboards, and viewing NovaSight prediction insights.
+          This Help Center provides guidance for Registrar in accessing student academic information, monitoring performance dashboards, and viewing NovaSight prediction insights.
       </p>
 
       <hr>
 
       <div class="help-columns">
-
         <div class="help-col">
-
-          <!-- Student Records -->
-          <div class="help-topic">
-            <span class="help-icon-badge">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" />
-              </svg>
-            </span>
-            <h3>Chart Mode &amp; Table Mode</h3>
-          </div>
-          <p>
-              Every dashboard has a 3-dot menu (⋮) in the top-right corner
-              of the View Mode card. <strong>Chart Mode</strong> is the default
-              visual view with charts and graphs; <strong>Table Mode</strong>
-              swaps every chart for a plain data table showing the exact same
-              numbers which is useful for reading precise figures or copying data out
-              of the dashboard. The KPI cards and the Model Performance card
-              look the same in either mode.
-          </p>
-
-          <div class="help-topic">
-            <span class="help-icon-badge">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-              </svg>
-            </span>
-            <h3>Model Performance &amp; Accuracy</h3>
-          </div>
-          <p>
-              Every dashboard includes a <strong>Model Performance &amp;
-              Accuracy</strong> card showing how well NovaSight’s underlying
-              machine learning models are currently performing, using
-              statistics such as R² and RMSE. Each model is labeled
-              <strong>Trained</strong>, <strong>Skipped</strong>, or
-              <strong>Error</strong>, so you can see at a glance whether a
-              forecast on the page is backed by a reliable model or should be
-              read with caution.
-          </p>
-
-          <p>
-              NovaSight is built for decision support, not evaluation.
-              Predictions are meant to help flag students or cohorts who
-              may benefit from additional academic support. They are not
-              a performance score for any college, department, or dean,
-              and are never used to rank or compare colleges against each
-              other.
-          </p>
 
           <div class="help-topic">
             <span class="help-icon-badge">
@@ -248,30 +180,20 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" />
               </svg>
             </span>
-
             <h3>Student Records</h3>
           </div>
-
-
           <p>
               Registrar users can review summarized student academic
-              information, monitor performance trends, and access
-              academic insights generated by NovaSight.
+              information, monitor performance trends, and access academic
+              insights generated by NovaSight.
           </p>
-
-
           <h4>Available Information</h4>
-
           <ul>
-              <li>Student performance summaries</li>
-              <li>Academic performance trends</li>
-              <li>College and program performance overview</li>
-              <li>Prediction-based academic insights</li>
+              <li>Enrollment and status summaries (regular / irregular, dropped, INC, failed)</li>
+              <li>Risk heatmap by course and year level</li>
+              <li>Gender and status breakdown by college</li>
+              <li>Hardest subjects, GWA trends and prediction-based insights</li>
           </ul>
-
-
-
-          <!-- Dashboards -->
           <div class="help-topic">
             <span class="help-icon-badge">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
@@ -281,75 +203,140 @@
             <h3>Dashboards</h3>
           </div>
           <p>
-              The Registrar Dashboard provides an overview of academic
-              performance across colleges and programs. Historical and
-              prediction modes allow users to compare actual records
-              with forecasted trends.
+              Two dashboards are available from the sidebar:
           </p>
-
           <ul>
-
-              <li>
-                <strong>Historical Mode</strong> -
-                Shows recorded academic performance data.
-              </li>
-
-              <li>
-                <strong>Prediction Mode</strong> -
-                Displays future academic forecasts generated by
-                NovaSight.
-              </li>
-
+              <li><strong>Dashboard</strong> (Overview) shows
+                  <strong>recorded data only</strong>: the KPI card, Risk
+                  Heatmap, Gender &amp; Status Breakdown and Top Hardest
+                  Subjects.</li>
+              <li><strong>Prediction Analysis</strong> (Machine Learning
+                  &amp; Prediction) shows <strong>forecasts only</strong>:
+                  the KPI card, Top Hardest Subjects, GWA Trend and
+                  At-Risk Forecast.</li>
           </ul>
-
-
+          <p>
+              Student records are always shown as anonymized IDs, never by
+              name, and the dashboards show aggregates only.
+          </p>
+          <div class="help-topic">
+            <span class="help-icon-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+              </svg>
+            </span>
+            <h3>Reading Prediction Analysis</h3>
+          </div>
+          <p>
+              Every value on the Prediction Analysis page is a forecast built
+              from the semesters already uploaded. The note at the top tells
+              you how many semesters the model learned from.
+          </p>
+          <ul>
+              <li><strong>KPI card</strong> - always <strong>1 semester
+                  ahead</strong>. Each badge compares the forecast with the
+                  last recorded semester.</li>
+              <li><strong>Top Hardest Subjects</strong> (Bar Chart and
+                  Ranked Cards) - the <strong>next semester</strong>,
+                  compared with each subject's last recorded offering. The
+                  gray bar is that earlier offering and the &#9650; / &#9660;
+                  badge is the change (red = harder, green = easier).
+                  <strong>Grade Trend</strong> follows each subject across
+                  recorded terms and into the forecast.</li>
+              <li><strong>GWA Trend</strong> and <strong>At-Risk
+                  Forecast</strong> - solid lines are recorded semesters;
+                  dashed lines and the shaded band are the forecast. GWA
+                  uses the Philippine scale, so 1.00 (best) is at the top
+                  and a line moving up means grades are improving.</li>
+              <li><strong>How far ahead</strong> - the charts look 2
+                  semesters ahead once 6 semesters are uploaded, and the
+                  range grows automatically as more semesters are added.</li>
+          </ul>
+          <p>
+              NovaSight is built for decision support, not evaluation.
+              Predictions are meant to help flag student cohorts who may
+              benefit from additional academic support. They are not a
+              performance score for any college, department, or dean, and
+              are never used to rank or compare colleges against each other.
+          </p>
         </div>
-
-
-
         <div class="help-col">
 
-
-          <!-- Reports -->
+          <div class="help-topic">
+            <span class="help-icon-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" />
+              </svg>
+            </span>
+            <h3>Card Tools</h3>
+          </div>
+          <p>
+              Every dashboard card has the same icons in its top-right
+              corner:
+          </p>
+          <ul>
+              <li><strong>Table</strong> - opens the numbers behind the
+                  chart as a table you can search, sort, filter and
+                  download as CSV. Clicking the chart does the same.</li>
+              <li><strong>Filter</strong> - pick a department, course,
+                  year level and more, then press <strong>Apply</strong>.
+                  Filters belong to their own card.</li>
+              <li><strong>Refresh</strong> - puts that card's filters back
+                  to their defaults.</li>
+              <li><strong>Expand</strong> - shows the card full screen.
+                  Press <strong>Esc</strong> to close it.</li>
+          </ul>
+          <p>
+              <strong>Download PDF</strong> (top right of a dashboard) opens a
+                preview first. Choose which charts to include, the paper size
+                and the orientation, and see how many pages the PDF will have
+                before you download it. Only the charts are printed. In the
+                print window that opens next, choose <strong>Save as PDF</strong>.
+          </p>
           <div class="help-topic">
             <span class="help-icon-badge">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
               </svg>
             </span>
-
             <h3>Academic Reports</h3>
           </div>
-
-
           <p>
-              NovaSight reports summarize academic performance trends
-              and prediction results to assist Registrar personnel in
-              reviewing institutional academic outcomes.
+              NovaSight summarizes academic performance trends and
+              prediction results to assist Registrar personnel in reviewing
+              institutional academic outcomes. Use <strong>Download
+              PDF</strong> to produce a chart-only report of a dashboard.
           </p>
-
-
-
-          <!-- Profile -->
+          <div class="help-topic">
+            <span class="help-icon-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+              </svg>
+            </span>
+            <h3>Using NovaSight on a Phone or Tablet</h3>
+          </div>
+          <p>
+              On a tablet or phone the sidebar is hidden to give the
+              dashboards more room. Tap the <strong>&#9776;</strong>
+              button in the header (or swipe right from the left edge) to
+              open it; tap outside it, press <strong>&#10005;</strong>, or
+              swipe left to close it. Filters open as a panel at the bottom
+              of the screen, wide tables scroll sideways, and on a phone
+              each chart's description sits behind an <strong>About this
+              chart</strong> button.
+          </p>
           <div class="help-topic">
             <span class="help-icon-badge">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
               </svg>
             </span>
-
             <h3>Profile</h3>
           </div>
-
-
           <p>
               Manage your account information, update your profile
               picture, and change your password from the Profile page.
           </p>
-
-
-
-          <!-- Common Issues -->
           <div class="help-topic">
             <span class="help-icon-badge">
 
@@ -364,51 +351,62 @@
               </svg>
 
             </span>
-
             <h3>Common Issues</h3>
           </div>
-
-
           <details>
               <summary>Academic information is not displayed.</summary>
               <p>
-                  Verify that your account has the correct access
-                  permissions and that academic data has already been
-                  processed.
+                  Verify that your account has the correct access permissions and that academic data has already been processed.
               </p>
           </details>
-
-
           <details>
               <summary>No prediction results appear.</summary>
               <p>
-                  Prediction requires sufficient historical academic
-                  information before NovaSight can generate forecasts.
+                  Prediction requires at least 6 uploaded semesters. Until then the Prediction Analysis page explains that no model is available yet.
               </p>
           </details>
-
-
           <details>
               <summary>The dashboard shows unexpected trends.</summary>
               <p>
-                  Forecast results are based on historical patterns.
-                  Sudden changes in academic performance may affect
-                  predictions.
+                  Forecast results are based on historical patterns. Sudden changes in academic performance may affect predictions.
               </p>
           </details>
-
-
+          <details>
+              <summary>Prediction Analysis says &ldquo;No prediction model yet&rdquo;.</summary>
+              <p>
+                  The prediction models need at least 6 uploaded semesters and a finished training run. Ask MISO or the Academic Affairs to confirm the data has been uploaded.
+              </p>
+          </details>
+          <details>
+              <summary>Top Hardest Subjects is empty.</summary>
+              <p>
+                  The Bar Chart and Ranked Cards only list subjects that are normally offered in the semester being predicted (1st or 2nd). Clear the card's filters to widen the list.
+              </p>
+          </details>
+          <details>
+              <summary>The numbers changed after a new upload.</summary>
+              <p>
+                  Forecasts are recalculated from every uploaded semester each time new data arrives, so values move slightly. That is expected.
+              </p>
+          </details>
+          <details>
+              <summary>Cards show gray shapes instead of charts.</summary>
+              <p>
+                  Those placeholders appear while a card is loading. If they stay for more than a few seconds, refresh the page.
+              </p>
+          </details>
+          <details>
+              <summary>The sidebar is missing on my phone.</summary>
+              <p>
+                  Tap the &#9776; button at the top-left of the header to open it.
+              </p>
+          </details>
           <details>
               <summary>I cannot log in.</summary>
               <p>
-                  Check your email and password. Contact the system
-                  administrator if the problem continues.
+                  Check your email and password. Contact the system administrator if the problem continues.
               </p>
           </details>
-
-
-
-          <!-- Assistance -->
           <div class="help-topic">
             <span class="help-icon-badge">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
@@ -417,19 +415,18 @@
             </span>
             <h3>Need Assistance?</h3>
           </div>
-            <p>
-                If the problem persists, please contact the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=miso@bpsu.edu.ph" target="_blank">NovaSight
-                system administrator</a> or the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=jieperdio23@bpsu.edu.ph" target="_blank">development team</a> for further
-                assistance.
-            </p>
+          <p>
+              If the problem persists, please contact the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=miso@bpsu.edu.ph" target="_blank">NovaSight
+            system administrator</a> or the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=jieperdio23@bpsu.edu.ph" target="_blank">development team</a> for further
+              assistance.
+          </p>
 
         </div>
-
       </div>
 
     </div>
   </div>
-</section>
+  </section>
 
   <!-- Logout Modal Structure -->
   <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
@@ -466,5 +463,6 @@
     </div>
   </footer> 
   </main>
+<script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
 </body>
 </html>
