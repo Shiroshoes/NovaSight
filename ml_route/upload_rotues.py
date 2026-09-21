@@ -4,6 +4,7 @@ import time
 import threading
 import traceback
 from datetime import datetime
+from decimal import Decimal
 
 from flask import Blueprint, request, jsonify, session, render_template, current_app, send_file
 from werkzeug.utils import secure_filename
@@ -92,6 +93,26 @@ def _safe_stored_name(user_id: int, original: str) -> str:
 
 def _canonical_name(filename: str) -> str:
     return filename.replace(' ', '_')
+
+
+def _json_safe(value):
+    """Decimal -> str (what Flask >= 2.2 does by itself). Older Flask versions
+    raise "Object of type Decimal is not JSON serializable" for MySQL DECIMAL /
+    SUM() columns, which turns list endpoints into a 500 as soon as a row exists."""
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+def _api_error(where: str, exc: Exception, status: int = 500):
+    """Log the full traceback to the server log and return the reason as JSON,
+    so the browser's Network tab shows what actually failed."""
+    current_app.logger.exception("[upload_routes] %s failed", where)
+    return jsonify({'error': f"{type(exc).__name__}: {exc}", 'where': where}), status
 
 
 # ── Background workers ─────────────────────────────────────────────────────
@@ -479,10 +500,20 @@ def api_upload_dataset():
     # Content validation
     try:
         from openpyxl import load_workbook
+    except ImportError as exc:
+        current_app.logger.exception("[upload_routes] openpyxl is not installed")
+        return jsonify({'ok': False, 'error': (
+            "The server is missing the <code>openpyxl</code> package, so uploaded "
+            "workbooks cannot be read. Install it (<code>pip install openpyxl</code>) "
+            "and restart the app."
+        )}), 500
+    try:
         wb = load_workbook(f.stream, read_only=True)
         sheet_count = len(wb.sheetnames)
         wb.close()
-    except Exception:
+    except Exception as exc:
+        current_app.logger.warning("[upload_routes] could not open %r as a workbook: %s: %s",
+                                   f.filename, type(exc).__name__, exc)
         return jsonify({'ok': False, 'error': (
             "This file could not be opened as a valid Excel workbook. "
             "It may be corrupted, or not actually an .xlsx file."
@@ -743,9 +774,9 @@ def api_uploads_with_warnings():
                 HAVING (null_count + highlight_count + resolved_count) > 0
                 ORDER BY u.uploaded_at DESC
             """)).fetchall()
-        return jsonify([dict(r._mapping) for r in rows])
+        return jsonify(_json_safe([dict(r._mapping) for r in rows]))
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _api_error('/api/uploads-with-warnings', e)
 
 
 @upload_bp.route('/api/training-csv-list')
@@ -771,9 +802,9 @@ def api_training_csv_list():
                   AND u.is_deleted   = 0
                 ORDER BY s.academic_year DESC, s.semester DESC
             """)).fetchall()
-        return jsonify([dict(r._mapping) for r in rows])
+        return jsonify(_json_safe([dict(r._mapping) for r in rows]))
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _api_error('/api/training-csv-list', e)
 
 
 @upload_bp.route('/api/model-datasets-list')
@@ -1066,14 +1097,18 @@ def api_model_performance():
 
 @upload_bp.route('/api/unprocessed-list')
 def api_unprocessed_list():
-    records = (
-        UploadedDataset.query
-        .filter(UploadedDataset.status != 'failed')
-        .filter_by(is_deleted=False)
-        .order_by(UploadedDataset.uploaded_at.desc())
-        .all()
-    )
-    return jsonify([r.to_dict() for r in records])
+    try:
+        records = (
+            UploadedDataset.query
+            .filter(UploadedDataset.status != 'failed')
+            .filter_by(is_deleted=False)
+            .order_by(UploadedDataset.uploaded_at.desc())
+            .all()
+        )
+        return jsonify(_json_safe([r.to_dict() for r in records]))
+    except Exception as e:
+        db.session.rollback()
+        return _api_error('/api/unprocessed-list', e)
 
 
 @upload_bp.route('/api/processed-list')
