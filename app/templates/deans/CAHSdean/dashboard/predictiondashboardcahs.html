@@ -9,7 +9,6 @@
   <link rel="stylesheet" href="{{url_for('static', filename='css/deans/preddashDean.css')}}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-  <link rel="stylesheet" href="{{url_for('static', filename='css/shared/dashboard-shared.css')}}">
   <style>.print-header { display: none; }</style>
   <link rel="stylesheet" href="{{url_for('static', filename='css/print/dashboard-print.css')}}">
     <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
@@ -174,6 +173,42 @@
         <button class="btn-action" id="btnDownloadPdf" title="Download as PDF">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:15px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5ZM10 8a.75.75 0 0 1 .75.75v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75A.75.75 0 0 1 10 8Z" clip-rule="evenodd"/></svg>
           Download PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Global filter bar: applies to every card's chart at once ─────────── -->
+    <div class="global-filter-bar" id="globalFilterBar">
+      <div class="gfb-label-wrap">
+        <span class="gfb-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:14px"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z" clip-rule="evenodd"/></svg>
+        </span>
+        <span class="gfb-title">Global Filters</span>
+      </div>
+      <div class="gfb-fields">
+        <div class="gf-group">
+          <label class="gf-label">Department</label>
+          <select class="gf-select" id="globalDept"><option value="">All</option></select>
+        </div>
+        <div class="gf-group">
+          <label class="gf-label">Course</label>
+          <select class="gf-select" id="globalCourse"><option value="">All</option></select>
+        </div>
+        <div class="gf-group">
+          <label class="gf-label">Year Level</label>
+          <select class="gf-select" id="globalYearLevel">
+            <option value="">All</option>
+            <option value="1">1st</option>
+            <option value="2">2nd</option>
+            <option value="3">3rd</option>
+            <option value="4">4th</option>
+          </select>
+        </div>
+      </div>
+      <div class="gfb-actions">
+        <button class="btn-apply" id="globalBtnApply" title="Apply these filters to every chart">Apply to All</button>
+        <button class="btn-icon" id="globalBtnReset" title="Reset every chart to its default filters">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z" clip-rule="evenodd"/></svg>
         </button>
       </div>
     </div>
@@ -718,6 +753,21 @@
   </footer> 
   </main>
 <script src="{{ url_for('static', filename='js/college-lock.js') }}"></script>
+<script>
+  // Tells global-filter.js which per-card Department/Course/Year Level
+  // selects and Apply/Reset buttons to keep in sync with the bar at the top.
+  // Horizon is deliberately left out — that stays a per-chart control.
+  window.GLOBAL_FILTER_CONFIG = {
+    fields: ['dept', 'course', 'yearLevel'],
+    cards: [
+      { dept: 'kpiDept',  course: 'kpiCourse',  yearLevel: 'kpiYearLevel',  apply: 'kpiBtnApply',  reset: 'kpiBtnReset'  },
+      { dept: 'hsDept',   course: 'hsCourse',   yearLevel: 'hsYearLevel',   apply: 'hsBtnApply',   reset: 'hsBtnReset'   },
+      { dept: 'gwaDept',  course: 'gwaCourse',  yearLevel: 'gwaYearLevel',  apply: 'gwaBtnApply',  reset: 'gwaBtnReset'  },
+      { dept: 'riskDept', course: 'riskCourse', yearLevel: 'riskYearLevel', apply: 'riskBtnApply', reset: 'riskBtnReset' }
+    ]
+  };
+</script>
+<script src="{{ url_for('static', filename='js/global-filter.js') }}"></script>
 <script src="{{ url_for('static', filename='js/prediction-dash.js') }}?v=4"></script>
 <script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/pdf-export.js') }}" defer></script>

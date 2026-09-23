@@ -50,7 +50,7 @@ def help_ccst():
 
 # privacy policy
 @ccst_bp.route('/privacy-policy')
-def privacy_policy_CCSTDean():
+def privacy_policy_CCSTdean():
     if 'user_id' not in session or session.get('role') != 'CCSTdean':
         return redirect(url_for('home'))
     return render_template('deans/CCSTDean/privacypolCCST/privacypolicyCCST.html')

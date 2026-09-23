@@ -49,7 +49,7 @@ def help_coas():
 
 # privacy policy
 @coas_bp.route('/privacy-policy')
-def privacy_policy_COASDean():
+def privacy_policy_CoASdean():
     if 'user_id' not in session or session.get('role') != 'CoASdean':
         return redirect(url_for('home'))
     return render_template('deans/COASDean/privacypolCoAS/privacypolicyCoAS.html')

@@ -77,6 +77,7 @@
 @media print {
   body { display: block; height: auto; overflow: visible; background: #fff; }
   .sidebar, .kpi-header-actions, .btn-action, .dash-actions,
+  .global-filter-bar,
   .kpi-filter-popover, .kpi-table-modal, .fullscreen-backdrop,
   .footer, .footer-brand, .sub-tabs .sub-tab:not(.active) { display: none !important; }
   main { margin: 0; height: auto; overflow: visible; }

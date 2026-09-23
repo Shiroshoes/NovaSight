@@ -499,6 +499,7 @@ def api_upload_dataset():
 
     # Content validation
     try:
+        import io
         from openpyxl import load_workbook
     except ImportError as exc:
         current_app.logger.exception("[upload_routes] openpyxl is not installed")
@@ -508,7 +509,7 @@ def api_upload_dataset():
             "and restart the app."
         )}), 500
     try:
-        wb = load_workbook(f.stream, read_only=True)
+        wb = load_workbook(io.BytesIO(f.stream.read()), read_only=True)
         sheet_count = len(wb.sheetnames)
         wb.close()
     except Exception as exc:

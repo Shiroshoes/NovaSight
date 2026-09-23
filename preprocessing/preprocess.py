@@ -1210,14 +1210,26 @@ def _flatten_records(records: list[dict], warn: WarningCollector) -> pd.DataFram
 def finalize_gwa(df: pd.DataFrame, warn: WarningCollector) -> pd.DataFrame:
     """Runs AFTER the catalog step. A student whose GWA is still empty
     here is one the catalog step did not settle (no --catalog, or one of
-    their subject codes isn't in the catalog). Two outcomes:
+    their subject codes isn't in the catalog).
 
-      • NO numeric grade at all (puro DRP/INC/W/NGA/UDR o blangko) ->
-        nothing to sum, so GWA = 0.0 exactly as the registrar shows it.
-        This is accurate, not invalid: the student is identified
-        (GWA_Source), kept, and stays in training.
-      • they DO have numeric grades -> the plain (UNWEIGHTED) average is
-        used as a stop-gap, clearly labelled and warned about.
+    Three-gate check — in order:
+
+      Gate 1 — No numeric grades at all (puro DRP/INC/W/NGA/UDR o blangko)
+               → GWA_Unweighted is None → nothing to sum → MISSING.
+
+      Gate 2 — Has numeric grades but unweighted average falls OUTSIDE
+               the Philippine grade range (1.00–5.00)
+               → result is not a valid GWA → MISSING.
+
+      Gate 3 — Status subjects OUTNUMBER numeric ones
+               (e.g. 1 numeric grade + 4 INC)
+               → average of the few passing grades is misleadingly high
+               → MISSING.
+
+      Passes all three → use the unweighted average as a clearly-labelled
+      fallback. Result is confirmed a valid Philippine grade value (1.00–5.00)
+      and numeric grades are the majority, so it is the best approximation
+      available without the catalog's credit units.
     """
     still_missing = df["GWA"].isna()
     if not still_missing.any():
@@ -1225,21 +1237,62 @@ def finalize_gwa(df: pd.DataFrame, warn: WarningCollector) -> pd.DataFrame:
 
     for key, group in df[still_missing].groupby("_Student_Key", sort=False):
         unweighted = group["GWA_Unweighted"].iloc[0]
+
+        # ── Gate 1: no numeric grades at all ─────────────────────────
         if pd.isna(unweighted):
-            # No grades at all — can't compute any GWA; mark MISSING.
-            # Student stays in training (same as the catalog path).
-            course_catalog_checker.mark_no_summable_gwa(df, group.index, key, warn, key)
-        else:
-            df.loc[group.index, "GWA"] = unweighted
-            df.loc[group.index, "GWA_Source"] = "Unweighted average (fallback)"
+            course_catalog_checker.mark_no_summable_gwa(
+                df, group.index, key, warn, key
+            )
+            continue
+
+        # ── Gate 2: result outside Philippine grade range ─────────────
+        if not (GRADE_MIN <= unweighted <= GRADE_MAX):
+            course_catalog_checker.mark_no_summable_gwa(
+                df, group.index, key, warn, key
+            )
             warn.add(
-                "GWA fallback (unweighted average)",
-                f"No GWA in col T and credit-weighted GWA cannot be computed (no --catalog, "
-                f"may subject na wala sa catalog, o kulang ang units sa catalog) — pansamantalang "
-                f"ginamit ang unweighted average ({unweighted}); hindi ito katumbas ng "
-                f"credit-weighted GWA, pakisuri",
+                "GWA out of range → MISSING",
+                f"Student '{key}': computed unweighted average = {unweighted} "
+                f"— outside valid Philippine grade range ({GRADE_MIN}–{GRADE_MAX}). "
+                f"Hindi maaaring maging GWA; namarkahan bilang MISSING.",
                 key,
             )
+            continue
+
+        # ── Gate 3: status subjects outnumber numeric ones ────────────
+        # group["Grade"] is the parsed numeric grade column — NaN for any
+        # subject that carried a status (DRP/INC/UDR/W/NGA/CRD/FAILED).
+        total_subjs   = len(group)
+        numeric_subjs = int(group["Grade"].notna().sum())
+        status_subjs  = total_subjs - numeric_subjs
+
+        if status_subjs > numeric_subjs:
+            course_catalog_checker.mark_no_summable_gwa(
+                df, group.index, key, warn, key
+            )
+            warn.add(
+                "GWA not summable (majority non-numeric)",
+                f"Student '{key}': {numeric_subjs}/{total_subjs} subjects lang "
+                f"ang may numeric grade — {status_subjs} ay INC/DRP/UDR/W/NGA. "
+                f"Ang average ng iilang numeric grade ay hindi mapagkakatiwalaan "
+                f"bilang GWA; namarkahan bilang MISSING.",
+                key,
+            )
+            continue
+
+        # ── Passes all gates: use unweighted average as fallback ──────
+        df.loc[group.index, "GWA"] = unweighted
+        df.loc[group.index, "GWA_Source"] = "Unweighted average (fallback)"
+        warn.add(
+            "GWA fallback (unweighted average)",
+            f"Student '{key}': walang GWA sa col T at hindi ma-compute ang "
+            f"credit-weighted GWA (no catalog, or may subject na wala sa catalog). "
+            f"Unweighted average ng {numeric_subjs}/{total_subjs} numeric grade(s) "
+            f"ang ginamit ({unweighted:.4f}). Valid Philippine grade value ito "
+            f"pero hindi katumbas ng credit-weighted GWA — pakisuri.",
+            key,
+        )
+
     return df
 
 
@@ -2082,8 +2135,13 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     )
     trend["Avg_GWA"] = trend["Avg_GWA"].round(2)
     trend["Std_GWA"] = trend["Std_GWA"].round(2)
+    # Singleton groups (Student_Cnt = 1) produce NaN from .std() — fill
+    # with 0.0 (zero spread is correct for a group of one, not missing data).
+    trend["Std_GWA"] = trend["Std_GWA"].fillna(0.0)
     save(trend, "05_gwa_trend_timeseries_gwa_trend_chart.csv",
-         accuracy=_pct_valid(trend, ["Avg_GWA", "Std_GWA"]),
+         # Std_GWA excluded from accuracy check: 0.0 for singletons is by
+         # design, not a data gap — Avg_GWA alone reflects completeness.
+         accuracy=_pct_valid(trend, ["Avg_GWA"]),
          student_count_col="Student_Cnt")
 
     # 06 – INC forecast cohort

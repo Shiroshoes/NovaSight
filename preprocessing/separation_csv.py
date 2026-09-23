@@ -121,7 +121,12 @@ DATASET_ACCURACY_COLUMNS = {
     # column that actually reflects this dataset's completeness.
     "DS04": ["Fail_Rate"],
     "DS05": ["College", "Course", "status_rate"],
-    "DS06": ["Avg_GWA", "Std_GWA"],
+    # Std_GWA is 0.0 for singleton groups (Student_Count = 1) by design —
+    # pandas .std() of one value is NaN, but zero spread is the mathematically
+    # correct answer and is filled with 0.0 in build_ds06_gwa_trend(). Excluding
+    # it from the accuracy check so a legitimate singleton never drags the score
+    # below 100%. Avg_GWA alone reflects whether this dataset's rows are complete.
+    "DS06": ["Avg_GWA"],
 }
 
 
@@ -295,7 +300,15 @@ def build_ds05_at_risk_forecast(lf: pd.DataFrame) -> pd.DataFrame:
 
 def build_ds06_gwa_trend(sm: pd.DataFrame) -> pd.DataFrame:
     """DS06 — Avg GWA per College × Course × Year_Level per semester.
-    Source: student_summary (not longform). MISSING GWA students excluded."""
+    Source: student_summary (not longform). MISSING GWA students excluded.
+
+    Std_GWA for singleton groups (Student_Count = 1) is set to 0.0 instead
+    of NaN. pandas .std() of a single value is undefined (NaN), but zero
+    spread is the correct interpretation — one student has no variation.
+    This keeps those real students in the dataset while giving the ML model
+    a meaningful, non-null feature value. Student_Count = 1 is also present
+    as a feature so the model can learn to weight singletons appropriately.
+    """
     sm = sm.copy()
     sm = _ensure_numeric_cols(sm)
     valid = sm[
@@ -314,6 +327,9 @@ def build_ds06_gwa_trend(sm: pd.DataFrame) -> pd.DataFrame:
     ).reset_index()
     grp["Avg_GWA"] = grp["Avg_GWA"].round(4)
     grp["Std_GWA"] = grp["Std_GWA"].round(4)
+    # Singleton groups (Student_Count = 1) produce NaN from .std() — fill
+    # with 0.0 (zero spread is correct for a group of one, not missing data).
+    grp["Std_GWA"] = grp["Std_GWA"].fillna(0.0)
     return grp
 
 

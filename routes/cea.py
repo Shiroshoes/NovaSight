@@ -49,7 +49,7 @@ def help_cea():
 
 # privacy policy
 @cea_bp.route('/privacy-policy')
-def privacy_policy_CEADean():
+def privacy_policy_CEAdean():
     if 'user_id' not in session or session.get('role') != 'CEAdean':
         return redirect(url_for('home'))
     return render_template('deans/CEADean/privacypolCEA/privacypolicyCEA.html')
