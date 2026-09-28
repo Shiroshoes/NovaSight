@@ -18,7 +18,7 @@ All endpoints accept the following common query params:
 Hardest subjects also accepts:
   top_n      — 5 | 10 | 15 | 20 | all  (default 10)
   subject    — specific subject code filter
-  sort       — asc | desc (default desc)
+  sort       — asc | desc (default asc)
   status     — FAILED | INC | DRP | W | UDR (for heatmap metric)
   metric     — rate | count  (heatmap only: % of enrolled students with the status, or the number of students; default rate)
 """
@@ -389,25 +389,16 @@ def _yl_sort_key(y):
 
 def _heatmap_from_students(f, status, sort, metric):
     """
-    Heatmap built from DS01 (one row per student per semester), so the percentage
-    and the student count always describe the same students:
+    Histogram built from DS01.
+    - No dept filter  → group by College  (one bar group per college)
+    - Dept filter set → group by Course   (one bar group per course program)
 
-        enrolled   = distinct students in that course x year level (under the current filters)
-        with_status= distinct students with at least one subject of the chosen status
-        count mode -> with_status
-        rate  mode -> with_status / enrolled x 100   (always 0-100)
-
-    A cell is 0 when the course/year level has students but none with that status,
-    and None when it has no enrolled students at all.
-
-    If DS01 can't supply this (missing dataset/column) the payload is empty and carries a
-    'note' saying why. There is deliberately NO fallback to DS02's precomputed status_rate:
-    that column isn't students / enrolled students (it goes above 100%), so mixing it in made
-    the percentage disagree with the student counts.
+    Each bar group has one bar per year level (1st, 2nd, 3rd, 4th, Irreg).
+    Value = % of enrolled students with the status (or count).
     """
     col = _HEATMAP_COUNT_COLS.get(status)
     ds01 = get_model_dataset('DS01')
-    empty = {'rows': [], 'year_levels': [], 'metric': metric, 'basis': 'students'}
+    empty = {'rows': [], 'year_levels': [], 'metric': metric, 'basis': 'students', 'view': 'college'}
     if ds01.empty:
         return {**empty, 'note': 'No student data (DS01) has been uploaded yet.'}
     if col is None:
@@ -422,7 +413,25 @@ def _heatmap_from_students(f, status, sort, metric):
     if df.empty:
         return empty
 
-    group_col = 'Course' if 'Course' in df.columns else 'College'
+    # Decide grouping level based on whether a dept filter is active
+    dept_filter = f.get('dept') or f.get('department') or ''
+    if dept_filter and 'Course' in df.columns:
+        group_col = 'Course'
+        view = 'course'
+    elif 'College' in df.columns:
+        group_col = 'College'
+        view = 'college'
+    else:
+        group_col = 'Course' if 'Course' in df.columns else None
+        view = 'course'
+
+    if not group_col:
+        return {**empty, 'note': 'DS01 has no College or Course column.'}
+
+    df = df[df[group_col].notna()]
+    if df.empty:
+        return empty
+
     keys = [group_col, 'Year_Level']
     hit_df = df[df[col].fillna(0) > 0]
     if 'Student_ID' in df.columns:
@@ -443,48 +452,264 @@ def _heatmap_from_students(f, status, sort, metric):
         [c for c in enrolled_w.columns if c.upper() not in ('NAN', '')],
         key=_yl_sort_key
     )
-    enrolled_w, with_w = enrolled_w[year_levels], with_w[year_levels]
+    enrolled_w = enrolled_w.reindex(columns=year_levels, fill_value=0)
+    with_w     = with_w.reindex(columns=year_levels, fill_value=0)
 
     if metric == 'count':
         values = with_w
     else:
         values = (with_w / enrolled_w.where(enrolled_w > 0) * 100).round(2)
 
+    # Sort by total across all year levels
     totals = values.fillna(0).sum(axis=1).sort_values(ascending=(sort == 'asc'), kind='stable')
-    values, enrolled_w, with_w = values.loc[totals.index], enrolled_w.loc[totals.index], with_w.loc[totals.index]
+    values, enrolled_w, with_w = (
+        values.loc[totals.index],
+        enrolled_w.loc[totals.index],
+        with_w.loc[totals.index],
+    )
 
     rows = []
     for label in values.index:
         entry = {'label': label, 'enrolled': {}, 'with_status': {}}
         for yl in year_levels:
-            v, n, k = values.at[label, yl], enrolled_w.at[label, yl], with_w.at[label, yl]
+            v = values.at[label, yl]
+            n = enrolled_w.at[label, yl]
+            k = with_w.at[label, yl]
             entry[yl] = None if pd.isna(v) else (int(v) if metric == 'count' else float(v))
             entry['enrolled'][yl]    = None if pd.isna(n) else int(n)
             entry['with_status'][yl] = None if pd.isna(k) else int(k)
         rows.append(entry)
 
     max_val = _safe_float(values.max().max()) or 1.0
-    return {'rows': rows, 'year_levels': year_levels, 'max_val': max_val, 'metric': metric, 'basis': 'students'}
+    return {
+        'rows':        rows,
+        'year_levels': year_levels,
+        'max_val':     max_val,
+        'metric':      metric,
+        'basis':       'students',
+        'view':        view,
+    }
+
+
+
+# ── Previous-period lookup (used by the performance leaderboard) ───────────────
+_SEM_ORD_MAP = {'1sem': 1, '1st semester': 1, '1st sem': 1,
+                '2sem': 2, '2nd semester': 2, '2nd sem': 2,
+                'summer': 3}
+_SEM_ORD_LABEL = {1: '1st Semester', 2: '2nd Semester', 3: 'Summer'}
+
+
+def _previous_period_df(ds01, f):
+    """
+    Rows for the period just before the one selected in the filters, with the SAME
+    dept / course / year-level filters applied.  Returns (df | None, label | None).
+
+      year + sem picked -> the closest EARLIER semester that actually exists in the data
+                           (so a missing Summer term is skipped instead of giving no comparison)
+      year only         -> the closest earlier academic year
+      no year           -> no comparison
+    """
+    if not f.get('year') or 'Academic_Year' not in ds01.columns:
+        return None, None
+    try:
+        cur_ay = int(str(f['year']).split('-')[0])
+    except ValueError:
+        return None, None
+
+    ay = pd.to_numeric(ds01['Academic_Year'].astype(str).str.split('-').str[0], errors='coerce')
+    has_sem = 'Semester' in ds01.columns
+    so = (ds01['Semester'].astype(str).str.strip().str.lower().map(_SEM_ORD_MAP)
+          if has_sem else pd.Series(np.nan, index=ds01.index))
+    periods = pd.DataFrame({'ay': ay, 'so': so}).dropna(subset=['ay'])
+
+    if f.get('sem') and has_sem:
+        cur_so = _SEM_ORD_MAP.get(str(f['sem']).strip().lower())
+        if cur_so is None:
+            return None, None
+        pairs = periods.dropna(subset=['so']).drop_duplicates()
+        earlier = pairs[(pairs['ay'] < cur_ay) | ((pairs['ay'] == cur_ay) & (pairs['so'] < cur_so))]
+        if earlier.empty:
+            return None, None
+        p = earlier.sort_values(['ay', 'so']).iloc[-1]
+        mask = (ay == p['ay']) & (so == p['so'])
+        label = f"{_format_ay(str(int(p['ay'])))} {_SEM_ORD_LABEL.get(int(p['so']), '')}".strip()
+    else:
+        earlier_years = sorted(a for a in periods['ay'].unique() if a < cur_ay)
+        if not earlier_years:
+            return None, None
+        pa = earlier_years[-1]
+        mask = ay == pa
+        label = _format_ay(str(int(pa)))
+
+    prev = _apply_filters(ds01[mask], dict(f, year='', sem=''))
+    return (prev if not prev.empty else None), label
+
+
+# ── /api/dash/performance ─────────────────────────────────────────────────────
+@maindash_bp.route('/api/dash/performance')
+def api_dash_performance():
+    """
+    Leaderboard + Radar.
+    No dept → rows = Colleges,  radar = all colleges + campus average.
+    Dept set → rows = Courses,  radar = courses in that college + college average.
+    Radar = ONE polygon: campus average (no dept) / that college (dept) / that course (course).
+    Five axes (0–100, higher = better):
+      avg_gwa_score  : (5 - GWA) / 4 * 100
+      passing_rate   : % students with GWA <= 3.00
+      completion_rate: mean Completion_Rate
+      retention_rate : % students with 0 DRP/W/UDR
+      regular_ratio  : % Is_Regular
+    """
+    try:
+        f          = _get_filters()
+        rank_by    = request.args.get('rank_by', 'avg_gwa_score')
+        min_enroll = int(request.args.get('min_enrollment', 30))
+
+        ds01 = get_model_dataset('DS01')
+        if ds01 is None or ds01.empty:
+            return jsonify({'rows': [], 'radar': [], 'average': None, 'view': 'college',
+                            'note': 'No student data has been uploaded yet.'})
+
+        # A picked course does NOT shrink the leaderboard (its sibling courses stay listed so it can
+        # be compared); it only decides what the radar shows.  A course implies its college.
+        course_sel = f.get('course') or ''
+        f = dict(f, course='')
+        if course_sel and not f.get('dept') and {'Course', 'College'} <= set(ds01.columns):
+            hit = ds01.loc[ds01['Course'] == course_sel, 'College'].dropna()
+            if not hit.empty:
+                f['dept'] = str(hit.iloc[0])
+
+        df = _apply_filters(ds01, f)
+        if df.empty:
+            return jsonify({'rows': [], 'radar': [], 'average': None, 'view': 'college'})
+
+        dept_filter = f.get('dept') or ''
+        if dept_filter and 'Course' in df.columns:
+            group_col, view = 'Course', 'course'
+        elif 'College' in df.columns:
+            group_col, view = 'College', 'college'
+        else:
+            return jsonify({'rows': [], 'average': None, 'view': 'college',
+                            'note': 'DS01 has no College or Course column.'})
+
+        df = df[df[group_col].notna()]
+        if df.empty:
+            return jsonify({'rows': [], 'average': None, 'view': view})
+
+        METRICS = ('avg_gwa_score','passing_rate','completion_rate','retention_rate','regular_ratio')
+        VALID_RANK = set(METRICS)
+        if rank_by not in VALID_RANK:
+            rank_by = 'avg_gwa_score'
+
+        def _compute(g):
+            n         = len(g)
+            gwa_vals  = g['GWA'].dropna() if 'GWA' in g.columns else pd.Series([], dtype=float)
+            avg_gwa   = float(gwa_vals.mean()) if not gwa_vals.empty else None
+            gwa_score = round((5.0 - avg_gwa) / 4.0 * 100, 1) if avg_gwa is not None else None
+            passing_n = int((gwa_vals <= 3.0).sum()) if not gwa_vals.empty else None
+            passing   = round(passing_n / len(gwa_vals) * 100, 1) if passing_n is not None else None
+            comp_vals = g['Completion_Rate'].dropna() if 'Completion_Rate' in g.columns else pd.Series([], dtype=float)
+            completion     = round(float(comp_vals.mean()), 1) if not comp_vals.empty else None
+            completion_n   = int((comp_vals >= 100).sum()) if not comp_vals.empty else None
+            if all(c in g.columns for c in ['DRP_Count','W_Count','UDR_Count']):
+                no_drop    = ((g['DRP_Count'].fillna(0) + g['W_Count'].fillna(0) + g['UDR_Count'].fillna(0)) == 0)
+                retention  = round(float(no_drop.sum()) / n * 100, 1)
+                retention_n = int(no_drop.sum())
+            else:
+                retention = None; retention_n = None
+            is_reg     = g['Is_Regular'].fillna(False).astype(bool) if 'Is_Regular' in g.columns else pd.Series([False]*n)
+            regular    = round(is_reg.sum() / n * 100, 1)
+            regular_n  = int(is_reg.sum())
+            return {
+                'avg_gwa':        round(avg_gwa, 2) if avg_gwa is not None else None,
+                'avg_gwa_score':  gwa_score,
+                'passing_rate':   passing,    'passing_count':    passing_n,
+                'completion_rate':completion, 'completion_count': completion_n,
+                'retention_rate': retention,  'retention_count':  retention_n,
+                'regular_ratio':  regular,    'regular_count':    regular_n,
+            }
+
+        # Previous semester (same filters) so the leaderboard can show up / down arrows
+        prev_df, prev_label = _previous_period_df(ds01, f)
+        prev_map = {}
+        if prev_df is not None and group_col in prev_df.columns:
+            for plabel, pg in prev_df[prev_df[group_col].notna()].groupby(group_col):
+                prev_map[str(plabel)] = {'enrollment': len(pg), **_compute(pg)}
+
+        rows = []
+        for label, g in df.groupby(group_col):
+            m = _compute(g)
+            rows.append({'label': str(label), 'enrollment': len(g),
+                         'low_n': len(g) < min_enroll,
+                         'prev': prev_map.get(str(label)), **m})
+
+        rows.sort(key=lambda r: (r[rank_by] is None, -(r[rank_by] or 0)))
+
+        # Average row for the dashed radar line
+        avg_label = 'Campus Average' if view == 'college' else f'{dept_filter} Average'
+        avg_m = _compute(df)
+        avg_row = {'label': avg_label, 'enrollment': len(df), 'low_n': False,
+                   'is_average': True,
+                   'prev': ({'enrollment': len(prev_df), **_compute(prev_df)} if prev_df is not None else None),
+                   **avg_m}
+
+        # Radar shows exactly ONE polygon, matching how far the filters are narrowed:
+        #   no dept            -> the whole campus (one combined average)
+        #   dept               -> that college only
+        #   dept + course      -> that course only
+        if course_sel and 'Course' in df.columns:
+            cdf = df[df['Course'] == course_sel]
+            radar = ([{'label': course_sel, 'enrollment': len(cdf), 'low_n': len(cdf) < min_enroll,
+                       **_compute(cdf)}] if not cdf.empty else [])
+            radar_scope = 'course'
+        elif dept_filter:
+            radar = [{'label': dept_filter, 'enrollment': len(df), 'low_n': len(df) < min_enroll, **avg_m}]
+            radar_scope = 'college'
+        else:
+            radar = [avg_row]
+            radar_scope = 'campus'
+
+        return jsonify({
+            'rows':    rows,
+            'average': avg_row,
+            'radar':   radar,
+            'radar_scope': radar_scope,
+            'course':  course_sel if radar_scope == 'course' else '',
+            'dept':    dept_filter,
+            'view':    view,
+            'rank_by': rank_by,
+            'prev_period': prev_label if prev_map else None,   # e.g. "2023-2024 2nd Semester"
+            'has_prev':    bool(prev_map),
+            'axes': [{'key': a['key'], 'label': a['label']} for a in [
+                {'key':'avg_gwa_score',  'label':'GWA Score'},
+                {'key':'passing_rate',   'label':'Passing Rate'},
+                {'key':'completion_rate','label':'Completion'},
+                {'key':'retention_rate', 'label':'Retention'},
+                {'key':'regular_ratio',  'label':'Regular Students'},
+            ]],
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 
 @maindash_bp.route('/api/dash/heatmap')
 def api_dash_heatmap():
     """
-    Heatmap: rows = course, cols = year levels, cell = % of enrolled students with the chosen
-    status (metric=rate) or the number of those students (metric=count).
-    Returns {rows, year_levels, max_val, metric, basis, note?}; each row also carries
-    'enrolled' and 'with_status' per year level.
+    Histogram: when no dept filter → bars = colleges (one per college).
+               when dept filter    → bars = course programs within that college.
+    Returns {rows, year_levels, max_val, metric, basis, view, note?}
+    view = 'college' | 'course'
     """
     try:
         f      = _get_filters()
         status = request.args.get('status', 'FAILED')
-        sort   = request.args.get('sort', 'desc')
+        sort   = request.args.get('sort', 'asc')
         metric = request.args.get('metric', 'rate')
 
         if metric != 'count':
             metric = 'rate'
 
-        # Percentage and count are both built from the same students (DS01).
         return jsonify(_heatmap_from_students(f, status, sort, metric))
     except Exception as e:
         return jsonify({'error': str(e)}), 500

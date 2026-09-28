@@ -41,6 +41,7 @@ import re
 import sys
 import argparse
 import difflib
+from functools import lru_cache
 import logging
 import hashlib
 from collections import Counter, defaultdict
@@ -298,13 +299,24 @@ def _clean_upper(v) -> str | None:
     return s if s else None
 
 
-def fuzzy_match(value: str, known_values: list[str], cutoff: float = TYPO_CUTOFF) -> str | None:
-    """Returns the closest known value if value looks like a typo of one
-    of them, else None (meaning: leave it as-is / flag it)."""
+@lru_cache(maxsize=2048)
+def _fuzzy_match_cached(value: str, known_values: tuple, cutoff: float) -> str | None:
+    """Cached core — called with a tuple so the result is hashable."""
     if value in known_values:
         return value
     match = difflib.get_close_matches(value, known_values, n=1, cutoff=cutoff)
     return match[0] if match else None
+
+
+def fuzzy_match(value: str, known_values: list[str], cutoff: float = TYPO_CUTOFF) -> str | None:
+    """Returns the closest known value if value looks like a typo of one
+    of them, else None (meaning: leave it as-is / flag it).
+    Results are cached per (value, known_values, cutoff) so repeated lookups
+    of the same string — common when thousands of rows share the same college
+    name or year level — only run difflib once."""
+    if value in known_values:
+        return value
+    return _fuzzy_match_cached(value, tuple(known_values), cutoff)
 
 
 def normalize_gender(raw, warn: WarningCollector, ref: str) -> str | None:
@@ -378,7 +390,10 @@ def normalize_course(raw, warn: WarningCollector, ref: str, known_courses: set,
         return None
     if v in known_courses:
         return v
-    fixed = fuzzy_match(v, list(known_courses), cutoff=TYPO_CUTOFF_COURSE)
+    # known_courses grows during parsing — don't use the LRU cache here or
+    # results from an earlier (smaller) set would be returned for later rows.
+    match = difflib.get_close_matches(v, list(known_courses), n=1, cutoff=TYPO_CUTOFF_COURSE)
+    fixed = match[0] if match else None
     if fixed:
         warn.add("Typo (Course)", f"'{raw}' → auto-corrected to '{fixed}'", ref)
         return fixed

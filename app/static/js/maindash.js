@@ -34,7 +34,7 @@ function skDone(id) {
   skOff(id);
   if (_skInit[id]) { _skInit[id] = 0; skOff(id); }
 }
-const SK_CARDS = ['kpiCard', 'heatmapCard', 'genderCard', 'hardestCard'];
+const SK_CARDS = ['kpiCard', 'heatmapCard', 'perfCard', 'genderCard', 'hardestCard'];
 SK_CARDS.forEach(id => { skOn(id); _skInit[id] = 1; });
 setTimeout(() => SK_CARDS.forEach(id => { if (_skInit[id]) { _skInit[id] = 0; skOff(id); } }), 25000);
 
@@ -85,7 +85,7 @@ function deltaHtml(val, unit='', invertGood=false) {
    card — plain colored text was unreadable directly on that background.
    up=true -> green (enrollment grew, good), false -> red, null -> neutral gray. */
 function enrollPill(text, up, fontSize=14) {
-  const color = up === null ? '#4b5563' : (up ? '#15803d' : '#b91c1c');
+  const color = up === null ? '#4b5563' : (up ? (CB.on ? '#005a8e' : '#15803d') : (CB.on ? '#a84a00' : '#b91c1c'));
   return `<span style="display:inline-block;background:#fff;color:${color};`+
          `border-radius:999px;padding:2px 10px;font-size:${fontSize}px;font-weight:700;">`+
          `${text}</span>`;
@@ -501,6 +501,17 @@ async function initDashboard() {
     fillSelect('hsDept', window._metaDepts);
     _fillCourses('hsDept', 'hsCourse');
 
+    // Performance card: same defaults
+    fillSelect('perfYear', window._metaYears,
+      y => { const yr=parseInt(y); return `${yr}-${yr+1}`; }, y=>y);
+    _populateSemesters('perfSem', meta.recent_year || '');
+    const perfYearSel = $('perfYear');
+    if (perfYearSel && meta.recent_year) { perfYearSel.value = meta.recent_year; PF.year = meta.recent_year; }
+    const perfSemSel = $('perfSem');
+    if (perfSemSel && meta.recent_sem)   { perfSemSel.value = meta.recent_sem;   PF.sem  = meta.recent_sem; }
+    fillSelect('perfDept', window._metaDepts);
+    _fillCourses('perfDept', 'perfCourse');
+
   } catch(e) {
     console.error('Dashboard meta failed:', e);
   }
@@ -508,6 +519,7 @@ async function initDashboard() {
   // Load all charts
   loadKpi();
   loadHeatmap();
+  loadPerformance();
   loadGenderPie();
   loadHardestSubjects();
 }
@@ -633,7 +645,7 @@ async function loadKpi() {
   } catch(e) {
     console.error('KPI load failed:', e);
     const el = $('kpiEnrollVal');
-    if (el) el.textContent = 'Error';
+    if (el) el.textContent = '—';
   }
 }
 
@@ -843,7 +855,7 @@ function renderKpiYearLevel(data) {
 let hmData = null;
 // Applied heatmap filters (updated by Apply / Reset). Year + semester default to
 // the most recent upload, same as the KPI card.
-let HF = { year:'', sem:'', dept:'', course:'', yearlevel:'', status:'FAILED', sort:'desc', metric:'rate' };
+let HF = { year:'', sem:'', dept:'', course:'', yearlevel:'', status:'FAILED', sort:'asc', metric:'rate' };
 
 // Rebuild a course <select> from the cached course list, limited to the chosen dept.
 function _fillCourses(deptId, courseId) {
@@ -859,8 +871,19 @@ async function loadHeatmap() {
   const p = new URLSearchParams();
   Object.entries(HF).forEach(([k, v]) => { if (v) p.set(k, v); });
 
-  $('hmChartArea')?.classList.remove('clickable');   // no click-to-table hint while loading / empty
+  // Destroy existing chart before loading
+  if (hmChart) { hmChart.destroy(); hmChart = null; }
+  $('hmChartArea')?.classList.remove('clickable');
   loading('hmChartArea');
+
+  // Update subtitle based on dept filter
+  const subtitle = $('hmSubtitle');
+  if (subtitle) {
+    subtitle.textContent = HF.dept
+      ? `Failure rate by course program — ${HF.dept}`
+      : 'Failure rate by college — select a department to drill into course programs';
+  }
+
   try {
     const res = await fetch('/api/dash/heatmap?' + p.toString());
     if (!res.ok) throw new Error('heatmap ' + res.status);
@@ -893,91 +916,169 @@ function hmFormat(v, isCount) {
   return isCount ? Math.round(v).toLocaleString() : v.toFixed(1) + '%';
 }
 
+// Year level display labels and colors
+const YL_LABELS = { '1':'1st Yr', '2':'2nd Yr', '3':'3rd Yr', '4':'4th Yr', '5':'5th Yr', 'IRREG':'Irreg' };
+const YL_COLORS = ['#7B1113','#C0392B','#E67E22','#F1C40F','#27AE60','#2980B9'];
+
+// Chart.js instance for the histogram
+let hmChart = null;
+
+// Sizes the histogram's wrap. Normally, height grows with row count (thicker,
+// taller bars, page scrolls as needed). In fullscreen, height is capped to
+// exactly the available viewport space instead, so all rows fit without an
+// internal scrollbar — bars just get thinner if there are a lot of rows.
+function sizeHistogramWrap() {
+  const wrap = document.querySelector('#hmChartArea .hm-histogram-wrap');
+  if (!wrap) return;
+  wrap.style.width = '100%';
+  const rows = parseInt(wrap.dataset.rows || '0', 10);
+  const isFullscreen = document.getElementById('heatmapCard')?.classList.contains('is-fullscreen');
+  if (isFullscreen) {
+    const available = wrap.parentElement?.clientHeight || 650;
+    wrap.style.height = available + 'px';
+  } else {
+    wrap.style.height = Math.max(480, rows * 95) + 'px';
+  }
+}
+
 function renderHeatmap(data) {
   const area = $('hmChartArea');
   if (!data?.rows?.length) { empty('hmChartArea', data?.note || undefined); return; }
 
-  const yls = data.year_levels || ['1','2','3','4','IRREG'];
-  const maxV = data.max_val || 1;
-  const ylLabels = {1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th',IRREG:'Irreg'};
+  const isCount   = data.metric === 'count';
+  const isCollege = data.view !== 'course';
   const statusLabel = HM_STATUS_LABELS[HF.status] || 'Failed';
-  const isCount = data.metric === 'count';
-  // Colour = share of the enrolled students who have the status, on a fixed 0–100% scale.
-  // So a cell keeps the same colour in Percentage and No. of Students view, and a small
-  // number of students in a big population stays green. Only if the API sent no enrolled
-  // totals (old DS02 fallback) do we fall back to colouring relative to the biggest value.
-  const hasEnrolled = data.rows.some(r => r.enrolled);
-  const ratioScale  = !isCount || hasEnrolled;
+  const viewLabel   = isCollege ? 'College' : 'Course Program';
+  const yls = data.year_levels?.length
+    ? data.year_levels
+    : ['1','2','3','4','IRREG'];
 
-  // Old backend (no `basis`): percentages come from DS02's status_rate, which isn't students ÷ enrolled.
-  const staleApi = data.basis !== 'students';
-  if (staleApi) console.warn('Heatmap: /api/dash/heatmap is not returning student-based data — update maindash_routes.py.');
+  if (hmChart) { hmChart.destroy(); hmChart = null; }
 
-  let html = (staleApi ? `<div class="hm-notice">⚠ The server is still using the old heatmap calculation, so percentages
-      may not match the student counts. Replace <b>maindash_routes.py</b> with the latest version and restart the app.</div>` : '')
-    + `<div class="hm-figure">
-    <div class="hm-y-title">Course / Dept</div>
-    <div class="hm-main">
-      <div class="heatmap-wrap"><table class="heatmap-table">
-        <thead><tr><th></th>${yls.map(y=>`<th>${ylLabels[y]||y}</th>`).join('')}</tr></thead>
-        <tbody>`;
+  area.innerHTML = `<div class="hm-histogram-wrap"><canvas id="hmHistCanvas"></canvas></div>`;
 
-  data.rows.forEach(row => {
-    html += `<tr><td class="heatmap-row-label" title="${row.label}">${row.label}</td>`;
-    yls.forEach(yl => {
-      const v = row[yl];
-      if (v == null) {
-        html += `<td class="heatmap-empty" title="${row.label} / ${yl}: no data">—</td>`;
-        return;
-      }
-      // Tooltip: "69 of 150 students (46.0%)" when the API sends the enrolled / with-status counts
-      const n = row.enrolled?.[yl], k = row.with_status?.[yl];
-      let t;
-      if (n != null && k != null) t = n > 0 ? k / n : 0;
-      else                        t = ratioScale ? v / 100 : v / maxV;
-      const rgb = hmColor(t);
-      const detail = (n != null && k != null)
-        ? `${k.toLocaleString()} of ${n.toLocaleString()} students (${n > 0 ? (k / n * 100).toFixed(1) : '0.0'}%)`
-        : `${hmFormat(v, isCount)}${isCount ? ' students' : ''}`;
-      html += `<td style="background:${hmRgb(rgb)};color:${hmTextColor(rgb)}" title="${row.label} / ${yl}: ${detail}">${hmFormat(v, isCount)}</td>`;
-    });
-    html += '</tr>';
+  // Chart.js v4 indexAxis:'y' renders index 0 at the BOTTOM.
+  // Server returns rows descending (highest first) → reverse so highest ends up at TOP.
+  const rows   = [...data.rows].reverse();
+  const labels = rows.map(r => r.label);
+
+  // One dataset per year level (grouped bars)
+  const datasets = yls.map((yl, i) => ({
+    label: YL_LABELS[yl] || yl,
+    data:  rows.map(r => r[yl] ?? 0),
+    backgroundColor: YL_COLORS[i % YL_COLORS.length],
+    borderRadius: 3,
+    borderSkipped: false,
+    barPercentage: 1.0,
+    categoryPercentage: 0.90,
+  }));
+
+  const maxX = isCount
+    ? (data.max_val || 1)
+    : 100;
+
+  const canvas = document.getElementById('hmHistCanvas');
+  canvas.parentElement.dataset.rows = labels.length;
+  sizeHistogramWrap();
+
+  hmChart = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { right: 8 } },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'start',
+          rtl: false,
+          labels: {
+            boxWidth: 12,
+            boxHeight: 12,
+            font: { size: 12 },
+            color: '#374151',
+            padding: 14,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const row    = rows[ctx.dataIndex];
+              const yl     = yls[ctx.datasetIndex];
+              const val    = ctx.parsed.x;
+              const base   = isCount ? `${val.toLocaleString()} students` : `${val.toFixed(1)}%`;
+              const n      = row?.enrolled?.[yl];
+              const k      = row?.with_status?.[yl];
+              const detail = n != null && k != null
+                ? ` (${k.toLocaleString()} of ${n.toLocaleString()} enrolled)`
+                : '';
+              return ` ${ctx.dataset.label}: ${base}${detail}`;
+            },
+            title(items) { return items[0].label; },
+          },
+        },
+      },
+      scales: {
+        x: {
+          min: 0,
+          max: maxX,
+          grid: { color: '#f3f4f6' },
+          ticks: {
+            color: '#6b7280',
+            font: { size: 11 },
+            callback: v => isCount ? v.toLocaleString() : v + '%',
+          },
+          title: {
+            display: true,
+            text: isCount ? `${statusLabel} (no. of students)` : `${statusLabel} rate (%)`,
+            color: '#374151',
+            font: { size: 12, weight: '600' },
+          },
+        },
+        y: {
+          grid: { display: false },
+          ticks: {
+            color: '#374151',
+            font: { size: 12 },
+            autoSkip: false,
+          },
+          title: {
+            display: true,
+            text: viewLabel,
+            color: '#374151',
+            font: { size: 12, weight: '600' },
+          },
+        },
+      },
+    },
   });
-  html += '</tbody></table></div>';
-  html += '<div class="hm-x-title">Year Level</div></div>';
 
-  // Colour bar: 0% at the bottom, 100% of enrolled students at the top
-  // (count view with no enrolled totals: 0 → biggest count instead)
-  const gradient = HM_STOPS.map((c, i) => `${hmRgb(c)} ${(i / (HM_STOPS.length - 1) * 100).toFixed(1)}%`).join(',');
-  const ticks = [1, 0.75, 0.5, 0.25, 0].map(f =>
-    `<span>${ratioScale ? Math.round(f * 100) + '%' : Math.round(maxV * f).toLocaleString()}</span>`).join('');
-  const legendTitle = hasEnrolled ? `${statusLabel} — % of enrolled students`
-                    : isCount     ? `${statusLabel} (no. of students)`
-                                  : `${statusLabel} rate (%)`;
-  html += `<div class="hm-legend">
-      <div class="hm-legend-bar" style="background:linear-gradient(to top,${gradient})"></div>
-      <div class="hm-legend-ticks">${ticks}</div>
-      <div class="hm-legend-title">${legendTitle}</div>
-    </div></div>`;
-
-  area.innerHTML = html;
-  area.classList.add('clickable');   // show the "Click to view as table" hint
+  area.classList.add('clickable');
 }
 
 function renderHeatmapTable(data) {
   if (!data?.rows) return;
+  const isCount = data.metric === 'count';
   const yls = data.year_levels || [];
   const ylLabels = {1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th',IRREG:'Irreg'};
-  const headers = ['Course/Dept', ...yls.map(y => ylLabels[y] || y)];
+  const headers = ['College / Course', ...yls.map(y => ylLabels[y] || y)];
   const rows = data.rows.map(r => {
-    const o = {'Course/Dept': r.label};
-    yls.forEach(yl => { o[ylLabels[yl] || yl] = r[yl]!=null ? hmFormat(r[yl], data.metric === 'count') : '—'; });
+    const o = { 'College / Course': r.label };
+    yls.forEach(yl => {
+      const v = r[yl];
+      o[ylLabels[yl] || yl] = v != null
+        ? (isCount ? Math.round(v).toLocaleString() : v.toFixed(1) + '%')
+        : '—';
+    });
     return o;
   });
-  buildTable('hmTableInner', rows, headers, headers[1] || 'Course/Dept', 'desc', {
-    filename: 'heatmap_data',
-    title: 'Heatmap Breakdown',
-    description: 'Values by course/department across year levels for the currently selected filters.',
+  buildTable('hmTableInner', rows, headers, headers[1] || 'College / Course', 'desc', {
+    filename: 'histogram_data',
+    title: 'Risk Histogram — Table View',
+    description: 'Values by college or course program × year level for the currently selected filters.',
   });
 }
 
@@ -1035,7 +1136,7 @@ $('hmBtnReset')?.addEventListener('click', () => {
   // "Default" = the most recently uploaded academic year + semester, Failed, descending.
   const defYear = window._kpiDefaultYear || '';
   const defSem  = window._kpiDefaultSem  || '';
-  HF = { year: defYear, sem: defSem, dept:'', course:'', yearlevel:'', status:'FAILED', sort:'desc', metric:'rate' };
+  HF = { year: defYear, sem: defSem, dept:'', course:'', yearlevel:'', status:'FAILED', sort:'asc', metric:'rate' };
 
   const yearSel = $('hmYear');
   if (yearSel) yearSel.value = defYear;
@@ -1050,7 +1151,7 @@ $('hmBtnReset')?.addEventListener('click', () => {
   set('hmYearLevel', '');
   syncHmStatusButtons();
   syncHmMetricButtons();
-  set('hmSort', 'desc');
+  set('hmSort', 'asc');
   loadHeatmap();
 });
 
@@ -1316,6 +1417,592 @@ function _gdShowEmpty(msg) {
   if (emp) { emp.textContent = msg || 'No data for the selected filters.'; emp.classList.remove('hidden'); }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   ACADEMIC PERFORMANCE CARD — Leaderboard + Radar
+   ══════════════════════════════════════════════════════════════════════════ */
+// HTML-escape helper (used by leaderboard row rendering)
+function _perfEsc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+let perfData   = null;
+let perfChart  = null;
+let perfRank   = 'avg_gwa_score';
+let perfMetric = 'rate';   // 'rate' | 'count'
+let PF = { year:'', sem:'', dept:'', course:'', yearlevel:'' };
+
+const PERF_AXES = [
+  { key:'avg_gwa_score',  label:'GWA Score' },
+  { key:'passing_rate',   label:'Passing Rate' },
+  { key:'completion_rate',label:'Completion' },
+  { key:'retention_rate', label:'Retention' },
+  { key:'regular_ratio',  label:'Regular' },
+];
+
+// Official per-college colors — matches generate_report.py
+const COLLEGE_COLORS = {
+  'CAHS': '#36b9cc',
+  'CBA':  '#e74a3b',
+  'CCST': '#8a2be2',
+  'CEA':  '#1cc88a',
+  'COAS': '#5a5c69',
+  'CTEC': '#4e73df',
+};
+const PERF_FALLBACK_COLORS = ['#4e73df','#1cc88a','#e74a3b','#36b9cc','#8a2be2','#5a5c69','#d97706','#800000'];
+
+function _perfColor(label, idx) {
+  const upper = (label || '').toUpperCase().trim();
+  if (COLLEGE_COLORS[upper]) return COLLEGE_COLORS[upper];
+  for (const [code, color] of Object.entries(COLLEGE_COLORS)) {
+    if (upper.startsWith(code + '-') || upper.startsWith(code + ' ')) return color;
+  }
+  return PERF_FALLBACK_COLORS[idx % PERF_FALLBACK_COLORS.length];
+}
+
+function hexAlpha(hex, a) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// Skeleton rows for the leaderboard — same grid classes as the real rows (styles: skeleton.css)
+function perfSkeleton() {
+  const area = $('perfListArea');
+  if (!area) return;
+  const n = Math.min(8, Math.max(3, perfData?.rows?.length || 6));     // about as many rows as last time
+  const W = [88, 74, 66, 58, 50, 42, 36, 30];                          // falling bars, like a real ranking
+  const head = `<div class="perf-head perf-sk-head" aria-hidden="true">
+      <span class="sk-blk" style="width:14px"></span><span></span>
+      <span class="sk-blk" style="width:64px"></span>
+      <span class="sk-blk" style="width:96px"></span>
+      <span class="sk-blk right" style="width:70px"></span>
+      <span class="sk-blk right" style="width:86px"></span></div>`;
+  let rows = '';
+  for (let i = 0; i < n; i++) {
+    rows += `<div class="perf-list-row perf-sk-row" aria-hidden="true">
+      <span class="sk-blk sk-rank"></span><span class="sk-blk sk-dot"></span>
+      <span class="sk-blk sk-name" style="width:${58 - (i % 3) * 9}%"></span>
+      <span class="perf-bar-cell"><div class="perf-bar"><div class="perf-bar-fill sk-blk sk-fill" style="width:${W[i]}%"></div></div></span>
+      <span class="sk-val"><span class="sk-blk"></span><span class="sk-blk"></span></span>
+      <span class="sk-blk sk-pill"></span></div>`;
+  }
+  area.innerHTML = head + `<div class="perf-list">${rows}</div>` +
+    `<div class="perf-legend perf-sk-legend" aria-hidden="true">${'<span class="sk-blk"></span>'.repeat(4)}</div>`;
+}
+
+async function loadPerformance() {
+  const p = new URLSearchParams();
+  if (PF.year)      p.set('year', PF.year);
+  if (PF.sem)       p.set('sem', PF.sem);
+  if (PF.dept)      p.set('dept', PF.dept);
+  if (PF.course)    p.set('course', PF.course);
+  if (PF.yearlevel) p.set('yearlevel', PF.yearlevel);
+  p.set('rank_by', perfRank);
+
+  const back = $('perfBackBtn');
+  if (back) {
+    back.classList.toggle('hidden', !(PF.dept || PF.course));
+    back.textContent = PF.course ? `← Back to ${PF.dept || 'college'}` : '← All colleges';
+  }
+  perfSkeleton();
+  if (perfChart) { perfChart.destroy(); perfChart = null; }
+  const ra = $('perfRadarArea');
+  if (ra) ra.innerHTML = '<canvas id="perfRadarCanvas"></canvas>';
+
+  // Update subtitle
+  const sub = $('perfSubtitle');
+  if (sub) sub.textContent = PF.course
+    ? `${PF.course} in ${PF.dept || 'its college'} — click the course again to go back to the college`
+    : PF.dept
+      ? `Course programs in ${PF.dept} — click a course to see only that course on the radar`
+      : 'College rankings across five performance metrics — click a college to drill into its course programs';
+
+  try {
+    const res = await fetch('/api/dash/performance?' + p.toString());
+    if (!res.ok) throw new Error('performance ' + res.status);
+    perfData = await res.json();
+    if (perfData.note || !perfData.rows?.length) {
+      empty('perfListArea', perfData.note || 'No data for the selected filters.');
+      return;
+    }
+    renderPerfLeaderboard(perfData);
+    renderPerfRadar(perfData);
+  } catch(e) {
+    console.error('loadPerformance error:', e);
+    empty('perfListArea');
+    perfData = null;
+  }
+}
+
+// ── Leaderboard helpers ─────────────────────────────────────
+let perfSort = { key: 'value', dir: 'desc' };      // key: 'value' | 'label' | 'delta'
+
+const PERF_RANK_LABEL = {
+  avg_gwa_score: 'GWA Score', passing_rate: 'Passing Rate', completion_rate: 'Completion',
+  retention_rate: 'Retention', regular_ratio: 'Regular',
+};
+const PERF_COUNT_KEY = {
+  avg_gwa_score:   'avg_gwa',
+  passing_rate:    'passing_count',
+  completion_rate: 'completion_count',
+  retention_rate:  'retention_count',
+  regular_ratio:   'regular_count',
+};
+// How much of the population qualifies -> colour of the bar / number / pill
+const PERF_TIERS = [
+  { min: 85, color: '#16a34a', name: 'Excellent' },
+  { min: 70, color: '#65a30d', name: 'Good'      },
+  { min: 50, color: '#d97706', name: 'Fair'      },
+  { min: 0,  color: '#dc2626', name: 'Low'       },
+];
+function _perfTier(pct) {
+  if (pct == null || isNaN(pct)) return { color: '#9ca3af', name: '—' };
+  return PERF_TIERS.find(t => pct >= t.min) || PERF_TIERS[PERF_TIERS.length - 1];
+}
+// Change vs previous semester (percentage points; every metric here is "higher = better")
+function _perfDeltaVal(row, rankKey) {
+  const c = row?.[rankKey], p = row?.prev?.[rankKey];
+  return (c == null || p == null) ? null : c - p;
+}
+function _perfDeltaHtml(row, rankKey, data) {
+  if (!data.has_prev) {
+    return `<span class="perf-delta none" title="No earlier semester on record for these filters">—</span>`;
+  }
+  const d = _perfDeltaVal(row, rankKey);
+  if (d == null) {
+    return `<span class="perf-delta none" title="This row has no data in ${_perfEsc(data.prev_period || 'the previous period')}">—</span>`;
+  }
+  const cur = row[rankKey], prev = row.prev[rankKey];
+  let title = `${data.prev_period || 'Previous'}: ${prev.toFixed(1)}% → ${cur.toFixed(1)}% now`;
+  if (rankKey === 'avg_gwa_score' && row.avg_gwa != null && row.prev.avg_gwa != null) {
+    title += `  (GWA ${row.prev.avg_gwa.toFixed(2)} → ${row.avg_gwa.toFixed(2)})`;
+  }
+  const n = row[PERF_COUNT_KEY[rankKey]], pn = row.prev[PERF_COUNT_KEY[rankKey]];
+  if (rankKey !== 'avg_gwa_score' && n != null && pn != null) {
+    title += `  · students ${pn.toLocaleString()} → ${n.toLocaleString()}`;
+  }
+  const abs = Math.abs(d).toFixed(1);
+  if (d >= 0.05)  return `<span class="perf-delta up"   title="${_perfEsc(title)}">▲ ${abs} pts</span>`;
+  if (d <= -0.05) return `<span class="perf-delta down" title="${_perfEsc(title)}">▼ ${abs} pts</span>`;
+  return `<span class="perf-delta flat" title="${_perfEsc(title)}">▬ 0.0 pts</span>`;
+}
+
+function _perfSortedRows(data) {
+  const rankKey = data.rank_by || perfRank;
+  const rows = data.rows.map((row, i) => ({ row, rank: i + 1 }));   // rank = true position by the ranked metric
+  const dir = perfSort.dir === 'asc' ? 1 : -1;
+  const val = o => perfSort.key === 'label' ? String(o.row.label).toLowerCase()
+                 : perfSort.key === 'delta' ? _perfDeltaVal(o.row, rankKey)
+                 : o.row[rankKey];
+  rows.sort((x, y) => {
+    const vx = val(x), vy = val(y);
+    if (vx == null && vy == null) return x.rank - y.rank;
+    if (vx == null) return 1;                       // missing values always last
+    if (vy == null) return -1;
+    if (typeof vx === 'string') return dir * vx.localeCompare(vy, undefined, { numeric: true });
+    return (vx - vy) * dir || (x.rank - y.rank);
+  });
+  return rows;
+}
+
+function syncPerfSort() {
+  const sel = $('perfSort');
+  if (sel) sel.value = perfSort.dir;
+}
+
+function renderPerfLeaderboard(data) {
+  const area = $('perfListArea');
+  if (!area) return;
+  const isCount  = perfMetric === 'count';
+  const rankKey  = data.rank_by || perfRank;
+  const drillable = true;                                   // college row -> its courses; course row -> that course only
+  const selCourse = data.course || '';
+
+  function cells(row) {
+    const pct = row[rankKey];
+    // Percentage mode: big number, bar = the rate itself.
+    if (!isCount) {
+      const t = _perfTier(pct);
+      return {
+        tone: t.color, barPct: pct ?? 0, tip: `${row.label}: ${pct != null ? pct.toFixed(1) + '%' : 'no data'} (${t.name})`,
+        value: `<span class="perf-value">${pct != null ? pct.toFixed(1) + '%' : '—'}</span>`,
+      };
+    }
+    // Count mode: "X of Y students" coloured by the share of the population.
+    if (rankKey === 'avg_gwa_score') {                       // GWA has no head-count: show the average + its 0-100 score
+      const t = _perfTier(pct);
+      return {
+        tone: t.color, barPct: pct ?? 0, tip: `${row.label}: average GWA ${row.avg_gwa != null ? row.avg_gwa.toFixed(2) : '—'} (score ${pct != null ? pct.toFixed(1) : '—'}%)`,
+        value: `<div class="perf-count">
+                  <span class="perf-count-line">Avg GWA <span class="perf-count-n">${row.avg_gwa != null ? row.avg_gwa.toFixed(2) : '—'}</span></span>
+                  <span class="perf-pill">${pct != null ? pct.toFixed(1) + '%' : '—'} · ${t.name}</span>
+                </div>`,
+      };
+    }
+    const n = row[PERF_COUNT_KEY[rankKey]], total = row.enrollment;
+    if (n == null || !total) {
+      const t = _perfTier(pct);
+      return { tone: t.color, barPct: pct ?? 0, tip: row.label, value: `<span class="perf-value">${pct != null ? pct.toFixed(1) + '%' : '—'}</span>` };
+    }
+    const share = n / total * 100, t = _perfTier(share);
+    return {
+      tone: t.color, barPct: share,
+      tip: `${n.toLocaleString()} of ${total.toLocaleString()} students (${share.toFixed(1)}%) — ${t.name}`,
+      value: `<div class="perf-count">
+                <span class="perf-count-line"><span class="perf-count-n">${n.toLocaleString()}</span> of ${total.toLocaleString()}</span>
+                <span class="perf-pill">${share.toFixed(1)}% · ${t.name}</span>
+              </div>`,
+    };
+  }
+
+  // sortable column headers
+  const arrow = k => perfSort.key === k ? (perfSort.dir === 'asc' ? '▲' : '▼') : '↕';
+  const hb = (k, text, extra = '') =>
+    `<button type="button" class="perf-head-btn ${extra} ${perfSort.key === k ? 'is-sorted' : ''}" data-perf-sort="${k}" title="Sort by ${text}">${text}<span class="perf-arrow">${arrow(k)}</span></button>`;
+  let html = `<div class="perf-head">
+      ${hb('value', '#')}<span></span>
+      ${hb('label', data.view === 'course' ? 'Course' : 'College')}
+      <span class="perf-head-static">${isCount ? 'Share of students' : PERF_RANK_LABEL[rankKey] || ''}</span>
+      ${hb('value', isCount ? 'Students' : (PERF_RANK_LABEL[rankKey] || 'Value'), 'right')}
+      ${hb('delta', 'vs prev sem', 'right')}
+    </div><div class="perf-list">`;
+
+  _perfSortedRows(data).forEach(({ row, rank }, idx) => {
+    const color = _perfColor(row.label, rank - 1);
+    const c = cells(row);
+    const lowBadge = row.low_n
+      ? `<span class="perf-low-n" title="Fewer than 30 students — results may not be representative">low n</span>` : '';
+    const chevron = data.view === 'course' ? '' : `<span class="perf-chevron" aria-hidden="true">›</span>`;
+    const isCourseView = data.view === 'course';
+    const clickAttrs = `tabindex="0" role="button" aria-label="${isCourseView ? 'Show only ' + _perfEsc(row.label) + ' on the radar' : 'Show course programs of ' + _perfEsc(row.label)}"`;
+    html += `
+      <div class="perf-list-row is-clickable ${rank <= 3 ? 'is-top' : ''} ${selCourse && row.label === selCourse ? 'is-selected' : ''}" ${clickAttrs}
+           data-label="${_perfEsc(row.label)}" title="${_perfEsc(c.tip)}${isCourseView ? (row.label === selCourse ? ' — click to show the whole college again' : ' — click to show only this course on the radar') : ' — click to drill into its courses'}"
+           style="--perf-color:${color};--tone:${c.tone}">
+        <span class="perf-rank">${rank}</span>
+        <span class="perf-color-dot" data-shape="${(rank - 1) % 6}" style="background:${color}"></span>
+        <span class="perf-name"><span class="perf-label" title="${_perfEsc(row.label)}">${_perfEsc(row.label)}</span>${lowBadge}${chevron}</span>
+        <span class="perf-bar-cell"><div class="perf-bar"><div class="perf-bar-fill" style="width:${Math.max(0, Math.min(100, c.barPct)).toFixed(1)}%"></div></div></span>
+        ${c.value}
+        ${_perfDeltaHtml(row, rankKey, data)}
+      </div>`;
+  });
+  html += '</div>';
+  html += `<div class="perf-legend">${PERF_TIERS.map((t, i) => {
+    const hi = i === 0 ? '100' : (PERF_TIERS[i - 1].min - 0.1).toFixed(1).replace('.0', '');
+    return `<span style="--c:${t.color}">${t.name} (${t.min}${i === 0 ? '%+' : '–' + hi + '%'})</span>`;
+  }).join('')}${data.has_prev ? `<span style="--c:#9ca3af">Change compared with ${_perfEsc(data.prev_period || 'previous semester')}</span>` : ''}</div>`;
+  area.innerHTML = html;
+
+  // column-header sorting
+  area.querySelectorAll('[data-perf-sort]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.perfSort;
+      perfSort = (perfSort.key === k)
+        ? { key: k, dir: perfSort.dir === 'asc' ? 'desc' : 'asc' }
+        : { key: k, dir: k === 'label' ? 'asc' : 'desc' };
+      syncPerfSort();
+      renderPerfLeaderboard(perfData);
+    });
+  });
+
+  // row hover (radar highlight) + click / Enter to drill into a college's course programs
+  area.querySelectorAll('.perf-list-row').forEach(row => {
+    row.addEventListener('mouseenter', () => highlightPerf(row.dataset.label));
+    row.addEventListener('mouseleave', () => highlightPerf(null));
+    const go = () => data.view === 'course' ? perfPickCourse(row.dataset.label) : perfDrill(row.dataset.label);
+    row.addEventListener('click', go);
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+    });
+  });
+}
+
+// Click a college -> same card, now ranking that college's courses
+function perfDrill(label) {
+  if (!label) return;
+  PF.dept = label; PF.course = '';
+  const sel = $('perfDept');
+  if (sel) {
+    if (![...sel.options].some(o => o.value === label)) sel.add(new Option(label, label));
+    sel.value = label;
+  }
+  _fillCourses('perfDept', 'perfCourse');
+  loadPerformance();
+}
+
+// Click a course -> radar shows only that course; click it again -> back to the whole college
+function perfPickCourse(label) {
+  PF.course = (PF.course === label) ? '' : label;
+  const sel = $('perfCourse');
+  if (sel) {
+    if (PF.course && ![...sel.options].some(o => o.value === PF.course)) sel.add(new Option(PF.course, PF.course));
+    sel.value = PF.course;
+  }
+  loadPerformance();
+}
+
+function renderPerfTable(data) {
+  if (!data?.rows?.length) return;
+  const isCount = perfMetric === 'count';
+  const headers = ['College / Course', 'Enrolled', 'GWA', 'Passing', 'Completion', 'Retention', 'Regular'];
+  const rows = data.rows.map(r => {
+    function fmtCell(rateKey, countKey) {
+      const pct = r[rateKey];
+      const pctStr = pct != null ? pct.toFixed(1) + '%' : '—';
+      if (!isCount) return pctStr;
+      const n = r[countKey];
+      return n != null ? `${n.toLocaleString()} of ${r.enrollment?.toLocaleString() ?? '?'} (${pctStr})` : pctStr;
+    }
+    return {
+      'College / Course': r.label,
+      'Enrolled':    r.enrollment?.toLocaleString() ?? '—',
+      'GWA':         r.avg_gwa != null ? r.avg_gwa.toFixed(2) : '—',
+      'Passing':     fmtCell('passing_rate',   'passing_count'),
+      'Completion':  fmtCell('completion_rate','completion_count'),
+      'Retention':   fmtCell('retention_rate', 'retention_count'),
+      'Regular':     fmtCell('regular_ratio',  'regular_count'),
+    };
+  });
+  buildTable('perfTableInner', rows, headers, 'GWA', 'asc', {
+    filename: 'academic_performance',
+    title: 'Academic Performance — Table View',
+  });
+}
+
+function highlightPerf(label) {
+  // Highlight leaderboard row
+  document.querySelectorAll('.perf-list-row').forEach(r =>
+    r.classList.toggle('perf-list-row--active', r.dataset.label === label));
+  if (!perfChart) return;
+  // The radar only holds one polygon; hovering some other row must not dim it
+  if (label !== null && !perfChart.data.datasets.some(ds => ds.label === label)) return;
+  // Highlight radar polygon
+  perfChart.data.datasets.forEach(ds => {
+    const isAvg   = !!ds._isAvg;
+    const isMatch = ds.label === label;
+    if (label === null) {
+      ds.borderWidth      = isAvg ? 2 : 1.5;
+      ds.borderDash       = isAvg ? [6,4] : (ds._dash || []);
+      ds.pointRadius      = isAvg ? 0 : 3;
+      ds.backgroundColor  = isAvg ? 'rgba(0,0,0,0.04)' : hexAlpha(ds.borderColor, 0.12);
+    } else {
+      ds.borderWidth      = isMatch ? 3 : (isAvg ? 1.5 : 1);
+      ds.borderDash       = isAvg ? [6,4] : (ds._dash || []);
+      ds.pointRadius      = isMatch ? 5 : (isAvg ? 0 : 2);
+      ds.backgroundColor  = isMatch
+        ? hexAlpha(ds.borderColor, 0.22)
+        : (isAvg ? 'rgba(0,0,0,0.02)' : hexAlpha(ds.borderColor, 0.04));
+    }
+  });
+  perfChart.update('none');
+}
+
+function renderPerfRadar(data) {
+  const canvas = $('perfRadarCanvas');
+  if (!canvas || !data?.rows?.length) return;
+
+  // ONE polygon only: campus average (all colleges) / the selected college / the selected course
+  const scope = data.radar_scope || 'campus';
+  const rRows = data.radar || (data.average ? [data.average] : []);
+  const cap = $('perfRadarCaption');
+  if (cap) {
+    const r0 = rRows[0];
+    cap.innerHTML = !r0 ? '' :
+      scope === 'course'  ? `<b>${_perfEsc(r0.label)}</b> · course · ${(r0.enrollment ?? 0).toLocaleString()} students`
+    : scope === 'college' ? `<b>${_perfEsc(r0.label)}</b> · whole college · ${(r0.enrollment ?? 0).toLocaleString()} students`
+    :                       `<b>Campus average</b> · all colleges · ${(r0.enrollment ?? 0).toLocaleString()} students`;
+  }
+  const datasets = rRows.map(row => {
+    let color, i;
+    if (scope === 'course') {
+      i = Math.max(0, data.rows.findIndex(r => r.label === row.label));     // same colour + shape as its leaderboard row
+      color = _perfColor(row.label, i);
+    } else if (scope === 'college') {
+      i = Math.max(0, data.rows.findIndex(r => r.label === row.label));
+      color = _perfColor(row.label, i);
+    } else {
+      i = 0; color = CB.on ? '#000000' : '#7B1113';                                              // campus average: theme maroon
+    }
+    return {
+      label:            row.label,
+      data:             PERF_AXES.map(a => row[a.key] ?? 0),
+      borderColor:      color,
+      backgroundColor:  hexAlpha(color, 0.22),
+      borderWidth:      2.5,
+      borderDash:       CB.on ? CB_DASHES[i % CB_DASHES.length] : [],
+      pointRadius:      CB.on ? 5 : 4,
+      pointStyle:       CB.on ? CB_SHAPES[i % CB_SHAPES.length] : 'circle',
+      pointBackgroundColor: color,
+      pointHoverRadius: 6,
+      _isAvg:           false,
+      _dash:            CB.on ? CB_DASHES[i % CB_DASHES.length] : [],
+    };
+  });
+
+  const fsz = $('perfCard')?.classList.contains('is-fullscreen') ? 14 : 11;   // canvas text can't follow CSS
+  if (perfChart) { perfChart.destroy(); perfChart = null; }
+  perfChart = new Chart(canvas, {
+    type: 'radar',
+    data: { labels: PERF_AXES.map(a => a.label), datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,          // fills its box (taller in fullscreen)
+      animation: { duration: 300 },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          rtl: false,
+          labels: {
+            boxWidth: 10, boxHeight: 10,
+            font: { size: fsz },
+            padding: 8,
+            color: '#374151',
+            usePointStyle: true,
+            pointStyle: 'circle',
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              return ` ${ctx.dataset.label}: ${ctx.parsed.r?.toFixed(1) ?? '—'}%`;
+            },
+          },
+        },
+      },
+      scales: {
+        r: {
+          // Start at 50 so differences are visible when all colleges cluster high
+          min: 50, max: 100,
+          ticks: {
+            stepSize: 10,
+            font: { size: fsz - 2 },
+            color: '#9ca3af',
+            backdropColor: 'transparent',
+            callback: v => v + '%',
+          },
+          grid:        { color: 'rgba(0,0,0,0.07)' },
+          angleLines:  { color: 'rgba(0,0,0,0.12)' },
+          pointLabels: {
+            font: { size: fsz, weight: '600' },
+            color: '#374151',
+            padding: 8,
+          },
+        },
+      },
+    },
+  });
+}
+
+// ── Rank-by metric buttons ──────────────────────────────────
+function syncPerfRankBtns() {
+  qsa('[data-perf-rank]').forEach(b => b.classList.toggle('active', b.dataset.perfRank === perfRank));
+}
+qsa('[data-perf-rank]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (perfRank === btn.dataset.perfRank) return;
+    perfRank = btn.dataset.perfRank;
+    syncPerfRankBtns();
+    loadPerformance();
+  });
+});
+
+// ── Show: Percentage / No. of Students ──────────────────────
+function syncPerfMetricBtns() {
+  qsa('[data-perf-metric]').forEach(b => b.classList.toggle('active', b.dataset.perfMetric === perfMetric));
+}
+qsa('[data-perf-metric]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (perfMetric === btn.dataset.perfMetric) return;
+    perfMetric = btn.dataset.perfMetric;
+    syncPerfMetricBtns();
+    // Re-render with existing data — no need to reload from server
+    if (perfData) {
+      renderPerfLeaderboard(perfData);
+      highlightPerf(null);
+    }
+  });
+});
+
+// ── Sort order (Descending / Ascending) ─────────────────────
+$('perfSort')?.addEventListener('change', () => {
+  perfSort.dir = $('perfSort').value === 'asc' ? 'asc' : 'desc';
+  if (perfData?.rows?.length) renderPerfLeaderboard(perfData);
+});
+
+// ── Back to all colleges (after drilling into one) ──────────
+$('perfBackBtn')?.addEventListener('click', () => {
+  if (PF.course) {                                   // course -> its college
+    PF.course = '';
+    const cs = $('perfCourse'); if (cs) cs.value = '';
+  } else {                                           // college -> all colleges
+    PF.dept = '';
+    const sel = $('perfDept'); if (sel) sel.value = '';
+    _fillCourses('perfDept', 'perfCourse');
+  }
+  loadPerformance();
+});
+
+// Radar text is drawn on the canvas, so redraw it when the card enters / leaves fullscreen.
+(function watchPerfFullscreen() {
+  const card = $('perfCard');
+  if (!card || typeof MutationObserver === 'undefined') return;
+  let last = card.classList.contains('is-fullscreen');
+  new MutationObserver(() => {
+    const now = card.classList.contains('is-fullscreen');
+    if (now === last) return;
+    last = now;
+    requestAnimationFrame(() => { if (perfData?.rows?.length && $('perfRadarCanvas')) renderPerfRadar(perfData); });
+  }).observe(card, { attributes: true, attributeFilter: ['class'] });
+})();
+
+// ── Filter popover wiring ────────────────────────────────────
+$('perfDept')?.addEventListener('change', () => _fillCourses('perfDept', 'perfCourse'));
+$('perfYear')?.addEventListener('change', () => _populateSemesters('perfSem', $('perfYear').value));
+
+$('perfBtnApply')?.addEventListener('click', () => {
+  PF = {
+    year:      $('perfYear')?.value      || '',
+    sem:       $('perfSem')?.value       || '',
+    dept:      $('perfDept')?.value      || '',
+    course:    $('perfCourse')?.value    || '',
+    yearlevel: $('perfYearLevel')?.value || '',
+  };
+  loadPerformance();
+});
+
+$('perfViewTable')?.addEventListener('click', () => {
+  if (!perfData?.rows?.length) return;
+  renderPerfTable(perfData);
+  $('perfTableModal')?.classList.remove('hidden');
+});
+$('perfTableModalClose')?.addEventListener('click', () => $('perfTableModal')?.classList.add('hidden'));
+$('perfTableDownloadCsv')?.addEventListener('click', () => {
+  const btn = document.querySelector('#perfTableInner [data-download-csv]');
+  btn?.click();
+});
+
+$('perfBtnReset')?.addEventListener('click', () => {
+  const defYear = window._kpiDefaultYear || '';
+  const defSem  = window._kpiDefaultSem  || '';
+  PF = { year: defYear, sem: defSem, dept:'', course:'', yearlevel:'' };
+  perfRank   = 'avg_gwa_score';
+  perfMetric = 'rate';
+  perfSort   = { key: 'value', dir: 'desc' };
+  syncPerfSort();
+
+  const set = (id, v) => { const el=$(id); if (el) el.value = v; };
+  set('perfYear', defYear);
+  _populateSemesters('perfSem', defYear);
+  set('perfSem', defSem);
+  set('perfDept', '');
+  _fillCourses('perfDept', 'perfCourse');
+  set('perfCourse', '');
+  set('perfYearLevel', '');
+  syncPerfRankBtns();
+  syncPerfMetricBtns();
+  loadPerformance();
+});
+
 async function loadGenderPie() {
   const reqId = ++gdReqId;
   const p = new URLSearchParams();
@@ -1382,7 +2069,7 @@ function _renderDonut(canvasId, centerId, pie, activeStatuses, genderLabel) {
     if (activeStatuses.includes(lbl)) {
       acc.codes.push(lbl);
       acc.values.push(pie.values[i]);
-      acc.colors.push(pie.colors?.[i] || GD_STATUS_COLORS[lbl] || '#9ca3af');
+      acc.colors.push((CB.on ? GD_STATUS_COLORS[lbl] : pie.colors?.[i]) || GD_STATUS_COLORS[lbl] || pie.colors?.[i] || '#9ca3af');
     }
     return acc;
   }, { codes:[], values:[], colors:[] });
@@ -1691,10 +2378,10 @@ function renderHsTable() {
 
   const code = hsModalSubjectCode;
   const subj = code ? hsData?.subjects?.find(s => s.code === code) : null;
-  if (titleEl) titleEl.textContent = subj ? `${subj.label || subj.code} — Table View` : 'Top Hardest Subjects — Table View';
+  if (titleEl) titleEl.textContent = subj ? `${subj.label || subj.code} — Table View` : 'Subjects Requiring Intervention — Table View';
   buildTable('hsTableInner', hsTableRows(code), HS_TABLE_HEADERS, '#', 'asc', {
     filename: subj ? `hardest_subjects_${subj.code}` : 'hardest_subjects',
-    title: subj ? `${subj.label || subj.code} — Subject Detail` : 'Top Hardest Subjects',
+    title: subj ? `${subj.label || subj.code} — Subject Detail` : 'Subjects Requiring Intervention',
     description: subj
       ? `Detailed breakdown for ${subj.label || subj.code}.`
       : 'Subjects ranked for the currently selected filters and metric.',
@@ -1769,6 +2456,11 @@ function hsColor(val, max, isGrade = false) {
   // decent grade like 1.5 can look "red" just because it's the worst of a good batch.
   const t = isGrade ? Math.max(0, Math.min(1, (val - 1) / 4))
                      : (max > 0 ? Math.min(val / max, 1) : 0);
+  if (CB.on) {                                         // blue = good, yellow = middle, vermillion = bad
+    if (t > 0.65) return 'rgba(213,94,0,0.9)';
+    if (t > 0.35) return 'rgba(240,228,66,0.95)';
+    return 'rgba(0,114,178,0.85)';
+  }
   if (t > 0.65) return 'rgba(220,38,38,0.85)';
   if (t > 0.35) return 'rgba(234,179,8,0.85)';
   return 'rgba(34,197,94,0.75)';
@@ -1893,7 +2585,7 @@ function renderHardestTrend(data) {
   if (!data?.trend?.length) { area.innerHTML='<div class="chart-empty">No trend data.</div>'; return; }
   area.innerHTML = '<canvas id="hsTrendCanvas"></canvas>';
   const fs = hsIsFullscreen() ? 13 : (isNarrow() ? 10 : 11);
-  const colors = ['#800000','#4E73DF','#1CC88A','#E74A3B','#8A2BE2','#36B9CC','#d97706'];
+  const colors = CB.on ? CB_TREND : ['#800000','#4E73DF','#1CC88A','#E74A3B','#8A2BE2','#36B9CC','#d97706'];
   makeChart('hsTrendCanvas', {
     type:'line',
     data: { labels:data.trend_labels,
@@ -1901,7 +2593,9 @@ function renderHardestTrend(data) {
         label:s.label, data:s.values,
         borderColor:colors[i%colors.length],
         backgroundColor:colors[i%colors.length]+'20',
-        tension:0.3, pointRadius: isNarrow() ? 2.5 : 4, borderWidth: isNarrow() ? 1.6 : 3, fill:false })) },
+        tension:0.3, pointRadius: isNarrow() ? 2.5 : 4, borderWidth: isNarrow() ? 1.6 : 3, fill:false,
+        borderDash: CB.on ? CB_DASHES[i % CB_DASHES.length] : [],
+        pointStyle: CB.on ? CB_SHAPES[i % CB_SHAPES.length] : 'circle' })) },
     options: { responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display: !(isNarrow() && data.trend.length > 6), position:'bottom',labels:{font:{size: fs},boxWidth: isNarrow() ? 8 : 12, padding: isNarrow() ? 8 : 10}},
                tooltip:{mode:'index',intersect:false}},
@@ -1930,10 +2624,11 @@ function renderHardestTrend(data) {
 /* Download PDF is handled by pdf-export.js */
 
 /* ── Filter popovers (KPI + Heatmap + Gender + Hardest) ─────────────────────────────────────── */
-initFilterPopover({ toggleId:'kpiFilterToggle', popoverId:'kpiFilterPopover', closeId:'kpiFilterClose', applyId:'kpiBtnApply' });
-initFilterPopover({ toggleId:'hmFilterToggle',  popoverId:'hmFilterPopover',  closeId:'hmFilterClose',  applyId:'hmBtnApply'  });
-initFilterPopover({ toggleId:'gdFilterToggle',  popoverId:'gdFilterPopover',  closeId:'gdFilterClose',  applyId:'gdBtnApply'  });
-initFilterPopover({ toggleId:'hsFilterToggle',  popoverId:'hsFilterPopover',  closeId:'hsFilterClose',  applyId:'hsBtnApply'  });
+initFilterPopover({ toggleId:'kpiFilterToggle',  popoverId:'kpiFilterPopover',  closeId:'kpiFilterClose',  applyId:'kpiBtnApply'  });
+initFilterPopover({ toggleId:'hmFilterToggle',   popoverId:'hmFilterPopover',   closeId:'hmFilterClose',   applyId:'hmBtnApply'   });
+initFilterPopover({ toggleId:'perfFilterToggle', popoverId:'perfFilterPopover', closeId:'perfFilterClose', applyId:'perfBtnApply' });
+initFilterPopover({ toggleId:'gdFilterToggle',   popoverId:'gdFilterPopover',   closeId:'gdFilterClose',   applyId:'gdBtnApply'   });
+initFilterPopover({ toggleId:'hsFilterToggle',   popoverId:'hsFilterPopover',   closeId:'hsFilterClose',   applyId:'hsBtnApply'   });
 
 /* ── Fullscreen card toggle (works on any card with a .btn-fullscreen icon) ─
    Expanding covers the viewport; collapsing returns the card to its normal
@@ -1983,6 +2678,7 @@ initFilterPopover({ toggleId:'hsFilterToggle',  popoverId:'hsFilterPopover',  cl
     const card = activeCard;
     activeCard = null;
     scaleChartFonts(card, 1);
+    if (card.id === 'heatmapCard') sizeHistogramWrap();
     requestAnimationFrame(() => resizeChartsIn(card));
   }
 
@@ -1998,6 +2694,7 @@ initFilterPopover({ toggleId:'hsFilterToggle',  popoverId:'hsFilterPopover',  cl
     document.body.classList.add('fullscreen-lock');
     activeCard = card;
     scaleChartFonts(card, FULLSCREEN_FONT_SCALE);
+    if (card.id === 'heatmapCard') sizeHistogramWrap();
     requestAnimationFrame(() => resizeChartsIn(card));
   }
 
@@ -2015,6 +2712,7 @@ initFilterPopover({ toggleId:'hsFilterToggle',  popoverId:'hsFilterPopover',  cl
 /* ── Skeleton loading: wrap each card's loader ─────────────────────────── */
 { const _o = loadKpi;            loadKpi            = function () { skOn('kpiCard');     return Promise.resolve(_o.apply(this, arguments)).finally(() => skDone('kpiCard')); }; }
 { const _o = loadHeatmap;        loadHeatmap        = function () { skOn('heatmapCard'); return Promise.resolve(_o.apply(this, arguments)).finally(() => skDone('heatmapCard')); }; }
+{ const _o = loadPerformance;    loadPerformance    = function () { skOn('perfCard');     return Promise.resolve(_o.apply(this, arguments)).finally(() => skDone('perfCard')); }; }
 { const _o = loadGenderPie;      loadGenderPie      = function () { skOn('genderCard');  return Promise.resolve(_o.apply(this, arguments)).finally(() => skDone('genderCard')); }; }
 { const _o = loadHardestSubjects; loadHardestSubjects = function () { skOn('hardestCard'); return Promise.resolve(_o.apply(this, arguments)).finally(() => skDone('hardestCard')); }; }
 
@@ -2040,6 +2738,65 @@ initFilterPopover({ toggleId:'hsFilterToggle',  popoverId:'hsFilterPopover',  cl
     box.parentNode.insertBefore(btn, box);
   });
 })();
+
+/* ── COLOR-BLIND MODE ─────────────────────────────────────────────────────────
+   One switch swaps every palette in place (status colours, colleges, year levels,
+   heatmap scale, performance tiers, trend lines), then re-draws the cards.
+   Colours: Okabe-Ito set + the blue-red RdYlBu scale, both safe for red-green
+   (deuteranopia / protanopia) and blue-yellow (tritanopia) colour blindness.
+   Point shapes and dash patterns are added as a second cue.  Saved in localStorage. */
+const CB_KEY = 'dashColorblind';
+let _cbSaved = false;
+try { _cbSaved = localStorage.getItem(CB_KEY) === '1'; } catch (e) {}
+const CB = { on: _cbSaved };                                   // read by the render functions above
+
+const CB_SHAPES = ['circle', 'triangle', 'rect', 'rectRot', 'star', 'crossRot'];
+const CB_DASHES = [[], [7, 4], [2, 3], [9, 3, 2, 3], [], [7, 4], [2, 3]];
+const CB_TREND  = ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#56B4E9', '#D55E00', '#000000'];
+
+const _hexRgb = hex => [1, 3, 5].map(i => parseInt(hex.substr(i, 2), 16));
+const PALETTES = {
+  normal: {
+    status:  { FAILED:'#dc2626', DRP:'#7c3aed', INC:'#d97706', UDR:'#0284c7', W:'#059669', NGA:'#9ca3af', CONTINUING:'#16a34a' },
+    college: { CAHS:'#36b9cc', CBA:'#e74a3b', CCST:'#8a2be2', CEA:'#1cc88a', COAS:'#5a5c69', CTEC:'#4e73df' },
+    yl:      ['#7B1113','#C0392B','#E67E22','#F1C40F','#27AE60','#2980B9'],
+    heat:    ['#006837','#1a9850','#66bd63','#a6d96a','#d9ef8b','#ffffbf','#fee08b','#fdae61','#f46d43','#d73027','#a50026'],
+    tiers:   ['#16a34a', '#65a30d', '#d97706', '#dc2626'],
+    perfFallback: ['#4e73df','#1cc88a','#e74a3b','#36b9cc','#8a2be2','#5a5c69','#d97706','#800000'],   // course-program rows / radar lines
+  },
+  cb: {
+    status:  { FAILED:'#D55E00', DRP:'#CC79A7', INC:'#E69F00', UDR:'#0072B2', W:'#56B4E9', NGA:'#999999', CONTINUING:'#009E73' },
+    college: { CAHS:'#56B4E9', CBA:'#D55E00', CCST:'#CC79A7', CEA:'#009E73', COAS:'#E69F00', CTEC:'#0072B2' },
+    yl:      ['#0072B2','#56B4E9','#009E73','#E69F00','#D55E00','#CC79A7'],
+    heat:    ['#313695','#4575b4','#74add1','#abd9e9','#e0f3f8','#ffffbf','#fee090','#fdae61','#f46d43','#d73027','#a50026'],
+    tiers:   ['#0072B2', '#56B4E9', '#E69F00', '#D55E00'],
+    perfFallback: ['#0072B2','#009E73','#D55E00','#56B4E9','#CC79A7','#E69F00','#000000','#999999'],
+  },
+};
+
+function applyPalette() {
+  const P = CB.on ? PALETTES.cb : PALETTES.normal;
+  Object.assign(STATUS_COLORS, P.status);
+  Object.assign(GD_STATUS_COLORS, P.status);
+  Object.assign(COLLEGE_COLORS, P.college);
+  YL_COLORS.splice(0, YL_COLORS.length, ...P.yl);
+  HM_STOPS.splice(0, HM_STOPS.length, ...P.heat.map(_hexRgb));
+  PERF_TIERS.forEach((t, i) => { t.color = P.tiers[i]; });
+  PERF_FALLBACK_COLORS.splice(0, PERF_FALLBACK_COLORS.length, ...P.perfFallback);
+  document.documentElement.classList.toggle('cb-mode', CB.on);
+  const btn = $('btnColorblind');
+  if (btn) btn.setAttribute('aria-checked', String(CB.on));
+}
+applyPalette();                                                // before the first render
+
+$('btnColorblind')?.addEventListener('click', () => {
+  CB.on = !CB.on;
+  try { localStorage.setItem(CB_KEY, CB.on ? '1' : '0'); } catch (e) {}
+  applyPalette();
+  // re-draw every card with the new colours (each keeps its own filters)
+  [loadKpi, loadHeatmap, loadPerformance, loadGenderPie, loadHardestSubjects]
+    .forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
+});
 
 /* ── INIT ────────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', initDashboard);

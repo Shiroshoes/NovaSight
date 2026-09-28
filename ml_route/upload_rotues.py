@@ -617,20 +617,45 @@ def api_upload_dataset():
         except Exception as e:
             print(f"[upload_routes] register_file_hash failed (non-fatal): {e}")
 
-    # Launch preprocessing (stops at preprocessing_done, not full pipeline)
+    # Launch preprocessing unless the caller asked to defer it.
+    # Pass ?defer=1 to hold the file in 'pending' status — call
+    # /api/start-preprocessing/<id> when ready to begin.
+    defer = request.args.get('defer', '0') == '1'
+    if not defer:
+        app = current_app._get_current_object()
+        threading.Thread(
+            target=_background_preprocess,
+            args=(app, record.id, raw_path, file_hash),
+            daemon=True,
+        ).start()
+
+    return jsonify({
+        'ok'        : True,
+        'upload_id' : record.id,
+        'record_id' : record.id,   # backward compat
+        'deferred'  : defer,
+        'message'   : f"'{f.filename}' accepted — {'queued, waiting to start.' if defer else 'preprocessing started.'}",
+    }), 202
+
+
+@upload_bp.route('/api/start-preprocessing/<int:record_id>', methods=['POST'])
+def api_start_preprocessing(record_id: int):
+    """
+    Trigger preprocessing for a previously uploaded file that was deferred.
+    Only works if the record is still in 'pending' status.
+    """
+    record = UploadedDataset.query.get_or_404(record_id)
+    if record.status != 'pending':
+        return jsonify({'ok': False, 'error': f"Record is already '{record.status}' — cannot start again."}), 409
+    raw_path  = record.raw_path
+    file_hash = record.file_hash
     app = current_app._get_current_object()
     threading.Thread(
         target=_background_preprocess,
         args=(app, record.id, raw_path, file_hash),
         daemon=True,
     ).start()
-
-    return jsonify({
-        'ok'       : True,
-        'upload_id': record.id,
-        'record_id': record.id,   # backward compat
-        'message'  : f"'{f.filename}' accepted — preprocessing started.",
-    }), 202
+    return jsonify({'ok': True, 'upload_id': record.id}), 202
 
 
 @upload_bp.route('/api/upload-status/<int:record_id>')

@@ -21,17 +21,31 @@
   const pipelineCard    = document.getElementById('pipelineCard');
   const pipelineResult  = document.getElementById('pipelineResult');
   const trainCard       = document.getElementById('trainCard');
+  const pipelineQueue   = document.getElementById('pipelineQueue');
+  const queueSection    = document.getElementById('queueSection');
+  const queueCount      = document.getElementById('queueCount');
 
   const STEP_IDS = ['step-validate','step-upload','step-clean','step-confirm','step-separate','step-train'];
 
+  // Upload queue — one card per concurrent upload
+  // Map<uploadId, { card, pollTimer }>
+  const uploadQueue = new Map();
+
+  // FIFO queue for sequential processing
+  // Each entry: { file, card } — waiting to start preprocessing
+  const fileQueue    = [];
+  let isProcessing   = false;  // true while any upload is in pending/processing/separating
+  // The single processing slot. Exactly ONE card owns it from the moment its
+  // preprocessing starts until its training step has finished. drainQueue()
+  // refuses to start anything while the slot is taken, so a stray/duplicate
+  // "finished" signal can never launch the rest of the queue at once.
+  let activeCard     = null;
+
   let pollTimer       = null;
-  let trainTimer      = null;   // polls /api/training-run while a run is queued/running
-  let currentUploadId = null;   // upload_id from /api/upload-dataset response
-  let pendingArchive  = null;   // {upload_id, ay, sem, label}
-  let pendingRestore  = null;   // {id, ay, sem}
-  // Upload IDs the user already confirmed. Belt-and-braces: even if the server
-  // still reports 'preprocessing_done' for a moment, never re-open the modal
-  // for an upload that is already being separated.
+  let trainTimer      = null;
+  let currentUploadId = null;
+  let pendingArchive  = null;
+  let pendingRestore  = null;
   const confirmedIds  = new Set();
 
   // ── Utilities ──────────────────────────────────────────────
@@ -82,12 +96,29 @@
   }
   function resetSteps() { STEP_IDS.forEach(id => setStep(id, 'waiting')); }
 
-  // ── Alert banner (the div right under the drop zone) ───────
-  // Every message — upload accepted / finished / failed, archive, restore,
-  // cancel, network errors — goes through showAlert(). It stays for ALERT_MS,
-  // fades out, then hides itself. Strict timer: the mouse position is ignored.
-  const ALERT_MS = 3000;   // how long the banner stays
-  const FADE_MS  = 300;    // fade-out duration
+  // ── Per-card step helpers ──────────────────────────────────
+  function setStepOn(card, key, state) {
+    const el = card.querySelector('[data-step="' + key + '"]');
+    if (!el) return;
+    el.classList.remove('step--waiting','step--running','step--done','step--error');
+    el.classList.add('step--' + state);
+  }
+
+  // ── Queue section show/hide ────────────────────────────────
+  function updateQueueSection() {
+    if (!queueSection) return;
+    const count = pipelineQueue ? pipelineQueue.children.length : 0;
+    if (count === 0) {
+      queueSection.style.display = 'none';
+    } else {
+      queueSection.style.display = '';
+      if (queueCount) queueCount.textContent = count === 1 ? '1 upload' : count + ' uploads';
+    }
+  }
+
+  // ── Alert banner ───────────────────────────────────────────
+  const ALERT_MS = 60000;   // 1 minute auto-hide
+  const FADE_MS  = 300;
   let alertTimer = null;
   let fadeTimer  = null;
 
@@ -99,9 +130,9 @@
     }, ALERT_MS);
   }
   function showAlert(msg, kind) {
-    clearTimeout(alertTimer); clearTimeout(fadeTimer);   // a new alert restarts the 3s
+    clearTimeout(alertTimer); clearTimeout(fadeTimer);
     uploadAlert.className = 'upload-alert upload-alert--' + kind;
-    uploadAlert.innerHTML = msg;
+    uploadAlert.innerHTML = `<span class="alert-msg">${msg}</span>`;
     uploadAlert.style.transition = 'opacity ' + FADE_MS + 'ms ease';
     uploadAlert.style.opacity = '1';
     uploadAlert.classList.remove('hidden');
@@ -114,44 +145,178 @@
     uploadAlert.style.opacity = '';
   }
 
-  // ── Pipeline card (progress steps) auto-hide ───────────────
-  // Once the upload reaches an end state — finished, failed, or rejected — the
-  // card fades out after CARD_HIDE_MS and is removed. It is NEVER scheduled
-  // while the upload is still running or waiting on the confirmation modal, and
-  // a new upload cancels any pending hide so an old timer can't remove the new
-  // card.
-  //
-  // No hover-pause on purpose: an earlier version paused the countdown while the
-  // pointer was over the card, and the pointer is usually still resting there
-  // (or gets moved under it by the layout shift when the banner appears), so the
-  // card never went away.
+  // ── Pipeline card (legacy — training-resume only) ──────────
   const CARD_HIDE_MS = 3000;
-  let cardTimer     = null;
-  let cardFadeTimer = null;
-  pipelineCard.style.transition = 'opacity ' + FADE_MS + 'ms ease';
+  let cardTimer = null, cardFadeTimer = null;
+  if (pipelineCard) pipelineCard.style.transition = 'opacity ' + FADE_MS + 'ms ease';
 
   function cancelCardHide() {
     clearTimeout(cardTimer); clearTimeout(cardFadeTimer);
     cardTimer = cardFadeTimer = null;
-    pipelineCard.style.opacity = '';
+    if (pipelineCard) pipelineCard.style.opacity = '';
   }
   function showPipelineCard() {
     cancelCardHide();
+    if (!pipelineCard) return;
     pipelineCard.style.display = '';
     pipelineCard.classList.remove('hidden');
   }
   function hidePipelineCard() {
     cancelCardHide();
+    if (!pipelineCard) return;
     pipelineCard.classList.add('hidden');
-    pipelineCard.style.display = 'none';   // inline too, so no stylesheet rule can keep it visible
+    pipelineCard.style.display = 'none';
   }
   function scheduleCardHide() {
     clearTimeout(cardTimer); clearTimeout(cardFadeTimer);
+    if (!pipelineCard) return;
     pipelineCard.style.opacity = '1';
     cardTimer = setTimeout(() => {
       pipelineCard.style.opacity = '0';
       cardFadeTimer = setTimeout(hidePipelineCard, FADE_MS);
     }, CARD_HIDE_MS);
+  }
+
+  // ── Queue card factory ─────────────────────────────────────
+  // Cards start COMPACT — just the file header + a "Queued" status pill.
+  // Once the upload is accepted and processing begins, expandCard() is called
+  // to reveal the full pipeline steps. Rejected cards stay compact and show
+  // the error inline — never expand.
+  function createQueueCard(filename, filesize) {
+    const card = document.createElement('div');
+    card.className = 'pipeline-card pipeline-card--compact';
+
+    const steps = [
+      ['validate', 'Validating format',    'Checking extension, filename pattern, and workbook structure'],
+      ['upload',   'Saving file',          'Duplicate check passed · stored in Unprocessed Datasets'],
+      ['clean',    'Preprocessing',        'Parsing sheets, resolving grades, computing GWA'],
+      ['confirm',  'Awaiting confirmation','Review flagged rows then confirm or cancel'],
+      ['separate', 'CSV separation',       'Building DS00–DS06 chart datasets'],
+      ['train',    'Model training',       'Retraining the prediction models on all uploaded semesters'],
+    ];
+
+    card.innerHTML = `
+      <div class="pipeline-file">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+             style="width:20px;color:#800000;flex-shrink:0">
+          <path fill-rule="evenodd" d="M17.663 3.118c.225.015.45.032.673.05C19.876 3.298 21
+            4.604 21 6.109v9.642a3 3 0 0 1-3 3V16.5c0-5.922-4.576-10.775-10.384-11.217.324-1.132
+            1.3-2.01 2.548-2.114.224-.019.448-.036.673-.051A3 3 0 0 1 13.5 1.5H15a3 3 0 0 1
+            2.663 1.618ZM12 4.5A1.5 1.5 0 0 1 13.5 3H15a1.5 1.5 0 0 1 1.5 1.5H12Z"
+            clip-rule="evenodd"/>
+          <path d="M3 8.625c0-1.036.84-1.875 1.875-1.875h.375A3.75 3.75 0 0 1 9 10.5v1.875c0
+            1.036.84 1.875 1.875 1.875h1.875A3.75 3.75 0 0 1 16.5 18v2.625c0 1.035-.84
+            1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625v-12Z"/>
+          <path d="M10.5 10.5a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963
+            5.23 5.23 0 0 0-3.434-1.279h-1.875a.375.375 0 0 1-.375-.375V10.5Z"/>
+        </svg>
+        <span class="pipeline-filename">${esc(filename)}</span>
+        <span class="pipeline-size">${filesize ? '· ' + filesize : ''}</span>
+        <span class="queue-status-pill">Uploading…</span>
+        <button class="queue-cancel-btn" style="display:none"
+                title="Cancel and remove this upload" aria-label="Cancel">Cancel</button>
+        <button class="pipeline-close-btn" style="display:none"
+                title="Dismiss" aria-label="Dismiss">×</button>
+      </div>
+      <div class="pipeline-steps" style="display:none">
+        ${steps.map(([key, label, desc]) => `
+          <div class="pipeline-step step--waiting" data-step="${key}">
+            <div class="step-dot"><span class="step-spinner"></span></div>
+            <div class="step-info">
+              <span class="step-label">${label}</span>
+              <span class="step-desc">${desc}</span>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="pipeline-result hidden"></div>`;
+
+    // Close button — appears on terminal states only (done/failed/rejected)
+    card.querySelector('.pipeline-close-btn').addEventListener('click', () => {
+      card.style.transition = 'opacity 300ms ease';
+      card.style.opacity = '0';
+      setTimeout(() => {
+        card.remove();
+        if (card._uploadId) uploadQueue.delete(card._uploadId);
+        updateQueueSection();
+      }, 300);
+    });
+
+    // Cancel button — appears on queued cards, removes from DB and queue
+    card.querySelector('.queue-cancel-btn').addEventListener('click', () => {
+      const uploadId = card._uploadId;
+      const btn = card.querySelector('.queue-cancel-btn');
+      btn.disabled = true;
+      btn.textContent = 'Cancelling…';
+
+      const removeCard = () => {
+        // Remove from fileQueue
+        const idx = fileQueue.findIndex(item => item.card === card || item.uploadId === uploadId);
+        if (idx !== -1) fileQueue.splice(idx, 1);
+        if (uploadId) uploadQueue.delete(uploadId);
+        card.style.transition = 'opacity 300ms ease';
+        card.style.opacity = '0';
+        setTimeout(() => { card.remove(); updateQueueSection(); }, 300);
+      };
+
+      if (uploadId) {
+        fetch('/api/upload-record/' + uploadId, { method: 'DELETE' })
+          .then(() => removeCard())
+          .catch(() => removeCard()); // remove card regardless
+      } else {
+        // File not yet saved to server (edge case) — just remove locally
+        removeCard();
+      }
+    });
+
+    if (pipelineQueue) pipelineQueue.appendChild(card);
+    updateQueueSection();
+    return card;
+  }
+
+  // Expand a compact card to show the full pipeline steps
+  function expandCard(card) {
+    if (!card.classList.contains('pipeline-card--compact')) return;
+    card.classList.remove('pipeline-card--compact');
+    const steps = card.querySelector('.pipeline-steps');
+    if (steps) steps.style.display = '';
+    // Remove the status pill and cancel button — steps take over
+    card.querySelector('.queue-status-pill')?.remove();
+    const cancelBtn = card.querySelector('.queue-cancel-btn');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+  }
+
+  // Update the status pill text on a compact card
+  function setCardPill(card, text, kind) {
+    const pill = card.querySelector('.queue-status-pill');
+    if (!pill) return;
+    pill.textContent = text;
+    pill.className = 'queue-status-pill' + (kind ? ' queue-status-pill--' + kind : '');
+    // Show cancel button only when genuinely queued (waiting, not uploading or rejected)
+    const cancelBtn = card.querySelector('.queue-cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.style.display = (!kind && text === 'Queued') ? '' : 'none';
+    }
+  }
+
+  function revealCardClose(card) {
+    const btn = card.querySelector('.pipeline-close-btn');
+    if (btn) btn.style.display = '';
+    // Auto-remove failed/rejected cards after 30 seconds
+    setTimeout(() => {
+      if (!card.isConnected) return;
+      card.style.transition = 'opacity 400ms ease';
+      card.style.opacity = '0';
+      setTimeout(() => {
+        card.remove();
+        if (card._uploadId) uploadQueue.delete(card._uploadId);
+        updateQueueSection();
+      }, 400);
+    }, 30000);
+  }
+
+  function stopQueuePoll(uploadId) {
+    const entry = uploadQueue.get(uploadId);
+    if (entry && entry.pollTimer) { clearInterval(entry.pollTimer); entry.pollTimer = null; }
   }
 
   // ── Section tab switching ─────────────────────────────────
@@ -194,25 +359,146 @@
   }
 
   // ── Upload flow ────────────────────────────────────────────
+  // handleFile: validate extension, create compact card.
+  // If nothing is processing → start immediately.
+  // Otherwise → save the file to server with ?defer=1 (survives navigation)
+  // and show a Queued card. drainQueue() triggers preprocessing when ready.
   function handleFile(file) {
-    stopTrainPoll();
     clearAlert();
-    showPipelineCard();               // a new upload cancels any pending hide
-
-    pipelineResult.classList.add('hidden');
-    pipelineResult.innerHTML = '';
-    resetSteps();
-    document.getElementById('pipelineFilename').textContent = file.name;
-    document.getElementById('pipelineSize').textContent = file.size ? '· ' + fmt(file.size) : '';
 
     if (!file.name.toLowerCase().endsWith('.xlsx')) {
-      setStep('step-validate','error');
-      showAlert('Only <strong>.xlsx</strong> files are accepted.','error');
-      scheduleCardHide();
+      showAlert('Only <strong>.xlsx</strong> files are accepted.', 'error');
       return;
     }
 
-    setStep('step-validate','running');
+    const card = createQueueCard(file.name, file.size ? fmt(file.size) : '');
+
+    if (!activeCard && fileQueue.length === 0) {
+      startUpload(file, card);
+    } else {
+      deferUpload(file, card);
+    }
+  }
+
+  // Save file to server with defer=1 — record created but preprocessing held
+  function deferUpload(file, card) {
+    setCardPill(card, 'Queued', null);
+    const fd = new FormData();
+    fd.append('file', file);
+
+    fetch('/api/upload-dataset?defer=1', { method:'POST', body:fd })
+      .then(async r => ({ ok:r.ok, data: await r.json().catch(()=>({})) }))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          const isDup = !!data.duplicate;
+          const kind  = isDup ? 'warning' : 'error';
+          setCardPill(card, isDup ? 'Duplicate' : 'Rejected', kind);
+          const resultEl = card.querySelector('.pipeline-result');
+          resultEl.classList.remove('hidden');
+          resultEl.className = `pipeline-result pipeline-result--${kind}`;
+          resultEl.innerHTML =
+            `<span class="result-icon">${isDup ? HI.warn : HI.xmark}</span>` +
+            `<span class="result-body">` +
+              `<strong class="result-label">${isDup ? 'Rejected — Duplicate' : 'Rejected — Invalid file'}</strong>` +
+              `<span class="result-msg">${data.error || 'Upload failed.'}</span>` +
+            `</span>`;
+          showAlert(data.error || 'Upload failed.', kind);
+          revealCardClose(card);
+          return;
+        }
+        // File saved on server — won’t be lost on page navigation
+        const uploadId = data.upload_id || data.record_id;
+        card._uploadId = uploadId;
+        fileQueue.push({ uploadId, card });
+        uploadQueue.set(uploadId, { card, pollTimer: null });
+      })
+      .catch(err => {
+        setCardPill(card, 'Error', 'error');
+        const resultEl = card.querySelector('.pipeline-result');
+        resultEl.classList.remove('hidden');
+        resultEl.className = 'pipeline-result pipeline-result--error';
+        resultEl.innerHTML =
+          `<span class="result-icon">${HI.xmark}</span>` +
+          `<span class="result-body">` +
+            `<strong class="result-label">Network error</strong>` +
+            `<span class="result-msg">${esc(err.message || String(err))}</span>` +
+          `</span>`;
+        showAlert('Network error: ' + esc(err.message || String(err)), 'error');
+        revealCardClose(card);
+      });
+  }
+
+  // Drain next item from fileQueue when the active upload finishes
+  function drainQueue() {
+    if (activeCard) return;                       // slot busy — one at a time
+    if (fileQueue.length === 0) { isProcessing = false; return; }
+    const item = fileQueue.shift();
+    activeCard = item.card;
+    setCardPill(item.card, 'Uploading…', null);
+    if (item.uploadId) {
+      startDeferred(item.uploadId, item.card);
+    } else {
+      startUpload(item.file, item.card);
+    }
+  }
+
+  // Called when a card is completely finished (done / failed / skipped).
+  // Idempotent per card, so repeated status polls can't release the slot twice.
+  function releaseSlot(card) {
+    if (!card || card._released) return;
+    card._released = true;
+    if (activeCard === card) activeCard = null;
+    drainQueue();
+  }
+
+  // Trigger preprocessing for a deferred upload already saved on server
+  function startDeferred(uploadId, card) {
+    isProcessing = true;
+    activeCard = card;
+    stopTrainPoll();
+
+    fetch('/api/start-preprocessing/' + uploadId, { method: 'POST' })
+      .then(async r => ({ ok: r.ok, data: await r.json().catch(() => ({})) }))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          setCardPill(card, 'Error', 'error');
+          const resultEl = card.querySelector('.pipeline-result');
+          resultEl.classList.remove('hidden');
+          resultEl.className = 'pipeline-result pipeline-result--error';
+          resultEl.innerHTML =
+            `<span class="result-icon">${HI.xmark}</span>` +
+            `<span class="result-body">` +
+              `<strong class="result-label">Failed to start</strong>` +
+              `<span class="result-msg">${data.error || 'Could not start preprocessing.'}</span>` +
+            `</span>`;
+          revealCardClose(card);
+          releaseSlot(card);
+          return;
+        }
+        expandCard(card);
+        setStepOn(card, 'validate', 'done');
+        setStepOn(card, 'upload', 'done');
+        setStepOn(card, 'clean', 'running');
+        const timer = setInterval(() => {
+          fetch('/api/upload-status/' + uploadId)
+            .then(r => r.json())
+            .then(d => onQueueStatusUpdate(uploadId, card, d))
+            .catch(() => {});
+        }, 2500);
+        const entry = uploadQueue.get(uploadId);
+        if (entry) entry.pollTimer = timer;
+        else uploadQueue.set(uploadId, { card, pollTimer: timer });
+      })
+      .catch(() => { setCardPill(card, 'Error', 'error'); revealCardClose(card); releaseSlot(card); });
+  }
+
+  // Send file to server and begin the pipeline for this card
+  function startUpload(file, card) {
+    isProcessing = true;
+    activeCard = card;
+    stopTrainPoll();
+    setCardPill(card, 'Uploading…', null);
+
     const fd = new FormData();
     fd.append('file', file);
 
@@ -220,26 +506,205 @@
       .then(async r => ({ ok:r.ok, status:r.status, data: await r.json().catch(()=>({})) }))
       .then(({ ok, status, data }) => {
         if (!ok) {
-          setStep('step-validate', status === 409 ? 'done' : 'error');
-          setStep('step-upload','error');
-          showAlert(data.error || 'Upload failed.', data.duplicate ? 'warning' : 'error');
-          scheduleCardHide();
+          const isDup  = !!data.duplicate;
+          const kind   = isDup ? 'warning' : 'error';
+          const icon   = isDup ? HI.warn : HI.xmark;
+          const label  = isDup ? 'Rejected — Duplicate' : 'Rejected — Invalid file';
+
+          setCardPill(card, isDup ? 'Duplicate' : 'Rejected', kind);
+
+          const resultEl = card.querySelector('.pipeline-result');
+          resultEl.classList.remove('hidden');
+          resultEl.className = `pipeline-result pipeline-result--${kind}`;
+          resultEl.innerHTML =
+            `<span class="result-icon">${HI.warn}</span>` +
+            `<span class="result-body">` +
+              `<strong class="result-label">${label}</strong>` +
+              `<span class="result-msg">${data.error || 'Upload failed.'}</span>` +
+            `</span>`;
+
+          showAlert(data.error || 'Upload failed.', kind);
+          revealCardClose(card);
+          releaseSlot(card);   // rejection doesn't block the queue
           return;
         }
-        setStep('step-validate','done');
-        setStep('step-upload','done');
-        setStep('step-clean','running');
-        showAlert(data.message || 'File accepted — preprocessing started.','success');
-        currentUploadId = data.upload_id || data.record_id;
-        pollStatus(currentUploadId);
+
+        expandCard(card);
+        setStepOn(card, 'validate', 'done');
+        setStepOn(card, 'upload', 'done');
+        setStepOn(card, 'clean', 'running');
+        showAlert(data.message || 'File accepted — preprocessing started.', 'success');
+
+        const uploadId = data.upload_id || data.record_id;
+        card._uploadId = uploadId;
+
+        const timer = setInterval(() => {
+          fetch('/api/upload-status/' + uploadId)
+            .then(r => r.json())
+            .then(d => onQueueStatusUpdate(uploadId, card, d))
+            .catch(() => {});
+        }, 2500);
+        uploadQueue.set(uploadId, { card, pollTimer: timer });
       })
       .catch(err => {
-        setStep('step-validate','error');
-        showAlert('Network error: ' + esc(err.message || err),'error');
-        scheduleCardHide();
+        setCardPill(card, 'Error', 'error');
+        const resultEl = card.querySelector('.pipeline-result');
+        resultEl.classList.remove('hidden');
+        resultEl.className = 'pipeline-result pipeline-result--error';
+        resultEl.innerHTML =
+          `<span class="result-icon">${HI.xmark}</span>` +
+          `<span class="result-body">` +
+            `<strong class="result-label">Network error</strong>` +
+            `<span class="result-msg">${data.error || 'Upload failed.'}</span>` +
+          `</span>`;
+        showAlert('Network error: ' + err.message, 'error');
+        revealCardClose(card);
+        releaseSlot(card);
       });
   }
 
+  // ── Queue status handler ───────────────────────────────────
+  function onQueueStatusUpdate(uploadId, card, data) {
+    if (data.status === 'processing') {
+      setStepOn(card, 'clean', 'running');
+      return;
+    }
+    if (data.status === 'separating') {
+      setStepOn(card, 'clean', 'done');
+      setStepOn(card, 'confirm', 'done');
+      setStepOn(card, 'separate', 'running');
+      return;
+    }
+    if (data.status === 'preprocessing_done') {
+      if (confirmedIds.has(uploadId)) {
+        setStepOn(card, 'confirm', 'done');
+        setStepOn(card, 'separate', 'running');
+        return;
+      }
+      if (preprocModal.classList.contains('open')) return;
+      stopQueuePoll(uploadId);
+      setStepOn(card, 'clean', 'done');
+      setStepOn(card, 'confirm', 'running');
+      openPreprocModal(uploadId, data, card);
+      const timer = setInterval(() => {
+        fetch('/api/upload-status/' + uploadId)
+          .then(r => r.json())
+          .then(d => onQueueStatusUpdate(uploadId, card, d))
+          .catch(() => {});
+      }, 2500);
+      const entry = uploadQueue.get(uploadId);
+      if (entry) entry.pollTimer = timer;
+      return;
+    }
+    if (data.status === 'done') {
+      stopQueuePoll(uploadId);
+      setStepOn(card, 'clean', 'done');
+      setStepOn(card, 'confirm', 'done');
+      setStepOn(card, 'separate', 'done');
+      const resultEl = card.querySelector('.pipeline-result');
+      resultEl.classList.remove('hidden');
+      resultEl.className = 'pipeline-result pipeline-result--success';
+      resultEl.innerHTML =
+        `<strong>${esc(data.original_filename)}</strong> processed successfully` +
+        (data.row_count ? ` — ${fmtNum(data.row_count)} student rows.` : '.');
+      showAlert(
+        `<strong>${esc(data.original_filename || 'File')}</strong> uploaded successfully` +
+        (data.row_count ? ` — ${fmtNum(data.row_count)} student rows.` : '.'), 'success');
+      refreshAllTables();
+      setStepOn(card, 'train', 'running');
+      // Don't drain the queue yet — wait until training finishes
+      fetch('/api/training-run')
+        .then(r => r.json())
+        .then(run => followTrainingOnCard(run, card))
+        .catch(() => followTrainingOnCard(null, card));
+      return;
+    }
+    if (data.status === 'failed') {
+      stopQueuePoll(uploadId);
+      card.querySelectorAll('[data-step]').forEach(el => {
+        if (el.classList.contains('step--running')) {
+          el.classList.remove('step--running');
+          el.classList.add('step--error');
+        }
+      });
+      const resultEl = card.querySelector('.pipeline-result');
+      resultEl.classList.remove('hidden');
+      resultEl.className = 'pipeline-result pipeline-result--error';
+      resultEl.innerHTML =
+        `<strong>${esc(data.original_filename || 'Upload')}</strong> failed — ` +
+        esc(data.error_message || 'Unknown error.');
+      showAlert(
+        `<strong>${esc(data.original_filename || 'Upload')}</strong> upload failed — ` +
+        esc(data.error_message || 'Unknown error.'), 'error');
+      revealCardClose(card);
+      refreshAllTables();
+      // Failed — release the slot so the next queued file can start
+      releaseSlot(card);
+    }
+  }
+
+  // Per-card training follow
+  function followTrainingOnCard(run, card) {
+    stopTrainPoll();
+    applyTrainingToCard(run, card);
+    if (!run || !TRAIN_ACTIVE.includes(run.status)) return;
+    trainTimer = setInterval(() => {
+      fetch('/api/training-run')
+        .then(r => r.json())
+        .then(latest => {
+          applyTrainingToCard(latest, card);
+          if (!latest || !TRAIN_ACTIVE.includes(latest.status)) stopTrainPoll();
+        })
+        .catch(() => {});
+    }, 3000);
+  }
+
+  function applyTrainingToCard(run, card) {
+    const stepDesc = card.querySelector('[data-step="train"] .step-desc');
+    // /api/training-run returns the LATEST run. If it belongs to a different
+    // upload it is not ours — treat it as "no run for this upload" instead of
+    // reading someone else's 'done' as our own and releasing the slot early.
+    if (run && run.upload_id != null && card._uploadId != null &&
+        String(run.upload_id) !== String(card._uploadId)) {
+      run = null;
+    }
+    const st = run && run.status;
+    if (!st || st === 'none') {
+      setStepOn(card, 'train', 'waiting');
+      if (stepDesc) stepDesc.textContent = 'No training run was recorded for this upload.';
+      revealCardClose(card);
+      releaseSlot(card);   // training skipped/absent — start next
+      return;
+    }
+    if (st === 'queued') {
+      setStepOn(card, 'train', 'running');
+      if (stepDesc) stepDesc.textContent = 'Waiting for an earlier training run to finish…';
+    } else if (st === 'running') {
+      setStepOn(card, 'train', 'running');
+      if (stepDesc) stepDesc.textContent = 'Training models on all uploaded semesters — this can take a few minutes.';
+    } else if (st === 'skipped') {
+      setStepOn(card, 'train', 'waiting');
+      if (stepDesc) stepDesc.textContent = run.message || 'Not enough semesters yet — training skipped.';
+      revealCardClose(card);
+      releaseSlot(card);   // training skipped — start next
+    } else if (st === 'done') {
+      setStepOn(card, 'train', 'done');
+      if (stepDesc) stepDesc.textContent = run.has_warnings ? 'Models trained — some had warnings' : 'Models trained successfully';
+      if (run.has_warnings) { showAlert('Model training finished <strong>with warnings</strong>.', 'warning'); showTrainingResult(run); }
+      else showTrainedAlert(run);
+      revealCardClose(card);
+      releaseSlot(card);   // training done — start next
+    } else {
+      setStepOn(card, 'train', 'error');
+      if (stepDesc) stepDesc.textContent = run.error || 'Training did not complete.';
+      showAlert('Model training <strong>' + esc(st) + '</strong> — ' + esc(run.error || 'see details below.'), 'error');
+      showTrainingResult(run);
+      revealCardClose(card);
+      releaseSlot(card);   // training errored — start next anyway
+    }
+  }
+
+  // Legacy poll (training-resume only)
   function pollStatus(uploadId) {
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(() => {
@@ -248,74 +713,6 @@
         .then(data => onStatusUpdate(uploadId, data))
         .catch(() => {});
     }, 2500);
-  }
-
-  function onStatusUpdate(uploadId, data) {
-    if (data.status === 'processing') {
-      setStep('step-clean','running');
-      return;
-    }
-    if (data.status === 'separating') {
-      // Confirmed; CSV separation (DS00–DS06) still running server-side.
-      setStep('step-clean','done');
-      setStep('step-confirm','done');
-      setStep('step-separate','running');
-      return;
-    }
-    if (data.status === 'preprocessing_done') {
-      if (confirmedIds.has(uploadId)) {          // already confirmed → keep waiting, no modal
-        setStep('step-confirm','done');
-        setStep('step-separate','running');
-        return;
-      }
-      if (preprocModal.classList.contains('open')) return;   // already showing
-      // Preprocessing finished — open confirmation modal
-      clearInterval(pollTimer); pollTimer = null;
-      setStep('step-clean','done');
-      setStep('step-confirm','running');
-      openPreprocModal(uploadId, data);
-      return;
-    }
-    if (data.status === 'done') {
-      clearInterval(pollTimer); pollTimer = null;
-      setStep('step-clean','done');
-      setStep('step-confirm','done');
-      setStep('step-separate','done');
-      pipelineResult.classList.remove('hidden');
-      pipelineResult.className = 'pipeline-result pipeline-result--success';
-      pipelineResult.innerHTML =
-        `<strong>${esc(data.original_filename)}</strong> processed successfully` +
-        (data.row_count ? ` — ${fmtNum(data.row_count)} student rows.` : '.');
-      showAlert(
-        `<strong>${esc(data.original_filename || 'File')}</strong> uploaded successfully` +
-        (data.row_count ? ` — ${fmtNum(data.row_count)} student rows.` : '.'), 'success');
-      refreshAllTables();
-      // Last step: model training. The pipeline card stays open until it ends.
-      cancelCardHide();
-      setStep('step-train','running');
-      fetch('/api/training-run')
-        .then(r => r.json())
-        .then(run => followTraining(run && run.upload_id === uploadId ? run : null))
-        .catch(() => followTraining(null));
-      return;
-    }
-    if (data.status === 'failed') {
-      clearInterval(pollTimer); pollTimer = null;
-      STEP_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        if (el?.classList.contains('step--running')) setStep(id,'error');
-      });
-      pipelineResult.classList.remove('hidden');
-      pipelineResult.className = 'pipeline-result pipeline-result--error';
-      pipelineResult.innerHTML =
-        `<strong>${esc(data.original_filename || 'Upload')}</strong> failed — ` +
-        esc(data.error_message || 'Unknown error.');
-      showAlert(
-        `<strong>${esc(data.original_filename || 'Upload')}</strong> upload failed — ` +
-        esc(data.error_message || 'Unknown error.'), 'error');
-      scheduleCardHide();
-      refreshAllTables();
-    }
   }
 
   // ── Auto-training (last pipeline step + result card) ───────
@@ -337,6 +734,7 @@
     check: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd"/></svg>',
     xmark: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd"/></svg>',
     clock: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clip-rule="evenodd"/></svg>',
+    warn:  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>',
   };
   const dismissedRun = () => { try { return localStorage.getItem(TRAIN_DISMISS_KEY); } catch (e) { return null; } };
   const dismissRun   = (id) => { try { localStorage.setItem(TRAIN_DISMISS_KEY, id || ''); } catch (e) {} };
@@ -491,11 +889,13 @@
   const cancelBtn      = document.getElementById('preprocCancelBtn');
 
   let modalUploadId   = null;
+  let modalCard       = null;
   let warnData        = { null:[], highlight:[], resolved:[] };
   let activeWarnTier  = 'null';
 
-  function openPreprocModal(uploadId, statusData) {
+  function openPreprocModal(uploadId, statusData, card) {
     modalUploadId = uploadId;
+    modalCard     = card || null;
     preprocModal.classList.add('open');
     preprocTitle.textContent = 'Preprocessing Complete';
     preprocMeta.textContent  =
@@ -582,43 +982,48 @@
       </table>`;
   }
 
-  // Confirm — run CSV separation
   confirmBtn?.addEventListener('click', () => {
     if (!modalUploadId || confirmBtn.disabled) return;
     const uploadId = modalUploadId;
-    const resetBtn = () => {
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = 'Save & separate CSVs';
-    };
+    const card     = modalCard;
+    const resetBtn = () => { confirmBtn.disabled = false; confirmBtn.textContent = 'Save & separate CSVs'; };
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Separating CSVs…';
-    confirmedIds.add(uploadId);          // set BEFORE the request so no poll tick can re-open the modal
+    confirmedIds.add(uploadId);
 
     const startWaiting = () => {
       preprocModal.classList.remove('open');
       resetBtn();
-      setStep('step-confirm','done');
-      setStep('step-separate','running');
-      pollStatus(uploadId);              // poll until 'done' / 'failed'
+      if (card) {
+        setStepOn(card, 'confirm', 'done');
+        setStepOn(card, 'separate', 'running');
+        const timer = setInterval(() => {
+          fetch('/api/upload-status/' + uploadId)
+            .then(r => r.json())
+            .then(d => onQueueStatusUpdate(uploadId, card, d))
+            .catch(() => {});
+        }, 2500);
+        const entry = uploadQueue.get(uploadId);
+        if (entry) entry.pollTimer = timer;
+      } else {
+        setStep('step-confirm','done');
+        setStep('step-separate','running');
+        pollStatus(uploadId);
+      }
     };
 
     fetch('/api/confirm-upload/' + uploadId, { method:'POST' })
       .then(async r => ({ status: r.status, data: await r.json().catch(() => ({})) }))
       .then(({ status, data }) => {
-        if (data.success || data.already_running || status === 409) {
-          startWaiting();                // 409 = another request already started it → just wait
-        } else {
-          confirmedIds.delete(uploadId); // real failure: allow retry, keep modal open
-          resetBtn();
+        if (data.success || data.already_running || status === 409) { startWaiting(); }
+        else {
+          confirmedIds.delete(uploadId); resetBtn();
           showAlert('Separation failed: ' + esc(data.error || 'Unknown error.'),'error');
-          setStep('step-confirm','error');
+          if (card) setStepOn(card, 'confirm', 'error');
+          else setStep('step-confirm','error');
         }
       })
-      .catch(() => {
-        confirmedIds.delete(uploadId);
-        resetBtn();
-        showAlert('Network error during confirmation.','error');
-      });
+      .catch(() => { confirmedIds.delete(uploadId); resetBtn(); showAlert('Network error during confirmation.','error'); });
   });
 
   // Cancel — delete the upload (confirmed via discardUploadModal, not window.confirm())
@@ -638,6 +1043,7 @@
   discardConfirmBtn?.addEventListener('click', () => {
     if (!modalUploadId || discardConfirmBtn.disabled) return;
     const uploadId = modalUploadId;
+    const card     = modalCard;
     discardConfirmBtn.disabled = true;
     discardConfirmBtn.textContent = 'Discarding…';
 
@@ -645,21 +1051,19 @@
       .then(() => {
         discardModal.classList.remove('open');
         preprocModal.classList.remove('open');
-        hidePipelineCard();
+        if (card) {
+          stopQueuePoll(uploadId);
+          card.style.transition = 'opacity 300ms ease';
+          card.style.opacity = '0';
+          setTimeout(() => { card.remove(); uploadQueue.delete(uploadId); updateQueueSection(); }, 300);
+        } else { hidePipelineCard(); }
         clearAlert();
-        setStep('step-confirm','error');
         showAlert('Upload cancelled and removed.','warning');
         refreshAllTables();
       })
-      .catch(() => {
-        discardModal.classList.remove('open');
-        preprocModal.classList.remove('open');
-      })
-      .finally(() => {
-        discardConfirmBtn.disabled = false;
-        discardConfirmBtn.textContent = 'Discard upload';
-      });
-    modalUploadId = null;
+      .catch(() => { discardModal.classList.remove('open'); preprocModal.classList.remove('open'); })
+      .finally(() => { discardConfirmBtn.disabled = false; discardConfirmBtn.textContent = 'Discard upload'; });
+    modalUploadId = null; modalCard = null;
   });
 
   // ── CSV viewer modal ───────────────────────────────────────
@@ -1407,39 +1811,85 @@
   function resumeActiveUpload() {
     fetchJson('/api/unprocessed-list')
       .then(records => {
-        const active = (records || []).find(r => ACTIVE_STATUSES.includes(r.status));
-        if (!active) { resumeTraining(); return; }   // no upload in flight — maybe a training run is
+        if (!records?.length) { resumeTraining(); return; }
 
-        currentUploadId = active.id || active.upload_id;
-        showPipelineCard();
-        resetSteps();
-        document.getElementById('pipelineFilename').textContent = active.original_filename || '';
-        document.getElementById('pipelineSize').textContent =
-          active.file_size_kb ? '· ' + fmt(active.file_size_kb * 1024) : '';
+        const inProgress = (records || []).filter(r =>
+          ['processing','preprocessing_done','separating'].includes(r.status)
+        );
+        const pending = (records || []).filter(r => r.status === 'pending');
 
-        setStep('step-validate', 'done');
-        setStep('step-upload', 'done');
+        if (!inProgress.length && !pending.length) { resumeTraining(); return; }
 
-        if (active.status === 'pending' || active.status === 'processing') {
-          setStep('step-clean', 'running');
-          pollStatus(currentUploadId);
-        } else if (active.status === 'preprocessing_done') {
-          setStep('step-clean', 'done');
-          setStep('step-confirm', 'running');
-          // Re-open the confirmation modal exactly like a fresh
-          // preprocessing_done status update would — same code path,
-          // same warnings fetch, nothing special-cased.
-          openPreprocModal(currentUploadId, active);
-          pollStatus(currentUploadId);   // keep polling in case it changes from another tab
-        } else if (active.status === 'separating') {
-          setStep('step-clean', 'done');
-          setStep('step-confirm', 'done');
-          setStep('step-separate', 'running');
-          confirmedIds.add(currentUploadId);   // already confirmed — never re-show the modal
-          pollStatus(currentUploadId);
+        // Only the FIRST in-progress record gets polled — it owns isProcessing.
+        // Any extras are re-queued as deferred items (shouldn't normally happen,
+        // but guards against a race where two uploads started simultaneously).
+        inProgress.forEach((active, idx) => {
+          const uploadId = active.id || active.upload_id;
+          if (uploadQueue.has(uploadId)) return;
+
+          const card = createQueueCard(
+            active.original_filename || '',
+            active.file_size_kb ? fmt(active.file_size_kb * 1024) : ''
+          );
+          card._uploadId = uploadId;
+
+          if (idx === 0) {
+            // Primary — restore with full pipeline and start polling
+            expandCard(card);
+            setStepOn(card, 'validate', 'done');
+            setStepOn(card, 'upload', 'done');
+            isProcessing = true;
+            activeCard = card;
+
+            if (active.status === 'processing') {
+              setStepOn(card, 'clean', 'running');
+            } else if (active.status === 'preprocessing_done') {
+              setStepOn(card, 'clean', 'done');
+              setStepOn(card, 'confirm', 'running');
+              if (!preprocModal.classList.contains('open')) openPreprocModal(uploadId, active, card);
+            } else if (active.status === 'separating') {
+              setStepOn(card, 'clean', 'done');
+              setStepOn(card, 'confirm', 'done');
+              setStepOn(card, 'separate', 'running');
+              confirmedIds.add(uploadId);
+            }
+
+            const timer = setInterval(() => {
+              fetch('/api/upload-status/' + uploadId)
+                .then(r => r.json())
+                .then(d => onQueueStatusUpdate(uploadId, card, d))
+                .catch(() => {});
+            }, 2500);
+            uploadQueue.set(uploadId, { card, pollTimer: timer });
+          } else {
+            // Extra in-progress — re-queue as deferred, it will start after primary finishes
+            setCardPill(card, 'Queued', null);
+            fileQueue.push({ uploadId, card });
+            uploadQueue.set(uploadId, { card, pollTimer: null });
+          }
+        });
+
+        // Pending (deferred) records — show as Queued cards
+        pending.forEach(active => {
+          const uploadId = active.id || active.upload_id;
+          if (uploadQueue.has(uploadId)) return;
+
+          const card = createQueueCard(
+            active.original_filename || '',
+            active.file_size_kb ? fmt(active.file_size_kb * 1024) : ''
+          );
+          card._uploadId = uploadId;
+          setCardPill(card, 'Queued', null);
+          fileQueue.push({ uploadId, card });
+          uploadQueue.set(uploadId, { card, pollTimer: null });
+        });
+
+        // If nothing is actively processing, start the first queued item
+        if (!inProgress.length && pending.length) {
+          drainQueue();
         }
       })
-      .catch(err => console.warn('[fileupload] could not check for an active upload:', err.message));
+      .catch(err => console.warn('[fileupload] could not check for active uploads:', err.message));
   }
 
   // ── Init ───────────────────────────────────────────────────

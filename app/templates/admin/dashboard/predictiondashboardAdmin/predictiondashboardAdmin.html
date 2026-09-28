@@ -134,6 +134,13 @@
         <span class="dash-badge dash-badge-pred">Predicted</span>
       </div>
       <div class="dash-actions">
+        <!-- Color-blind mode: swaps every chart / badge palette for a color-blind-safe one (Okabe-Ito + blue-red scale) -->
+        <button class="btn-action cb-toggle" id="btnColorblind" type="button" role="switch" aria-checked="false"
+                title="Color-blind friendly colors (saved on this browser)">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:15px" aria-hidden="true"><path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" clip-rule="evenodd"/></svg>
+          Color-blind mode
+          <span class="cb-switch" aria-hidden="true"><span class="cb-knob"></span></span>
+        </button>
         <button class="btn-action" id="btnDownloadPdf" title="Download as PDF">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:15px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5ZM10 8a.75.75 0 0 1 .75.75v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75A.75.75 0 0 1 10 8Z" clip-rule="evenodd"/></svg>
           Download PDF
@@ -364,12 +371,12 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════
-           CARD 2 — Top Hardest Subjects (predicted)
+           CARD 2 — Subjects Requiring Intervention (predicted)
            ══════════════════════════════════════════════════════ -->
       <div class="card card-full hardest-card" id="hardestCard">
         <div class="kpi-card-header">
           <div class="kpi-card-title-wrap">
-            <h3 class="card-title">Top Hardest Subjects</h3>
+            <h3 class="card-title">Subjects Requiring Intervention</h3>
             <p class="card-subtitle" id="hsSubtitle">Subjects predicted to be hardest at their next offering</p>
           </div>
           <div class="kpi-header-actions">
@@ -469,7 +476,7 @@
         <div class="kpi-table-modal hidden" id="hsTableModal">
           <div class="kpi-table-modal-card" id="hsTableModalCard">
             <div class="kpi-table-modal-header">
-              <span id="hsTableModalTitle">Top Hardest Subjects — Table View</span>
+              <span id="hsTableModalTitle">Subjects Requiring Intervention — Table View</span>
               <div class="kpi-table-modal-header-actions">
                 <button class="btn-icon" id="hsTableDownloadCsv" title="Download CSV">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:18px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clip-rule="evenodd"/></svg>
@@ -726,6 +733,7 @@
 <script src="{{ url_for('static', filename='js/page-video-modal.js') }}"></script>
 
 <!-- ── Prediction dashboard JS ────────────────────────────────────── -->
+<script src="{{ url_for('static', filename='js/prediction-colorblind.js') }}?v=1"></script>
 <script src="{{ url_for('static', filename='js/prediction-dash.js') }}?v=4"></script>
 <script>
   // Tells global-filter.js which per-card Department/Course/Year Level

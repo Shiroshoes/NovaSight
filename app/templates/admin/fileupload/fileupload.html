@@ -138,6 +138,18 @@
       <div class="train-card hidden" id="trainCard" aria-live="polite"></div>
     </div>
 
+    <!-- ── Upload Queue — separate section, appears below the upload card ── -->
+    <div class="queue-section" id="queueSection" style="display:none">
+      <div class="queue-section-header">
+        <span class="queue-section-title">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px;vertical-align:-3px;margin-right:6px"><path d="M10 2a.75.75 0 0 1 .75.75v5.59l3.28-3.28a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06L9.25 8.34V2.75A.75.75 0 0 1 10 2ZM3.75 15a.75.75 0 0 0 0 1.5h12.5a.75.75 0 0 0 0-1.5H3.75Z"/></svg>
+          Upload Queue
+        </span>
+        <span class="queue-section-count" id="queueCount"></span>
+      </div>
+      <div id="pipelineQueue"></div>
+    </div>
+
     <!-- Section tabs -->
     <div style="margin-top:28px;">
       <div class="section-tabs">

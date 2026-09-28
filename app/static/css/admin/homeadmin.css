@@ -20,6 +20,7 @@ body {
     overflow: hidden;
 }
 
+
 .sidebar {
   position: fixed;
   top: 0;
@@ -42,6 +43,23 @@ body {
   padding: 20px;
   box-sizing: border-box;
   margin-bottom: 20%;
+}
+
+.sidebardivider {
+  border: none;
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.15);
+  width: 100%;
+  margin: 8px 0;
+}
+
+.sidebar-section-label {
+  margin: 0 0 4px 0;
+}
+
+.sidebar-section-label + .dash-btn,
+.sidebar-section-label + .menu-btn {
+  margin-top: 0;
 }
 
 .pad::-webkit-scrollbar {
@@ -75,7 +93,7 @@ body {
   width: 35px;
   height: 33px;
   border-radius: 10px;
-  background-color: #800000 ;
+  background-color: #800000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -118,8 +136,8 @@ body {
 }
 
 .menu-btn:hover {
-  background: #785a5a64;
   margin-bottom: 10px;
+  background: #785a5a64;
   color: #000000;
   width: 210px;
   font-weight: bold;
@@ -129,21 +147,11 @@ body {
   background-color: #c72828;
 }
 
-.sidebardivider {
+.sidebar-divider {
   border: none;
   height: 1px;
-  background-color: rgba(0, 0, 0, 0.15);
+  background-color: #000000, transparent 80%;
   width: 100%;
-  margin: 8px 0;
-}
-
-.sidebar-section-label {
-  margin: 0 0 4px 0;
-}
-
-.sidebar-section-label + .dash-btn,
-.sidebar-section-label + .menu-btn {
-  margin-top: 0;
 }
 
 /* --- Dashboard Button Styling --- */
@@ -189,6 +197,39 @@ body {
   background-color: #c72828;
 }
 
+
+.dash-active {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(120, 90, 90, 0.5);
+    color: #000000;
+    font-size: 16px;
+    text-decoration: none;
+    width: 200px;
+    font-weight: bold;
+    border-width: 2px;
+    border: 1px solid #000000;
+}
+
+.active-bordericondash {
+  width: 35px;
+  height: 33px;
+  border-radius: 10px;
+  background-color: #800000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.active-icondash {
+  width: 24px;
+  height: 24px;
+  color: #ffff;
+}
+
 /* header  */
  /* --- FIX: Main Content Container --- */
 main {
@@ -217,7 +258,7 @@ header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #800000 ;
+    background: #800000;
     backdrop-filter: blur(15px);
     padding: 20px 40px;
     margin-left: 24px;
@@ -233,9 +274,11 @@ header {
 .logo-sq {
     width: 80px;
     height: 80px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
+   
 }
 
 .brand-logo {
@@ -284,9 +327,9 @@ header {
   display: grid;
   /* Splits main area into two equal columns, max width 1fr */
   grid-template-columns: repeat(2, 1fr); 
-  gap: 10px; /* Space between the cards */
+  gap: 30px; /* Space between the cards */
   padding-bottom: 60px; /* Space for the breadcrumb at the bottom */
-  padding-right: 24px; /* Right side spacing */
+  padding-right: 24px;
   align-items: flex-start; /* Prevents cards from stretching vertically */
 }
 
@@ -297,7 +340,6 @@ header {
   border-radius: 20px;
   border: 1px solid #DCD6C9; /* Soft border */
   overflow: hidden;
-  box-sizing: border-box; /* so width:100% (tablet/phone) includes padding instead of adding to it */
 }
 
 /* --- Welcome Card Specifics (Centering) --- */
@@ -353,7 +395,7 @@ header {
 }
 
 .dashboard-text p {
-  color: rgb(0, 0, 0);
+  color: #000000;
   text-align: justify;
   text-indent: 40px;
   font-size: 1rem;
@@ -362,6 +404,13 @@ header {
   margin: 0 auto;
 }
 
+/* --- Responsive Layout (Phones/Tablets) --- */
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr; /* Stack cards vertically on smaller screens */
+        gap: 20px;
+    }
+}
 
 /*drop down 
 dashboard*/
@@ -384,7 +433,7 @@ dashboard*/
 }
 
 .submenu-item {
-    color: #000000;
+    color: #94a3b8;
     text-decoration: none;
     font-size: 14px;
     padding: 10px 0;        /* Slightly more padding for easier clicking */
@@ -392,7 +441,7 @@ dashboard*/
 }
 
 .submenu-item:hover {
-    color: #fd2a2a;
+    color: #2A86FD;
 }
 
 /* paa ni rod --- */
@@ -442,8 +491,7 @@ footer{
 }
 
 .footer-divider{
-    width: 100%;
-    max-width: 500px;      /* adjust length */
+    width: 500px;      /* adjust length */
     border: none;
     border-top: 1px solid #4B4B4B;
     margin: 0 0 12px 0; /* only 12px gap below */
@@ -480,45 +528,85 @@ footer{
     font-size:12px;
 }
 
+
+
+/* Container that covers the whole screen */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6); /* Dims the background */
+  backdrop-filter: blur(4px);           /* Optional: blurs background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;                        /* Ensures it stays on top */
+}
+
+/* The Modal Card */
+.logout-card {
+  background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+  width: 90%;
+  max-width: 450px;
+  padding: 40px;
+  border-radius: 25px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.brand-name {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  font-weight: 700;
+  color: #000000;
+}
+
+.confirmation-text {
+  font-size: 1.1rem;
+  margin-bottom: 35px;
+  opacity: 0.9;
+  color: #000000;
+}
+
+/* Button Styles */
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.btn {
+  padding: 15px;
+  border-radius: 50px; /* Pill shape */
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.btn-primary {
+  background-color: #800000 ; /* Modern Blue */
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #c72828;
+  transform: translateY(-2px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+
 .hidden {
     display: none;
 }
-
-
-
-/* account list flexibility */
-.account-list-card {
-    /* Ensure it can grow vertically */
-    min-height: 100px; /* Or some base height */
-    max-height: none; /* Allow it to grow as much as needed */
-    overflow-y: auto; /* Add scroll if it becomes excessively tall */
-    display: flex; /* Use flexbox for layout */
-    flex-direction: column; /* Stack items vertically */
-    /* Other styles */
-}
-
-.account-item {
-    display: flex;
-    justify-content: space-between; /* Pushes user-info and item-actions to opposite ends */
-    align-items: center;
-    padding: 15px 20px; /* Adjust padding */
-    border-bottom: 1px solid #eee; /* Separator between items */
-    /* Other styles */
-}
-
-.account-item:last-child {
-    border-bottom: none; /* No border for the last item */
-}
-
-
-.editUserSection {
-    display: none;
-}
-
-.editUserSection.open {
-    display: block;
-}
-
 
 /* The rtuts Button */
 
@@ -1546,3 +1634,19 @@ main { min-width: 0; }
   .sidebar,
   .sidebar-backdrop { transition: none; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   LAPTOP WIDTHS (1101px–1720px)
+   The header (1320px), footer (1416px) and the Home cards (800px) are fixed-width,
+   so on a laptop they ran past the right edge. Let them fill the space instead.
+   ═══════════════════════════════════════════════════════════ */
+@media (min-width: 1101px) {
+  .topmenu { width: auto; margin-right: 24px; box-sizing: border-box; }
+  .footer  { width: auto; margin-right: 24px; box-sizing: border-box; }
+  .dashboard-card { width: auto; height: auto; min-height: 590px; box-sizing: border-box; }
+  .welcome-card { box-sizing: border-box; }
+}
+#dashboardContent[hidden] { display: none; }
+.dashboard-card, .welcome-card { box-sizing: border-box; }      /* width:100% + padding no longer spills past the screen */
+.footer-divider { width: 100%; max-width: 500px; }              /* was a fixed 500px line */

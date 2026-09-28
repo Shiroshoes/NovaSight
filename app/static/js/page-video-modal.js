@@ -33,9 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function openModal() {
         modal.style.display = 'flex';
         if (video) {
-            video.play().catch(() => {
-                /* Autoplay may be blocked until the user interacts with the player. */
-            });
+            video.pause();
         }
     }
 

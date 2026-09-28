@@ -7,7 +7,7 @@
   <link rel="icon" href="{{url_for('static', filename='image/logo3.png')}}" type="image/x-icon">
   <link rel="stylesheet" href="{{url_for('static', filename='css/deans/dashboarddean.css')}}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/logout/logout.css') }}">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
   <style>.print-header { display: none; }</style>
@@ -170,6 +170,13 @@
         <span class="dash-badge">Historical</span>
       </div>
       <div class="dash-actions">
+        <!-- Color-blind mode: swaps every chart / badge palette for a color-blind-safe one (Okabe-Ito + blue-red scale) -->
+        <button class="btn-action cb-toggle" id="btnColorblind" type="button" role="switch" aria-checked="false"
+                title="Color-blind friendly colors (saved on this browser)">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:15px" aria-hidden="true"><path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" clip-rule="evenodd"/></svg>
+          Color-blind mode
+          <span class="cb-switch" aria-hidden="true"><span class="cb-knob"></span></span>
+        </button>
         <button class="btn-action" id="btnDownloadPdf" title="Download as PDF">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:15px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5ZM10 8a.75.75 0 0 1 .75.75v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75A.75.75 0 0 1 10 8Z" clip-rule="evenodd"/></svg>
           Download PDF
@@ -448,14 +455,14 @@
         <!-- Heatmap header row: title left, icon actions right (same pattern as KPI) -->
         <div class="kpi-card-header">
           <div class="kpi-card-title-wrap">
-            <h3 class="card-title">Risk Heatmap</h3>
-            <p class="card-subtitle">Failure density by course &times; year level — redder = more at-risk</p>
+            <h3 class="card-title">Risk Histogram</h3>
+            <p class="card-subtitle" id="hmSubtitle">Failure rate by course program — filtered to this college</p>
           </div>
           <div class="kpi-header-actions">
             <!-- Sort order: lives outside the filter popover, applies immediately -->
             <select class="chart-filter hm-sort" id="hmSort" title="Sort order" aria-label="Sort order">
+              <option value="asc" selected>Ascending</option>
               <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
             </select>
             <!-- View as table -->
             <button class="btn-icon" id="hmViewTable" title="View as table">
@@ -544,23 +551,23 @@
           <canvas id="heatmapCanvas"></canvas>
         </div>
 
-        <!-- Heatmap glossary — explains how to read the grid above -->
+        <!-- Risk Histogram glossary -->
         <div class="kpi-explainer" id="hmExplainerArea">
           <div class="kpi-explainer-item">
-            <span class="kpi-explainer-term">Cell Value</span>
-            <p class="kpi-explainer-desc">Percentage: students with the selected status ÷ students enrolled in that course and year level. No. of Students: how many students that is. A dash means no enrolled students.</p>
+            <span class="kpi-explainer-term">Bar Value</span>
+            <p class="kpi-explainer-desc">Percentage: students with the selected status ÷ total enrolled students in that course program. No. of Students: the raw count of students with that status.</p>
           </div>
           <div class="kpi-explainer-item">
-            <span class="kpi-explainer-term">Colour Scale</span>
-            <p class="kpi-explainer-desc">Colour shows the share of enrolled students in that course and year level who have the selected status — green is low, dark red is 100%. It is the same in both views, so a cell keeps its colour when you switch.</p>
+            <span class="kpi-explainer-term">Bar Colour</span>
+            <p class="kpi-explainer-desc">Each course program shows one bar per year level, colour-coded by year (1st Year, 2nd Year, 3rd Year, 4th Year, Irregular) — see the legend below the chart.</p>
           </div>
           <div class="kpi-explainer-item">
             <span class="kpi-explainer-term">Status</span>
-            <p class="kpi-explainer-desc">Failed, Incomplete (INC), Dropped (DRP), Withdrawn (W) or Unofficial Drop (UDR) — switch between them with the Status buttons above the heatmap.</p>
+            <p class="kpi-explainer-desc">Failed, Incomplete (INC), Dropped (DRP), Withdrawn (W) or Unofficial Drop (UDR) — switch between them with the Status buttons above the chart.</p>
           </div>
           <div class="kpi-explainer-item">
-            <span class="kpi-explainer-term">Row Order</span>
-            <p class="kpi-explainer-desc">Courses are ranked by their combined rate across all year levels; flip the direction with the sort selector in the header.</p>
+            <span class="kpi-explainer-term">Sort</span>
+            <p class="kpi-explainer-desc">Course programs are ranked by their combined rate across all year levels — flip the direction with the sort selector in the header.</p>
           </div>
         </div>
 
@@ -568,7 +575,7 @@
         <div class="kpi-table-modal hidden" id="hmTableModal">
           <div class="kpi-table-modal-card" id="hmTableModalCard">
             <div class="kpi-table-modal-header">
-              <span>Risk Heatmap — Table View</span>
+              <span>Risk Histogram — Table View</span>
               <div class="kpi-table-modal-header-actions">
                 <button class="btn-icon" id="hmTableDownloadCsv" title="Download CSV">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:18px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clip-rule="evenodd"/></svg>
@@ -584,7 +591,168 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════
-           CARD 3 — Gender & Status Breakdown
+           CARD 3 — Academic Performance (Leaderboard + Radar)
+           ══════════════════════════════════════════════════════ -->
+      <div class="card card-full perf-card" id="perfCard">
+
+        <div class="kpi-card-header">
+          <div class="kpi-card-title-wrap">
+            <h3 class="card-title">Academic Performance</h3>
+            <p class="card-subtitle" id="perfSubtitle">College rankings across five metrics — select a department to see course programs</p>
+          </div>
+          <div class="kpi-header-actions">
+            <!-- Sort order: applies immediately (also toggled by clicking the list's column headers) -->
+            <select class="chart-filter hm-sort" id="perfSort" title="Sort order" aria-label="Sort order">
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+            <!-- View as table -->
+            <button class="btn-icon" id="perfViewTable" title="View as table">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M.99 5.24A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25l.01 9.5A2.25 2.25 0 0 1 16.76 17H3.26A2.272 2.272 0 0 1 1 14.75l-.01-9.5Zm8.26 9.52v-.625a.75.75 0 0 0-1.5 0v.375H3.26a.75.75 0 0 1-.75-.75L2.5 15h5.25v-.008ZM10 8.5H7.75V10H10v-1.5Zm0 2.5H7.75v1.5H10V11Zm2.25-2.5H10V10h2.25V8.5Zm0 2.5H10v1.5h2.25V11Zm2.25-2.5h-2.25V10h2.25V8.5Zm0 2.5h-2.25v1.5h2.25V11Zm-6.75-6H5.5v1.5h2.25V5.5Zm0 2.25H5.5v.75h2.25V7.75Zm2.25-2.25H7.75v1.5H10V5.5Zm0 2.25H7.75v.75H10V7.75Zm2.25-2.25H10v1.5h2.25V5.5Zm0 2.25H10v.75h2.25V7.75Zm2.25-2.25h-2.25v1.5h2.25V5.5Zm0 2.25h-2.25v.75h2.25V7.75Z" clip-rule="evenodd"/></svg>
+            </button>
+            <!-- Filter popover -->
+            <div class="kpi-filter-wrap">
+              <button class="btn-icon" id="perfFilterToggle" title="Filters" aria-expanded="false" aria-controls="perfFilterPopover">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z" clip-rule="evenodd"/></svg>
+              </button>
+              <div class="kpi-filter-popover hidden" id="perfFilterPopover">
+                <div class="kpi-filter-popover-header">
+                  <span>Performance Filters</span>
+                  <button class="kpi-filter-popover-close" id="perfFilterClose" aria-label="Close filters">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:20px"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                  </button>
+                </div>
+                <div class="kpi-filter-popover-body">
+                  <div class="gf-group">
+                    <label class="gf-label">Academic Year</label>
+                    <select class="gf-select" id="perfYear"><option value="">All Years</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Semester</label>
+                    <select class="gf-select" id="perfSem">
+                      <option value="">All</option>
+                      <option value="1sem">1st Semester</option>
+                      <option value="2sem">2nd Semester</option>
+                    </select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Department</label>
+                    <select class="gf-select" id="perfDept"><option value="">All</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Course</label>
+                    <select class="gf-select" id="perfCourse"><option value="">All</option></select>
+                  </div>
+                  <div class="gf-group">
+                    <label class="gf-label">Year Level</label>
+                    <select class="gf-select" id="perfYearLevel">
+                      <option value="">All</option>
+                      <option value="1">1st</option>
+                      <option value="2">2nd</option>
+                      <option value="3">3rd</option>
+                      <option value="4">4th</option>
+                      <option value="IRREG">Irregular</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="kpi-filter-popover-footer">
+                  <button class="btn-apply" id="perfBtnApply">Apply</button>
+                </div>
+              </div>
+            </div>
+            <!-- Reset -->
+            <button class="btn-icon" id="perfBtnReset" title="Reset filters">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z" clip-rule="evenodd"/></svg>
+            </button>
+            <!-- Fullscreen -->
+            <button class="btn-icon btn-fullscreen" data-fullscreen-target="perfCard" title="Expand">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px"><path d="m13.28 7.78 3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.747.747 0 0 1-.75-.75ZM12.22 13.28l3.22 3.22h-2.69a.75.75 0 0 0 0 1.5h4.5a.747.747 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.69l-3.22-3.22a.75.75 0 1 0-1.06 1.06ZM3.5 4.56l3.22 3.22a.75.75 0 0 0 1.06-1.06L4.56 3.5h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0V4.56Z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Rank by toolbar (metric buttons style) -->
+        <div class="hm-toolbar">
+          <span class="hm-toolbar-label">Rank by</span>
+          <div class="kpi-metrics-btns" id="perfRankBtns">
+            <button class="metric-btn active" data-perf-rank="avg_gwa_score">GWA Score</button>
+            <button class="metric-btn" data-perf-rank="passing_rate">Passing Rate</button>
+            <button class="metric-btn" data-perf-rank="completion_rate">Completion</button>
+            <button class="metric-btn" data-perf-rank="retention_rate">Retention</button>
+            <button class="metric-btn" data-perf-rank="regular_ratio">Regular Students</button>
+          </div>
+          <span class="hm-toolbar-label hm-toolbar-sep">Show</span>
+          <div class="kpi-metrics-btns" id="perfMetricBtns">
+            <button class="metric-btn active" data-perf-metric="rate">Percentage</button>
+            <button class="metric-btn" data-perf-metric="count">No. of Students</button>
+          </div>
+          <!-- Shown after clicking a college: goes back to the college ranking -->
+          <button class="perf-back hidden" id="perfBackBtn" type="button">&larr; All colleges</button>
+        </div>
+
+        <!-- Two-column layout: leaderboard left, radar right -->
+        <div class="perf-layout">
+          <div class="chart-area" id="perfListArea"></div>
+          <div class="perf-radar-wrap">
+            <div class="perf-radar-caption" id="perfRadarCaption"></div>
+            <div class="chart-area" id="perfRadarArea">
+              <canvas id="perfRadarCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Glossary -->
+        <div class="kpi-explainer" id="perfExplainerArea">
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">GWA Score</span>
+            <p class="kpi-explainer-desc">Converts GWA (1.00=best, 5.00=fail) to 0–100 scale. Formula: (5 − GWA) ÷ 4 × 100. Higher is better.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Passing Rate</span>
+            <p class="kpi-explainer-desc">Percentage of students with GWA ≤ 3.00 (passing threshold).</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Completion</span>
+            <p class="kpi-explainer-desc">Average Completion Rate — credit units earned ÷ enrolled × 100.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Retention</span>
+            <p class="kpi-explainer-desc">Percentage of students with zero dropped, withdrawn, or unofficially dropped subjects.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Regular Students</span>
+            <p class="kpi-explainer-desc">Percentage of students enrolled as regular vs. irregular.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">vs. Previous Semester</span>
+            <p class="kpi-explainer-desc">&#9650; / &#9660; shows how the ranked metric moved (in percentage points) compared with the semester before the one selected. Hover for the exact before &rarr; after values.</p>
+          </div>
+          <div class="kpi-explainer-item">
+            <span class="kpi-explainer-term">Bar colours</span>
+            <p class="kpi-explainer-desc">Share of the student population: <b class="tier-ex">85%+</b> excellent, <b class="tier-good">70–84%</b> good, <b class="tier-fair">50–69%</b> fair, <b class="tier-low">below 50%</b> low.</p>
+          </div>
+        </div>
+        <!-- Table view modal -->
+        <div class="kpi-table-modal hidden" id="perfTableModal">
+          <div class="kpi-table-modal-card">
+            <div class="kpi-table-modal-header">
+              <span>Academic Performance — Table View</span>
+              <div class="kpi-table-modal-header-actions">
+                <button class="btn-icon" id="perfTableDownloadCsv" title="Download CSV">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:18px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clip-rule="evenodd"/></svg>
+                </button>
+                <button class="kpi-filter-popover-close" id="perfTableModalClose" aria-label="Close">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:20px"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="kpi-table-modal-body" id="perfTableInner"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           CARD 4 — Gender & Status Breakdown
            ══════════════════════════════════════════════════════ -->
       <div class="card card-full gender-card" id="genderCard">
 
@@ -752,14 +920,14 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════
-           CARD 4 — Top Hardest Subjects
+           CARD 5 — Subjects Requiring Intervention
            ══════════════════════════════════════════════════════ -->
       <div class="card card-full hardest-card" id="hardestCard">
 
         <!-- Header row: title left, icon actions right (same pattern as KPI + Heatmap + Gender) -->
         <div class="kpi-card-header">
           <div class="kpi-card-title-wrap">
-            <h3 class="card-title">Top Hardest Subjects</h3>
+            <h3 class="card-title">Subjects Requiring Intervention</h3>
             <p class="card-subtitle">Ranked by failure density — bar chart, ranked cards, and grade trend</p>
           </div>
           <div class="kpi-header-actions">
@@ -892,7 +1060,7 @@
         <div class="kpi-table-modal hidden" id="hsTableModal">
           <div class="kpi-table-modal-card" id="hsTableModalCard">
             <div class="kpi-table-modal-header">
-              <span id="hsTableModalTitle">Top Hardest Subjects — Table View</span>
+              <span id="hsTableModalTitle">Subjects Requiring Intervention — Table View</span>
               <div class="kpi-table-modal-header-actions">
                 <button class="btn-icon" id="hsTableDownloadCsv" title="Download CSV">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:18px"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clip-rule="evenodd"/></svg>
@@ -979,7 +1147,7 @@
 </script>
 <script src="{{ url_for('static', filename='js/global-filter.js') }}"></script>
 <script src="{{ url_for('static', filename='js/college-lock.js') }}"></script>
-<script src="{{ url_for('static', filename='js/maindash.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/maindash.js') }}?v=4"></script>
 <script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/pdf-export.js') }}" defer></script>
 </body>

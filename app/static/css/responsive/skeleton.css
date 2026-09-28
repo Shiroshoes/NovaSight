@@ -97,9 +97,9 @@
 /* ranked cards */
 .card.is-loading #hsCardsArea:not(.hidden) { min-height: 440px; }
 .card.is-loading #hsCardsArea:not(.hidden)::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 440' preserveAspectRatio='none'%3E%0A%3Cg fill='none' stroke='%23e6e9ee' stroke-width='2'%3E%0A%3Crect x='1' y='1' width='998' height='100' rx='14'/%3E%3Crect x='1' y='118' width='998' height='100' rx='14'/%3E%0A%3Crect x='1' y='235' width='998' height='100' rx='14'/%3E%3Crect x='1' y='352' width='998' height='87' rx='14'/%3E%3C/g%3E%0A%3Cg fill='%23e6e9ee'%3E%0A%3Ccircle cx='36' cy='34' r='15'/%3E%3Crect x='66' y='24' width='300' height='14' rx='7'/%3E%3Crect x='900' y='24' width='70' height='16' rx='8'/%3E%3Crect x='66' y='52' width='900' height='9' rx='4'/%3E%3Crect x='66' y='74' width='240' height='8' rx='4'/%3E%0A%3Ccircle cx='36' cy='151' r='15'/%3E%3Crect x='66' y='141' width='260' height='14' rx='7'/%3E%3Crect x='900' y='141' width='70' height='16' rx='8'/%3E%3Crect x='66' y='169' width='780' height='9' rx='4'/%3E%3Crect x='66' y='191' width='240' height='8' rx='4'/%3E%0A%3Ccircle cx='36' cy='268' r='15'/%3E%3Crect x='66' y='258' width='340' height='14' rx='7'/%3E%3Crect x='900' y='258' width='70' height='16' rx='8'/%3E%3Crect x='66' y='286' width='640' height='9' rx='4'/%3E%3Crect x='66' y='308' width='240' height='8' rx='4'/%3E%0A%3Ccircle cx='36' cy='385' r='15'/%3E%3Crect x='66' y='375' width='220' height='14' rx='7'/%3E%3Crect x='900' y='375' width='70' height='16' rx='8'/%3E%3Crect x='66' y='403' width='520' height='9' rx='4'/%3E%0A%3C/g%3E%3C/svg%3E"); }
-/* heatmap */
-.card.is-loading #hmChartArea { min-height: 340px; }
-.card.is-loading #hmChartArea::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 970 380' preserveAspectRatio='none'%3E%3Cg fill='%23e6e9ee'%3E%3Crect x='0' y='14' width='190' height='30' rx='8'/%3E%3Crect x='212' y='6' width='116' height='46' rx='8'/%3E%3Crect x='338' y='6' width='116' height='46' rx='8'/%3E%3Crect x='464' y='6' width='116' height='46' rx='8'/%3E%3Crect x='590' y='6' width='116' height='46' rx='8'/%3E%3Crect x='716' y='6' width='116' height='46' rx='8'/%3E%3Crect x='842' y='6' width='116' height='46' rx='8'/%3E%3Crect x='0' y='76' width='190' height='30' rx='8'/%3E%3Crect x='212' y='68' width='116' height='46' rx='8'/%3E%3Crect x='338' y='68' width='116' height='46' rx='8'/%3E%3Crect x='464' y='68' width='116' height='46' rx='8'/%3E%3Crect x='590' y='68' width='116' height='46' rx='8'/%3E%3Crect x='716' y='68' width='116' height='46' rx='8'/%3E%3Crect x='842' y='68' width='116' height='46' rx='8'/%3E%3Crect x='0' y='138' width='190' height='30' rx='8'/%3E%3Crect x='212' y='130' width='116' height='46' rx='8'/%3E%3Crect x='338' y='130' width='116' height='46' rx='8'/%3E%3Crect x='464' y='130' width='116' height='46' rx='8'/%3E%3Crect x='590' y='130' width='116' height='46' rx='8'/%3E%3Crect x='716' y='130' width='116' height='46' rx='8'/%3E%3Crect x='842' y='130' width='116' height='46' rx='8'/%3E%3Crect x='0' y='200' width='190' height='30' rx='8'/%3E%3Crect x='212' y='192' width='116' height='46' rx='8'/%3E%3Crect x='338' y='192' width='116' height='46' rx='8'/%3E%3Crect x='464' y='192' width='116' height='46' rx='8'/%3E%3Crect x='590' y='192' width='116' height='46' rx='8'/%3E%3Crect x='716' y='192' width='116' height='46' rx='8'/%3E%3Crect x='842' y='192' width='116' height='46' rx='8'/%3E%3Crect x='0' y='262' width='190' height='30' rx='8'/%3E%3Crect x='212' y='254' width='116' height='46' rx='8'/%3E%3Crect x='338' y='254' width='116' height='46' rx='8'/%3E%3Crect x='464' y='254' width='116' height='46' rx='8'/%3E%3Crect x='590' y='254' width='116' height='46' rx='8'/%3E%3Crect x='716' y='254' width='116' height='46' rx='8'/%3E%3Crect x='842' y='254' width='116' height='46' rx='8'/%3E%3Crect x='0' y='324' width='190' height='30' rx='8'/%3E%3Crect x='212' y='316' width='116' height='46' rx='8'/%3E%3Crect x='338' y='316' width='116' height='46' rx='8'/%3E%3Crect x='464' y='316' width='116' height='46' rx='8'/%3E%3Crect x='590' y='316' width='116' height='46' rx='8'/%3E%3Crect x='716' y='316' width='116' height='46' rx='8'/%3E%3Crect x='842' y='316' width='116' height='46' rx='8'/%3E%3C/g%3E%3C/svg%3E"); }
+/* histogram — horizontal bars, all gray */
+.card.is-loading #hmChartArea { min-height: 370px; }
+.card.is-loading #hmChartArea::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 970 370' preserveAspectRatio='none'%3E%3Cg fill='%23e6e9ee'%3E%3Crect x='0' y='6' width='130' height='10' rx='5'/%3E%3Crect x='148' y='6' width='716' height='8' rx='3'/%3E%3Crect x='148' y='17' width='569' height='8' rx='3'/%3E%3Crect x='148' y='28' width='488' height='8' rx='3'/%3E%3Crect x='148' y='39' width='366' height='8' rx='3'/%3E%3Crect x='148' y='50' width='244' height='8' rx='3'/%3E%3Crect x='0' y='66' width='110' height='10' rx='5'/%3E%3Crect x='148' y='66' width='667' height='8' rx='3'/%3E%3Crect x='148' y='77' width='529' height='8' rx='3'/%3E%3Crect x='148' y='88' width='447' height='8' rx='3'/%3E%3Crect x='148' y='99' width='325' height='8' rx='3'/%3E%3Crect x='148' y='110' width='203' height='8' rx='3'/%3E%3Crect x='0' y='126' width='120' height='10' rx='5'/%3E%3Crect x='148' y='126' width='586' height='8' rx='3'/%3E%3Crect x='148' y='137' width='472' height='8' rx='3'/%3E%3Crect x='148' y='148' width='390' height='8' rx='3'/%3E%3Crect x='148' y='159' width='284' height='8' rx='3'/%3E%3Crect x='148' y='170' width='162' height='8' rx='3'/%3E%3Crect x='0' y='186' width='100' height='10' rx='5'/%3E%3Crect x='148' y='186' width='488' height='8' rx='3'/%3E%3Crect x='148' y='197' width='390' height='8' rx='3'/%3E%3Crect x='148' y='208' width='309' height='8' rx='3'/%3E%3Crect x='148' y='219' width='227' height='8' rx='3'/%3E%3Crect x='148' y='230' width='122' height='8' rx='3'/%3E%3Crect x='0' y='246' width='115' height='10' rx='5'/%3E%3Crect x='148' y='246' width='366' height='8' rx='3'/%3E%3Crect x='148' y='257' width='293' height='8' rx='3'/%3E%3Crect x='148' y='268' width='227' height='8' rx='3'/%3E%3Crect x='148' y='279' width='162' height='8' rx='3'/%3E%3Crect x='148' y='290' width='97' height='8' rx='3'/%3E%3Crect x='0' y='306' width='90' height='10' rx='5'/%3E%3Crect x='148' y='306' width='244' height='8' rx='3'/%3E%3Crect x='148' y='317' width='195' height='8' rx='3'/%3E%3Crect x='148' y='328' width='146' height='8' rx='3'/%3E%3Crect x='148' y='339' width='105' height='8' rx='3'/%3E%3Crect x='148' y='350' width='65' height='8' rx='3'/%3E%3C/g%3E%3C/svg%3E"); }
 /* gender donuts + their tables */
 .card.is-loading .gender-donut-wrap::before {
   background-image: radial-gradient(circle at center, #fff 0 34%, var(--sk-base) 34.5% 60%, transparent 60.5%);
@@ -118,7 +118,59 @@
   .card.is-loading *, .card.is-loading *::before, .card.is-loading *::after { animation: none !important; }
   .card.is-loading :is(.chart-area, .gender-donut-wrap, .gender-table-wrap)::after { display: none; }
 }
+
+
+/* ==========================================================================
+   Academic Performance card  (#perfCard) — leaderboard rows + radar outline
+   ---------------------------------------------------------------------------
+   The list skeleton is real markup (built by perfSkeleton() in maindash.js) that
+   re-uses the leaderboard's own grid classes, so every placeholder sits exactly where
+   the real rank / name / bar / value / change will be, in normal AND fullscreen size.
+   ========================================================================== */
+.sk-blk {
+  display: block; height: 14px; max-width: 100%; border-radius: 7px;
+  background: linear-gradient(90deg, var(--sk-base) 30%, var(--sk-hi) 50%, var(--sk-base) 70%) 0 0 / 300% 100%;
+  animation: skShimmer 1.4s linear infinite;
+}
+/* the generic white cover would hide the skeleton rows, so switch it off for the list */
+.card.is-loading #perfListArea:not(.hidden)::before,
+.card.is-loading #perfListArea:not(.hidden)::after { content: none; }
+.card.is-loading #perfListArea { overflow: visible; }
+
+.perf-sk-head .sk-blk { height: 10px; }
+.perf-sk-head .sk-blk.right { justify-self: end; }
+.perf-sk-row { pointer-events: none; }
+.perf-sk-row:hover { transform: none; box-shadow: none; border-color: #f0eded; background: #fafafa; }
+.perf-sk-row .sk-rank  { width: 18px; height: 16px; justify-self: center; }
+.perf-sk-row .sk-dot   { width: 12px; height: 12px; border-radius: 50%; }
+.perf-sk-row .sk-name  { height: 16px; }
+.perf-sk-row .sk-fill  { position: absolute; inset: 0 auto 0 0; height: auto; border-radius: 999px; }
+.perf-sk-row .sk-val   { justify-self: end; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; width: 100%; }
+.perf-sk-row .sk-val .sk-blk:first-child { height: 20px; width: 78px; }
+.perf-sk-row .sk-val .sk-blk:last-child  { height: 12px; width: 96px; }
+.perf-sk-row .sk-pill  { width: 88px; height: 26px; border-radius: 999px; justify-self: end; }
+.perf-sk-legend .sk-blk { height: 12px; width: 92px; border-radius: 6px; }
+
+/* radar: pentagon outline; centred, never stretched */
+.card.is-loading #perfRadarArea:not(.hidden)::before {
+  background-image: url("%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 400 400%27%3E%3Cg fill=%27none%27 stroke=%27%23e6e9ee%27 stroke-width=%272%27%3E%3Cpolygon points=%22200.0,158.0 236.1,184.3 222.3,226.7 177.7,226.7 163.9,184.3%22/%3E%3Cpolygon points=%22200.0,120.0 272.3,172.5 244.7,257.5 155.3,257.5 127.7,172.5%22/%3E%3Cpolygon points=%22200.0,82.0 308.4,160.8 267.0,288.2 133.0,288.2 91.6,160.8%22/%3E%3Cpolygon points=%22200.0,44.0 344.6,149.0 289.3,319.0 110.7,319.0 55.4,149.0%22/%3E%3Cline x1=%22200%22 y1=%22196%22 x2=%22200.0%22 y2=%2244.0%22/%3E%3Cline x1=%22200%22 y1=%22196%22 x2=%22344.6%22 y2=%22149.0%22/%3E%3Cline x1=%22200%22 y1=%22196%22 x2=%22289.3%22 y2=%22319.0%22/%3E%3Cline x1=%22200%22 y1=%22196%22 x2=%22110.7%22 y2=%22319.0%22/%3E%3Cline x1=%22200%22 y1=%22196%22 x2=%2255.4%22 y2=%22149.0%22/%3E%3C/g%3E%3Cpolygon points=%27200.0,68.0 333.1,152.7 270.5,293.1 122.4,302.8 68.8,153.4%27 fill=%27%23e6e9ee%27 opacity=%27.75%27 stroke=%27%23d5d9e0%27 stroke-width=%273%27/%3E%3Cg fill=%27%23d5d9e0%27%3E%3Ccircle cx=%22200.0%22 cy=%2268.0%22 r=%225%22/%3E%3Ccircle cx=%22333.1%22 cy=%22152.7%22 r=%225%22/%3E%3Ccircle cx=%22270.5%22 cy=%22293.1%22 r=%225%22/%3E%3Ccircle cx=%22122.4%22 cy=%22302.8%22 r=%225%22/%3E%3Ccircle cx=%2268.8%22 cy=%22153.4%22 r=%225%22/%3E%3C/g%3E%3Cg fill=%27%23e6e9ee%27%3E%3Crect x=%22169.0%22 y=%2214.0%22 width=%2262%22 height=%229%22 rx=%224.5%22/%3E%3Crect x=%22363.4%22 y=%22137.6%22 width=%2270%22 height=%229%22 rx=%224.5%22/%3E%3Crect x=%22271.5%22 y=%22344.4%22 width=%2264%22 height=%229%22 rx=%224.5%22/%3E%3Crect x=%2264.5%22 y=%22344.4%22 width=%2264%22 height=%229%22 rx=%224.5%22/%3E%3Crect x=%22-11.4%22 y=%22137.6%22 width=%2248%22 height=%229%22 rx=%224.5%22/%3E%3Crect x=%2240%22 y=%22382%22 width=%2246%22 height=%2210%22 rx=%225%22/%3E%3Crect x=%2298%22 y=%22382%22 width=%2250%22 height=%2210%22 rx=%225%22/%3E%3Crect x=%22160%22 y=%22382%22 width=%2250%22 height=%2210%22 rx=%225%22/%3E%3Crect x=%22222%22 y=%22382%22 width=%2250%22 height=%2210%22 rx=%225%22/%3E%3Crect x=%22284%22 y=%22382%22 width=%2250%22 height=%2210%22 rx=%225%22/%3E%3C/g%3E%3C/svg%3E");
+  background-size: contain; background-position: center; background-repeat: no-repeat;
+}
+/* the "Campus average · all colleges · …" caption above the radar */
+.card.is-loading #perfRadarCaption {
+  width: 62%; min-height: 16px; margin: 0 auto; border-radius: 8px; color: transparent;
+  background: linear-gradient(90deg, var(--sk-base) 30%, var(--sk-hi) 50%, var(--sk-base) 70%) 0 0 / 300% 100%;
+  animation: skShimmer 1.4s linear infinite;
+}
+.card.is-loading #perfRadarCaption * { visibility: hidden; }
+.card.is-loading #perfBackBtn { opacity: .5; pointer-events: none; }
+
+@media (max-width: 640px) {
+  .perf-sk-row .sk-fill, .perf-sk-row .perf-bar-cell { display: none; }
+}
+
 @media print {
+  .card.is-loading #perfRadarCaption { animation: none; }
   .card.is-loading :is(.chart-area, .gender-donut-wrap, .gender-table-wrap)::before,
   .card.is-loading :is(.chart-area, .gender-donut-wrap, .gender-table-wrap)::after { display: none; }
 }

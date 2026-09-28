@@ -105,3 +105,15 @@
 .rb-delta.flat   { background: #f3f4f6; color: #6b7280; }
 .rb-prevline { font-size: 12px; color: #6b7280; margin: 2px 0 6px; }
 .rb-prevline b { color: #374151; }
+
+/* ── Color-blind mode (html.cb-mode, set by #btnColorblind) ─────────────────
+   The toggle itself and the shared badges / deltas are styled in
+   maindashboardadmin.css. These cover what only this page uses. Chip text and
+   labels are unchanged, so colour is never the only cue. */
+html.cb-mode .rb-delta.worse  { background: #fbe4d3; color: #a84a00; }
+html.cb-mode .rb-delta.better { background: #dcecf7; color: #005a8e; }
+html.cb-mode .pct-pill        { background: #fbe4d3; color: #a84a00; }
+html.cb-mode .pct-pill.low    { background: #dcecf7; color: #005a8e; }
+html.cb-mode .rc-chip.grade   { background: #f1f8fd; color: #005a8e; border-color: rgba(0,90,142,.18); }
+html.cb-mode .kpi-regirreg-bar-fill.regular,
+html.cb-mode .kpi-regirreg-legend .dot.regular { background: #0072B2; }
