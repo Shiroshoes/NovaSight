@@ -1927,6 +1927,12 @@
       .then(records => {
         if (!records?.length) { resumeTraining(); return; }
 
+        // Rebuild the queue in upload order (oldest first), whatever order the
+        // server returned, so it matches what the user saw before leaving.
+        records = records.slice().sort((a, b) =>
+          (Date.parse(a.uploaded_at) || 0) - (Date.parse(b.uploaded_at) || 0) ||
+          (a.id || a.upload_id || 0) - (b.id || b.upload_id || 0));
+
         const inProgress = (records || []).filter(r =>
           ['processing','preprocessing_done','separating'].includes(r.status)
         );

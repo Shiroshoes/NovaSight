@@ -1246,7 +1246,10 @@ def api_unprocessed_list():
             UploadedDataset.query
             .filter(UploadedDataset.status != 'failed')
             .filter_by(is_deleted=False)
-            .order_by(UploadedDataset.uploaded_at.desc())
+            # Oldest first = the order the files were queued. The upload page
+            # rebuilds its queue from this list after a page change, so a
+            # newest-first order made the last file jump to the front.
+            .order_by(UploadedDataset.uploaded_at.asc(), UploadedDataset.id.asc())
             .all()
         )
         return jsonify(_json_safe([r.to_dict() for r in records]))
