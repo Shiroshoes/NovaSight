@@ -1,0 +1,17 @@
+/* preddash-readable.css — larger text for the Prediction page. Link after maindash-readable.css. */
+.pred-note { font-size: 14.5px; }
+.pred-note-icon { font-size: 13px; }
+.gf-check { font-size: 15.5px; }
+.kpi-status .metric-btn { font-size: 14.5px; }
+.pred-tag { font-size: 12px; }
+.rec-tag { font-size: 12px; }
+.rb-delta { font-size: 13px; }
+.rb-prevline { font-size: 13.5px; }
+.ai-insights-context { font-size: 14.3px; }
+.ai-insights-loading { font-size: 15.9px; }
+.ai-insights-text { font-size: 15.9px; }
+.ai-insights-disclaimer { font-size: 13.02px; }
+.dl-confirm-sub { font-size: 15.5px; }
+.dl-confirm-note { font-size: 13.98px; }
+.dl-btn-cancel { font-size: 15.5px; }
+.dl-btn-confirm { font-size: 15.5px; }

@@ -1,0 +1,53 @@
+/* fileupload-MISO-overrides.css
+   Neutralises shell rules in studentaffair.css that conflict with the
+   admin shell (sidebar-maroon-MISO, sidebar-compact-MISO,
+   admin-float-footer-MISO). Link LAST in fileupload.html.
+   Does not touch any upload-zone, pipeline, queue, or tab styles. */
+
+/* ── Sidebar: let sidebar-maroon-MISO own it ── */
+.sidebar {
+  width: var(--sb-w, 224px) !important;
+  background: linear-gradient(180deg, #8a0000 0%, #650000 100%) !important;
+  border-right: none !important;
+  color: #fff !important;
+}
+
+/* ── .pad: admin shell controls the scroll area ── */
+.pad {
+  margin-top: 0 !important;
+  margin-bottom: 112px !important;
+  padding: 6px 12px 10px !important;
+}
+
+/* ── main: only .main-scroll scrolls ── */
+@media (min-width: 1101px) {
+  main {
+    margin-left: var(--sb-w, 224px) !important;
+    overflow: hidden !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  body.sidebar-collapsed main {
+    margin-left: var(--sb-w-collapsed, 72px) !important;
+  }
+}
+@media (max-width: 1100px) {
+  main {
+    margin-left: 0 !important;
+    padding-top: 54px !important;
+    overflow-y: auto !important;
+  }
+}
+
+/* ── Kill old topmenu if still rendered ── */
+.topmenu:not(.topbar):not(.dash-sticky) {
+  display: none !important;
+}
+
+/* ── menu-btn hover: kill the margin-bottom push ── */
+.menu-btn:hover {
+  margin-bottom: 0 !important;
+  width: auto !important;
+}

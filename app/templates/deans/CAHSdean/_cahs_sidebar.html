@@ -1,0 +1,75 @@
+{# CAHS sidebar — independent copy of admin/_admin_sidebar.html (maroon, collapsible).
+   Dashboards + Account only (no Home, no Manage). Set {% set active_page = '...' %} before including.
+   active_page values: cahsdash | preddash | profile | help | privacy #}
+{% macro ico(name) %}
+  {% if name == 'main' %}<svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h4A1.5 1.5 0 0 1 9 4.5v4A1.5 1.5 0 0 1 7.5 10h-4A1.5 1.5 0 0 1 2 8.5v-4Zm9 0A1.5 1.5 0 0 1 12.5 3h4A1.5 1.5 0 0 1 18 4.5v2a1.5 1.5 0 0 1-1.5 1.5h-4A1.5 1.5 0 0 1 11 6.5v-2ZM2 13.5A1.5 1.5 0 0 1 3.5 12h4A1.5 1.5 0 0 1 9 13.5v2A1.5 1.5 0 0 1 7.5 17h-4A1.5 1.5 0 0 1 2 15.5v-2Zm9-3a1.5 1.5 0 0 1 1.5-1.5h4a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-4a1.5 1.5 0 0 1-1.5-1.5v-5Z"/></svg>
+  {% elif name == 'pred' %}<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.577 4.878a.75.75 0 0 1 .919-.53l4.78 1.281a.75.75 0 0 1 .531.919l-1.281 4.78a.75.75 0 0 1-1.449-.387l.81-3.022a19.407 19.407 0 0 0-5.594 5.203.75.75 0 0 1-1.139.093L7 10.06l-4.72 4.72a.75.75 0 0 1-1.06-1.061l5.25-5.25a.75.75 0 0 1 1.06 0l3.074 3.073a20.923 20.923 0 0 1 5.545-4.931l-3.042-.815a.75.75 0 0 1-.53-.919Z" clip-rule="evenodd"/></svg>
+
+
+  {% elif name == 'profile' %}<svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z"/></svg>
+  {% elif name == 'help' %}<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.94 6.94a.75.75 0 1 1-1.061-1.061 3 3 0 1 1 2.871 5.026v.345a.75.75 0 0 1-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 1 0 8.94 6.94ZM10 15a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+  {% elif name == 'logout' %}<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M6 10a.75.75 0 0 1 .75-.75h9.546l-1.048-.943a.75.75 0 1 1 1.004-1.114l2.5 2.25a.75.75 0 0 1 0 1.114l-2.5 2.25a.75.75 0 1 1-1.004-1.114l1.048-.943H6.75A.75.75 0 0 1 6 10Z" clip-rule="evenodd"/></svg>
+  {% endif %}
+{% endmacro %}
+
+{# Mobile / tablet top strip with the burger (hidden on desktop) #}
+<div class="mobile-bar">
+  <button type="button" class="sidebar-burger" id="sidebarBurger" aria-label="Open menu" aria-controls="cahsSidebar" aria-expanded="false">
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75Zm0 10.5a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75ZM2 10a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Z" clip-rule="evenodd"/></svg>
+  </button>
+  <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="" class="mobile-bar-logo">
+  <strong>NovaSight</strong>
+</div>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<aside class="sidebar" id="cahsSidebar">
+  <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close menu">&times;</button>
+  <a class="sidebar-brand" href="{{ url_for('cahs_bp.cahsdash_cahs') }}" title="NovaSight">
+    <img class="sidebar-brand-logo" src="{{ url_for('static', filename='image/logo2.png') }}" alt="BPSU logo">
+    <span class="sidebar-brand-text"><strong>NovaSight</strong><small>BPSU · CAHS</small></span>
+  </a>
+
+  <nav class="pad" aria-label="CAHS navigation">
+    <p class="sidebar-section-label">Dashboards</p>
+
+    {# Both dashboards are always visible — no dropdown #}
+    <a class="{{ 'menu-active' if active_page == 'cahsdash' else 'menu-btn' }}"
+       href="{{ url_for('cahs_bp.cahsdash_cahs') }}" title="CAHS Dashboard">
+      <span class="{{ 'active-bordericon' if active_page == 'cahsdash' else 'non-active-bordericon' }}">{{ ico('main') }}</span>
+      <span class="menu-label">CAHS Dashboard</span>
+    </a>
+    <a class="{{ 'menu-active' if active_page == 'preddash' else 'menu-btn' }}"
+       href="{{ url_for('cahs_bp.preddash_cahs') }}" title="Prediction Analysis">
+      <span class="{{ 'active-bordericon' if active_page == 'preddash' else 'non-active-bordericon' }}">{{ ico('pred') }}</span>
+      <span class="menu-label">Prediction Analysis</span>
+    </a>
+
+    <hr class="sidebardivider">
+    <p class="sidebar-section-label">Account</p>
+
+    <a class="{{ 'menu-active' if active_page == 'profile' else 'menu-btn' }}"
+       href="{{ url_for('cahs_bp.profile_cahs') }}" title="Profile">
+      <span class="{{ 'active-bordericon' if active_page == 'profile' else 'non-active-bordericon' }}">{{ ico('profile') }}</span>
+      <span class="menu-label">Profile</span>
+    </a>
+    <a class="{{ 'menu-active' if active_page == 'help' else 'menu-btn' }}"
+       href="{{ url_for('cahs_bp.help_cahs') }}" title="Help">
+      <span class="{{ 'active-bordericon' if active_page == 'help' else 'non-active-bordericon' }}">{{ ico('help') }}</span>
+      <span class="menu-label">Help</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a class="sidebar-logout" href="#" id="logoutLink" title="Logout" role="button">
+      {{ ico('logout') }}
+      <span class="menu-label">Logout</span>
+    </a>
+    <a class="btn-privacy" href="{{ url_for('cahs_bp.privacy_policy_CAHSdean') }}">Privacy Policy</a>
+    <p class="copyright">© 2026 Bataan Peninsula State University</p>
+  </div>
+</aside>
+
+{# Collapse arrow: sits on the sidebar's edge (outside the aside so it isn't clipped) #}
+<button type="button" class="sidebar-arrow" id="sidebarCollapseBtn" aria-expanded="true" title="Collapse sidebar" aria-label="Collapse sidebar">
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 0 1-.02 1.06L9.06 10l3.71 3.71a.75.75 0 1 1-1.06 1.06l-4.24-4.24a.75.75 0 0 1 0-1.06l4.24-4.24a.75.75 0 0 1 1.06.01Z" clip-rule="evenodd"/></svg>
+</button>

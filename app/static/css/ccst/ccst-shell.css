@@ -1,0 +1,230 @@
+/* ═══════════════════════════════════════════════════════════════════
+   admin-shell.css — maroon, collapsible sidebar + slim top bar.
+   Link it LAST in every admin page's <head> (after the page's own css
+   and responsive.css) so it overrides the older sidebar / header rules.
+   ═══════════════════════════════════════════════════════════════════ */
+:root { --sb-w: 236px; }
+body.sb-collapsed { --sb-w: 76px; }
+
+/* ── Layout (desktop). Tablet/phone keep the existing slide-in drawer ── */
+@media (min-width: 1101px) {
+  .sidebar { width: var(--sb-w); transition: width 0.25s ease; }
+  main     { margin-left: var(--sb-w); transition: margin-left 0.25s ease; }
+}
+
+/* ── Sidebar: maroon ─────────────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: linear-gradient(180deg, #8a0000 0%, #650000 100%);
+  border-right: none;
+  color: #fff;
+  box-shadow: 6px 0 28px -14px rgba(60, 0, 0, 0.55);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 18px 18px 16px;
+  color: #fff;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+.sidebar-brand-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+.sidebar-brand-badge img { width: 34px; height: 34px; object-fit: contain; }
+.sidebar-brand-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; white-space: nowrap; }
+.sidebar-brand-text strong { font-family: "Outfit", "Inter", sans-serif; font-size: 1.2rem; font-weight: 700; letter-spacing: 0.01em; }
+.sidebar-brand-text small { margin-top: 3px; font-size: 0.64rem; font-weight: 600; letter-spacing: 0.22em; color: rgba(255, 255, 255, 0.7); }
+.sidebar-brand:focus-visible { outline: 2px solid #E8C77A; outline-offset: -3px; }
+
+/* menu */
+.sidebar .pad {
+  flex: 1;
+  margin: 0;
+  padding: 6px 12px 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.sidebar .pad::-webkit-scrollbar { width: 5px; }
+.sidebar .pad::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 3px; }
+.sidebar .pad::-webkit-scrollbar-track { background: transparent; }
+
+.sb-section {
+  margin: 16px 10px 4px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+.sb-divider { height: 1px; margin: 12px 4px 0; border: none; background: rgba(255, 255, 255, 0.16); }
+
+.sb-item, .sb-collapse {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 3px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font: 500 0.92rem/1.2 "Inter", sans-serif;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.sb-item:hover, .sb-collapse:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.sb-item:focus-visible, .sb-collapse:focus-visible { outline: 2px solid #E8C77A; outline-offset: 1px; }
+.sb-item.is-active {
+  background: #fff;
+  color: #800000;
+  font-weight: 700;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.45);
+}
+.sb-ico { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; height: 22px; }
+.sb-ico svg { width: 20px; height: 20px; }
+.sb-label { overflow: hidden; text-overflow: ellipsis; }
+
+/* footer pinned at the bottom (overrides the old absolute footer) */
+.sidebar .sidebar-footer {
+  position: static;
+  flex-shrink: 0;
+  width: auto;
+  padding: 10px 12px 12px;
+  background: transparent;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  text-align: left;
+}
+.sidebar .sidebar-footer .sb-collapse { margin-top: 0; }
+.sidebar .btn-privacy {
+  display: block;
+  padding: 8px 12px 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.74rem;
+  text-decoration: none;
+  transform: none;
+}
+.sidebar .btn-privacy:hover { color: #fff; font-weight: 400; text-decoration: underline; transform: none; }
+.sidebar .copyright { margin: 2px 12px 0; color: rgba(255, 255, 255, 0.55); font-size: 0.62rem; line-height: 1.35; text-align: left; }
+
+/* ── Collapsed (icons only), desktop ─────────────────────────────────── */
+@media (min-width: 1101px) {
+  body.sb-collapsed .sidebar-brand { justify-content: center; padding-left: 0; padding-right: 0; }
+  body.sb-collapsed .sidebar-brand-text,
+  body.sb-collapsed .sb-label,
+  body.sb-collapsed .sb-section,
+  body.sb-collapsed .sidebar .btn-privacy,
+  body.sb-collapsed .sidebar .copyright { display: none; }
+  body.sb-collapsed .sidebar .pad { padding-left: 10px; padding-right: 10px; }
+  body.sb-collapsed .sb-item,
+  body.sb-collapsed .sb-collapse { justify-content: center; padding-left: 0; padding-right: 0; }
+  body.sb-collapsed .sb-collapse .sb-ico svg { transform: rotate(180deg); }
+}
+
+/* ── Tablet / phone drawer ───────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .sb-collapse { display: none; }                       /* collapsing only makes sense on desktop */
+  .sidebar-brand { padding-right: 56px; }               /* room for the drawer's close (X) button */
+  .sidebar .nav-close { color: #fff; }
+  .sidebar .nav-close:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+}
+
+/* ── Slim top bar (replaces the big maroon header) ───────────────────── */
+.topmenu.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: auto;
+  margin: 0;
+  padding: 12px 24px;
+  border-radius: 0;
+  border-bottom: 1px solid #E7E1D6;
+  background: rgba(246, 244, 240, 0.94);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: none;
+}
+.topbar-left { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.topbar-uni { font-size: 0.95rem; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-sub { margin-top: 2px; font-size: 0.64rem; font-weight: 600; letter-spacing: 0.2em; color: #6b7280; }
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+
+.tb-tutorial {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1.5px solid #800000;
+  border-radius: 999px;
+  background: #fff;
+  color: #800000;
+  font: 600 0.9rem/1 "Inter", sans-serif;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+.tb-tutorial svg { width: 20px; height: 20px; }
+.tb-tutorial:hover { background: #800000; color: #fff; transform: translateY(-1px); }
+.tb-tutorial:focus-visible { outline: 3px solid rgba(128, 0, 0, 0.3); outline-offset: 2px; }
+
+.topbar .user-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px 5px 16px;
+  border: 1px solid #E7E1D6;
+  border-radius: 999px;
+  background: #fff;
+  color: #111827;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.topbar .user-profile:hover { border-color: #800000; box-shadow: 0 4px 14px -8px rgba(128, 0, 0, 0.5); }
+.topbar .user-profile span { margin: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar .user-profile .avatar { width: 34px; height: 34px; margin: 0; }
+
+/* the drawer's hamburger (injected into the header by sidebar-drawer.js) */
+.topbar .nav-toggle { border: 1px solid #E7E1D6; background: #fff; color: #800000; }
+.topbar .nav-toggle:hover { background: #fbeeee; }
+
+@media (max-width: 768px) {
+  .topmenu.topbar { padding: 10px 14px; }
+  .topbar-sub { display: none; }
+  .tb-tutorial { padding: 9px 12px; }
+}
+@media (max-width: 520px) {
+  .topbar-left { display: none; }
+  .topbar-right { margin-left: auto; }
+  .tb-tutorial span { display: none; }                 /* icon only on small phones */
+  .tb-tutorial { padding: 9px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, main { transition: none; }
+}

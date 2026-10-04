@@ -552,8 +552,26 @@ document.addEventListener('DOMContentLoaded', function () {
     const resetEyeOpen     = document.getElementById('resetEyeOpen');
     const resetEyeClosed   = document.getElementById('resetEyeClosed');
     const resetSuccessModal = document.getElementById('resetSuccessModal');
+    const resetSuccessCloseBtn = document.getElementById('resetSuccessCloseBtn');
     const resetErrorModal  = document.getElementById('resetErrorModal');
     const resetErrorText   = document.getElementById('resetErrorText');
+
+    // Shared dismiss path for the reset-success modal — used by the X
+    // button, clicking the backdrop, AND the auto-close timer, so however
+    // it closes, it closes exactly once (no double reload if the user
+    // closes it manually right as the timer was about to fire).
+    let resetSuccessTimer = null;
+    function dismissResetSuccess() {
+        if (resetSuccessTimer) { clearTimeout(resetSuccessTimer); resetSuccessTimer = null; }
+        hideModal(resetSuccessModal);
+        location.reload();
+    }
+    if (resetSuccessCloseBtn) resetSuccessCloseBtn.addEventListener('click', dismissResetSuccess);
+    if (resetSuccessModal) {
+        resetSuccessModal.addEventListener('click', (e) => {
+            if (e.target === resetSuccessModal) dismissResetSuccess();
+        });
+    }
 
     // Password eye toggle inside the reset modal
     if (resetPwdToggle && resetPasswordInput) {
@@ -616,7 +634,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (data.ok) {
                     hideModal(resetDbModal);
                     showModal(resetSuccessModal);
-                    setTimeout(() => { hideModal(resetSuccessModal); location.reload(); }, 2500);
+                    resetSuccessTimer = setTimeout(dismissResetSuccess, 2500);
                 } else {
                     // Wrong password or other error — show inline
                     const msg = data.error || 'Reset failed. Please try again.';

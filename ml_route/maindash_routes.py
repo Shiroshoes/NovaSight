@@ -28,6 +28,11 @@ import pandas as pd
 import numpy as np
 
 from util.db_io import get_model_dataset
+
+try:                                        # program name -> acronym, for chart labels only
+    from .course_acronyms import course_short
+except ImportError:                         # pragma: no cover
+    from course_acronyms import course_short
 # get_model_dataset(key) returns all semesters concatenated from model_datasets table.
 # Each upload creates one row per (dataset_key, academic_year, semester).
 # Filtering by AY/semester is done in _apply_filters() using the DataFrame columns.
@@ -65,6 +70,9 @@ def _get_filters():
         'dept':       a.get('dept', ''),
         'course':     a.get('course', ''),
         'yearlevel':  a.get('yearlevel', ''),
+        # '' = default (vs immediately-previous recorded semester)
+        # '1sem' / '2sem' = that semester this year vs the SAME semester last year
+        'compare':    a.get('compare', ''),
     }
 
 
@@ -144,7 +152,7 @@ def api_dash_meta():
         depts = sorted(ds01['College'].dropna().unique().tolist()) if 'College' in ds01 else []
         courses_raw = ds01[['College','Course']].dropna().drop_duplicates() if 'Course' in ds01 else pd.DataFrame()
         courses = [
-            {'dept': r['College'], 'code': r['Course'], 'label': r['Course']}
+            {'dept': r['College'], 'code': r['Course'], 'label': r['Course'], 'short': course_short(r['Course'])}
             for _, r in courses_raw.iterrows()
         ]
 
@@ -170,6 +178,7 @@ def api_dash_kpi():
         ds01 = get_model_dataset('DS01')
         if ds01.empty:
             return jsonify({'error': 'No data'}), 404
+        f = _resolve_compare_filters(ds01, f)
 
         df = _apply_filters(ds01, f)
         if df.empty:
@@ -247,10 +256,10 @@ def api_dash_kpi():
         gwa_delta             = _compute_gwa_delta(ds01, f)
         completion_delta, completion_pct_change = _compute_completion_delta(ds01, f)
 
-        # Percentage change vs previous semester
+        # Percentage change vs previous semester (or same-semester-last-year, per f['compare'])
         gwa_pct_change = None
         try:
-            prev_df = _prev_semester_df(ds01, f)
+            prev_df = _prev_df_for_compare(ds01, f)
             if not prev_df.empty and avg_gwa is not None and 'GWA' in prev_df.columns:
                 prev_gwa = _safe_float(prev_df['GWA'].dropna().mean())
                 if prev_gwa and prev_gwa != 0:
@@ -324,7 +333,7 @@ def _compute_enrollment_delta(ds01, f):
     """Returns (delta_count, pct_change) tuple."""
     try:
         cur  = _apply_filters(ds01, f)
-        prev = _prev_semester_df(ds01, f)
+        prev = _prev_df_for_compare(ds01, f)
         if cur.empty or prev.empty:
             return None, None
         c = cur['Student_ID'].nunique() if 'Student_ID' in cur.columns else len(cur)
@@ -341,7 +350,7 @@ def _compute_gwa_delta(ds01, f):
         if 'GWA' not in ds01.columns:
             return None
         cur  = _apply_filters(ds01, f)
-        prev = _prev_semester_df(ds01, f)
+        prev = _prev_df_for_compare(ds01, f)
         if cur.empty or prev.empty:
             return None
         return _safe_float(cur['GWA'].dropna().mean() - prev['GWA'].dropna().mean(), 4)
@@ -353,7 +362,7 @@ def _compute_completion_delta(ds01, f):
     """Returns (delta, pct_change) using _compute_completion_from_df with At_Risk fallback."""
     try:
         cur  = _apply_filters(ds01, f)
-        prev = _prev_semester_df(ds01, f)
+        prev = _prev_df_for_compare(ds01, f)
         if cur.empty or prev.empty:
             return None, None
         cur_comp  = _compute_completion_from_df(cur)
@@ -365,6 +374,160 @@ def _compute_completion_delta(ds01, f):
         return delta, pct
     except Exception:
         return None, None
+
+
+# ── Shared grouping for the two trend charts below ──────────────────────
+# Same convention as the Heatmap: no dept filter -> one line per College;
+# dept filter set -> one line per Course. Mirrors the prediction side's
+# _line_groups()/_line_response() so both dashboards group lines the same way.
+
+_TREND_SEM_ORDER = {'1st Semester': 1, '1sem': 1, '2nd Semester': 2, '2sem': 2, 'Summer': 3}
+_TREND_SEM_SHORT = {'1sem': '1st Sem', '2sem': '2nd Sem'}
+
+
+def _trend_periods(df):
+    """Sorted [(academic_year, semester), ...] across the whole df, plus their display labels."""
+    periods = df[['Academic_Year', 'Semester']].dropna().drop_duplicates()
+    periods = sorted(
+        [(str(r['Academic_Year']), str(r['Semester'])) for _, r in periods.iterrows()],
+        key=lambda x: (x[0].split('-')[0], _TREND_SEM_ORDER.get(x[1], 9))
+    )
+    labels = [f'{_format_ay(ay)} {_TREND_SEM_SHORT.get(sem, sem)}' for ay, sem in periods]
+    return periods, labels
+
+
+def _trend_groups(df, f):
+    """[(group_name, group_df), ...] — one per College, or per Course if a dept filter is active."""
+    dept_filter = f.get('dept') or ''
+    if dept_filter and 'Course' in df.columns:
+        group_col = 'Course'
+    elif 'College' in df.columns:
+        group_col = 'College'
+    else:
+        group_col = 'Course' if 'Course' in df.columns else None
+
+    if not group_col:
+        return [('All', df)], 'college'
+    names = sorted(df[group_col].dropna().unique().tolist())
+    return [(name, df[df[group_col] == name]) for name in names], ('course' if group_col == 'Course' else 'college')
+
+
+def _filter_compare_sem(df, compare):
+    """
+    '' (Default)   -> every period, unfiltered (1st and 2nd semester alike)
+    '1sem'/'2sem'  -> keep only that semester type, so the trend becomes a
+                      clean year-over-year comparison for that one semester
+                      instead of alternating 1st/2nd semester points.
+    """
+    if compare not in ('1sem', '2sem'):
+        return df
+    want = _TREND_SEM_ORDER.get(compare)
+    sem_ord = df['Semester'].astype(str).map(_TREND_SEM_ORDER)
+    return df[sem_ord == want]
+
+
+def _trend_response(df, f, value_fn, extra):
+    """
+    Builds the {labels, group_by, datasets} response shared by kpi-trend and
+    enrollment-trend: one dataset per group (College/Course), one point per
+    recorded period, value_fn(period_slice_df) picks the single metric.
+    """
+    periods, labels = _trend_periods(df)
+    groups, group_by = _trend_groups(df, f)
+    datasets = []
+    for name, gdf in groups:
+        data = []
+        for ay, sem in periods:
+            pdf = gdf[(gdf['Academic_Year'].astype(str) == ay) & (gdf['Semester'].astype(str) == sem)]
+            data.append(value_fn(pdf) if len(pdf) else None)
+        if any(v is not None for v in data):
+            datasets.append({'label': name, 'data': data})
+    return jsonify({
+        'labels': labels, 'group_by': group_by, 'datasets': datasets,
+        'scope': {'dept': f.get('dept') or '', 'course': f.get('course') or '', 'yearlevel': f.get('yearlevel') or ''},
+        **extra,
+    })
+
+
+# ── /api/dash/kpi-trend ───────────────────────────────────────────────────
+
+_TREND_STATUS_COLS = {
+    'FAILED': 'Failed_Count', 'DRP': 'DRP_Count', 'INC': 'INC_Count',
+    'UDR': 'UDR_Count', 'W': 'W_Count', 'NGA': 'NGA_Count',
+}
+
+@maindash_bp.route('/api/dash/kpi-trend')
+def api_dash_kpi_trend():
+    """
+    Per-college/course trend version of the KPI card's Status Breakdown:
+    pick ONE status (?metric=, default FAILED) and show it broken down by
+    College (or by Course if a dept filter is active) across every recorded
+    semester — year/sem filters are ignored on purpose, since spanning every
+    period is the whole point of a trend chart. Same grouping convention as
+    the Heatmap, and the prediction-side counterpart of this endpoint.
+    """
+    try:
+        f = _get_filters()
+        metric = (request.args.get('metric') or 'FAILED').upper()
+        if metric not in _TREND_STATUS_COLS:
+            metric = 'FAILED'
+        col = _TREND_STATUS_COLS[metric]
+
+        ds01 = get_model_dataset('DS01')
+        if ds01.empty or 'Academic_Year' not in ds01.columns or 'Semester' not in ds01.columns:
+            return jsonify({'labels': [], 'datasets': [], 'metric': metric})
+
+        compare = request.args.get('compare') or ''
+        f_scope = dict(f, year='', sem='')   # trend spans every period
+        df = _apply_filters(ds01, f_scope)
+        df = _filter_compare_sem(df, compare)
+        if df.empty or col not in df.columns:
+            return jsonify({'labels': [], 'datasets': [], 'metric': metric, 'compare': compare})
+
+        return _trend_response(df, f, lambda pdf: int(pdf[col].fillna(0).sum()), {'metric': metric, 'compare': compare})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── /api/dash/enrollment-trend ───────────────────────────────────────────
+
+@maindash_bp.route('/api/dash/enrollment-trend')
+def api_dash_enrollment_trend():
+    """
+    Per-college/course trend version of the KPI card's Total Enrollment:
+    pick ONE of All / Regular / Irregular (?metric=, default 'all') and show
+    it broken down by College (or Course if a dept filter is active) across
+    every recorded semester. Separate card from KPI Trend's Status
+    Breakdown; same grouping convention as the Heatmap and as KPI Trend.
+    """
+    try:
+        f = _get_filters()
+        metric = (request.args.get('metric') or 'all').lower()
+        if metric not in ('all', 'regular', 'irregular'):
+            metric = 'all'
+
+        ds01 = get_model_dataset('DS01')
+        if ds01.empty or 'Academic_Year' not in ds01.columns or 'Semester' not in ds01.columns:
+            return jsonify({'labels': [], 'datasets': [], 'metric': metric})
+
+        compare = request.args.get('compare') or ''
+        f_scope = dict(f, year='', sem='')   # trend spans every period
+        df = _apply_filters(ds01, f_scope)
+        df = _filter_compare_sem(df, compare)
+        if df.empty:
+            return jsonify({'labels': [], 'datasets': [], 'metric': metric, 'compare': compare})
+
+        def value_fn(pdf):
+            if metric == 'all':
+                return int(pdf['Student_ID'].nunique()) if 'Student_ID' in pdf.columns else len(pdf)
+            col = 'Is_Regular' if metric == 'regular' else 'Is_Irregular'
+            if col not in pdf.columns:
+                return None
+            return int(pdf[col].fillna(False).astype(bool).sum())
+
+        return _trend_response(df, f, value_fn, {'metric': metric, 'compare': compare})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # ── /api/dash/heatmap ─────────────────────────────────────────────────────
@@ -492,11 +655,184 @@ def _heatmap_from_students(f, status, sort, metric):
 
 
 
+# ── Compare helpers ────────────────────────────────────────────────────────────
+
+def _same_sem_prev_year_df(ds01, f):
+    """
+    Rows for the SAME semester but in the previous academic year.
+    e.g. filters = 2024-2025, 1st Sem → returns 2023-2024, 1st Sem.
+    Returns (df | None, label | None).
+    """
+    if not f.get('year') or not f.get('sem') or 'Academic_Year' not in ds01.columns:
+        return None, None
+    try:
+        cur_ay = int(str(f['year']).split('-')[0])
+    except ValueError:
+        return None, None
+
+    prev_ay     = cur_ay - 1
+    prev_ay_str = f'{prev_ay}-{prev_ay + 1}'
+    ay          = pd.to_numeric(ds01['Academic_Year'].astype(str).str.split('-').str[0], errors='coerce')
+    mask        = ay == prev_ay
+    if not mask.any():
+        return None, None
+
+    prev_f = dict(f, year=prev_ay_str)   # same sem, previous year
+    prev   = _apply_filters(ds01[mask], prev_f)
+    if prev.empty:
+        return None, None
+    label = f'{prev_ay_str} {_SEM_ORD_LABEL.get(_SEM_ORD_MAP.get(str(f["sem"]).strip().lower(), 0), f["sem"])}'.strip()
+    return prev, label
+
+
+def _heatmap_compare(f, status, metric, compare_mode):
+    """
+    Build current + previous histogram data and return delta rows.
+    compare_mode: 'prev_sem' | 'same_sem'
+    Returns the same shape as _heatmap_from_students but with extra fields:
+      row[yl]         = current value
+      row['prev'][yl] = previous value
+      row['delta'][yl]= current - previous  (positive = worse, negative = better)
+      top-level 'prev_period' label
+    """
+    ds01 = get_model_dataset('DS01')
+    empty = {'rows':[], 'year_levels':[], 'metric':metric, 'basis':'students',
+             'view':'college', 'compare':compare_mode}
+
+    if ds01.empty:
+        return {**empty, 'note':'No student data (DS01) has been uploaded yet.'}
+
+    col = _HEATMAP_COUNT_COLS.get(status)
+    if col is None or col not in ds01.columns:
+        return {**empty, 'note': f"Status '{status}' not available for comparison."}
+
+    # Current period
+    df_cur = _apply_filters(ds01, f)
+
+    # Previous period
+    if compare_mode == 'same_sem':
+        df_prev, prev_label = _same_sem_prev_year_df(ds01, f)
+    else:
+        df_prev, prev_label = _previous_period_df(ds01, f)
+
+    if df_prev is None:
+        return {**empty, 'note': 'No previous period data found for comparison.'}
+
+    dept_filter = f.get('dept') or f.get('department') or ''
+    group_col = 'Course' if (dept_filter and 'Course' in ds01.columns) else \
+                ('College' if 'College' in ds01.columns else None)
+    view = 'course' if group_col == 'Course' else 'college'
+    if not group_col:
+        return {**empty, 'note':'No College/Course column in DS01.'}
+
+    def _compute(df):
+        df = df[df.get('Year_Level', pd.Series(dtype=str)).notna() if 'Year_Level' in df.columns else df.index]
+        if 'Year_Level' not in df.columns or df.empty:
+            return pd.DataFrame(), pd.DataFrame()
+        df = df[df[group_col].notna() & df['Year_Level'].notna()]
+        keys = [group_col, 'Year_Level']
+        hit  = df[df[col].fillna(0) > 0]
+        if 'Student_ID' in df.columns:
+            enrolled = df.groupby(keys)['Student_ID'].nunique()
+            with_st  = hit.groupby(keys)['Student_ID'].nunique()
+        else:
+            enrolled = df.groupby(keys).size()
+            with_st  = hit.groupby(keys).size()
+        with_st = with_st.reindex(enrolled.index, fill_value=0)
+        def _wide(s):
+            w = s.unstack('Year_Level')
+            w.columns = [str(c) for c in w.columns]
+            return w
+        ew, ww = _wide(enrolled), _wide(with_st)
+        if metric == 'count':
+            return ww, ew
+        return (ww / ew.where(ew > 0) * 100).round(2), ew
+
+    val_cur,  enr_cur  = _compute(df_cur)
+    val_prev, enr_prev = _compute(df_prev)
+
+    if val_cur.empty:
+        return {**empty, 'note':'No data for selected period.'}
+
+    all_yls = sorted(
+        set(val_cur.columns.tolist()) | set(val_prev.columns.tolist()),
+        key=_yl_sort_key
+    )
+    year_levels = [y for y in all_yls if y.upper() not in ('NAN', '')]
+
+    val_cur  = val_cur.reindex(columns=year_levels, fill_value=0)
+    val_prev = val_prev.reindex(index=val_cur.index, columns=year_levels, fill_value=0)
+
+    rows = []
+    for label in val_cur.index:
+        entry = {'label': label, 'prev': {}, 'delta': {}}
+        for yl in year_levels:
+            c = val_cur.at[label, yl]  if label in val_cur.index  else None
+            p = val_prev.at[label, yl] if label in val_prev.index else None
+            entry[yl]          = None if (c is None or (isinstance(c, float) and pd.isna(c))) else (int(c) if metric=='count' else float(c))
+            entry['prev'][yl]  = None if (p is None or (isinstance(p, float) and pd.isna(p))) else (int(p) if metric=='count' else float(p))
+            entry['delta'][yl] = None if entry[yl] is None or entry['prev'][yl] is None else round(entry[yl] - entry['prev'][yl], 2)
+        rows.append(entry)
+
+    rows.sort(key=lambda r: sum(v for v in r['delta'].values() if v is not None), reverse=False)
+    max_val = max((abs(r['delta'][yl]) for r in rows for yl in year_levels if r['delta'].get(yl) is not None), default=1.0)
+
+    return {
+        'rows':        rows,
+        'year_levels': year_levels,
+        'max_val':     float(max_val),
+        'metric':      metric,
+        'basis':       'students',
+        'view':        view,
+        'compare':     compare_mode,
+        'prev_period': prev_label,
+    }
+
+
 # ── Previous-period lookup (used by the performance leaderboard) ───────────────
 _SEM_ORD_MAP = {'1sem': 1, '1st semester': 1, '1st sem': 1,
                 '2sem': 2, '2nd semester': 2, '2nd sem': 2,
                 'summer': 3}
 _SEM_ORD_LABEL = {1: '1st Semester', 2: '2nd Semester', 3: 'Summer'}
+
+
+def _resolve_compare_filters(ds01, f):
+    """
+    When Comparison is '1sem' or '2sem', the CURRENT side must also be pinned to
+    that one semester — otherwise, if no Term is separately selected, "current"
+    silently stays "all terms combined" while "previous" is only one semester,
+    which makes current look like it has way more students than it should.
+
+    If no Academic Year is separately selected, use the most recent year that
+    actually has data for that semester.
+    """
+    compare = f.get('compare') or ''
+    if compare not in ('1sem', '2sem'):
+        return f
+    f2 = dict(f, sem=compare)
+    if not f2.get('year') and {'Academic_Year', 'Semester'} <= set(ds01.columns):
+        want = _SEM_ORD_MAP[compare]
+        sem_ord = ds01['Semester'].astype(str).str.strip().str.lower().map(_SEM_ORD_MAP)
+        years = pd.to_numeric(
+            ds01.loc[sem_ord == want, 'Academic_Year'].astype(str).str.split('-').str[0], errors='coerce'
+        ).dropna()
+        if not years.empty:
+            f2['year'] = str(int(years.max()))
+    return f2
+
+
+def _prev_df_for_compare(ds01, f):
+    """
+    The previous-period DataFrame to diff against, chosen by f['compare']:
+      ''            -> immediately previous recorded semester (existing default)
+      '1sem'/'2sem' -> the SAME semester, previous academic year
+    Always returns just a DataFrame (never the (df, label) tuple), for drop-in
+    use wherever _prev_semester_df(ds01, f) used to be called directly.
+    """
+    if f.get('compare') in ('1sem', '2sem'):
+        df, _label = _same_sem_prev_year_df(ds01, f)
+        return df if df is not None else pd.DataFrame()
+    return _prev_semester_df(ds01, f)
 
 
 def _previous_period_df(ds01, f):
@@ -569,6 +905,7 @@ def api_dash_performance():
         if ds01 is None or ds01.empty:
             return jsonify({'rows': [], 'radar': [], 'average': None, 'view': 'college',
                             'note': 'No student data has been uploaded yet.'})
+        f = _resolve_compare_filters(ds01, f)
 
         # A picked course does NOT shrink the leaderboard (its sibling courses stay listed so it can
         # be compared); it only decides what the radar shows.  A course implies its college.
@@ -629,8 +966,13 @@ def api_dash_performance():
                 'regular_ratio':  regular,    'regular_count':    regular_n,
             }
 
-        # Previous semester (same filters) so the leaderboard can show up / down arrows
-        prev_df, prev_label = _previous_period_df(ds01, f)
+        # Previous period (same filters) so the leaderboard can show up / down arrows —
+        # same semester last year when f['compare'] is '1sem'/'2sem', otherwise the
+        # immediately-previous recorded semester (the existing default).
+        if f.get('compare') in ('1sem', '2sem'):
+            prev_df, prev_label = _same_sem_prev_year_df(ds01, f)
+        else:
+            prev_df, prev_label = _previous_period_df(ds01, f)
         prev_map = {}
         if prev_df is not None and group_col in prev_df.columns:
             for plabel, pg in prev_df[prev_df[group_col].notna()].groupby(group_col):
@@ -698,17 +1040,21 @@ def api_dash_heatmap():
     """
     Histogram: when no dept filter → bars = colleges (one per college).
                when dept filter    → bars = course programs within that college.
-    Returns {rows, year_levels, max_val, metric, basis, view, note?}
-    view = 'college' | 'course'
+    compare: '' (default) | 'prev_sem' | 'same_sem'
+    Returns {rows, year_levels, max_val, metric, basis, view, note?, compare?, prev_period?}
     """
     try:
-        f      = _get_filters()
-        status = request.args.get('status', 'FAILED')
-        sort   = request.args.get('sort', 'asc')
-        metric = request.args.get('metric', 'rate')
+        f       = _get_filters()
+        status  = request.args.get('status', 'FAILED')
+        sort    = request.args.get('sort', 'asc')
+        metric  = request.args.get('metric', 'rate')
+        compare = request.args.get('compare', '')
 
         if metric != 'count':
             metric = 'rate'
+
+        if compare in ('prev_sem', 'same_sem'):
+            return jsonify(_heatmap_compare(f, status, metric, compare))
 
         return jsonify(_heatmap_from_students(f, status, sort, metric))
     except Exception as e:
@@ -1078,3 +1424,147 @@ def _build_hardest_trend(ds04: pd.DataFrame, f: dict, codes: list):
         return series, x_labels
     except Exception:
         return [], []
+
+# ── /api/dash/insights (GET + POST) ──────────────────────────────────────────
+# GET  ?chart_key=heatmapCard&dashboard=main  → latest saved insight for that chart
+# POST { chart_key, dashboard, insight_text, filter_label, filter_hash }  → save/update
+
+from database.models import db
+from sqlalchemy import text as _sql_text
+import hashlib as _hashlib
+from flask import session as _session
+
+import json as _json, os as _os, requests as _requests
+try:
+    from .college_scope import forced_college as _forced_college, NO_COLLEGE as _NO_COLLEGE
+except Exception:
+    from college_scope import forced_college as _forced_college, NO_COLLEGE as _NO_COLLEGE
+
+
+def _insight_scope(raw):
+    """One chart can hold many insights: one per filter combination.
+    A Dean's college is forced here on the server, so a Dean's insight is always the one for
+    their college, and Academic Affairs sees it when they filter to the same college."""
+    forced = _forced_college()
+    if forced == _NO_COLLEGE:
+        return None, None
+    f = {str(k): str(v) for k, v in (raw or {}).items() if v not in (None, '', False, 'false')}
+    if forced:
+        f['dept'] = forced
+    return f, _hashlib.md5(_json.dumps(f, sort_keys=True).encode()).hexdigest()
+
+
+def _filters_arg(src):
+    try:
+        v = _json.loads(src or '{}')
+        return v if isinstance(v, dict) else {}
+    except Exception:
+        return {}
+
+
+@maindash_bp.route('/api/dash/insights', methods=['GET'])
+def api_get_insight():
+    chart_key = request.args.get('chart_key', '').strip()
+    dashboard = request.args.get('dashboard', 'main').strip()
+    if not chart_key:
+        return jsonify({'error': 'chart_key required'}), 400
+    _, fh = _insight_scope(_filters_arg(request.args.get('filters')))
+    if fh is None:
+        return jsonify({'found': False})
+    try:
+        row = db.session.execute(
+            _sql_text(
+                'SELECT ci.id, ci.insight_text, ci.filter_label, ci.updated_at, '
+                '  CONCAT(u.first_name, " ", u.last_name) AS updated_by '
+                'FROM chart_insights ci '
+                'LEFT JOIN acad_user u ON u.acaduser_id = ci.edited_by OR (ci.edited_by IS NULL AND u.acaduser_id = ci.generated_by) '
+                'WHERE ci.chart_key = :k AND ci.dashboard = :d AND ci.filter_hash = :h '
+                'ORDER BY ci.updated_at DESC LIMIT 1'
+            ),
+            {'k': chart_key, 'd': dashboard, 'h': fh}
+        ).fetchone()
+        legacy = False
+        if not row and not _forced_college():          # full-access roles only: insights saved before per-filter keys
+            row = db.session.execute(
+                _sql_text(
+                    'SELECT ci.id, ci.insight_text, ci.filter_label, ci.updated_at, NULL FROM chart_insights ci '
+                    "WHERE ci.chart_key = :k AND ci.dashboard = :d AND (ci.filter_hash IS NULL OR ci.filter_hash = '') "
+                    'ORDER BY ci.updated_at DESC LIMIT 1'),
+                {'k': chart_key, 'd': dashboard}
+            ).fetchone()
+            legacy = bool(row)
+        if not row:
+            return jsonify({'found': False})
+        return jsonify({'found': True, 'legacy': legacy, 'id': row[0], 'insight_text': row[1], 'filter_label': row[2],
+                        'updated_at': str(row[3]), 'updated_by': row[4]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@maindash_bp.route('/api/dash/insights', methods=['POST'])
+def api_save_insight():
+    body = request.get_json(force=True, silent=True) or {}
+    chart_key    = str(body.get('chart_key',    '')).strip()
+    dashboard    = str(body.get('dashboard',    'main')).strip()
+    insight_text = str(body.get('insight_text', '')).strip()
+    filter_label = str(body.get('filter_label', '')).strip() or None
+    f, fh = _insight_scope(body.get('filters') if isinstance(body.get('filters'), dict) else {})
+    if fh is None:
+        return jsonify({'error': 'not allowed'}), 403
+    if not chart_key or not insight_text:
+        return jsonify({'error': 'chart_key and insight_text required'}), 400
+
+    user_id = _session.get('user_id')  # set at login by app.py
+    try:
+        existing = db.session.execute(
+            _sql_text('SELECT id FROM chart_insights WHERE chart_key=:k AND dashboard=:d AND filter_hash=:h '
+                      'ORDER BY updated_at DESC LIMIT 1'),
+            {'k': chart_key, 'd': dashboard, 'h': fh}
+        ).fetchone()
+        if existing:
+            db.session.execute(
+                _sql_text('UPDATE chart_insights SET insight_text=:txt, filter_label=:fl, edited_by=:uid WHERE id=:id'),
+                {'txt': insight_text, 'fl': filter_label, 'uid': user_id, 'id': existing[0]}
+            )
+            rec_id = existing[0]
+        else:
+            result = db.session.execute(
+                _sql_text('INSERT INTO chart_insights (chart_key, dashboard, filter_hash, filter_label, insight_text, generated_by) '
+                          'VALUES (:k, :d, :fh, :fl, :txt, :uid)'),
+                {'k': chart_key, 'd': dashboard, 'fh': fh, 'fl': filter_label, 'txt': insight_text, 'uid': user_id}
+            )
+            rec_id = result.lastrowid
+        db.session.commit()
+        return jsonify({'saved': True, 'id': rec_id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+# -- Free AI draft (Google Gemini free tier). Key stays on the server. ----------------------
+@maindash_bp.route('/api/dash/insights/generate', methods=['POST'])
+def api_generate_insight():
+    if _forced_college() == _NO_COLLEGE:
+        return jsonify({'error': 'not allowed'}), 403
+    prompt = str((request.get_json(silent=True) or {}).get('prompt', ''))[:4000]
+    key = _os.environ.get('GEMINI_API_KEY')
+    if not prompt:
+        return jsonify({'error': 'prompt required'}), 400
+    if not key:
+        return jsonify({'error': 'GEMINI_API_KEY is not set on the server'}), 503
+    model = _os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash-lite')
+    try:
+        r = _requests.post(
+            f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
+            headers={'x-goog-api-key': key, 'Content-Type': 'application/json'},
+            json={'systemInstruction': {'parts': [{'text': 'You write concise numbered insights for university administrators from the aggregate numbers given. Never invent figures.'}]},
+                  'contents': [{'parts': [{'text': prompt}]}],
+                  'generationConfig': {'maxOutputTokens': 1000}},
+            timeout=30)
+        if r.status_code == 429:
+            return jsonify({'error': 'Free AI limit reached - try again in a minute.'}), 429
+        r.raise_for_status()
+        parts = r.json()['candidates'][0]['content']['parts']
+        return jsonify({'text': ''.join(x.get('text', '') for x in parts).strip()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

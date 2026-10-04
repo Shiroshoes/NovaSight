@@ -3,189 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin page</title>
+  <title>Admin</title>
   <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/adminpage.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/logout/logout.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tutorial/page-video-modal.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/responsive.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/admin-shell.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/tutorial-modal.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/tutorial-modal-v2.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/sidebar-compact.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/sidebar-maroon.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/admin-float-footer.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/maindash-readable.css') }}">
 </head>
 <body>
   {% with messages = get_flashed_messages(with_categories=true) %}
   <script id="flashData" type="application/json">{{ messages | tojson }}</script>
   {% endwith %}
 {% from 'avatar.html' import user_avatar_chip %}
-  <!-- fixed side bar -->
-  <aside class="sidebar">
-    <nav class="pad">
-      <a href="{{ url_for('admin_bp.dashboard') }}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icon">
-            <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
-            <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
-          </svg>
-        </div>
-        <span>Home</span>
-      </a>
-  <!-- drop down dashboard -->
-      <a href="javascript:void(0)" class="menu-btn" id="dashboardToggle">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.035-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z"/>
-          </svg>
-        </div>
-        <span>Data & Analysis</span>
-        <svg id="dashboardChevronIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6" style="width:16px;margin-left:auto;">
-          <path id="dashboardChevronPath" fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
-        </svg>
-        <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
-      </a>
-
-<div class="submenu-container" id="dashboardSubmenu">
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-  <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Overview</p>
-
-    <a href="{{url_for('admin_bp.maindash_admin')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-      </svg>
-    </div>
-    <span>Dashboard</span>
-    </a>
-
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Machine Learning & Prediction</p>
-
-    <a href="{{url_for('admin_bp.preddash_admin')}}" class="dash-btn">
-    <div  class="non-active-bordericondash">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-    </svg>
-    </div>
-
-    <span>Prediction Analysis</span></a>
-
-</div>
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Account Panel</p>
-      
-      <a href="{{ url_for('admin_bp.profile') }}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <span>Profile</span>
-      </a>
-
-        <a href="{{ url_for('admin_bp.help_admin')}}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <span>Help</span>
-        </a>
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Admin Panel</p>
-
-        <a href="{{ url_for('admin_bp.admin_page') }}" class="menu-active">
-          <div class="active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 0 0-1.032 0 11.209 11.209 0 0 1-7.877 3.08.75.75 0 0 0-.722.515A12.74 12.74 0 0 0 2.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 0 0 .374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 0 0-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08Zm3.094 8.016a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-
-          <span>Admin</span>
-        </a>
-
-        <a href="{{ url_for('admin_bp.fileupload_admin') }}" class="menu-btn">
-          <div class="non-active-bordericon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon"><path d="M11.47 1.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 0 1-1.06-1.06l3-3ZM11.25 7.5V15a.75.75 0 0 0 1.5 0V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z"/></svg></div>
-          <span>Upload File</span>
-        </a>
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-        <a href="#" id="logoutLink" class="menu-btn">
-          <div class="non-active-bordericon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-              <path fill-rule="evenodd" d="M16.5 3.75a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5V15a.75.75 0 0 0-1.5 0v3.75a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5.25a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3V9A.75.75 0 1 0 9 9V5.25a1.5 1.5 0 0 1 1.5-1.5h6ZM5.78 8.47a.75.75 0 0 0-1.06 0l-3 3a.75.75 0 0 0 0 1.06l3 3a.75.75 0 0 0 1.06-1.06l-1.72-1.72H15a.75.75 0 0 0 0-1.5H4.06l1.72-1.72a.75.75 0 0 0 0-1.06Z" clip-rule="evenodd" />
-            </svg>
-          </div>
-
-          <span>Logout</span>
-        </a>
-
-      <div class="sidebar-footer">
-        <a href="{{ url_for('admin_bp.privacy_policy_admin') }}" class="btn-privacy">
-          &bull; Privacy Policy
-        </a>
-
-        <p class="copyright">
-          &copy; 2026 NovaSight Dev Team. All rights reserved.
-        </p>
-      </div>
-    </nav>
-  </aside>
+{% set active_page = 'adminpage' %}
+{% include 'admin/_admin_sidebar.html' %}
 <main>
-  <!--header -->
-        <header class="topmenu">
-            <div class="brand">
-              <div class="logo-sq">
-                <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="NovaSight Logo" class="brand-logo">
-              </div>
-                <div class="brand-text">
-                    <h1>Bataan Peninsula State University</h1>
-                    <span>ACADEMIC PREDICTION</span>
-                </div>
-            </div>
+  <!-- Fixed white header: title (left) + Reset / Tutorial (right) -->
+  <div class="dash-sticky admin-sticky">
+    <div class="admin-head">
+      <h2>Admin User Creation Portal</h2>
+      <p>Manage user accounts, roles and the system database.</p>
+    </div>
+    <div class="admin-actions">
+      <button type="button" class="userbar-tutorial admin-reset" id="resetDbBtn" aria-label="Reset">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z" clip-rule="evenodd"/></svg>
+        Reset
+      </button>
+    {% include 'admin/_admin_topbar.html' %}
+    </div>
+  </div>
 
-            <!-- user-profile section -->
-            <a href="{% if user %}{{ url_for('admin_bp.profile') }}{% else %}{{ url_for('login') }}{% endif %}" class="user-profile">
-                {% if user %}
-                    <!-- Logged-in user -->
-                    <span>{{ user.username }}</span>
+  <!-- Scrollable area (header above stays put) -->
+  <div class="main-scroll">
 
-                {% if user.profile_image_url %}
-                    <img src="{{ user.profile_image_url }}" alt="User Avatar" class="avatar">
-                    {% else %}
-                        <!-- Default SVG when logged in but NO image — tinted per role/user -->
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar avatar-default" style="width: 32px; height: 32px; --avatar-color: {{ user.avatar_color }}; --avatar-icon-color: {{ user.avatar_icon_color }};">
-                          <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
-                        </svg>
-                    {% endif %}
-
-                {% else %}
-                    <!-- Not logged in -->
-                    <span>Login</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar" style="width: 32px; height: 32px;">
-                      <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
-                    </svg>
-                {% endif %}
-            </a>
-        </header>
-
-      <nav class="dash-tabs no-print" id="dashTabs" role="tablist" aria-label="Dashboard categories">
-        <button id="resetDbBtn" class="btn dash-tab-btn">Reset Database</button>
-      </nav>
+      <nav class="dash-tabs no-print" id="dashTabs" hidden aria-hidden="true"></nav>
     <section class="dashboard-grid">
 
       <div class="dashboard-col-left">
@@ -263,6 +123,15 @@
 
 
           <div class="card management-card">
+              <div class="portal-head">
+                  <span class="portal-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M11 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM2.046 15.253c-.058.468.172.92.57 1.175A9.953 9.953 0 0 0 8 18c1.982 0 3.83-.578 5.384-1.573.398-.254.628-.707.57-1.175a6.001 6.001 0 0 0-11.908 0ZM16.75 5.75a.75.75 0 0 0-1.5 0v2h-2a.75.75 0 0 0 0 1.5h2v2a.75.75 0 0 0 1.5 0v-2h2a.75.75 0 0 0 0-1.5h-2v-2Z"/></svg>
+                  </span>
+                  <div class="portal-head-text">
+                      <h3>Manage Users</h3>
+                      <p>Create new accounts or edit existing users.</p>
+                  </div>
+              </div>
               
               <div class="edit-header">
                   <h3 class="blue-title">Edit User</h3>
@@ -337,7 +206,6 @@
                             <option value="" style="color: #999;" disabled selected hidden>Select a Role</option>
                               <option value="Academic_Affair">Academic Affair</option>
                               <option value="Registrar">Registrar</option>
-                              <option value="SASO">SASO</option>
                               <option value="MISO">MISO</option>
                               <option value="NurseDean">Nursing Dean</option>
                               <option value="PHdean">Public Health Dean</option>
@@ -439,7 +307,6 @@
                             <option value="" style="color: #999;" disabled selected hidden>Select a Role</option>
                               <option value="Academic_Affair">Academic Affair</option>
                               <option value="Registrar">Registrar</option>
-                              <option value="SASO">SASO</option>
                               <option value="MISO">MISO</option>
                               <option value="NurseDean">Nursing Dean</option>
                               <option value="PHdean">Public Health Dean</option>
@@ -464,6 +331,11 @@
 
         <script src="{{ url_for('static', filename='js/adminpage.js') }}"></script>
     </section>
+  {% include 'admin/_admin_footer.html' %}
+  </div><!-- /main-scroll -->
+</main>
+
+<!-- ── Modals (outside the scrolling area so the page layout never touches them) ── -->
 
   <!-- Logout Modal Structure -->
   <!-- ── Reset Database Modal ─────────────────────────────── -->
@@ -501,6 +373,7 @@
   <!-- ── Reset Success Modal (auto-closes) ─────────────────── -->
   <div id="resetSuccessModal" class="modal-overlay" style="display: none;">
     <div class="logout-card">
+      <button type="button" class="modal-close-x" id="resetSuccessCloseBtn" aria-label="Close">&times;</button>
       <h1 class="brand-name">NovaSight</h1>
       <p class="confirmation-text" style="color:#15803d;">Database reset successfully.</p>
     </div>
@@ -519,12 +392,14 @@
       <h1 class="brand-name">NovaSight</h1>
       <p class="confirmation-text">Are you sure you want to logout?</p>
       <div class="button-group">
-        <button id="confirmLogoutBtn" class="btn-new btn-primary">Logout</button>
-        <button id="cancelLogoutBtn" class="btn-new btn-primary">Back</button>
+        <button id="confirmLogoutBtn" class="btn btn-primary">Logout</button>
+        <button id="cancelLogoutBtn" class="btn btn-primary">Back</button>
       </div>
     </div>
   </div>
   <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+
+{% include 'admin/_admin_tutorial.html' %}
 
   <!-- Deactivate Account Confirmation Modal -->
   <div id="deactivateModal" class="modal-overlay" style="display: none;">
@@ -572,28 +447,6 @@
   </div>
 
 
-  <div class="footer-brand">
-      <hr class="footer-divider">
-
-      <div class="footer-brand-content">
-          <img src="{{ url_for('static', filename='image/logo.png') }}"
-              alt="NovaSight Logo"
-              class="footer-logo">
-
-          <div class="footer-brand-text">
-              <h3>NovaSight</h3>
-              <p>Machine Learning-Based Student Performance Prediction System</p>
-              <small>2026 Bataan Peninsula State University</small>
-          </div>
-      </div>
-  </div>
-
-    <footer class="footer">
-    <div class="footer-content">
-        <span class="page-label">Page/</span><span class="page-name">Admin</span>
-    </div>
-  </footer> 
-</main>
 
 <!-- Floating Page Tutorial Video Modal -->
 <div id="pageTutorialModal" class="page-tutorial-overlay"
@@ -612,6 +465,7 @@
 </div>
 <script src="{{ url_for('static', filename='js/page-video-modal.js') }}"></script>
 
-<script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/tutorial.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/sidebar-collapse.js') }}" defer></script>
 </body>
 </html>

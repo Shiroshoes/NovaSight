@@ -31,24 +31,21 @@ NOTE: add your login/role guard (the same one the other /api routes use) with
 `pred_bp.before_request(...)` — it is intentionally not guessed here.
 """
 
-import os
 import threading
 
-import joblib
 from flask import session, Blueprint, jsonify, request
 
-try:
-    from preprocessing.preprocess import PROCESSED_DIR
-except Exception:                                    # pragma: no cover
-    PROCESSED_DIR = os.getcwd()
-
-# Must match PRED_MODEL_DIR in auto_train.py
-PRED_MODEL_DIR = os.path.join(PROCESSED_DIR, "prediction_models")
+from util.db_io import load_model_blob
 
 try:                                        # college scoping for Dean accounts (see college_scope.py)
     from .college_scope import forced_college
 except ImportError:                         # pragma: no cover
     from college_scope import forced_college
+
+try:                                        # program name -> acronym, for chart labels only
+    from .course_acronyms import course_short
+except ImportError:                         # pragma: no cover
+    from course_acronyms import course_short
 
 pred_bp = Blueprint("pred_bp", __name__)
 
@@ -62,12 +59,18 @@ def _require_login():
 SUBJECT_STATUSES = ["FAILED", "INC", "DRP", "UDR", "W"]
 _ALIASES = {"DROP": "DRP", "DROPPED": "DRP", "FAIL": "FAILED"}
 _ALL = {None, "", "all", "All", "ALL", "Main Campus", "all_colleges"}
+_STATUS_LABELS = {
+    "FAILED": "Failed", "DRP": "Drop", "INC": "Incomplete",
+    "UDR": "Unofficial Drop", "W": "Withdrawn", "NGA": "No Grade",
+}
 
 # ══════════════════════════════════════════════════════════════════════════
-#  Bundle loading (cached by file mtime, so a retrain is picked up automatically)
+#  Bundle loading — read from MySQL (trained_model_files). No mtime to key off
+#  a DB blob, so reload_bundles() is what picks up a retrain: auto_train.py
+#  already calls it right after every successful training run.
 # ══════════════════════════════════════════════════════════════════════════
 _lock = threading.Lock()
-_cache = {}          # filename -> (mtime, bundle)
+_cache = {}          # filename -> bundle
 
 
 def reload_bundles():
@@ -76,17 +79,11 @@ def reload_bundles():
 
 
 def _bundle(filename):
-    path = os.path.join(PRED_MODEL_DIR, filename)
-    try:
-        mtime = os.path.getmtime(path)
-    except OSError:
-        return None
     with _lock:
-        hit = _cache.get(filename)
-        if hit and hit[0] == mtime:
-            return hit[1]
-        obj = joblib.load(path)
-        _cache[filename] = (mtime, obj)
+        if filename in _cache:
+            return _cache[filename]
+        obj = load_model_blob(filename)   # None if it hasn't been trained yet
+        _cache[filename] = obj
         return obj
 
 
@@ -277,6 +274,8 @@ def pred_meta():
         "trained_at": cube["trained_at"],
         "horizon": hz,
         "departments": [{"name": d, "courses": sorted(c)} for d, c in sorted(depts.items())],
+        # full program name -> acronym; the dashboard uses it for chart labels only
+        "course_short": {c: course_short(c) for cs in depts.values() for c in cs},
         "year_levels": sorted({s["yl"] for s in cube["series"] if s["yl"] > 0 and (not forced or s["college"] == forced)}),
         "scoped_to": forced,
         "statuses": cube["statuses"],
@@ -313,7 +312,10 @@ def pred_kpi():
         statuses[st] = {"count": round(c),
                         "ratio": None if ratio is None else round(ratio, 1),
                         "prev_count": None if p is None else round(p),
-                        "pct": _pct(c, p),
+                        # population-based: % change in this status's SHARE of enrolled
+                        # students (ratio vs ratio_prev), not the raw count vs last semester —
+                        # that way a bigger/smaller student body doesn't look like a status swing.
+                        "pct": _pct(ratio, pratio),
                         "ratio_prev": None if pratio is None else round(pratio, 1)}
     return jsonify({
         "available": True,
@@ -339,7 +341,7 @@ def _line_groups(series, dept, course):
     return [(n, [s for s in series if s[key] == n]) for n in names]
 
 
-def _line_response(cube, pick, series, dept, course, yl, extra):
+def _line_response(cube, pick, series, dept, course, yl, extra, compare=""):
     hz = cube["horizon"]
     last_t = hz["last_t"]
     steps = _horizon_steps(hz)
@@ -347,6 +349,11 @@ def _line_response(cube, pick, series, dept, course, yl, extra):
     groups = _line_groups(series, dept, course)
     hist_ts = sorted({t for s in series for t in s["t"]}) if with_hist else []
     ts = hist_ts + list(range(last_t + 1, last_t + steps + 1))
+    if compare in ("1sem", "2sem"):
+        # Keep only that semester type, year over year — same idea as the
+        # historical side's /api/dash/kpi-trend & /api/dash/enrollment-trend.
+        want = 1 if compare == "1sem" else 2
+        ts = [t for t in ts if _sem(t) == want]
     datasets = []
     for name, ss in groups:
         data = []
@@ -360,6 +367,7 @@ def _line_response(cube, pick, series, dept, course, yl, extra):
         "group_by": "course" if (dept or course) else "college",
         "labels": [_label(t) for t in ts],
         "predicted": [t > last_t for t in ts],
+        "compare": compare,
         "datasets": datasets, **extra,
     })
 
@@ -388,6 +396,51 @@ def pred_gwa_trend():
     series = _select(cube["series"], dept, course, yl)
     return _line_response(cube, lambda a: None if a["gwa"] is None else round(a["gwa"], 2),
                           series, dept, course, yl, {})
+
+
+@pred_bp.route("/api/pred/kpi_trend")
+def pred_kpi_trend():
+    """
+    Per-college/course trend version of the KPI card's Status Breakdown: pick
+    ONE status (?metric=, default FAILED) and show it broken down by college
+    (or by course if a college is picked, or a single line if a course is
+    picked) — exactly the same grouping as /api/pred/at_risk and
+    /api/pred/gwa_trend, just its own endpoint so this card keeps its own
+    filter state. Counterpart of /api/dash/kpi-trend on the historical side.
+    """
+    cube = _bundle("pred_cube.pkl")
+    if cube is None:
+        return _unavailable("No prediction model yet.")
+    metric = request.args.get("metric", "FAILED").upper()
+    metric = _ALIASES.get(metric, metric)
+    if metric not in cube["statuses"]:
+        return jsonify({"available": False, "reason": f"Unknown metric {metric}"}), 400
+    dept, course, yl = _filters()
+    series = _select(cube["series"], dept, course, yl)
+    compare = request.args.get("compare") or ""
+    return _line_response(cube, lambda a: round(a["counts"].get(metric, 0)), series, dept, course, yl,
+                          {"metric": metric}, compare=compare)
+
+
+@pred_bp.route("/api/pred/enrollment_trend")
+def pred_enrollment_trend():
+    """
+    Per-college/course trend version of the KPI card's Total Enrollment: pick
+    ONE of All / Regular / Irregular (?metric=, default 'all') and show it
+    broken down by college/course — same grouping as GWA Trend / At-Risk.
+    Counterpart of /api/dash/enrollment-trend on the historical side.
+    """
+    cube = _bundle("pred_cube.pkl")
+    if cube is None:
+        return _unavailable("No prediction model yet.")
+    metric = (request.args.get("metric") or "all").lower()
+    if metric not in ("all", "regular", "irregular"):
+        metric = "all"
+    key = {"all": "students", "regular": "regular", "irregular": "irregular"}[metric]
+    dept, course, yl = _filters()
+    series = _select(cube["series"], dept, course, yl)
+    compare = request.args.get("compare") or ""
+    return _line_response(cube, lambda a: round(a[key]), series, dept, course, yl, {"metric": metric}, compare=compare)
 
 
 # ── Top Hardest Subjects ───────────────────────────────────────────────────
@@ -524,6 +577,6 @@ def pred_hardest():
         "options": sorted(({"code": c, "title": t} for c, t in options.items()),
                           key=lambda o: o["title"]),
         "lines": {"labels": [_label(t) for t in ts], "predicted": [t > last_t for t in ts],
-                  "datasets": [{"label": f"{i['title']} — {i['course']}", "code": i["code"],
+                  "datasets": [{"label": f"{i['title']} — {course_short(i['course'])}", "code": i["code"],
                                 "data": [pts.get(t) for t in ts]} for i, pts in lines]},
     })

@@ -1,0 +1,57 @@
+/* dashboard-cahs-overrides.css
+   Link LAST on both CAHS dashboards (after sidebar-maroon-cahs + admin-float-footer-cahs).
+   Neutralises the old cahs dashboard css rules that fight the new shell
+   (fixed main width/margin, old .topmenu header, old pinned footer, forced sidebar width). */
+
+/* sidebar width follows the collapsed state (desktop) */
+@media (min-width: 1101px) {
+  body:not(.sidebar-collapsed) .sidebar { width: var(--sb-w, 224px) !important; }
+  body.sidebar-collapsed .sidebar       { width: var(--sb-w-collapsed, 72px) !important; }
+}
+.sidebar {
+  background: linear-gradient(180deg, #8a0000 0%, #650000 100%) !important;
+  border-right: none !important;
+  color: #fff !important;
+}
+.pad { margin-top: 0 !important; margin-bottom: 112px !important; padding: 6px 12px 10px !important; }
+.menu-btn:hover { margin-bottom: 0 !important; width: auto !important; }
+
+/* main: fixed-height flex column; only .main-scroll scrolls (desktop) */
+@media (min-width: 1101px) {
+  main {
+    margin-left: var(--sb-w, 224px) !important;
+    height: 100vh !important; height: 100dvh !important;
+    display: flex !important; flex-direction: column !important;
+    overflow: hidden !important;
+  }
+  body.sidebar-collapsed main { margin-left: var(--sb-w-collapsed, 72px) !important; }
+}
+@media (max-width: 1100px) {
+  main { margin-left: 0 !important; padding-top: 54px !important; }
+}
+
+/* the old maroon header is replaced by the floating bar */
+.topmenu:not(.topbar):not(.dash-sticky) { display: none !important; }
+
+/* floating bar: title + actions + user chip on one row, filters below */
+.dash-sticky .dash-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.dash-sticky .dash-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dash-sticky .dash-actions .page-userbar { padding: 0; margin-left: 4px; }
+
+
+/* ── Print / Download PDF ───────────────────────────────────────────────────
+   dashboarddean.css + preddashDean.css have @media print rules written for the
+   OLD layout (main scrolls, no fixed sidebar bar). The new shell makes <main>
+   a fixed-height, overflow:hidden flex column with an inner .main-scroll, which
+   would clip the printout to one screen. Undo that here, and hide the new
+   chrome (mobile bar, collapse arrow, backdrop, BPSU footer, pinned title/filter bar).
+   Only affects Ctrl+P on the page itself: the Download PDF button (pdf-export.js)
+   builds its own iframe and skips dashboard-print.css, so it is unaffected. */
+@media print {
+  html, body { height: auto !important; overflow: visible !important; display: block !important; background: #fff !important; }
+  main { display: block !important; margin: 0 !important; padding: 0 !important; height: auto !important; overflow: visible !important; }
+  .main-scroll { display: block !important; overflow: visible !important; height: auto !important; }
+  .mobile-bar, .sidebar-arrow, .sidebar-backdrop, .bp-footer, .dash-sticky,
+  #tutorialModal, #pageTutorialModal { display: none !important; }   /* dashboard-print.css's .print-header replaces the title bar */
+  .dash-wrap { padding: 0 !important; }
+}

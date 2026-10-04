@@ -41,7 +41,6 @@ Prediction horizon (see compute_horizon):
                            length of the history.
 """
 
-import os
 import re
 import io
 import inspect
@@ -51,7 +50,6 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import joblib
 
 from sklearn.linear_model    import LogisticRegression, Ridge
 from sklearn.preprocessing   import LabelEncoder, StandardScaler
@@ -97,10 +95,6 @@ SEM_DUMMY_MIN_POINTS     = 5      # 1st/2nd-sem offset only when the series is l
 SUBJECT_MIN_POINTS       = 2      # a subject needs >=2 recorded terms to be forecast
 SUBJECT_MIN_AVG_STUDENTS = 5      # ignore tiny sections (rate is just noise)
 
-# Where the prediction bundles are mirrored on disk for the API (same tree the
-# preprocessor already writes to). The DB blob copy is still written too.
-PRED_MODEL_DIR = os.path.join(PROCESSED_DIR, "prediction_models")
-
 # Grade-status vocabulary (student-count column, aliases)
 STATUS_COUNT_COLS = {
     "FAILED": ["Failed_Count", "FAILED_Count", "Fail_Count"],
@@ -130,15 +124,8 @@ def _save(obj, filename):
 
 
 def _save_bundle(obj, filename):
-    """DB blob (like every other model) + a disk mirror the prediction API reads."""
+    """DB blob only — same as every other model (MySQL is the sole store, no disk mirror)."""
     save_model_blob(filename, obj)
-    try:
-        os.makedirs(PRED_MODEL_DIR, exist_ok=True)
-        tmp = os.path.join(PRED_MODEL_DIR, filename + ".tmp")
-        joblib.dump(obj, tmp)
-        os.replace(tmp, os.path.join(PRED_MODEL_DIR, filename))   # atomic swap
-    except Exception as e:
-        _log(f"  [WARN] disk mirror of {filename} failed: {e}")
     return filename
 
 

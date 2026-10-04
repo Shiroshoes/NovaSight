@@ -12,3 +12,4 @@ Pillow
 gunicorn
 flask-limiter
 pymysql
+requests

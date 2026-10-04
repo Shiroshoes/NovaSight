@@ -1,229 +1,354 @@
+/* login.css — NovaSight sign-in page.
+   Same look as the landing page: full photo, maroon wash, white cards.
+   (The old split-screen layout and the floating nav are gone.) */
 :root {
-    --primary-blue: #fd2a2a;
-    --bg-dark: #ffffff;
-    --card-bg: #800000 ;
-    --input-bg: rgba(128, 128, 128, 0.200);
-    --text-muted: #4B4B4B;
+    --maroon: #800000;
+    --maroon-dark: #5c0000;
+    --gold: #E8C77A;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --line: #DCD6C9;
+    --font-sans: "Inter", sans-serif;
+    --font-display: "Outfit", sans-serif;
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
 
 body {
-    font-family: 'Inter', sans-serif;
-    background-color: var(--bg-dark);
-    color: rgb(0, 0, 0);
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    padding: 0;
+    background: #2a1a1a;
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
-.login-container {
-    display: flex;
-    height: 100%;
-    width: 100%;
-}
+.hidden { display: none; }
 
-/* --- Floating Nav --- */
-.floating-nav {
-    position: absolute;
-    top: 30px;
-    left: 73%;
-    transform: translateX(-50%);
-    align-items: center;
-    align-content: center;
-    z-index: 100;
-    display: flex;
-    gap: 100px;
-    background: var(--card-bg);
-    backdrop-filter: blur(20px);
-    padding-right: 80px;
-    padding-left: 80px;
-    padding-bottom: 30px;
-    padding-top: 30px;
-    border-radius: 15px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-}
-.icon-floatingnav {
-    width: 24px;
-    height: 24px;
-    margin-right: 1px;
-}
-
-.nav-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: white;
-    text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: 0.3s;
-    opacity: 0.8;
-}
-
-.nav-link:hover {
-    color: #ffffff;
-    font-weight: 800;
-    opacity: 1;
-}
-
-/* --- Left Branding Side --- */
-.login-left {
-    flex: 1;
-    background: radial-gradient(circle at center, #a93737  0%, #800000  100%);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+/* ── The framed photo stage ────────────────────────────────── */
+.stage {
     position: relative;
-}
-
-.logo-wrapper {
-    text-align: center;
-    z-index: 5;
-}
-
-.logo-box-large {
-    width: 180px;
-    height: 180px;
-    border-radius: 35px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 25px;
-}
-
-.brand-img { width: 80%; height: auto; }
-
-.brand-title h1 { 
-    font-size: 2.2rem; 
-    letter-spacing: 5px; 
-    margin: 0;
-    color: #ffff; }
-.brand-title span { color: #ffff; font-size: 0.8rem; letter-spacing: 1px; }
-
-.watermark {
-    position: absolute;
-    bottom: 15%;
-    font-size: 7rem;
-    font-weight: 800;
-    opacity: 0.03;
-    user-select: none;
-}
-
-/* --- Right Form Side --- */
-.login-right {
-    flex: 1;
-    background-color: #ffffff;
+    isolation: isolate;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+    border-radius: 0;
+    background: #2a1a1a var(--stage-bg) center top / cover no-repeat;
+}
+@supports (height: 100svh) { .stage { min-height: 100svh; } }
+.stage::before {                        /* dark maroon wash so white text always reads */
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+        linear-gradient(100deg, rgba(20, 8, 8, 0.86) 0%, rgba(40, 8, 8, 0.66) 48%, rgba(20, 8, 8, 0.80) 100%),
+        radial-gradient(60% 70% at 20% 55%, rgba(128, 0, 0, 0.35), transparent 70%);
+}
+
+/* ── Top bar ───────────────────────────────────────────────── */
+.topbar {
+    display: flex;
     align-items: center;
-    position: relative;
-    padding: 40px;
+    justify-content: space-between;
+    gap: 20px;
+    padding: clamp(18px, 3vw, 34px) clamp(20px, 4.5vw, 64px);
 }
 
-.form-container {
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 16px;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.brand:hover { opacity: 0.88; transform: translateY(-1px); }
+.brand:focus-visible { outline: 3px solid var(--gold); outline-offset: 6px; }
+.brand-logo { width: 68px; height: 68px; object-fit: contain; flex-shrink: 0; }
+.brand-text { display: flex; flex-direction: column; gap: 5px; }
+.brand-text strong {
+    font-family: var(--font-display);
+    font-size: clamp(1rem, 1.5vw, 1.3rem);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+}
+.brand-text small { font-size: 0.72rem; letter-spacing: 0.2em; opacity: 0.9; }
+
+.top-links { display: flex; align-items: center; gap: 6px; }
+.top-links a {
+    padding: 10px 20px;
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.98rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+.top-links a:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.top-links a:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* ── Main: card + details ──────────────────────────────────── */
+.main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 470px) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(36px, 7vw, 120px);
     width: 100%;
-    max-width: 420px;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 8px clamp(20px, 4.5vw, 64px) 40px;
 }
 
-.form-header h2 { font-size: 2rem; margin-bottom: 10px; }
-.form-header p { color: var(--text-muted); margin-bottom: 40px; font-size: 0.95rem; }
+.login-col { min-width: 0; }
 
-.input-field { margin-bottom: 25px; }
-.input-field label { display: block; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 10px; }
+/* ── Login card ────────────────────────────────────────────── */
+.card {
+    padding: clamp(28px, 4vw, 44px);
+    border-radius: 26px;
+    background: #fff;
+    box-shadow: 0 32px 64px -24px rgba(0, 0, 0, 0.55);
+}
 
+.chip {
+    display: block;
+    width: fit-content;
+    margin: 0 auto 16px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(128, 0, 0, 0.08);
+    color: var(--maroon);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.card-head { text-align: center; margin-bottom: 26px; }
+.card-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 2.6vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #111827;
+    margin-bottom: 8px;
+}
+.card-head p { font-size: 0.95rem; line-height: 1.6; color: var(--muted); }
+
+.alert {
+    margin-bottom: 18px;
+    padding: 12px 16px;
+    border: 1px solid #f4c7c3;
+    border-radius: 12px;
+    background: #fdeceb;
+    color: #b42318;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.input-field { margin-bottom: 20px; }
+.input-field label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--muted);
+}
 .input-field input {
     width: 100%;
-    background: var(--input-bg);
-    border: 1px solid rgba(184, 148, 148, 0.2);
-    padding: 14px 20px;
-    border-radius: 25px;
-    color: rgb(0, 0, 0);
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #faf8f5;
+    color: #111827;
+    font: inherit;
+    font-size: 0.97rem;
     outline: none;
-    transition: 0.3s;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.input-field input::placeholder { color: #9ca3af; }
+.input-field input:focus {
+    border-color: var(--maroon);
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(128, 0, 0, 0.12);
 }
 
-.input-field input:focus { border-color: var(--primary-blue); }
+.pw-wrap { position: relative; display: flex; align-items: center; }
+.pw-wrap input { padding-right: 48px; }
+.pw-toggle {
+    position: absolute;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: #6b7280;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+.pw-toggle:hover { color: var(--maroon); background: rgba(128, 0, 0, 0.07); }
+.pw-toggle:focus-visible { outline: 2px solid var(--maroon); }
+.icon-eye { width: 22px; height: 22px; }
+
+.field-hint { margin-top: 8px; text-align: right; font-size: 0.8rem; color: var(--muted); }
 
 .login-btn {
     width: 100%;
-    background: #800000;
-    color: white;
+    margin-top: 6px;
+    padding: 15px;
     border: none;
-    padding: 14px;
-    border-radius: 25px;
+    border-radius: 14px;
+    background: var(--maroon);
+    color: #fff;
+    font: inherit;
     font-size: 1rem;
     font-weight: 700;
+    letter-spacing: 0.06em;
     cursor: pointer;
-    transition: 0.3s;
+    box-shadow: 0 12px 24px -10px rgba(128, 0, 0, 0.55);
+    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
+.login-btn:hover { background: #9a1414; transform: translateY(-2px); box-shadow: 0 16px 28px -10px rgba(128, 0, 0, 0.6); }
+.login-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 
-.login-btn:hover { background-color: #c72828; transform: translateY(-2px); }
-
-.footer-link { text-align: center; margin-top: 25px; font-size: 0.9rem; color: var(--text-muted); }
-.footer-link a { color: rgb(0, 0, 0); text-decoration: none; font-weight: 600; }
-
-/* --- Bottom Credits --- */
-.bottom-info {
-    position: absolute;
+.card-foot {
+    margin-top: 26px;
+    padding-top: 20px;
+    border-top: 1px solid #ECE6DF;
     text-align: center;
-    bottom: 40px;
-    width: 100%;
-    padding: 0 60px;
+    font-size: 0.85rem;
+    line-height: 1.65;
+    color: var(--muted);
 }
+.card-foot strong { color: #111827; font-weight: 600; }
 
-.page-indicator { text-align: right; margin-bottom: 10px; color:#6B7280; font-size: 0.95rem; }
-.page-indicator strong { color: #800000; }
-
-.group-credits {
+.below-card {
+    margin-top: 22px;
     text-align: center;
-    font-size: 0.75rem;
-    color: rgba(0, 0, 0, 0.774);
-    border-top: 1px solid rgb(0, 0, 0);
-    padding-top: 15px;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.82);
 }
-
-
-.hidden {
-    display: none;
-}
-
-.icon-eye {
-    width: 24px;
-    height: 24px;
-    padding-top: 3px;
-}
-
-
-.email-link {
-    color: #666666;
-    text-decoration: none;
+.below-card a {
+    color: #fff;
     font-weight: 600;
-}
-
-.email-link:hover {
     text-decoration: underline;
-    color: #800000;
+    text-underline-offset: 3px;
+}
+.below-card a:hover { color: var(--gold); }
+
+/* ── Details panel ─────────────────────────────────────────── */
+.info { min-width: 0; max-width: 560px; color: #fff; }
+.info-eyebrow {
+    display: block;
+    margin-bottom: 14px;
+    color: var(--gold);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+.info h2 {
+    margin-bottom: 14px;
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3.2vw, 2.7rem);
     font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.35);
+}
+.info-lead {
+    margin-bottom: 30px;
+    font-size: 1.05rem;
+    font-weight: 300;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.9);
 }
 
+.info-list { list-style: none; display: grid; gap: 20px; }
+.info-list li { display: flex; gap: 16px; align-items: flex-start; }
+.info-ico {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border: 1.5px solid rgba(232, 199, 122, 0.8);
+    border-radius: 50%;
+    color: var(--gold);
+}
+.info-ico svg { width: 22px; height: 22px; }
+.info-list h3 { margin-bottom: 4px; font-family: var(--font-display); font-size: 1.08rem; font-weight: 600; }
+.info-list p { font-size: 0.93rem; font-weight: 300; line-height: 1.65; color: rgba(255, 255, 255, 0.82); }
 
-.btn-privacy{
-    color: rgb(0, 0, 0, 0.774);
-    text-decoration: none;
-    font-size: .8rem;
-    display: inline-block;
-    transition: 0.3s ease;
-    margin-top: 10px;
+.info-roles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-top: 30px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.22);
+}
+.info-roles > span { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.info-roles ul { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.info-roles li {
+    padding: 6px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 0.85rem;
+    font-weight: 500;
 }
 
-.btn-privacy:hover {
-    color: #800000; /* Darker blue on hover */
-    transform: translateY(-2px);
-    font-weight: bold;
-    text-decoration: underline;
+.info-note { margin-top: 22px; font-size: 0.85rem; line-height: 1.7; color: rgba(255, 255, 255, 0.7); }
+
+/* ── Footer ────────────────────────────────────────────────── */
+.foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 24px;
+    padding: 18px clamp(20px, 4.5vw, 64px);
+    border-top: 1px solid rgba(232, 199, 122, 0.35);
+    background: rgba(0, 0, 0, 0.3);
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 1000px) {
+    .main {
+        grid-template-columns: minmax(0, 1fr);
+        max-width: 580px;
+        gap: 44px;
+    }
+    .info { max-width: none; }
+}
+
+@media (max-width: 560px) {
+    .brand { gap: 12px; }
+    .brand-logo { width: 52px; height: 52px; }
+    .brand-text small { display: none; }
+    .brand-text strong { font-size: 0.9rem; max-width: 170px; }
+    .top-links a { padding: 8px 12px; font-size: 0.9rem; }
+    .foot { justify-content: center; text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .brand, .login-btn, .top-links a, .input-field input { transition: none; }
 }

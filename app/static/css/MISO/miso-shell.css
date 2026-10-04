@@ -1,0 +1,609 @@
+/* ═══════════════════════════════════════════════════════════════════
+   miso-shell.css — MISO role shell.
+   Exact copy of:
+     sidebar-compact.css  (width, brand, menu sizes)
+   + sidebar-maroon.css   (maroon palette, collapse, mobile drawer,
+                           logout modal, scrollbars)
+   + admin-shell.css      (sidebar-brand-badge, sidebar-footer static,
+                           slim topbar, tb-tutorial, user pill,
+                           sb-collapsed class names)
+   + admin-float-footer.css bp-footer compact block
+
+   Link LAST after the page's own CSS.
+   sidebar-collapse.js toggles body.sidebar-collapsed on desktop.
+   sidebar-drawer.js    toggles body.drawer-open on mobile.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Variables ── */
+:root {
+  --sb-w:           224px;   /* sidebar-compact value */
+  --sb-w-collapsed:  72px;
+  --maroon:        #800000;
+  --maroon-dark:   #5f0000;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   PAGE SHELL
+   ══════════════════════════════════════════════════════════════════ */
+body {
+  background: #F6F4F0;
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 1101px) {
+  .sidebar { width: var(--sb-w); transition: width .25s ease; }
+  main     { margin-left: var(--sb-w); transition: margin-left .25s ease; }
+  body.sidebar-collapsed .sidebar { width: var(--sb-w-collapsed); }
+  body.sidebar-collapsed main     { margin-left: var(--sb-w-collapsed); }
+}
+
+main {
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SIDEBAR SURFACE
+   (admin-shell: gradient + shadow; sidebar-compact: width/brand)
+   ══════════════════════════════════════════════════════════════════ */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: linear-gradient(180deg, #8a0000 0%, #650000 100%);
+  border-right: none;
+  color: #fff;
+  box-shadow: 6px 0 28px -14px rgba(60, 0, 0, .55);
+  transition: width .25s ease;
+  z-index: 90;
+}
+
+/* ── Brand block — admin-shell .sidebar-brand + .sidebar-brand-badge ── */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 18px 18px 16px;
+  color: #fff;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, .16);
+}
+/* White circle badge — this is what was missing */
+.sidebar-brand-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
+}
+.sidebar-brand-badge img { width: 34px; height: 34px; object-fit: contain; }
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.sidebar-brand-text strong {
+  font-family: "Outfit", "Inter", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: .01em;
+  color: #fff;
+}
+.sidebar-brand-text small {
+  margin-top: 3px;
+  font-size: .64rem;
+  font-weight: 600;
+  letter-spacing: .22em;
+  color: rgba(255, 255, 255, .7);
+}
+.sidebar-brand:focus-visible { outline: 2px solid #E8C77A; outline-offset: -3px; }
+
+/* ── Scrollable nav area — admin-shell .sidebar .pad ── */
+.sidebar .pad {
+  flex: 1;
+  margin: 0;
+  padding: 6px 12px 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.sidebar .pad::-webkit-scrollbar { width: 5px; }
+.sidebar .pad::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .3); border-radius: 3px; }
+.sidebar .pad::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Section labels — sidebar-compact .sidebar-section-label ── */
+.sidebar-section-label {
+  margin: 12px 8px 2px !important;
+  font-size: .68rem !important;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .6) !important;
+  white-space: nowrap;
+}
+
+/* ── Divider ── */
+.sidebardivider {
+  height: 1px;
+  margin: 6px 0;
+  border: none;
+  background: rgba(255, 255, 255, .18);
+}
+
+/* ── Nav items — sidebar-compact sizes + sidebar-maroon colours ── */
+.menu-btn,
+.menu-active {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, .9);
+  font: 500 .88rem/1.25 "Inter", sans-serif;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease;
+}
+.menu-btn:hover {
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  /* kill studentaffair.css hover side-effects */
+  margin-bottom: 0;
+  width: auto;
+  font-weight: 500;
+}
+.menu-active {
+  background: #fff;
+  color: var(--maroon);
+  border-color: #fff;
+  font-weight: 600;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .45);
+}
+.menu-btn:focus-visible,
+.menu-active:focus-visible { outline: 2px solid #E8C77A; outline-offset: 1px; }
+
+/* ── Icon badges (sidebar-compact 30×30, sidebar-maroon colours) ── */
+.non-active-bordericon,
+.active-bordericon {
+  flex-shrink: 0;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.non-active-bordericon { background: rgba(255, 255, 255, .14); }
+.menu-btn:hover .non-active-bordericon { background: rgba(255, 255, 255, .24); }
+.active-bordericon { background: var(--maroon); }
+.non-active-bordericon svg,
+.active-bordericon svg { width: 17px; height: 17px; color: #fff; }
+
+.menu-label { overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Sidebar footer — admin-shell: position:static, flex-shrink:0 ──
+   This is the key fix: admin uses position:static, not absolute,
+   so it stays pinned at the bottom of the flex column without
+   overlapping the nav. */
+.sidebar .sidebar-footer {
+  position: static;
+  flex-shrink: 0;
+  width: auto;
+  padding: 10px 12px 12px;
+  background: transparent;
+  border-top: 1px solid rgba(255, 255, 255, .16);
+  text-align: left;
+}
+
+/* Logout button inside sidebar footer */
+.sidebar-logout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .45);
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+  font: 600 .88rem "Inter", sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.sidebar-logout:hover { background: #fff; color: var(--maroon); border-color: #fff; }
+.sidebar-logout svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+.sidebar .btn-privacy {
+  display: block;
+  padding: 8px 12px 0;
+  color: rgba(255, 255, 255, .72);
+  font-size: .74rem;
+  text-decoration: none;
+  transform: none;
+}
+.sidebar .btn-privacy:hover { color: #fff; font-weight: 400; text-decoration: underline; transform: none; }
+.sidebar .copyright {
+  margin: 2px 12px 0;
+  color: rgba(255, 255, 255, .55);
+  font-size: .62rem;
+  line-height: 1.35;
+  text-align: left;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   COLLAPSE ARROW — sidebar-maroon.css .sidebar-arrow
+   ══════════════════════════════════════════════════════════════════ */
+.sidebar-arrow {
+  position: fixed;
+  top: 26px;
+  left: calc(var(--sb-w) - 14px);
+  z-index: 95;
+  width: 28px; height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: var(--maroon);
+  border: 1px solid #ECE6DF;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .22);
+  cursor: pointer;
+  transition: left .25s ease, background .2s, color .2s;
+}
+.sidebar-arrow:hover { background: var(--maroon); color: #fff; }
+.sidebar-arrow svg { width: 18px; height: 18px; transition: transform .25s; }
+
+/* ══════════════════════════════════════════════════════════════════
+   COLLAPSED STATE — sidebar-maroon.css + admin-shell.css patterns
+   sidebar-collapse.js uses body.sidebar-collapsed
+   ══════════════════════════════════════════════════════════════════ */
+@media (min-width: 1101px) {
+  body.sidebar-collapsed .sidebar-brand { justify-content: center; padding-left: 0; padding-right: 0; }
+  body.sidebar-collapsed .sidebar-brand-text,
+  body.sidebar-collapsed .menu-label,
+  body.sidebar-collapsed .sidebar-section-label,
+  body.sidebar-collapsed .sidebar .btn-privacy,
+  body.sidebar-collapsed .sidebar .copyright { display: none; }
+  body.sidebar-collapsed .sidebar .pad { padding-left: 8px; padding-right: 8px; }
+  body.sidebar-collapsed .menu-btn,
+  body.sidebar-collapsed .menu-active,
+  body.sidebar-collapsed .sidebar-logout { justify-content: center; padding-left: 0; padding-right: 0; }
+  body.sidebar-collapsed .sidebar-arrow {
+    left: calc(var(--sb-w-collapsed) - 14px);
+  }
+  body.sidebar-collapsed .sidebar-arrow svg { transform: rotate(180deg); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE BAR + DRAWER — sidebar-maroon.css mobile section
+   ══════════════════════════════════════════════════════════════════ */
+.mobile-bar,
+.sidebar-backdrop { display: none; }
+.sidebar-close { display: none; }
+
+@media (max-width: 1100px) {
+  .sidebar-arrow { display: none; }
+
+  .mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 54px;
+    z-index: 70;
+    padding: 0 12px;
+    background: var(--maroon);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+  }
+  .mobile-bar strong { font: 700 1.1rem "Outfit", "Inter", sans-serif; }
+  .mobile-bar-logo {
+    width: 32px; height: 32px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 50%;
+    padding: 2px;
+    box-sizing: border-box;
+  }
+  .sidebar-burger {
+    width: 40px; height: 40px;
+    border: 0; border-radius: 10px;
+    background: rgba(255, 255, 255, .14);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .sidebar-burger svg { width: 24px; height: 24px; }
+
+  main { margin-left: 0 !important; padding-top: 54px; }
+
+  .sidebar {
+    width: min(280px, 84vw) !important;
+    position: fixed !important;
+    left: 0 !important; top: 0 !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden;
+    transition: transform .25s ease, visibility 0s linear .25s;
+    box-shadow: none;
+    z-index: 90;
+  }
+  body.drawer-open .sidebar {
+    transform: none !important;
+    visibility: visible;
+    transition: transform .25s ease, visibility 0s;
+    box-shadow: 8px 0 30px rgba(0, 0, 0, .35);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed; inset: 0; z-index: 80;
+    background: rgba(0, 0, 0, .45);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s;
+  }
+  body.drawer-open .sidebar-backdrop { opacity: 1; pointer-events: auto; }
+
+  .sidebar-close {
+    display: block;
+    position: absolute; top: 10px; right: 10px; z-index: 2;
+    width: 34px; height: 34px;
+    border: 0; border-radius: 50%;
+    background: rgba(255, 255, 255, .14);
+    color: #fff; font-size: 1.5rem; line-height: 1;
+    cursor: pointer;
+  }
+  .sidebar-brand { padding-right: 56px; }
+  .sidebar .nav-close { color: #fff; }
+  .sidebar .nav-close:hover { background: rgba(255, 255, 255, .16); color: #fff; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SLIM TOP BAR — exact copy of admin-shell.css .topmenu.topbar
+   ══════════════════════════════════════════════════════════════════ */
+.topmenu.topbar {
+  position: sticky;
+  top: 0; z-index: 100;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: auto; margin: 0;
+  padding: 12px 24px;
+  border-radius: 0;
+  border-bottom: 1px solid #E7E1D6;
+  background: rgba(246, 244, 240, .94);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: none;
+}
+.topbar-left { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.topbar-uni  { font-size: .95rem; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-sub  { margin-top: 2px; font-size: .64rem; font-weight: 600; letter-spacing: .2em; color: #6b7280; }
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+
+/* Tutorial button */
+.tb-tutorial {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px;
+  border: 1.5px solid #800000; border-radius: 999px;
+  background: #fff; color: #800000;
+  font: 600 .9rem/1 "Inter", sans-serif;
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease, transform .2s ease;
+}
+.tb-tutorial svg { width: 20px; height: 20px; }
+.tb-tutorial:hover { background: #800000; color: #fff; transform: translateY(-1px); }
+.tb-tutorial:focus-visible { outline: 3px solid rgba(128, 0, 0, .3); outline-offset: 2px; }
+
+/* User profile pill */
+.topbar .user-profile {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 6px 5px 16px;
+  border: 1px solid #E7E1D6; border-radius: 999px;
+  background: #fff; color: #111827;
+  font-size: .9rem; font-weight: 600;
+  text-decoration: none;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.topbar .user-profile:hover { border-color: #800000; box-shadow: 0 4px 14px -8px rgba(128, 0, 0, .5); }
+.topbar .user-profile span { margin: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar .user-profile .avatar { width: 34px; height: 34px; margin: 0; border-radius: 50%; object-fit: cover; }
+
+/* Hamburger injected by sidebar-drawer.js */
+.topbar .nav-toggle { border: 1px solid #E7E1D6; background: #fff; color: #800000; }
+.topbar .nav-toggle:hover { background: #fbeeee; }
+
+@media (max-width: 768px) {
+  .topmenu.topbar { padding: 10px 14px; }
+  .topbar-sub { display: none; }
+  .tb-tutorial { padding: 9px 12px; }
+}
+@media (max-width: 520px) {
+  .topbar-left { display: none; }
+  .topbar-right { margin-left: auto; }
+  .tb-tutorial span { display: none; }
+  .tb-tutorial { padding: 9px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   LOGOUT MODAL — sidebar-maroon.css #logoutModal
+   ══════════════════════════════════════════════════════════════════ */
+#logoutModal.modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(55, 65, 81, .45);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+#logoutModal .logout-card {
+  width: min(380px, 90vw); padding: 30px 28px 24px; text-align: center;
+  background: #fff; border-radius: 18px; border: 0;
+  box-shadow: 0 20px 50px rgba(17, 24, 39, .3);
+}
+#logoutModal .brand-name  { margin: 0 0 6px; font: 700 1.5rem "Outfit", sans-serif; color: var(--maroon); }
+#logoutModal .confirmation-text { margin: 0 0 22px; color: #4b5563; font-size: .95rem; }
+#logoutModal .button-group { display: flex; gap: 10px; justify-content: center; }
+#logoutModal .btn { flex: 1; padding: 12px 14px; border-radius: 999px; font: 600 .9rem "Inter", sans-serif; cursor: pointer; border: 1px solid var(--maroon); }
+#logoutModal #confirmLogoutBtn { background: var(--maroon); color: #fff; }
+#logoutModal #confirmLogoutBtn:hover { background: var(--maroon-dark); }
+#logoutModal #cancelLogoutBtn  { background: #fff; color: var(--maroon); }
+#logoutModal #cancelLogoutBtn:hover  { background: #fbeeee; }
+
+/* ══════════════════════════════════════════════════════════════════
+   FOOTER — admin-float-footer.css bp-footer compact block
+   ══════════════════════════════════════════════════════════════════ */
+footer.bp-footer {
+  position: relative !important; bottom: auto !important; z-index: auto !important;
+  margin: 0 !important; padding: 0 !important;
+  width: 100% !important; box-sizing: border-box !important;
+  border-left: 0 !important; border-right: 0 !important; box-shadow: none !important;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.025) 0 2px, transparent 2px 16px),
+    linear-gradient(180deg, #7a0000 0%, #4a0000 100%) !important;
+  border-top: 4px solid #D9B25A !important;
+  color: #fff; text-align: center;
+}
+/* push footer to bottom of the flex main column */
+main > .bp-footer { margin-top: auto; }
+
+.bp-watermark {
+  position: absolute; right: -50px; bottom: -70px;
+  width: 260px; max-width: 60vw;
+  opacity: .07; filter: grayscale(1) brightness(2);
+  pointer-events: none; user-select: none;
+}
+.bp-footer-main {
+  position: relative; max-width: 980px; margin: 0 auto;
+  padding: 26px 20px 20px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.bp-seals { display: flex; align-items: center; gap: 14px; }
+.bp-seal {
+  display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: #fff; border: 2px solid #D9B25A;
+  box-shadow: 0 8px 22px rgba(0,0,0,.3); overflow: hidden;
+}
+.bp-seal img { width: 40px; height: 40px; object-fit: contain; }
+.bp-seal-nova img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.bp-seal-line { width: 1px; height: 32px; background: rgba(217,178,90,.7); }
+.bp-uni  { margin: 12px 0 0; font-size: 1.15rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #fff; }
+.bp-campus { margin: 4px 0 0; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: #E8C77A; }
+.bp-tagline { margin: 10px 0 0; max-width: 560px; font-size: .88rem; line-height: 1.55; font-weight: 300; color: rgba(255,255,255,.88); }
+.bp-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 6px; margin-top: 14px; }
+.bp-links a { padding: 5px 12px; border-radius: 999px; color: rgba(255,255,255,.9); font-size: .88rem; font-weight: 500; text-decoration: none; transition: background .2s, color .2s; }
+.bp-links a:hover { background: rgba(217,178,90,.18); color: #E8C77A; }
+.bp-links a + a { position: relative; }
+.bp-links a + a::before { content: ""; position: absolute; left: -4px; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%; background: rgba(217,178,90,.7); }
+.bp-footer-base {
+  position: relative; display: flex; flex-wrap: wrap; justify-content: space-between;
+  gap: 8px 24px; padding: 12px clamp(16px, 4vw, 48px);
+  background: rgba(0,0,0,.28); border-top: 1px solid rgba(217,178,90,.35);
+  font-size: .8rem; color: rgba(255,255,255,.75);
+  box-sizing: border-box; width: 100%;
+}
+.bp-footer-base p { margin: 0; }
+@media (max-width: 600px) {
+  .bp-footer-main { padding: 20px 16px 16px; }
+  .bp-seal { width: 44px; height: 44px; }
+  .bp-seal img { width: 34px; height: 34px; }
+  .bp-footer-base { justify-content: center; text-align: center; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CUSTOM SCROLLBAR — sidebar-maroon.css
+   ══════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: #efe9df; }
+::-webkit-scrollbar-thumb { background: var(--maroon); border-radius: 999px; border: 3px solid #efe9df; }
+::-webkit-scrollbar-thumb:hover  { background: #a31515; }
+::-webkit-scrollbar-thumb:active { background: #5c0000; }
+::-webkit-scrollbar-corner { background: #efe9df; }
+@supports (-moz-appearance: none) { html, main { scrollbar-width: thin; scrollbar-color: var(--maroon) #efe9df; } }
+.sidebar .pad::-webkit-scrollbar { width: 6px; }
+.sidebar .pad::-webkit-scrollbar-track { background: transparent; }
+.sidebar .pad::-webkit-scrollbar-thumb { background: rgba(255,255,255,.35); border: 0; }
+.sidebar .pad::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.55); }
+
+/* ══════════════════════════════════════════════════════════════════
+   REDUCED MOTION
+   ══════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, main, .sidebar-arrow { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ADMIN DESIGN FOR MISO — fixed white title bar + profile header,
+   scrolling content area, fluid width (follows the sidebar).
+   Same classes as admin: .dash-sticky / .main-scroll / .userbar-*
+   ═══════════════════════════════════════════════════════════════════ */
+.dash-sticky {
+  position: relative; z-index: 40; flex-shrink: 0; box-sizing: border-box;
+  display: flex; flex-direction: row; flex-wrap: wrap; align-items: center;
+  justify-content: space-between; gap: 10px 16px;
+  padding: 12px 28px; margin: 0;
+  background: #fff; border-bottom: 1px solid #ECE6DF;
+  box-shadow: 0 6px 18px rgba(60,20,20,.12);
+}
+.dash-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; margin-left: auto; }
+
+main { overflow: hidden; }                       /* only .main-scroll scrolls */
+.main-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
+.main-scroll > * { flex-shrink: 0; }
+.main-scroll > .bp-footer { margin-top: auto; }
+
+/* profile header (Tutorial + user chip) */
+.page-userbar { display: flex; align-items: center; gap: 10px; padding: 0; }
+.userbar-tutorial, .userbar-user {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
+  background: #fff; border: 1px solid #ECE6DF; border-radius: 12px;
+  color: #111827; text-decoration: none; font: 500 .95rem 'Inter', sans-serif; cursor: pointer;
+}
+.userbar-tutorial:hover, .userbar-user:hover { border-color: var(--maroon); color: var(--maroon); }
+.userbar-tutorial svg { width: 15px; height: 15px; color: var(--maroon); }
+.userbar-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.userbar-avatar-fallback { display: inline-flex; align-items: center; justify-content: center; background: var(--maroon); color: #fff; font-weight: 700; font-size: .85rem; }
+.userbar-meta { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.userbar-name  { font-size: .92rem; font-weight: 600; }
+.userbar-email { font-size: .8rem; color: #6b7280; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) { .userbar-meta { display: none; } }
+
+@media (max-width: 1100px) { main { padding-top: 54px; } }
+@media (max-width: 760px) {
+  main { overflow-y: auto; display: block; }
+  .main-scroll { display: contents; }
+  .dash-sticky { padding: 10px 14px; box-shadow: none; }
+}

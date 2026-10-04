@@ -4,9 +4,9 @@ from database.models import db, AcadUser, assign_avatar_color, ensure_avatar_col
 from werkzeug.security import generate_password_hash
 from flask import jsonify
 from sqlalchemy import inspect, text
+from util.utils import clean_name_parts
 from routes.admin import admin_bp
 from routes.registrar import registrar_bp
-from routes.saso import saso_bp
 from routes.MISO import MISO_bp
 from routes.cahs import cahs_bp
 from routes.cba import cba_bp
@@ -31,7 +31,6 @@ db.init_app(app)
 # ---------------- Register Blueprints ----------------
 app.register_blueprint(admin_bp)
 app.register_blueprint(registrar_bp)
-app.register_blueprint(saso_bp)
 app.register_blueprint(MISO_bp)
 app.register_blueprint(cahs_bp)
 app.register_blueprint(cba_bp)
@@ -210,19 +209,18 @@ def login():
 def _redirect_by_role(role):
     """Central role-to-URL mapper used in login and the already-logged-in guard."""
     routes = {
-        'Academic_Affair':          '/NovaSight/admin',
-        'Registrar':      '/NovaSight/registrar/home',
-        'SASO':           '/NovaSight/saso/home',
+        'Academic_Affair':          url_for('admin_bp.maindash_admin'),   # dashboard first, no Home page
+        'Registrar':      url_for('registrar_bp.maindash_registrar'),   # dashboard first, no Home page
         'MISO': '/NovaSight/MISO/home',
-        'CBAdean':        '/NovaSight/cba/home',
+        'CBAdean':        url_for('cba_bp.cbadash_cba'),            # dashboard first, no Home page
         'CCSTdean':       '/NovaSight/ccst/home',
         'CEAdean':        '/NovaSight/cea/home',
         'CoASdean':       '/NovaSight/coas/home',
         'CTECdean':       '/NovaSight/ctec/home',
     }
     # All four CAHS roles (Nursing/PH/Midwifery deans + CAHS director) land
-    # on the same CAHS home page.
-    routes.update({r: '/NovaSight/cahs/home' for r in CAHS_ROLES})
+    # on the CAHS Dashboard (CAHS has no Home page any more).
+    routes.update({r: url_for('cahs_bp.cahsdash_cahs') for r in CAHS_ROLES})
     return redirect(routes.get(role, '/NovaSight'))
 
 
@@ -274,6 +272,43 @@ def update_password():
     except Exception as e:
         print("Error updating password:", e)
         return jsonify({"success": False, "message": "Error updating password"}), 500
+
+
+# ---------------- Change Name (generic, all roles) ----------------
+# Lets any logged-in user edit ONLY their own first name / last name /
+# middle initial / suffix. Role and account are never read from the
+# request, so they can't be changed from here. All values are validated
+# by clean_name_parts() (strict whitelist) and written through the ORM
+# (bound parameters) — no SQL is built from user input.
+@app.route('/update-name', methods=['POST'])
+def update_name():
+    if 'user_id' not in session:
+        return jsonify({"success": False, "message": "Not logged in"}), 401
+
+    data = request.get_json(silent=True)
+    try:
+        parts = clean_name_parts(data)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+    user = AcadUser.query.get(session['user_id'])
+    if not user:
+        return jsonify({"success": False, "message": "User not found"}), 404
+    if user.is_archived:
+        return jsonify({"success": False, "message": "Account is deactivated"}), 403
+
+    try:
+        user.first_name = parts['first_name']
+        user.last_name  = parts['last_name']
+        user.mi         = parts['mi']
+        user.suffix     = parts['suffix']
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("Error updating name:", e)
+        return jsonify({"success": False, "message": "Could not save your name. Please try again."}), 500
+
+    return jsonify({"success": True, "message": "Name updated successfully", "name": user.profile_name})
 
 
 # ---------------- Mark Tutorial Seen (shared across all roles) ----------------

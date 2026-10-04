@@ -1,0 +1,139 @@
+/* maindash-readable.css — larger text across the Main Dashboard. Link LAST. */
+.brand-text span { font-size: 12.4px; }
+.gfb-title { font-size: 14.5px; }
+.gfb-fields .gf-label { font-size: 13px; }
+.gfb-fields .gf-select { font-size: 14.5px; }
+.btn-action { font-size: 13.5px; }
+.btn-apply { font-size: 13.5px; }
+.chart-filter { font-size: 13px; }
+.metric-btn { font-size: 16.5px; }
+.sub-tab { font-size: 13.5px; }
+.card-subtitle { font-size: 16.5px; }
+.chart-area.clickable:hover::after { font-size: 12px; }
+.table-area-header { font-size: 13.5px; }
+.kpi-filter-popover .gf-label { font-size: 15.5px; }
+.kpi-filter-popover .gf-select { font-size: 16.5px; }
+.kpi-filter-popover-footer .btn-apply { font-size: 15.5px; }
+.kpi-table-modal-body .dash-table { font-size: 16.5px; }
+.kpi-table-modal-body .dash-table th { font-size: 15.5px; }
+.kpi-table-modal-body .dash-table .sort-arrow { font-size: 13.5px; }
+.card.is-fullscreen .card-subtitle { font-size: 14.5px; }
+.card.is-fullscreen .chart-filter { font-size: 14.5px; }
+.card.is-fullscreen .metric-btn { font-size: 14.5px; }
+.card.is-fullscreen .sub-tab { font-size: 15.5px; }
+.card.is-fullscreen .kpi-regirreg-desc { font-size: 15.5px; }
+.card.is-fullscreen .kpi-explainer-term { font-size: 14.5px; }
+.card.is-fullscreen .kpi-explainer-desc { font-size: 15.5px; }
+.card.is-fullscreen .kpi-yl-chip-label { font-size: 14.5px; }
+.card.is-fullscreen .kpi-yl-chip-pct { font-size: 15.5px; }
+.card.is-fullscreen .kpi-mini-label { font-size: 16.5px; }
+.card.is-fullscreen .status-chip-label { font-size: 15.5px; }
+.card.is-fullscreen .kpi-delta.up,
+.card.is-fullscreen .kpi-delta.down { font-size: 16.5px; }
+.card.is-fullscreen .kpi-delta-label { font-size: 15.5px; }
+.card.is-fullscreen .dash-table { font-size: 15.5px; }
+.card.is-fullscreen .dash-table th { font-size: 14.5px; }
+.card.is-fullscreen .table-area-header { font-size: 15.5px; }
+.card.is-fullscreen .heatmap-table { font-size: 14.5px; }
+.card.is-fullscreen .heatmap-row-label { font-size: 14.5px; }
+.card.is-fullscreen .rb-title { font-size: 16.5px; }
+.card.is-fullscreen .rb-code,
+.card.is-fullscreen .rb-meta { font-size: 13.5px; }
+.kpi-yl-label { font-size: 13px; }
+.kpi-main .kpi-metrics-btns .metric-btn { font-size: 14.5px; }
+.kpi-main-sub { font-size: 15.5px; }
+.kpi-regirreg-label { font-size: 13.5px; }
+.kpi-regirreg-legend { font-size: 15.5px; }
+.kpi-explainer-term { font-size: 13px; }
+.kpi-explainer-desc { font-size: 13.5px; }
+.kpi-regirreg-desc { font-size: 13.5px; }
+.kpi-yl-chip { font-size: 12px; }
+.kpi-yl-chip-label { font-size: 13px; }
+.kpi-yl-chip-pct { font-size: 13.5px; }
+.kpi-mini-label { font-size: 14.5px; }
+.kpi-mini-badge { font-size: 13.5px; }
+.kpi-mini-delta { font-size: 14.5px; }
+.status-chip { font-size: 12px; }
+.status-chip-label { font-size: 13.5px; }
+.kpi-delta.up { font-size: 14.5px; }
+.kpi-delta.down { font-size: 14.5px; }
+.kpi-delta-label { font-size: 13.5px; }
+.gender-donut-wrap.clickable:hover::after { font-size: 12px; }
+.gender-donut-center { font-size: 13.5px; }
+.gd-nodata { font-size: 14.5px; }
+.gd-table { font-size: 14.5px; }
+.gd-table th { font-size: 13.5px; }
+.gd-pct { font-size: 13px; }
+.sort-arrow { font-size: 12px; }
+.card.is-fullscreen .gd-table { font-size: 16.5px; }
+.card.is-fullscreen .gd-table th { font-size: 14.5px; }
+.rb-rank { font-size: 13.5px; }
+.rb-row:nth-child(1) .rb-rank { font-size: 14.5px; }
+.rb-title { font-size: 15px; }
+.rb-code { font-size: 12px; }
+.rb-value { font-size: 15px; }
+.rb-meta { font-size: 12.5px; }
+.rc-chip { font-size: 12px; }
+.dash-table { font-size: 13.5px; }
+.dash-table th { font-size: 13px; }
+.dash-table .sort-arrow { font-size: 12px; }
+.dt-title { font-size: 16.5px; }
+.dt-description { font-size: 13.5px; }
+.dt-search { font-size: 13.5px; }
+.dt-filter-btn { font-size: 12px; }
+.dt-filter-item { font-size: 13.5px; }
+.dt-filter-pop-footer button { font-size: 13px; }
+.dt-pagination { font-size: 13.5px; }
+.pct-pill { font-size: 12px; }
+.chart-loading { font-size: 14.5px; }
+.chart-empty { font-size: 14.5px; }
+.hm-sort { font-size: 14.5px; }
+.hm-toolbar-label { font-size: 15.5px; }
+.hm-histogram-wrap canvas { font-size: 14.5px; }
+.hm-x-title { font-size: 14.5px; }
+.heatmap-table { font-size: 13.5px; }
+.hm-notice { font-size: 14.5px; }
+.hm-legend-ticks { font-size: 13px; }
+.perf-radar-caption { font-size: 14.5px; }
+.perf-radar-caption b { font-size: 16.5px; }
+.perf-back { font-size: 14.5px; }
+.perf-head-btn { font-size: 13px; }
+.perf-head-btn .perf-arrow { font-size: 12px; }
+.perf-head-static { font-size: 13px; }
+.perf-low-n { font-size: 12.88px; }
+.perf-value-sub { font-size: 13.98px; }
+.perf-pill { font-size: 13.5px; }
+.perf-delta { font-size: 15.1px; }
+.perf-legend { font-size: 13.5px; }
+.perf-justify { font-size: 13.98px; }
+.card.is-fullscreen.perf-card .perf-radar-caption { font-size: 16.5px; }
+.card.is-fullscreen.perf-card .perf-pill { font-size: 15.1px; }
+.card.is-fullscreen.perf-card .perf-head-btn,
+.card.is-fullscreen.perf-card .perf-head-static { font-size: 14px; }
+.card.is-fullscreen.perf-card .perf-legend { font-size: 14.5px; }
+.ai-insights-context { font-size: 14.3px; }
+.ai-save-badge { font-size: 13.34px; }
+.ai-insights-meta { font-size: 13.02px; }
+.ai-insights-loading { font-size: 15.58px; }
+.ai-insights-textarea { font-size: 15.9px; }
+.ai-include-chart-label { font-size: 14.62px; }
+.ai-insights-disclaimer { font-size: 12.86px; }
+.dl-confirm-sub { font-size: 15.5px; }
+.dl-confirm-note { font-size: 13.98px; }
+.dl-btn-cancel { font-size: 15.5px; }
+.dl-btn-confirm { font-size: 15.5px; }
+.ai-update-btn { font-size: 14.3px; }
+.ai-save-btn { font-size: 14.62px; }
+.hm-compare-legend { font-size: 13.98px; }
+.global-compare-label { font-size: 13.98px; }
+
+/* base text + controls */
+.dash-wrap { font-size: 16px; }
+.dash-wrap select, .dash-wrap button, .dash-wrap input { font-size: 15px; }
+.dash-title { font-size: 2rem; }
+.gf-select, .chart-filter { font-size: 15px; }
+.userbar-name { font-size: .92rem; } .userbar-email { font-size: .8rem; }
+.userbar-tutorial, .userbar-user { font-size: .95rem; }
+.menu-btn, .menu-active { font-size: .96rem; }
+.sidebar-section-label { font-size: .74rem !important; }
+.sidebar-logout { font-size: .95rem; }

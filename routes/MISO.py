@@ -5,19 +5,27 @@ from util.utils import allowed_file, save_file
 
 MISO_bp = Blueprint('MISO_bp', __name__, url_prefix='/NovaSight/MISO')
 
-# Dashboard
+# ── Entry point: redirect straight to File Upload (home page removed) ────────
+@MISO_bp.route('/')
 @MISO_bp.route('/home')
 def home_MISO():
     if 'user_id' not in session or session.get('role') != 'MISO':
         return redirect(url_for('home'))
-    return render_template('MISO/home/html/sahome.html')
+    return redirect(url_for('MISO_bp.fileupload_MISO'))
+
+# File Upload  (first page MISO sees after login)
+@MISO_bp.route('/fileupload')
+def fileupload_MISO():
+    if 'user_id' not in session or session.get('role') != 'MISO':
+        return redirect(url_for('home'))
+    return render_template('MISO/fileupload/fileupload.html')
 
 # Profile Page
 @MISO_bp.route('/profile')
 def profile_MISO():
     if 'user_id' not in session or session.get('role') != 'MISO':
         return redirect(url_for('home'))
-    
+
     user = AcadUser.query.get(session['user_id'])
     return render_template(
         'MISO/profile/html/saprofile.html',
@@ -27,28 +35,22 @@ def profile_MISO():
         user_image_url=user.profile_image_url
     )
 
-#file upload
-@MISO_bp.route('/fileupload')
-def fileupload_MISO():
-    if 'user_id' not in session or session.get('role') != 'MISO':
-        return redirect(url_for('home'))
-    return render_template('MISO/fileupload/fileupload.html')
-
-# help
+# Help
 @MISO_bp.route('/help')
 def help_MISO():
     if 'user_id' not in session or session.get('role') != 'MISO':
         return redirect(url_for('home'))
     return render_template('MISO/help/html/sahelp.html')
 
-
-# privacy policy
+# Privacy Policy
 @MISO_bp.route('/privacy-policyAA')
 def privacy_policy_MISO():
     if 'user_id' not in session or session.get('role') != 'MISO':
         return redirect(url_for('home'))
     return render_template('MISO/privacypolaa/privacypolicyAA.html')
 
+
+# ── API endpoints ─────────────────────────────────────────────────────────────
 
 # Update Password
 @MISO_bp.route('/update_password', methods=['POST'])

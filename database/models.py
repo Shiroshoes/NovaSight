@@ -23,7 +23,6 @@ db = SQLAlchemy()
 ROLE_COLOR_FAMILIES = {
     'Academic_Affair':           [('#4A4A4A', '#FFFFFF'), ('#6E6E6E', '#FFFFFF'), ('#8C8C8C', '#FFFFFF')],  # neutral grey — MIS/admin
     'Registrar':       [('#1E5AA8', '#FFFFFF'), ('#2E72C9', '#FFFFFF'), ('#5B93D8', '#FFFFFF')],  # blue
-    'SASO':            [('#B8860B', '#FFFFFF'), ('#D4A017', '#FFFFFF'), ('#E6B84D', '#1F2937')],  # gold
     'MISO': [('#6A1B9A', '#FFFFFF'), ('#8E24AA', '#FFFFFF'), ('#AB47BC', '#FFFFFF')],  # purple
     # CAHS split into 4 roles (Nursing/PH/Midwifery deans + director), each
     # now with its own program color instead of sharing one teal family.

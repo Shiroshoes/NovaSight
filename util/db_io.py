@@ -24,6 +24,7 @@ import hashlib
 import io
 import json
 import joblib
+from datetime import datetime
 import pandas as pd
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.dialects.mysql import LONGTEXT
@@ -258,7 +259,7 @@ def delete_preprocessing_warnings(upload_id: int) -> None:
 DATASET_NAMES = {
     "DS00": "00_enrollment",
     "DS01": "01_kpi_student",
-    "DS02": "02_heatmap_risk",
+    "DS02": "02_histogram_risk",
     "DS03": "03_gender_at_risk",
     "DS04": "04_hardest_subjects",
     "DS05": "05_at_risk_forecast",
@@ -1208,6 +1209,101 @@ def save_training_run(run: dict) -> None:
 def load_training_run() -> dict:
     data = _get_blob(_TRAINING_RUN_KEY)
     return json.loads(bytes(data).decode("utf-8")) if data is not None else {}
+
+
+# ── Model backup (one step back) ──────────────────────────────────────────
+# Before a RETRAIN overwrites the live models, the current set is copied to
+# "bak__<key>" rows in app_storage. rollback_models() SWAPS live <-> backup, so
+# pressing it twice puts the newer models back. The backup is only replaced by
+# the next retrain's snapshot. Archiving/restoring a semester never touches these.
+MODEL_BLOB_KEYS = [
+    "at_risk_classifier.pkl",
+    "gwa_regression.pkl",
+    "completion_rate_forecast.pkl",
+    "pred_cube.pkl",
+    "pred_subjects.pkl",
+    _TRAINING_STATE_KEY,
+]
+_BACKUP_PREFIX = "bak__"
+_BACKUP_META_KEY = "bak__meta"
+
+
+def _bak(key: str) -> str:
+    return _BACKUP_PREFIX + key
+
+
+def _write_or_delete_blob(key: str, data) -> None:
+    if data is None:
+        delete_model_blob(key)
+    else:
+        _put_blob(key, bytes(data))
+
+
+def get_model_backup_info() -> dict | None:
+    """{'trained_semesters', 'created_at', 'models'} or None when there is no
+    complete backup. (The meta row is written LAST, so a half-copied backup has none.)"""
+    data = _get_blob(_BACKUP_META_KEY)
+    if data is None:
+        return None
+    try:
+        return json.loads(bytes(data).decode("utf-8"))
+    except Exception:
+        return None
+
+
+def snapshot_models(trained_semesters: int | None) -> bool:
+    """Copy the live model blobs + training_state to the backup keys.
+    `trained_semesters` = semester count the live models were trained on.
+    Returns False (and does nothing) when there are no live models."""
+    live = {k: _get_blob(k) for k in MODEL_BLOB_KEYS}
+    if not any(v is not None for v in live.values()):
+        return False
+    delete_model_blob(_BACKUP_META_KEY)           # backup is invalid until the copy finishes
+    for k, v in live.items():
+        _write_or_delete_blob(_bak(k), v)
+    meta = {
+        "trained_semesters": trained_semesters,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "models": [k for k, v in live.items() if v is not None],
+    }
+    _put_blob(_BACKUP_META_KEY, json.dumps(meta).encode("utf-8"))
+    return True
+
+
+def rollback_models(live_trained_semesters: int | None) -> dict:
+    """Swap live <-> backup. After it, the old models are live and the models that
+    were live become the backup. Returns {'ok', 'restored_semesters'} or {'ok': False, 'reason'}."""
+    info = get_model_backup_info()
+    if not info:
+        return {"ok": False, "reason": "There is no model backup to restore."}
+    live = {k: _get_blob(k) for k in MODEL_BLOB_KEYS}
+    bak = {k: _get_blob(_bak(k)) for k in MODEL_BLOB_KEYS}
+    if not any(v is not None for v in bak.values()):
+        return {"ok": False, "reason": "The model backup is empty."}
+    delete_model_blob(_BACKUP_META_KEY)
+    try:
+        for k in MODEL_BLOB_KEYS:
+            _write_or_delete_blob(k, bak[k])
+            _write_or_delete_blob(_bak(k), live[k])
+    except Exception:
+        for k in MODEL_BLOB_KEYS:                 # put everything back from memory
+            try:
+                _write_or_delete_blob(k, live[k])
+                _write_or_delete_blob(_bak(k), bak[k])
+            except Exception:
+                pass
+        try:
+            _put_blob(_BACKUP_META_KEY, json.dumps(info).encode("utf-8"))
+        except Exception:
+            pass
+        raise
+    meta = {
+        "trained_semesters": live_trained_semesters,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "models": [k for k, v in live.items() if v is not None],
+    }
+    _put_blob(_BACKUP_META_KEY, json.dumps(meta).encode("utf-8"))
+    return {"ok": True, "restored_semesters": info.get("trained_semesters")}
 
 
 def upsert_semester_upload(

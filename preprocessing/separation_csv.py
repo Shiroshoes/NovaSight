@@ -108,7 +108,15 @@ def _pct_valid(df: pd.DataFrame, cols: list[str]) -> float | None:
 
 DATASET_ACCURACY_COLUMNS = {
     "DS00": ["College", "Course", "Student_Count"],
-    "DS01": ["College", "Course", "GWA"],
+    # GWA is deliberately left out here: build_ds01_kpi_student() legitimately
+    # sets it to None for students whose GWA couldn't be trusted (out-of-range
+    # unweighted average, or majority non-numeric grades — see preprocess.py's
+    # "GWA out of range -> MISSING" / "GWA not summable" rules). Same reasoning
+    # as DS04's Avg_Grade exclusion below: that's a correct empty value, not
+    # missing/bad data, so scoring it was dragging clean uploads down to 99.9%
+    # for no real data-quality reason. College/Course alone reflect whether
+    # this dataset's rows are actually complete.
+    "DS01": ["College", "Course"],
     "DS02": ["College", "Course", "status_rate"],
     "DS03": ["College", "Course", "Gender", "pct"],
     # Avg_Grade is deliberately left out here: build_ds04_hardest_subjects()
@@ -190,7 +198,7 @@ def build_ds01_kpi_student(lf: pd.DataFrame) -> pd.DataFrame:
     return agg
 
 
-def build_ds02_heatmap_risk(lf: pd.DataFrame) -> pd.DataFrame:
+def build_ds02_histogram_risk(lf: pd.DataFrame) -> pd.DataFrame:
     """DS02 — Risk rate per College × Course × Year_Level × status_type."""
     lf = lf.copy()
     lf["Status_Upper"] = lf["Status"].fillna("").str.strip().str.upper()
@@ -525,7 +533,7 @@ def run_csv_separation(upload_id: int, academic_year: str, semester: str,
         builders = [
             ("DS00", lambda: build_ds00_enrollment(lf_full)),
             ("DS01", lambda: build_ds01_kpi_student(lf)),
-            ("DS02", lambda: build_ds02_heatmap_risk(lf)),
+            ("DS02", lambda: build_ds02_histogram_risk(lf)),
             ("DS03", lambda: build_ds03_gender_at_risk(lf)),
             ("DS04", lambda: build_ds04_hardest_subjects(lf)),
             ("DS05", lambda: build_ds05_at_risk_forecast(lf)),

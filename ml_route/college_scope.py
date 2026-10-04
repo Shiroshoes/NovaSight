@@ -11,7 +11,7 @@ WHY THIS EXISTS
 
 HOW IT WORKS
   forced_college()  ->  "CAHS" for a CAHS Dean, None for everyone else
-                        (Admin, MISO, Academic Affairs, Registrar, SASO see all).
+                        (Admin, MISO, Academic Affairs, Registrar see all).
   A scoped role can never see another college: the requested department is
   ignored and replaced by the forced one.
 
@@ -20,7 +20,7 @@ HOW IT WORKS
 
 ROLES (from app.py)
   Dean roles  : CBAdean, CCSTdean, CEAdean, CoASdean, CTECdean + every role in CAHS_ROLES
-  See everything: Academic_Affair, Registrar, SASO, MISO
+  See everything: Academic_Affair, Registrar, MISO
   Anything else (or not logged in) gets NO data.  Edit the two tables below when you add a role.
 """
 from flask import has_request_context, session
@@ -43,7 +43,7 @@ DEAN_ROLE_COLLEGE.update({r: "CAHS" for r in CAHS_ROLES})     # all four CAHS ro
 
 # Roles that may see every college.  Anything NOT listed here and NOT a dean role gets no data
 # (fail closed), so a brand-new role must be added here on purpose.
-FULL_ACCESS_ROLES = {"Academic_Affair", "Registrar", "SASO", "MISO"}
+FULL_ACCESS_ROLES = {"Academic_Affair", "Registrar", "MISO"}
 
 NO_COLLEGE = "__NO_COLLEGE__"           # matches no data -> empty result
 

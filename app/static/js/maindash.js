@@ -15,6 +15,17 @@ const STATUS_COLORS = {
 const $   = id => document.getElementById(id);
 const qsa = (sel, root=document) => [...root.querySelectorAll(sel)];
 
+/* ── Shared-helper bridge for maindash-registrar.js ──────────────────────────
+   That file is a separate <script> (Registrar-only code lives there instead
+   of in this shared file, which every role loads). It needs these utilities;
+   function hoisting makes it safe to list them here even though most are
+   defined further down. */
+Object.assign(window, {
+  $, skOn, skOff, skDone, loading, empty, makeChart, _perfColor,
+  initFilterPopover, fillSelect, _fillCourses, downloadCsv, initTableModal,
+  loadKpi, loadPerformance,
+});
+
 /* ── Skeleton loading (styles live in skeleton.css) ─────────────────────────
    A card shows placeholders while .is-loading is set. Each request holds it
    (skOn) and releases it (skDone) when it finishes; every card is also held
@@ -34,7 +45,7 @@ function skDone(id) {
   skOff(id);
   if (_skInit[id]) { _skInit[id] = 0; skOff(id); }
 }
-const SK_CARDS = ['kpiCard', 'heatmapCard', 'perfCard', 'genderCard', 'hardestCard'];
+const SK_CARDS = ['kpiCard', 'enrollTrendCard', 'kpiTrendCard', 'heatmapCard', 'perfCard', 'genderCard', 'hardestCard'];
 SK_CARDS.forEach(id => { skOn(id); _skInit[id] = 1; });
 setTimeout(() => SK_CARDS.forEach(id => { if (_skInit[id]) { _skInit[id] = 0; skOff(id); } }), 25000);
 
@@ -434,6 +445,15 @@ function initTableModal({ openId, modalId, closeId, onOpen }) {
 /* ══════════════════════════════════════════════════════════════════════════
    INIT — fetch meta, populate all filters, load all charts
    ══════════════════════════════════════════════════════════════════════════ */
+/* Program name -> acronym, for CHART labels only. Filters, drill-downs and API
+   params keep the full program name. Colleges are not in the map, so they pass
+   through unchanged. Filled from /api/dash/meta (courses[].short). */
+function courseShort(label) {
+  const m = window._courseShort;
+  return (m && m[label]) || label;
+}
+window.courseShort = courseShort;
+
 async function initDashboard() {
   try {
     const res = await fetch('/api/dash/meta');
@@ -442,6 +462,7 @@ async function initDashboard() {
     window._metaYears   = meta.years || [];
     window._metaDepts   = meta.departments || [];
     window._allCourses  = meta.courses || [];
+    window._courseShort = Object.fromEntries((meta.courses || []).map(c => [c.code, c.short || c.code]));
     window._ayToSems    = meta.ay_to_sems || {};
 
     // Populate KPI year filter
@@ -512,12 +533,22 @@ async function initDashboard() {
     fillSelect('perfDept', window._metaDepts);
     _fillCourses('perfDept', 'perfCourse');
 
+    // KPI Trend card: dept/course only (no year/sem — it always spans every period)
+    fillSelect('kpiTrend-dept', window._metaDepts);
+    _fillCourses('kpiTrend-dept', 'kpiTrend-course');
+
+    // Enrollment Trend card: same deal
+    fillSelect('enrollTrend-dept', window._metaDepts);
+    _fillCourses('enrollTrend-dept', 'enrollTrend-course');
+
   } catch(e) {
     console.error('Dashboard meta failed:', e);
   }
 
   // Load all charts
   loadKpi();
+  window.loadEnrollTrend?.();
+  window.loadKpiTrend?.();
   loadHeatmap();
   loadPerformance();
   loadGenderPie();
@@ -631,6 +662,7 @@ async function loadKpi() {
     if (KF.dept)      p.set('dept', KF.dept);
     if (KF.course)    p.set('course', KF.course);
     if (KF.yearlevel) p.set('yearlevel', KF.yearlevel);
+    { const c = cmpOf('kpiCompare'); if (c) p.set('compare', c); }
 
     const res = await fetch('/api/dash/kpi?' + p.toString());
     if (!res.ok) throw new Error('KPI ' + res.status);
@@ -849,13 +881,31 @@ function renderKpiYearLevel(data) {
   }).join('');
 }
 
+
 /* ══════════════════════════════════════════════════════════════════════════
    2. HEATMAP
    ══════════════════════════════════════════════════════════════════════════ */
 let hmData = null;
+
+// ── Global semester comparison (shared across all cards) ──────────────────────
+// 'prev_sem' = vs previous semester (default)
+// '1sem'     = 1st Sem vs 1st Sem of previous year
+// '2sem'     = 2nd Sem vs 2nd Sem of previous year
+// ''         = no comparison
+/* ── Comparison lives in each chart's filter popover (default: None) ─── */
+const cmpOf = id => document.getElementById(id)?.value || '';
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('select[id$="Compare"]').forEach(sel => {
+    const p = sel.id.replace(/Compare$/, '');
+    document.getElementById(p + 'BtnReset')?.addEventListener('click', () => { sel.value = ''; }, true);
+  });
+});
+
+
+
 // Applied heatmap filters (updated by Apply / Reset). Year + semester default to
 // the most recent upload, same as the KPI card.
-let HF = { year:'', sem:'', dept:'', course:'', yearlevel:'', status:'FAILED', sort:'asc', metric:'rate' };
+let HF = { year:'', sem:'', dept:'', course:'', yearlevel:'', status:'FAILED', sort:'desc', metric:'rate' };
 
 // Rebuild a course <select> from the cached course list, limited to the chosen dept.
 function _fillCourses(deptId, courseId) {
@@ -869,7 +919,8 @@ function _fillCourses(deptId, courseId) {
 
 async function loadHeatmap() {
   const p = new URLSearchParams();
-  Object.entries(HF).forEach(([k, v]) => { if (v) p.set(k, v); });
+  Object.entries(HF).forEach(([k, v]) => { if (v !== '' && v !== undefined && v !== null) p.set(k, v); });
+  { const c = cmpOf('hmCompare'); if (c) p.set('compare', c); }
 
   // Destroy existing chart before loading
   if (hmChart) { hmChart.destroy(); hmChart = null; }
@@ -918,7 +969,7 @@ function hmFormat(v, isCount) {
 
 // Year level display labels and colors
 const YL_LABELS = { '1':'1st Yr', '2':'2nd Yr', '3':'3rd Yr', '4':'4th Yr', '5':'5th Yr', 'IRREG':'Irreg' };
-const YL_COLORS = ['#7B1113','#C0392B','#E67E22','#F1C40F','#27AE60','#2980B9'];
+const YL_COLORS = ['#2563EB','#059669','#7C3AED','#0891B2','#D97706','#64748B'];
 
 // Chart.js instance for the histogram
 let hmChart = null;
@@ -941,9 +992,137 @@ function sizeHistogramWrap() {
   }
 }
 
+/* ── Compare-mode histogram: delta bars (current − previous) ──────────────
+   Positive delta (got worse) → red bar above baseline
+   Negative delta (improved)  → green bar below baseline
+   Each group = one college/course, bars = year levels
+   ──────────────────────────────────────────────────────────────────────── */
+function renderHeatmapCompare(data) {
+  const area = $('hmChartArea');
+  if (hmChart) { hmChart.destroy(); hmChart = null; }
+
+  const isCount   = data.metric === 'count';
+  const isCollege = data.view !== 'course';
+  const statusLabel = HM_STATUS_LABELS[HF.status] || 'Failed';
+  const viewLabel   = isCollege ? 'College' : 'Course Program';
+  const prevLabel   = data.prev_period || 'previous period';
+  const yls = data.year_levels || [];
+  const rows = data.rows;
+  const labels = rows.map(r => courseShort(r.label));
+  const isMobile = window.innerWidth < 640;
+  const perGroup = isMobile ? 64 : 92;
+
+  area.innerHTML = `<div class="hm-histogram-wrap" data-rows="${labels.length}">
+    <div class="hm-compare-legend">
+      <span class="hm-compare-pill worse">▲ Worse than ${prevLabel}</span>
+      <span class="hm-compare-pill better">▼ Better than ${prevLabel}</span>
+      <span class="hm-compare-pill same">— No change / No data</span>
+    </div>
+    <canvas id="hmHistCanvas"></canvas>
+  </div>`;
+
+  const wrap = area.querySelector('.hm-histogram-wrap');
+  wrap.style.height = Math.max(isMobile ? 480 : 740, 100 + labels.length * perGroup) + 'px';
+  const canvas = document.getElementById('hmHistCanvas');
+
+  // One dataset per year level — split into positive/negative for colouring
+  const datasets = yls.map((yl, i) => {
+    const base = YL_COLORS[i % YL_COLORS.length];
+    return {
+      label: YL_LABELS[yl] || yl,
+      data: rows.map(r => {
+        const d = r.delta?.[yl];
+        return (d === null || d === undefined) ? 0 : d;
+      }),
+      backgroundColor: rows.map(r => {
+        const d = r.delta?.[yl];
+        if (d === null || d === undefined || d === 0) return 'rgba(156,163,175,0.35)';
+        return d > 0 ? 'rgba(220,38,38,0.75)' : 'rgba(22,163,74,0.75)';
+      }),
+      borderRadius: 3,
+      borderSkipped: false,
+      barPercentage: 0.95,
+      categoryPercentage: 0.90,
+    };
+  });
+
+  const hmComparePlugin = {
+    id: 'hmCompare',
+    afterDraw(chart) {
+      const { ctx, chartArea, scales } = chart;
+      // Separator lines between groups
+      const xScale = scales.x;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+      ctx.lineWidth = 1;
+      xScale.ticks.forEach((_, i) => {
+        if (i === 0) return;
+        const x = xScale.getPixelForTick(i) - (xScale.getPixelForTick(1) - xScale.getPixelForTick(0)) / 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
+      });
+      ctx.restore();
+    }
+  };
+
+  const suffix = isCount ? '' : '%';
+  hmChart = new Chart(canvas, {
+    type: 'bar',
+    plugins: [hmComparePlugin],
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true, position: 'top', align: 'start',
+          labels: { boxWidth: isMobile?10:12, font:{size:isMobile?11:12,weight:'600'}, color:'#374151', padding:isMobile?10:14 }
+        },
+        tooltip: {
+          mode: 'index', intersect: false,
+          callbacks: {
+            title: tt => rows[tt[0]?.dataIndex]?.label || tt[0]?.label || '',
+            label: tt => {
+              const yl = yls[tt.datasetIndex];
+              const row = rows[tt.dataIndex];
+              const cur  = row?.[yl]; const prv = row?.prev?.[yl]; const delta = row?.delta?.[yl];
+              const ylLabel = YL_LABELS[yl] || yl;
+              if (cur === null || cur === undefined) return `${ylLabel}: no data`;
+              const sign = delta > 0 ? '+' : '';
+              return `${ylLabel}: ${sign}${delta?.toFixed(1)}${suffix} (${prv?.toFixed(1)}${suffix} → ${cur?.toFixed(1)}${suffix})`;
+            },
+          }
+        }
+      },
+      scales: {
+        x: {
+          border: { display: true, color: '#e5e7eb' },
+          grid: { display: false },
+          ticks: { color:'#374151', font:{size:isMobile?10:11}, autoSkip:false, maxRotation:isMobile?30:15 },
+          title: { display:true, text:viewLabel, color:'#374151', font:{size:isMobile?11:12,weight:'600'} },
+        },
+        y: {
+          border: { display:true, color:'#e5e7eb' },
+          grid: { color:'#f0f0f0', drawTicks:false },
+          ticks: {
+            color:'#6b7280', font:{size:isMobile?10:11}, padding:4,
+            callback: v => (v > 0 ? '+' : '') + v + suffix,
+          },
+          title: { display:!isMobile, text:`Δ ${statusLabel} rate vs ${prevLabel}`, color:'#374151', font:{size:12,weight:'600'} },
+        }
+      }
+    }
+  });
+}
+
 function renderHeatmap(data) {
   const area = $('hmChartArea');
   if (!data?.rows?.length) { empty('hmChartArea', data?.note || undefined); return; }
+
+  // ── Compare mode: render delta chart ────────────────────────────────────
+  if (data.compare && data.rows[0]?.delta !== undefined) {
+    renderHeatmapCompare(data); return;
+  }
 
   const isCount   = data.metric === 'count';
   const isCollege = data.view !== 'course';
@@ -957,58 +1136,112 @@ function renderHeatmap(data) {
 
   area.innerHTML = `<div class="hm-histogram-wrap"><canvas id="hmHistCanvas"></canvas></div>`;
 
-  // Chart.js v4 indexAxis:'y' renders index 0 at the BOTTOM.
-  // Server returns rows descending (highest first) → reverse so highest ends up at TOP.
-  const rows   = [...data.rows].reverse();
-  const labels = rows.map(r => r.label);
+  // Horizontal grouped bar: colleges/courses on Y-axis, rate on X-axis.
+  // Server returns rows sorted per hmSort — no reversal needed.
+  const rows   = [...data.rows];
+  const labels = rows.map(r => courseShort(r.label));
+  const maxX   = isCount ? (data.max_val || 1) : 100;
 
-  // One dataset per year level (grouped bars)
+  // One dataset per year level
   const datasets = yls.map((yl, i) => ({
     label: YL_LABELS[yl] || yl,
     data:  rows.map(r => r[yl] ?? 0),
     backgroundColor: YL_COLORS[i % YL_COLORS.length],
     borderRadius: 3,
     borderSkipped: false,
-    barPercentage: 1.0,
-    categoryPercentage: 0.90,
+    barPercentage: 0.92,
+    categoryPercentage: 0.88,
   }));
 
-  const maxX = isCount
-    ? (data.max_val || 1)
-    : 100;
-
   const canvas = document.getElementById('hmHistCanvas');
-  canvas.parentElement.dataset.rows = labels.length;
-  sizeHistogramWrap();
+  const isMobile = window.innerWidth < 640;
+  // More height per group on desktop, slightly less on mobile (horizontal scroll handles width).
+  // The floor (not just the per-group amount) was raised too — with few groups (e.g. the default
+  // "All Colleges" view, just 6 bars-groups) the chart was always sitting at the bare minimum.
+  const perGroup = isMobile ? 64 : 92;
+  canvas.parentElement.style.height = Math.max(isMobile ? 480 : 740, 100 + labels.length * perGroup) + 'px';
+
+  // Plugin: value label to the right of each individual bar + horizontal separator lines between groups
+  const hmInlinePlugin = {
+    id: 'hmInline',
+    afterDraw(chart) {
+      const { ctx, chartArea, scales } = chart;
+      const yScale = scales.y;
+
+      // Horizontal separator lines between college/course groups
+      const n = yScale.ticks?.length || labels.length;
+      for (let i = 0; i < n - 1; i++) {
+        const y0 = yScale.getPixelForTick(i);
+        const y1 = yScale.getPixelForTick(i + 1);
+        const mid = (y0 + y1) / 2;
+        ctx.save();
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(chartArea.left, mid);
+        ctx.lineTo(chartArea.right, mid);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Value label to the right of every bar (skip zeros)
+      ctx.save();
+      ctx.font = '600 9px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+
+      const ylTag = { 1:'1st', 2:'2nd', 3:'3rd', 4:'4th', 5:'5th', IRREG:'Irreg' };
+      chart.data.datasets.forEach((ds, dsIdx) => {
+        const meta = chart.getDatasetMeta(dsIdx);
+        if (meta.hidden) return;
+        const tag = ylTag[yls[dsIdx]] || yls[dsIdx];
+        meta.data.forEach((bar, rowIdx) => {
+          const v = ds.data[rowIdx] ?? 0;
+          if (v <= 0) return;
+          const val = isCount ? v.toLocaleString() : v.toFixed(1) + '%';
+          ctx.fillStyle = '#374151';
+          ctx.fillText(`${val} ${tag}`, bar.x + 4, bar.y);
+        });
+      });
+
+      ctx.restore();
+    },
+  };
 
   hmChart = new Chart(canvas, {
     type: 'bar',
     data: { labels, datasets },
+    plugins: [hmInlinePlugin],
     options: {
       indexAxis: 'y',
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: { right: 8 } },
+      layout: { padding: { top: 4, right: 64, bottom: 4 } },
       plugins: {
         legend: {
           display: true,
           position: 'top',
-          align: 'start',
+          align: 'center',
           rtl: false,
           labels: {
-            boxWidth: 12,
-            boxHeight: 12,
-            font: { size: 12 },
+            boxWidth: isMobile ? 10 : 12,
+            boxHeight: isMobile ? 10 : 12,
+            font: { size: isMobile ? 11 : 12, weight: '600' },
             color: '#374151',
-            padding: 14,
+            padding: isMobile ? 10 : 14,
+            usePointStyle: false,
           },
         },
         tooltip: {
+          mode: 'index',
+          intersect: false,
           callbacks: {
             label(ctx) {
               const row    = rows[ctx.dataIndex];
               const yl     = yls[ctx.datasetIndex];
               const val    = ctx.parsed.x;
+              if (val == null || val === 0) return null;
               const base   = isCount ? `${val.toLocaleString()} students` : `${val.toFixed(1)}%`;
               const n      = row?.enrolled?.[yl];
               const k      = row?.with_status?.[yl];
@@ -1017,37 +1250,40 @@ function renderHeatmap(data) {
                 : '';
               return ` ${ctx.dataset.label}: ${base}${detail}`;
             },
-            title(items) { return items[0].label; },
+            title(items) { return rows[items[0].dataIndex]?.label || items[0].label; },
           },
         },
       },
       scales: {
+        y: {
+          border: { display: true, color: '#e5e7eb' },
+          grid: { display: false },
+          ticks: {
+            color: '#374151',
+            font: { size: isMobile ? 10 : 11 },
+            autoSkip: false,
+          },
+          title: {
+            display: !isMobile,
+            text: viewLabel,
+            color: '#374151',
+            font: { size: isMobile ? 11 : 12, weight: '600' },
+          },
+        },
         x: {
           min: 0,
           max: maxX,
-          grid: { color: '#f3f4f6' },
+          border: { display: true, color: '#e5e7eb' },
+          grid: { color: '#f0f0f0', drawTicks: false },
           ticks: {
             color: '#6b7280',
-            font: { size: 11 },
+            font: { size: isMobile ? 10 : 11 },
+            padding: 4,
             callback: v => isCount ? v.toLocaleString() : v + '%',
           },
           title: {
             display: true,
             text: isCount ? `${statusLabel} (no. of students)` : `${statusLabel} rate (%)`,
-            color: '#374151',
-            font: { size: 12, weight: '600' },
-          },
-        },
-        y: {
-          grid: { display: false },
-          ticks: {
-            color: '#374151',
-            font: { size: 12 },
-            autoSkip: false,
-          },
-          title: {
-            display: true,
-            text: viewLabel,
             color: '#374151',
             font: { size: 12, weight: '600' },
           },
@@ -1058,6 +1294,17 @@ function renderHeatmap(data) {
 
   area.classList.add('clickable');
 }
+
+// Re-render histogram on resize/orientation change for mobile responsiveness
+(function () {
+  let _hmResizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(_hmResizeTimer);
+    _hmResizeTimer = setTimeout(() => {
+      if (hmData?.rows?.length) renderHeatmap(hmData);
+    }, 300);
+  });
+})();
 
 function renderHeatmapTable(data) {
   if (!data?.rows) return;
@@ -1136,7 +1383,7 @@ $('hmBtnReset')?.addEventListener('click', () => {
   // "Default" = the most recently uploaded academic year + semester, Failed, descending.
   const defYear = window._kpiDefaultYear || '';
   const defSem  = window._kpiDefaultSem  || '';
-  HF = { year: defYear, sem: defSem, dept:'', course:'', yearlevel:'', status:'FAILED', sort:'asc', metric:'rate' };
+  HF = { year: defYear, sem: defSem, dept:'', course:'', yearlevel:'', status:'FAILED', sort:'desc', metric:'rate' };
 
   const yearSel = $('hmYear');
   if (yearSel) yearSel.value = defYear;
@@ -1151,7 +1398,7 @@ $('hmBtnReset')?.addEventListener('click', () => {
   set('hmYearLevel', '');
   syncHmStatusButtons();
   syncHmMetricButtons();
-  set('hmSort', 'asc');
+  set('hmSort', 'desc');
   loadHeatmap();
 });
 
@@ -1496,6 +1743,7 @@ async function loadPerformance() {
   if (PF.course)    p.set('course', PF.course);
   if (PF.yearlevel) p.set('yearlevel', PF.yearlevel);
   p.set('rank_by', perfRank);
+  { const c = cmpOf('perfCompare'); if (c) p.set('compare', c); }
 
   const back = $('perfBackBtn');
   if (back) {
@@ -1679,7 +1927,7 @@ function renderPerfLeaderboard(data) {
            style="--perf-color:${color};--tone:${c.tone}">
         <span class="perf-rank">${rank}</span>
         <span class="perf-color-dot" data-shape="${(rank - 1) % 6}" style="background:${color}"></span>
-        <span class="perf-name"><span class="perf-label" title="${_perfEsc(row.label)}">${_perfEsc(row.label)}</span>${lowBadge}${chevron}</span>
+        <span class="perf-name"><span class="perf-label" title="${_perfEsc(row.label)}">${_perfEsc(courseShort(row.label))}</span>${lowBadge}${chevron}</span>
         <span class="perf-bar-cell"><div class="perf-bar"><div class="perf-bar-fill" style="width:${Math.max(0, Math.min(100, c.barPct)).toFixed(1)}%"></div></div></span>
         ${c.value}
         ${_perfDeltaHtml(row, rankKey, data)}
@@ -1774,11 +2022,11 @@ function highlightPerf(label) {
     r.classList.toggle('perf-list-row--active', r.dataset.label === label));
   if (!perfChart) return;
   // The radar only holds one polygon; hovering some other row must not dim it
-  if (label !== null && !perfChart.data.datasets.some(ds => ds.label === label)) return;
+  if (label !== null && !perfChart.data.datasets.some(ds => (ds._full ?? ds.label) === label)) return;
   // Highlight radar polygon
   perfChart.data.datasets.forEach(ds => {
     const isAvg   = !!ds._isAvg;
-    const isMatch = ds.label === label;
+    const isMatch = (ds._full ?? ds.label) === label;
     if (label === null) {
       ds.borderWidth      = isAvg ? 2 : 1.5;
       ds.borderDash       = isAvg ? [6,4] : (ds._dash || []);
@@ -1807,7 +2055,7 @@ function renderPerfRadar(data) {
   if (cap) {
     const r0 = rRows[0];
     cap.innerHTML = !r0 ? '' :
-      scope === 'course'  ? `<b>${_perfEsc(r0.label)}</b> · course · ${(r0.enrollment ?? 0).toLocaleString()} students`
+      scope === 'course'  ? `<b title="${_perfEsc(r0.label)}">${_perfEsc(courseShort(r0.label))}</b> · course · ${(r0.enrollment ?? 0).toLocaleString()} students`
     : scope === 'college' ? `<b>${_perfEsc(r0.label)}</b> · whole college · ${(r0.enrollment ?? 0).toLocaleString()} students`
     :                       `<b>Campus average</b> · all colleges · ${(r0.enrollment ?? 0).toLocaleString()} students`;
   }
@@ -1823,7 +2071,8 @@ function renderPerfRadar(data) {
       i = 0; color = CB.on ? '#000000' : '#7B1113';                                              // campus average: theme maroon
     }
     return {
-      label:            row.label,
+      label:            courseShort(row.label),
+      _full:            row.label,
       data:             PERF_AXES.map(a => row[a.key] ?? 0),
       borderColor:      color,
       backgroundColor:  hexAlpha(color, 0.22),
@@ -1850,7 +2099,8 @@ function renderPerfRadar(data) {
       plugins: {
         legend: {
           display: true,
-          position: 'bottom',
+          position: 'top',
+          align: 'start',
           rtl: false,
           labels: {
             boxWidth: 10, boxHeight: 10,
@@ -2009,6 +2259,7 @@ async function loadGenderPie() {
   Object.entries(GDF).forEach(([k, v]) => { if (v) p.set(k, v); });
   if (gdEnroll !== 'all') p.set('enroll_type', gdEnroll);
   if (gdMetric !== 'all') p.set('status', gdMetric);
+  { const c = cmpOf('gdCompare'); if (c) p.set('compare', c); }
   $('gdBody')?.classList.add('gd-busy');
   try {
     const res = await fetch('/api/dash/gender-status?' + p.toString());
@@ -2128,7 +2379,7 @@ function _renderDonut(canvasId, centerId, pie, activeStatuses, genderLabel) {
       layout: { padding: { left: padX, right: padX, top: padY, bottom: padY } },
       plugins: {
         legend: compact ? {
-          display: true, position: 'bottom',
+          display: true, position: 'top',
           labels: { boxWidth: 10, font: { size: 11 }, padding: 10,
             generateLabels: () => items.map((it, i) => ({
               text: `${it.name} — ${it.pct.toFixed(1)}% (${it.count.toLocaleString()})`,
@@ -2204,7 +2455,7 @@ function _renderSimpleTable(containerId, rows, gender, activeStatuses) {
   </tr></thead><tbody>`;
 
   pivotRows.forEach(row => {
-    html += `<tr><td class="gd-dept">${gdEsc(row.dept)}</td>`;
+    html += `<tr><td class="gd-dept" title="${gdEsc(row.dept)}">${gdEsc(courseShort(row.dept))}</td>`;
     statuses.forEach(st => {
       const cnt = row.totals[st] || 0;
       html += `<td><span class="gd-count">${cnt.toLocaleString()}</span> ` +
@@ -2421,6 +2672,7 @@ async function loadHardestSubjects() {
   Object.entries(HSF).forEach(([k, v]) => { if (v !== '' && v != null) p.set(k, v); });
   const topN = $('hsTopN')?.value; if (topN) p.set('top_n', topN);
   p.set('sort', hsSortDir);
+  { const c = cmpOf('hsCompare'); if (c) p.set('compare', c); }
 
   if (hsView === 'bar') loading('hsBarArea');
   try {
@@ -2512,6 +2764,7 @@ function renderHardestBar(data) {
           label: ctx => {
             const s = subs[ctx.dataIndex];
             return [`${label}: ${hsFmt(ctx.raw)}`, `Dept: ${s.dept || '—'}`,
+                    ...(s.course ? [`Program: ${courseShort(s.course)}`] : []),
                     `Students: ${(s.student_count ?? 0).toLocaleString()}`];
           }}},
         datalabels:{ anchor:'end', align:'right', clip:false,
@@ -2554,7 +2807,7 @@ function renderHardestCards(data) {
           <span class="rb-value">${hsFmt(v)}</span>
         </div>
         <div class="rb-track"><div class="rb-fill" style="width:${pct(v).toFixed(1)}%; background:${hsColor(v, maxV, isGrade)}"></div></div>
-        <div class="rb-meta">${s.dept || '—'} · ${n.toLocaleString()} ${n===1?'student':'students'}</div>
+        <div class="rb-meta">${s.dept || '—'}${s.course ? ' · ' + courseShort(s.course) : ''} · ${n.toLocaleString()} ${n===1?'student':'students'}</div>
         <div class="rb-chips">
           ${s.FAILED!=null?`<span class="rc-chip">F:${s.FAILED}</span>`:''}
           ${s.INC!=null?`<span class="rc-chip inc">INC:${s.INC}</span>`:''}
@@ -2597,7 +2850,7 @@ function renderHardestTrend(data) {
         borderDash: CB.on ? CB_DASHES[i % CB_DASHES.length] : [],
         pointStyle: CB.on ? CB_SHAPES[i % CB_SHAPES.length] : 'circle' })) },
     options: { responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display: !(isNarrow() && data.trend.length > 6), position:'bottom',labels:{font:{size: fs},boxWidth: isNarrow() ? 8 : 12, padding: isNarrow() ? 8 : 10}},
+      plugins:{legend:{display: !(isNarrow() && data.trend.length > 6), position:'top', align:'start', rtl:false, labels:{font:{size: fs},boxWidth: isNarrow() ? 8 : 12, padding: isNarrow() ? 8 : 10}},
                tooltip:{mode:'index',intersect:false}},
       scales:{
         y:{reverse:true,min:1.0,max:5.0,
@@ -2759,7 +3012,7 @@ const PALETTES = {
   normal: {
     status:  { FAILED:'#dc2626', DRP:'#7c3aed', INC:'#d97706', UDR:'#0284c7', W:'#059669', NGA:'#9ca3af', CONTINUING:'#16a34a' },
     college: { CAHS:'#36b9cc', CBA:'#e74a3b', CCST:'#8a2be2', CEA:'#1cc88a', COAS:'#5a5c69', CTEC:'#4e73df' },
-    yl:      ['#7B1113','#C0392B','#E67E22','#F1C40F','#27AE60','#2980B9'],
+    yl:      ['#2563EB','#059669','#7C3AED','#0891B2','#D97706','#64748B'],
     heat:    ['#006837','#1a9850','#66bd63','#a6d96a','#d9ef8b','#ffffbf','#fee08b','#fdae61','#f46d43','#d73027','#a50026'],
     tiers:   ['#16a34a', '#65a30d', '#d97706', '#dc2626'],
     perfFallback: ['#4e73df','#1cc88a','#e74a3b','#36b9cc','#8a2be2','#5a5c69','#d97706','#800000'],   // course-program rows / radar lines
@@ -2802,3 +3055,440 @@ $('btnColorblind')?.addEventListener('click', () => {
 document.addEventListener('DOMContentLoaded', initDashboard);
 
 })();
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DOWNLOAD CHART AS PNG
+   ══════════════════════════════════════════════════════════════════════════ */
+(function () {
+
+  // ── Download icon — arrow-down-tray, clearly "save/download" ────────────
+  const DL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:15px">
+    <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z"/>
+    <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z"/>
+  </svg>`;
+
+  // ── Map card → canvas ids ────────────────────────────────────────────────
+  const CARD_CANVAS = {
+    kpiCard:         [],   // KPI = text/numbers, no canvas — we note this to user
+    kpiTrendCard:    ['kpiTrendChart'],
+    enrollTrendCard: ['enrollTrendChart'],
+    heatmapCard:     ['hmHistCanvas'],
+    perfCard:        ['perfRadarCanvas'],
+    genderCard:      [],   // multiple canvases, fallback to chart-area scan
+    hardestCard:     ['hsBarCanvas', 'hsTrendCanvas'],
+  };
+
+  const CARD_TITLES = {
+    kpiCard:         'KPI Overview',
+    kpiTrendCard:    'Status Trend',
+    enrollTrendCard: 'Enrollment Trend',
+    heatmapCard:     'Risk Histogram',
+    perfCard:        'Academic Performance',
+    genderCard:      'Gender Breakdown',
+    hardestCard:     'Subjects Requiring Intervention',
+  };
+
+  // ── Confirmation modal ───────────────────────────────────────────────────
+  const confirmModal = document.createElement('div');
+  confirmModal.id = 'dlConfirmModal';
+  confirmModal.className = 'dl-confirm-modal hidden';
+  confirmModal.innerHTML = `
+    <div class="dl-confirm-card">
+      <div class="dl-confirm-icon">
+        ${DL_SVG.replace('style="width:15px"', 'style="width:28px;color:#7B1113"')}
+      </div>
+      <div class="dl-confirm-body">
+        <h4 class="dl-confirm-title">Download Chart Image</h4>
+        <p class="dl-confirm-sub" id="dlConfirmSub">Save this chart as a PNG image file?</p>
+        <p class="dl-confirm-note">The image will include the chart with a white background, ready to insert into reports or presentations.</p>
+      </div>
+      <div class="dl-confirm-actions">
+        <button class="dl-btn-cancel" id="dlConfirmCancel">Cancel</button>
+        <button class="dl-btn-confirm" id="dlConfirmOk">
+          ${DL_SVG.replace('style="width:15px"', 'style="width:14px"')} Download PNG
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(confirmModal);
+
+  let _pendingCardId = null;
+
+  document.getElementById('dlConfirmCancel').addEventListener('click', () => {
+    confirmModal.classList.add('hidden');
+    _pendingCardId = null;
+  });
+  confirmModal.addEventListener('click', e => {
+    if (e.target === confirmModal) { confirmModal.classList.add('hidden'); _pendingCardId = null; }
+  });
+  document.getElementById('dlConfirmOk').addEventListener('click', () => {
+    confirmModal.classList.add('hidden');
+    if (_pendingCardId) { _doDownload(_pendingCardId); _pendingCardId = null; }
+  });
+
+  // ── Core download ────────────────────────────────────────────────────────
+  function _doDownload(cardId) {
+    const canvasIds = CARD_CANVAS[cardId] || [];
+    const title     = CARD_TITLES[cardId] || cardId;
+    const filename  = 'novasight_' + title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+    // Try named canvas ids first
+    for (const cid of canvasIds) {
+      const c = document.getElementById(cid);
+      if (c && c.width > 0) { _saveCanvas(c, filename); return; }
+    }
+
+    // Fallback: first visible canvas inside the card's chart-area
+    const fallback = document.querySelector('#' + cardId + ' .chart-area canvas');
+    if (fallback && fallback.width > 0) { _saveCanvas(fallback, filename); return; }
+
+    // KPI card: no canvas — inform user
+    if (cardId === 'kpiCard') {
+      _showNoCanvas('The KPI card displays numbers, not a chart image.\nUse the table download or take a screenshot instead.');
+      return;
+    }
+    _showNoCanvas('No chart found. Make sure the chart has finished loading, then try again.');
+  }
+
+  function _saveCanvas(canvas, filename) {
+    const off = document.createElement('canvas');
+    off.width = canvas.width; off.height = canvas.height;
+    const ctx = off.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, off.width, off.height);
+    ctx.drawImage(canvas, 0, 0);
+    const a = document.createElement('a');
+    a.href = off.toDataURL('image/png');
+    a.download = filename + '.png';
+    a.click();
+  }
+
+  function _showNoCanvas(msg) {
+    const sub = document.getElementById('dlConfirmSub');
+    // Repurpose the modal to show the error
+    const ok  = document.getElementById('dlConfirmOk');
+    if (sub) sub.textContent = msg;
+    if (ok)  ok.style.display = 'none';
+    confirmModal.classList.remove('hidden');
+    setTimeout(() => {
+      if (ok) ok.style.display = '';
+      if (sub) sub.textContent = 'Save this chart as a PNG image file?';
+    }, 4000);
+  }
+
+  // ── Inject buttons ───────────────────────────────────────────────────────
+  const ALL_CARDS = ['kpiCard', 'kpiTrendCard', 'enrollTrendCard', 'heatmapCard', 'perfCard', 'genderCard', 'hardestCard'];
+  ALL_CARDS.forEach(cardId => {
+    const card    = document.getElementById(cardId); if (!card) return;
+    const actions = card.querySelector('.kpi-header-actions'); if (!actions) return;
+
+    const btn = document.createElement('button');
+    btn.className = 'btn-icon btn-download-chart';
+    btn.title     = 'Download chart as PNG';
+    btn.setAttribute('aria-label', 'Download chart as PNG');
+    btn.innerHTML = DL_SVG;
+    btn.addEventListener('click', () => {
+      _pendingCardId = cardId;
+      const sub = document.getElementById('dlConfirmSub');
+      if (sub) sub.textContent = `Save "${CARD_TITLES[cardId] || cardId}" as a PNG image?`;
+      const ok = document.getElementById('dlConfirmOk');
+      if (ok) ok.style.display = '';
+      confirmModal.classList.remove('hidden');
+    });
+
+    const fsBtn = actions.querySelector('.btn-fullscreen');
+    if (fsBtn) actions.insertBefore(btn, fsBtn);
+    else actions.appendChild(btn);
+  });
+
+})();
+
+/* ══════════════════════════════════════════════════════════════════════════
+   AI INSIGHTS — "Generate Chart Insights"
+   Editable floating modal, shared across users via /api/dash/insights.
+   No external API — users write/edit insights directly.
+   ══════════════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function () {
+  const _$ = id => document.getElementById(id);
+
+  const modal    = _$('aiInsightsModal');
+  if (!modal) return;
+
+  const titleEl  = _$('aiInsightsTitle');
+  const ctxEl    = _$('aiInsightsContext');
+  const loadEl   = _$('aiInsightsLoading');
+  const textArea = _$('aiInsightsTextarea');
+  const badge    = _$('aiInsightsSaveBadge');
+  const metaEl   = _$('aiInsightsMeta');
+  const saveBtn  = _$('aiInsightsSave');
+  const regenBtn = _$('aiInsightsRegen');
+
+  let _card      = null;
+  let _dirty     = false;
+  let _savedText = '';
+  const filtersOf = id => {
+    try {
+      const strip = o => { const r = {...o}; delete r.sort; return r; };
+      switch (id) {
+        case 'kpiCard':         return strip(KF);
+        case 'kpiTrendCard':    return window.REG ? window.REG.ktFilters() : {};
+        case 'enrollTrendCard': return window.REG ? window.REG.etFilters() : {};
+        case 'heatmapCard':     return strip(HF);
+        case 'perfCard':    return { ...strip(PF), rank: perfRank };
+        case 'genderCard':  return { ...strip(GDF), enroll: gdEnroll, status: gdMetric };
+        case 'hardestCard': return { ...strip(HSF), metric: hsMetric, top_n: _$('hsTopN')?.value || '' };
+      }
+    } catch (e) {}
+    return {};
+  };
+
+  const TITLES = {
+    kpiCard:'KPI Overview', kpiTrendCard:'Status Trend', enrollTrendCard:'Enrollment Trend', heatmapCard:'Risk Histogram',
+    perfCard:'Academic Performance', genderCard:'Gender Breakdown',
+    hardestCard:'Subjects Requiring Intervention',
+  };
+  const PLACEHOLDER = {
+    kpiCard:     'Add your insights about the KPI overview here. What do the enrollment, GWA, and at-risk numbers reveal this semester?',
+    kpiTrendCard: 'Add your insights about the KPI trend here. How has the status breakdown shifted across semesters — any statuses rising or falling over time?',
+    enrollTrendCard: 'Add your insights about the enrollment trend here. Is total enrollment growing or shrinking, and how has the regular/irregular mix shifted over time?',
+    heatmapCard: 'Add your insights about the risk histogram here. Which colleges or courses show the highest failure rates, and by which year level?',
+    perfCard:    'Add your insights about academic performance here. Which departments lead, and which need intervention?',
+    genderCard:  'Add your insights about the gender breakdown here. Are there notable gaps between male and female academic outcomes?',
+    hardestCard: 'Add your insights about subjects requiring intervention here. What patterns appear in the top failing subjects?',
+  };
+
+  /* ── Dirty state — Save button turns maroon when changed ─────────────── */
+  function setDirty(val) {
+    _dirty = val;
+    if (!saveBtn) return;
+    saveBtn.classList.toggle('ai-save-btn-dirty', val);
+    saveBtn.disabled = !val;
+    saveBtn.title = val ? 'Save changes' : 'No unsaved changes';
+  }
+
+  function setBadge(cls, txt) {
+    if (!badge) return;
+    badge.textContent = txt;
+    badge.className = 'ai-save-badge' + (cls ? ' ' + cls : '');
+  }
+
+  /* ── Load from server ────────────────────────────────────────────────── */
+  async function loadInsight(cardId) {
+    try {
+      const r = await fetch('/api/dash/insights?chart_key=' + cardId + '&dashboard=main&filters=' + encodeURIComponent(JSON.stringify(filtersOf(cardId))));
+      if (!r.ok) return null;
+      const d = await r.json();
+      return d.found ? d : null;
+    } catch { return null; }
+  }
+
+  /* ── Save (explicit only) ────────────────────────────────────────────── */
+  async function doSave() {
+    const text = textArea?.innerText?.trim() || '';
+    if (!text || !_card) return;
+    setBadge('unsaved', 'Saving…');
+    const sub = document.querySelector('#' + _card + ' .card-subtitle')?.textContent || '';
+    try {
+      const r = await fetch('/api/dash/insights', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({chart_key:_card, dashboard:'main', insight_text:text, filter_label:sub, filters: filtersOf(_card) }),
+      });
+      const d = await r.json();
+      if (d.saved) {
+        _savedText = text;
+        setBadge('saved', 'Saved — visible to all users');
+        setDirty(false);
+        if (metaEl) metaEl.textContent = 'Just saved by you';
+      } else { setBadge('error', 'Save failed'); }
+    } catch { setBadge('error', 'Save failed'); }
+  }
+
+  /* ── Open modal ──────────────────────────────────────────────────────── */
+  async function openModal(cardId) {
+    _card = cardId; _savedText = '';
+    setDirty(false);
+    if (titleEl) {
+      const svg = titleEl.querySelector('svg');
+      titleEl.textContent = ' Generate Chart Insights — ' + (TITLES[cardId] || cardId);
+      if (svg) titleEl.prepend(svg);
+    }
+    if (ctxEl)  ctxEl.textContent  = document.querySelector('#' + cardId + ' .card-subtitle')?.textContent || '';
+    if (metaEl) metaEl.textContent = '';
+    setBadge('', '');
+    if (textArea) { textArea.textContent = ''; textArea.contentEditable = 'true'; }
+    modal.classList.remove('hidden');
+
+    if (loadEl) loadEl.classList.add('active');
+    const saved = await loadInsight(cardId);
+    if (loadEl) loadEl.classList.remove('active');
+
+    if (saved?.insight_text) {
+      _savedText = saved.insight_text;
+      textArea.innerText = saved.insight_text;
+      setBadge('saved', 'Saved — visible to all users');
+      if (saved.legacy) { _savedText = ''; setDirty(true); setBadge('unsaved', 'Earlier general insight - click Save to keep it for these filters'); }
+      if (metaEl && saved.updated_at) {
+        const dt = new Date(saved.updated_at);
+        metaEl.textContent = 'Last updated ' + dt.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})
+          + (saved.updated_by ? ' by ' + saved.updated_by : '');
+      }
+    } else {
+      textArea.textContent = '';
+      textArea.setAttribute('data-placeholder', PLACEHOLDER[cardId] || 'Type your insight here…');
+      setBadge('', '');
+      regenBtn?.click();   // no saved insight yet: let the AI draft one to review
+    }
+  }
+
+  /* ── Track edits: dirty only when text differs from last save ───────── */
+  textArea?.addEventListener('input', () => {
+    const current = textArea.innerText?.trim() || '';
+    const differs = current !== _savedText;
+    if (differs !== _dirty) setDirty(differs);
+    // If user reverted to saved text, restore badge
+    if (!differs) setBadge(_savedText ? 'saved' : '', _savedText ? 'Saved — visible to all users' : '');
+    else if (!badge.classList.contains('unsaved')) setBadge('unsaved', 'Unsaved — click Save to share');
+  });
+
+  /* ── Save button ─────────────────────────────────────────────────────── */
+  saveBtn?.addEventListener('click', () => { if (_dirty) doSave(); });
+
+  /* ── Regenerate — calls Claude API with current chart context ────────── */
+  const INST  = 'Bataan Peninsula State University (BPSU) Main Campus';
+  const SCALE = 'GWA uses the Philippine 1.00\u20135.00 scale \u2014 1.00 is best, 5.00 is failing.';
+
+  function buildPrompt(cardId) {
+    const sub = document.querySelector('#' + cardId + ' .card-subtitle')?.textContent || '';
+    const ctx = sub ? `Filters active: ${sub}\n` : '';
+    switch (cardId) {
+      case 'kpiCard': {
+        const vals = ['kpiEnrollVal','kpiGwaVal','kpiCompVal','kpiStatusVal']
+          .map(id => _$(id)?.textContent?.trim()).filter(Boolean).join(', ');
+        return `You are an academic analytics assistant for ${INST}. ${SCALE}\n${ctx}KPI snapshot: ${vals || 'see dashboard'}.\nProvide 3\u20135 concise numbered insights for administrators about what these numbers reveal and what actions to consider.`;
+      }
+      case 'kpiTrendCard': {
+        if (!window.ktData?.labels?.length) return null;
+        const n = window.ktData.labels.length;
+        const groupWord = window.ktData.group_by === 'course' ? 'program' : 'college';
+        const trend = (window.ktData.datasets || []).map(ds => {
+          const first = ds.data[0], last = ds.data[n - 1];
+          return `${ds.label}: ${first ?? '\u2014'} \u2192 ${last ?? '\u2014'}`;
+        }).join('; ');
+        return `You are an academic analytics assistant for ${INST}.\n${ctx}Status Trend \u2014 ${window.ktData.metric || 'FAILED'} status, by ${groupWord}, from ${window.ktData.labels[0]} to ${window.ktData.labels[n-1]}: ${trend}.\nProvide 3\u20135 concise numbered insights about which ${groupWord}s are rising or falling over time and what that suggests.`;
+      }
+      case 'enrollTrendCard': {
+        if (!window.etData?.labels?.length) return null;
+        const n = window.etData.labels.length;
+        const groupWord = window.etData.group_by === 'course' ? 'program' : 'college';
+        const trend = (window.etData.datasets || []).map(ds => {
+          const first = ds.data[0], last = ds.data[n - 1];
+          return `${ds.label}: ${first ?? '\u2014'} \u2192 ${last ?? '\u2014'}`;
+        }).join('; ');
+        return `You are an academic analytics assistant for ${INST}.\n${ctx}Enrollment Trend \u2014 ${window.etData.metric || 'all'} enrollment, by ${groupWord}, from ${window.etData.labels[0]} to ${window.etData.labels[n-1]}: ${trend}.\nProvide 3\u20135 concise numbered insights about which ${groupWord}s are growing or shrinking over time.`;
+      }
+      case 'heatmapCard': {
+        if (!window.hmData?.rows?.length) return null;
+        const isCount = window.hmData.metric === 'count';
+        const top = window.hmData.rows.slice(0,6).map(r => {
+          const yls = (window.hmData.year_levels||[]).map(yl => {
+            const v = r[yl]; return v!=null ? `${yl}:${isCount?v+' students':v.toFixed(1)+'%'}` : null;
+          }).filter(Boolean).join(' ');
+          return `${r.label}(${yls})`;
+        }).join('; ');
+        return `You are an academic analytics assistant for ${INST}.\n${ctx}Risk Histogram \u2014 ${window.HM_STATUS_LABELS?.[window.HF?.status]||'Failed'} rates: ${top}.\nProvide 3\u20135 concise numbered insights about risk patterns by college/year level and recommended interventions.`;
+      }
+      case 'perfCard': {
+        if (!window.perfData?.rows?.length) return null;
+        const top = window.perfData.rows.slice(0,5).map((r,i) =>
+          `${i+1}.${r.label}:GWA${r.avg_gwa_score?.toFixed(1)}% Pass${r.passing_rate?.toFixed(1)}% Ret${r.retention_rate?.toFixed(1)}%`
+        ).join('; ');
+        return `You are an academic analytics assistant for ${INST}. ${SCALE}\n${ctx}Academic Performance leaderboard: ${top}.\nProvide 3\u20135 concise numbered insights about strengths, weaknesses, and recommendations.`;
+      }
+      case 'genderCard':
+        return `You are an academic analytics assistant for ${INST}.\n${ctx}Analyze gender-disaggregated academic status distribution. Provide 3\u20134 concise numbered insights about what gender gaps in academic outcomes typically indicate and what administrators should examine.`;
+      case 'hardestCard': {
+        const subs = window.hsData?.subjects || window.hsData?.ranked || [];
+        if (!subs.length) return null;
+        const top = subs.slice(0,6).map((s,i)=>`${i+1}.${s.title||s.code}(${s.fail_rate!=null?(s.fail_rate*100).toFixed(1)+'%':'?'})`).join(' ');
+        return `You are an academic analytics assistant for ${INST}.\n${ctx}Top subjects by failure rate: ${top}.\nProvide 3\u20135 concise numbered insights about patterns and practical curriculum/support interventions.`;
+      }
+      default: return null;
+    }
+  }
+
+  regenBtn?.addEventListener('click', async () => {
+    if (!_card || !textArea) return;
+    const prompt = buildPrompt(_card);
+    if (!prompt) {
+      setBadge('error', 'Load the chart data first, then regenerate.');
+      return;
+    }
+    if (loadEl) loadEl.classList.add('active');
+    textArea.contentEditable = 'false';
+    regenBtn.disabled = true;
+    try {
+      const res = await fetch('/api/dash/insights/generate', { method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type':'application/json'}, body: JSON.stringify({ prompt }) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const text = (data.text || '').trim();
+      if (text) {
+        textArea.innerText = text;
+        setDirty(true);
+        setBadge('unsaved', 'AI draft \u2014 review and edit, then click Save to share');
+      } else {
+        setBadge('error', 'No response from AI. Try again.');
+      }
+    } catch (e) {
+      setBadge('error', 'AI error: ' + e.message);
+    } finally {
+      if (loadEl) loadEl.classList.remove('active');
+      textArea.contentEditable = 'true';
+      regenBtn.disabled = false;
+    }
+  });
+
+  /* ── Download as Word ────────────────────────────────────────────────── */
+  _$('aiInsightsDownloadWord')?.addEventListener('click', () => {
+    const title = TITLES[_card] || _card || '';
+    const sub   = ctxEl?.textContent || '';
+    const text  = textArea?.innerText || '';
+    let imgHtml = '';
+    if (_$('aiInsightsIncludeChart')?.checked) {
+      const canvas = document.querySelector('#' + _card + ' .chart-area canvas');
+      if (canvas) {
+        const off = document.createElement('canvas');
+        off.width = canvas.width; off.height = canvas.height;
+        const c = off.getContext('2d');
+        c.fillStyle='#fff'; c.fillRect(0,0,off.width,off.height); c.drawImage(canvas,0,0);
+        imgHtml = '<img src="' + off.toDataURL('image/png') + '" style="max-width:100%;margin:12px 0;" alt="' + title + '">';
+      }
+    }
+    const doc = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:Calibri,Arial,sans-serif;margin:2cm;color:#1f2937;line-height:1.7}h1{font-size:17pt;color:#7B1113;margin-bottom:2px}p.sub{font-size:10pt;color:#6b7280;margin:0 0 14px}hr{border:none;border-top:1px solid #e5e7eb;margin:14px 0}pre{font-family:inherit;font-size:11pt;white-space:pre-wrap;margin:0}footer{font-size:8pt;color:#9ca3af;margin-top:28px}</style></head><body><h1>'
+      + title + '</h1><p class="sub">' + sub + '</p><hr>' + imgHtml + '<pre>' + text.replace(/</g,'&lt;')
+      + '</pre><hr><footer>NovaSight Academic Analytics &middot; Bataan Peninsula State University<br>For informational purposes only.</footer></body></html>';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿'+doc],{type:'application/msword'}));
+    a.download = 'novasight_insight_' + title.toLowerCase().replace(/[^a-z0-9]+/g,'_') + '.doc';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
+
+  /* ── Close: discard changes, revert text ────────────────────────────── */
+  function closeModal() {
+    if (_dirty) {
+      if (_savedText) textArea.innerText = _savedText;
+      else textArea.textContent = '';
+      setDirty(false);
+      setBadge(_savedText ? 'saved' : '', _savedText ? 'Saved — visible to all users' : '');
+    }
+    modal.classList.add('hidden');
+  }
+  _$('aiInsightsClose')?.addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+  /* ── Wire buttons ────────────────────────────────────────────────────── */
+  document.querySelectorAll('[data-ai-card]').forEach(btn => {
+    btn.addEventListener('click', () => openModal(btn.dataset.aiCard));
+  });
+
+});

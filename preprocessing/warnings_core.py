@@ -51,18 +51,18 @@ NULL_WARNING_CATEGORIES = {
 # interpret/auto-correct. See the module docstring above — highlighted,
 # never silently auto-deleted.
 HIGHLIGHT_CATEGORIES = {
-    "Hindi kilalang Gender",
-    "Hindi kilalang College",
-    "Hindi kilalang Year Level",
-    "Hindi kilalang Academic Year",
-    "Hindi kilalang Semester",
+    "Unknown Gender",
+    "Unknown College",
+    "Unknown Year Level",
+    "Unknown Academic Year",
+    "Unknown Semester",
     "Invalid grade text",
     "Unknown Course Code (not in catalog)",
-    "Di-karaniwang grade value",
+    "Unusual grade value",
     # A grade sitting in a column with no subject code above it. The
     # script cannot tell which subject it belongs to, so it falls
     # outside every rule — highlighted for a human, never deleted.
-    "Orphan grade (walang code)",
+    "Orphan grade (no code)",
 }
 
 
@@ -115,7 +115,7 @@ class WarningCollector:
             ref = f" [{it['ref']}]" if it["ref"] else ""
             print(f"     {self._marker(it['category'])}({it['category']}){ref} {it['message']}")
         if len(ordered) > max_detail:
-            print(f"     ... at {len(ordered) - max_detail} pa.")
+            print(f"     ... and {len(ordered) - max_detail} more.")
         print(
             "\n   Note: 🟡 Highlight items are 'outside known processing rules' — "
             "they are NOT automatically removed from the dataset. "

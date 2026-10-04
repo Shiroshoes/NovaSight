@@ -137,8 +137,8 @@ def read_catalog_file(path: str) -> pd.DataFrame:
     missing = [c for c in CATALOG_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(
-            f"Course catalog file ay kulang ng column(s): {missing}. "
-            f"Kailangan: Course_Code, Course_Title, Credit_Units (anumang katulad na pangalan)."
+            f"Course catalog file is missing column(s): {missing}. "
+            f"Required: Course_Code, Course_Title, Credit_Units (or any similarly-named column)."
         )
     return df[["Course_Code", "Course_Title", "Credit_Units"]]
 
@@ -161,7 +161,7 @@ def validate_catalog(raw_df: pd.DataFrame, warn: WarningCollector) -> dict:
             warn.add("Null Course Title (Catalog)", f"No Course_Title for code '{code}'", ref)
         elif pd.notna(code) and str(title).strip().upper() == str(code).strip().upper():
             warn.add(
-                "Title = Code lang (Catalog)",
+                "Title = Code only (Catalog)",
                 f"Code '{code}': Course_Title is '{title}' — same as the code, not a real descriptive name. "
                 f"Not blank so not caught by the Null Course Title check — "
                 f"please verify if this is intentional or should have a proper title.",
@@ -185,9 +185,9 @@ def validate_catalog(raw_df: pd.DataFrame, warn: WarningCollector) -> dict:
         if len(unique_entries) > 1:
             warn.add(
                 "Conflicting Catalog Entry",
-                f"Course_Code '{code}' ay may {len(group)} magkakaibang entry sa catalog "
-                f"(magkaibang title/credit units: {sorted(unique_entries)}) — hindi malinaw kung "
-                f"alin ang tama, kailangan ayusin ang catalog file bago ito gamiting baseline",
+                f"Course_Code '{code}' has {len(group)} conflicting entries in the catalog "
+                f"(different title/credit units: {sorted(unique_entries)}) — unclear which one "
+                f"is correct, the catalog file needs to be fixed before using it as a baseline",
                 f"catalog code={code}",
             )
         # first occurrence is used as the working value regardless — but the
@@ -260,10 +260,10 @@ def validate_catalog(raw_df: pd.DataFrame, warn: WarningCollector) -> dict:
                     continue
                 warn.add(
                     "Possible Typo Pair (Catalog)",
-                    f"'{c1}' at '{c2}' ay pareho ang digits at isang letra lang ang pagkakaiba "
-                    f"({catalog[c1]['title']!r} vs {catalog[c2]['title']!r}) — posibleng typo ng "
-                    f"isa't isa. Pareho itong nananatili sa catalog (hindi awtomatikong "
-                    f"pinagsasama), pakisuri.",
+                    f"'{c1}' and '{c2}' share the same digits and differ by only one letter "
+                    f"({catalog[c1]['title']!r} vs {catalog[c2]['title']!r}) — possibly a typo "
+                    f"of each other. Both remain in the catalog as-is (not automatically "
+                    f"merged), please review.",
                     f"catalog codes={c1}/{c2}",
                 )
                 flagged_pairs.add((c1, c2))
@@ -296,10 +296,10 @@ def validate_catalog(raw_df: pd.DataFrame, warn: WarningCollector) -> dict:
                 )
             warn.add(
                 "Same-title course variants (catalog)",
-                f"{len(members)} code na pareho ang title na {catalog[members[0][1]]['title']!r} — "
-                f"ang dulo ng code ang palatandaan kung aling course ito: "
+                f"{len(members)} codes share the title {catalog[members[0][1]]['title']!r} — "
+                f"the tail of the code is what identifies which course this is: "
                 + ", ".join(f"{c} [{l[PROGRAM_PREFIX_LEN:]}]" for l, c in members)
-                + ". Hindi ito typo; ginawang Subject_Name ang '<title> [dulo ng code]'.",
+                + ". This is not a typo; Subject_Name was set to '<title> [code tail]'.",
                 f"catalog codes={'/'.join(c for _, c in members)}",
             )
 
@@ -779,8 +779,8 @@ def reconcile_credit_units(df: pd.DataFrame, warn: WarningCollector):
             warn.add(
                 "GWA mismatch vs Catalog",
                 f"Student '{student_id}': sheet GWA={round(reported_gwa, 4)} but "
-                f"{round(weighted, 4)} ang credit-weighted na kalkulasyon mula sa mga grade "
-                f"gamit ang catalog units — hindi tugma, pakisuri{also_units}",
+                f"{round(weighted, 4)} is the credit-weighted calculation from the grades "
+                f"using catalog units — doesn't match, please review{also_units}",
                 ref,
             )
 

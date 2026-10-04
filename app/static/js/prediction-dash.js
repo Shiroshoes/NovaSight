@@ -1,26 +1,26 @@
-/* ══════════════════════════════════════════════════════════════════════
-   prediction-dash.js — NovaSight Prediction Analysis
+/* ======================================================================
+   prediction-dash.js \u2014 NovaSight Prediction Analysis
    Same components as maindash.js (filter popovers, table modals, sortable /
    searchable tables, fullscreen cards) so the two dashboards behave alike;
    the data comes from /api/pred/* (ml_route/prediction_api.py).
-   ══════════════════════════════════════════════════════════════════════ */
+   ====================================================================== */
 (function () {
 'use strict';
 
-/* ── DOM helpers ─────────────────────────────────────────────────────────── */
+/* -- DOM helpers ----------------------------------------------------------- */
 const $   = id => document.getElementById(id);
 const qsa = (sel, root=document) => [...root.querySelectorAll(sel)];
 
 function loading(id) {
   const el = $(id);
-  if (el) el.innerHTML = `<div class="chart-loading"><div class="chart-spinner"></div><span>Loading…</span></div>`;
+  if (el) el.innerHTML = `<div class="chart-loading"><div class="chart-spinner"></div><span>Loading\u2026</span></div>`;
 }
 function empty(id, msg='No data for the selected filters.') {
   const el = $(id);
   if (el) el.innerHTML = `<div class="chart-empty">${msg}</div>`;
 }
 
-/* ── Download helpers ────────────────────────────────────────────────────── */
+/* -- Download helpers ------------------------------------------------------ */
 function downloadChartPng(canvasId, filename) {
   const c = $(canvasId);
   if (!c) return;
@@ -43,16 +43,16 @@ function downloadCsv(rows, headers, filename) {
   setTimeout(() => URL.revokeObjectURL(a.href), 8000);
 }
 
-/* ── Delta badge ─────────────────────────────────────────────────────────── */
+/* -- Delta badge ----------------------------------------------------------- */
 function deltaHtml(val, unit='', invertGood=false) {
   if (val == null || isNaN(val) || val === 0) return '';
   const up  = val > 0;
   const cls = (up ? !invertGood : invertGood) ? 'up' : 'down';
-  return `<span class="kpi-delta ${cls}">${up?'↑':'↓'}${Math.abs(val).toFixed(2)}${unit}</span>`;
+  return `<span class="kpi-delta ${cls}">${up?'\u2191':'\u2193'}${Math.abs(val).toFixed(2)}${unit}</span>`;
 }
 
 /* White pill badge for numbers sitting on the dark red Total Enrollment
-   card — plain colored text was unreadable directly on that background.
+   card \u2014 plain colored text was unreadable directly on that background.
    up=true -> green (enrollment grew, good), false -> red, null -> neutral gray. */
 function enrollPill(text, up, fontSize=14) {
   const color = up === null ? '#4b5563' : (up ? '#15803d' : '#b91c1c');
@@ -61,7 +61,7 @@ function enrollPill(text, up, fontSize=14) {
          `${text}</span>`;
 }
 
-/* ── Chart.js instance manager ───────────────────────────────────────────── */
+/* -- Chart.js instance manager --------------------------------------------- */
 const _charts = {};
 function makeChart(id, config) {
   if (_charts[id]) _charts[id].destroy();
@@ -71,7 +71,7 @@ function makeChart(id, config) {
   return _charts[id];
 }
 
-/* ── Populate select from list ───────────────────────────────────────────── */
+/* -- Populate select from list --------------------------------------------- */
 function fillSelect(selId, items, labelFn = d => d, valFn = d => d) {
   const sel = $(selId);
   if (!sel) return;
@@ -81,9 +81,9 @@ function fillSelect(selId, items, labelFn = d => d, valFn = d => d) {
   sel.value = cur;
 }
 
-/* ── Sortable / searchable / filterable / paginated HTML table ──────────────
+/* -- Sortable / searchable / filterable / paginated HTML table --------------
    Backward compatible with the old buildTable(id, rows, headers, sort, dir)
-   calls — pass an extra `opts` object to turn on the extra features:
+   calls \u2014 pass an extra `opts` object to turn on the extra features:
      { pageSize, filename, searchable, filterable, downloadable }
    All default to sensible values (search/filter/download ON, pageSize 10). */
 function buildTable(containerId, rows, headers, defaultSort=null, defaultDir='desc', opts={}) {
@@ -110,7 +110,7 @@ function buildTable(containerId, rows, headers, defaultSort=null, defaultDir='de
   let colsOpen      = false;           // "Columns" show/hide popover
 
   const activeHeaders = () => headers.filter(h => visibleCols.has(h));
-  const uniqueValues  = h => [...new Set(rows.map(r => String(r[h] ?? '—')))]
+  const uniqueValues  = h => [...new Set(rows.map(r => String(r[h] ?? '\u2014')))]
     .sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
 
   function filtered() {
@@ -120,7 +120,7 @@ function buildTable(containerId, rows, headers, defaultSort=null, defaultDir='de
         if (!hay.includes(searchTerm)) return false;
       }
       for (const h in colFilters) {
-        if (!colFilters[h].has(String(r[h] ?? '—'))) return false;
+        if (!colFilters[h].has(String(r[h] ?? '\u2014'))) return false;
       }
       return true;
     });
@@ -213,7 +213,7 @@ function buildTable(containerId, rows, headers, defaultSort=null, defaultDir='de
     const toolbar = (searchable || downloadable || headers.length > 1) ? `
       <div class="dt-toolbar">
         <div class="dt-search-wrap">
-          ${searchable ? `<input type="text" class="dt-search" id="${containerId}_search" placeholder="Search records…" value="${searchTerm.replace(/"/g,'&quot;')}">` : ''}
+          ${searchable ? `<input type="text" class="dt-search" id="${containerId}_search" placeholder="Search records\u2026" value="${searchTerm.replace(/"/g,'&quot;')}">` : ''}
         </div>
         <div class="dt-toolbar-actions">
           ${downloadable ? `<button type="button" class="btn-action" id="${containerId}_csv">Download CSV</button>
@@ -224,19 +224,19 @@ function buildTable(containerId, rows, headers, defaultSort=null, defaultDir='de
 
     const head = hs.map(h => {
       const active   = !!colFilters[h];
-      const arrow    = h === sortCol ? `<span class="sort-arrow">${sortDir==='asc'?'↑':'↓'}</span>` : '';
-      const filterBt = filterable ? `<button type="button" class="dt-filter-btn${active?' active':''}" data-filter-h="${h}" title="Filter ${h}">▾</button>` : '';
+      const arrow    = h === sortCol ? `<span class="sort-arrow">${sortDir==='asc'?'\u2191':'\u2193'}</span>` : '';
+      const filterBt = filterable ? `<button type="button" class="dt-filter-btn${active?' active':''}" data-filter-h="${h}" title="Filter ${h}">\u25be</button>` : '';
       const pop      = (filterable && openFilterCol === h) ? renderFilterPop(h) : '';
       return `<th><div class="dt-th-inner"><span class="dt-th-label" data-sort-h="${h}">${h}${arrow}</span>${filterBt}</div>${pop}</th>`;
     }).join('');
 
     const body = pageRows.length
-      ? pageRows.map(r => `<tr>${hs.map(h=>`<td>${r[h]??'—'}</td>`).join('')}</tr>`).join('')
+      ? pageRows.map(r => `<tr>${hs.map(h=>`<td>${r[h]??'\u2014'}</td>`).join('')}</tr>`).join('')
       : `<tr><td colspan="${hs.length}" class="dt-empty">No matching records.</td></tr>`;
 
     const pagination = `
       <div class="dt-pagination">
-        <span>${all.length.toLocaleString()} record${all.length===1?'':'s'} · Page ${page} of ${totalPages}</span>
+        <span>${all.length.toLocaleString()} record${all.length===1?'':'s'} \u00b7 Page ${page} of ${totalPages}</span>
         <div class="dt-page-btns">
           <button type="button" class="btn-action" id="${containerId}_prev" ${page<=1?'disabled':''}>Previous</button>
           <button type="button" class="btn-action" id="${containerId}_next" ${page>=totalPages?'disabled':''}>Next</button>
@@ -340,8 +340,8 @@ function buildTable(containerId, rows, headers, defaultSort=null, defaultDir='de
   render();
 }
 
-/* ── Reusable header widgets (used by KPI + Heatmap) ─────────────────────── */
-// Filter icon → floating popover. Closes on X, outside click, Escape, or Apply.
+/* -- Reusable header widgets (used by KPI + Heatmap) ----------------------- */
+// Filter icon \u2192 floating popover. Closes on X, outside click, Escape, or Apply.
 function initFilterPopover({ toggleId, popoverId, closeId, applyId }) {
   const toggleBtn = $(toggleId);
   const popover   = $(popoverId);
@@ -374,7 +374,7 @@ function initFilterPopover({ toggleId, popoverId, closeId, applyId }) {
   applyBtn?.addEventListener('click', close);
 }
 
-// Table icon → floating modal (closes on X, backdrop click, or Escape).
+// Table icon \u2192 floating modal (closes on X, backdrop click, or Escape).
 function initTableModal({ openId, modalId, closeId, onOpen }) {
   const openBtn  = $(openId);
   const modal    = $(modalId);
@@ -401,24 +401,24 @@ function initTableModal({ openId, modalId, closeId, onOpen }) {
   return { open, close };
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   PREDICTION LAYER — everything below is specific to /api/pred/*
+/* ==========================================================================
+   PREDICTION LAYER \u2014 everything below is specific to /api/pred/*
    KPI ............ always 1 semester ahead
    other charts ... up to `chart_steps` semesters ahead (grows with uploads)
-   ══════════════════════════════════════════════════════════════════════════ */
+   ========================================================================== */
 const API = '/api/pred';
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
   c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-const fmt = n => (n == null || isNaN(n)) ? '—' : Number(n).toLocaleString('en-US');
+const fmt = n => (n == null || isNaN(n)) ? '\u2014' : Number(n).toLocaleString('en-US');
 const ordinal = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
 const STATUS_LABEL = { FAILED:'Failed', DRP:'Drop', UDR:'UDR', W:'W', INC:'INC', NGA:'NGA' };
 const KPI_STATUSES = ['FAILED','DRP','INC','UDR','W','NGA'];
 const PALETTE = ['#800000','#4E73DF','#1CC88A','#E74A3B','#8A2BE2','#36B9CC','#d97706',
                  '#fd7e14','#20c997','#d63384','#6c757d','#0d6efd','#8b5e3c','#4b8b3b'];
-/* ── LINE COLORS (GWA Trend + At-Risk Forecast) — edit here ─────────────────
+/* -- LINE COLORS (GWA Trend + At-Risk Forecast) \u2014 edit here -----------------
    "All" colleges  -> one line per college  -> COLLEGE_COLORS (key = college code)
    a college picked -> one line per course  -> COURSE_COLORS  (key = course name,
-   upper-case, WITHOUT "Bachelor of Science in …" — it is matched by containment,
+   upper-case, WITHOUT "Bachelor of Science in \u2026" \u2014 it is matched by containment,
    so 'NURSING' also matches "Bachelor of Science in Nursing").
    Anything not listed falls back to PALETTE. */
 const COLLEGE_COLORS = {
@@ -468,9 +468,13 @@ const colorFor = label => {
   if (!_colorMap.has(label)) _colorMap.set(label, PALETTE[_colorMap.size % PALETTE.length]);
   return _colorMap.get(label);
 };
-const shortCourse = c => String(c || '').replace(/^Bachelor of Science in /, 'BS in ')
+// Chart label for a program: its acronym (META.course_short, from /api/pred/meta).
+// Filters keep the full name; anything not in the map (colleges, unknown programs)
+// falls back to the old "BS in ..." shortening.
+const shortCourse = c => (typeof META !== 'undefined' && META && META.course_short && META.course_short[c])
+  || String(c || '').replace(/^Bachelor of Science in /, 'BS in ')
   .replace(/^Bachelor of Arts in /, 'BA in ').replace(/^Bachelor of /, 'B ');
-const clip = (t, n) => (t && t.length > n ? t.slice(0, n - 1) + '…' : (t || ''));
+const clip = (t, n) => (t && t.length > n ? t.slice(0, n - 1) + '\u2026' : (t || ''));
 
 async function api(path, params) {
   const u = new URL(API + path, window.location.origin);
@@ -478,28 +482,48 @@ async function api(path, params) {
     if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, v);
   });
   const r = await fetch(u, { credentials: 'same-origin' });
-  if (!r.ok) throw new Error(`${path} → HTTP ${r.status}`);
+  if (!r.ok) throw new Error(`${path} \u2192 HTTP ${r.status}`);
   return r.json();
 }
 
-/* ── State (each card keeps its own applied filters, like the main dashboard) ── */
+/* -- Global semester comparison (shared with main dashboard) -- */
+/* -- Comparison lives in each chart's filter popover (default: None) --- */
+const cmpOf = id => document.getElementById(id)?.value || '';
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('select[id$="Compare"]').forEach(sel => {
+    const p = sel.id.replace(/Compare$/, '');
+    document.getElementById(p + 'BtnReset')?.addEventListener('click', () => { sel.value = ''; }, true);
+  });
+});
+
+
+/* -- State (each card keeps its own applied filters, like the main dashboard) -- */
 let META = null;
-const seq = { kpi: 0, hs: 0, gwa: 0, risk: 0 };            // drop stale async responses
+const seq = { kpi: 0, hs: 0, gwa: 0, risk: 0, kt: 0, et: 0 };      // drop stale async responses
 const blank = () => ({ dept:'', course:'', yl:'' });
 let KF  = blank();                                            // KPI
 let HSF = { ...blank(), horizon:'', subject:'', top:'10' };   // Hardest subjects
 let GF  = { ...blank(), horizon:'', history:true, zoom:false };
 let RF  = { ...blank(), horizon:'', history:true };
+let KTF = { ...blank(), horizon:'', history:true };           // KPI Trend
+let ETF = { ...blank(), horizon:'', history:true };           // Enrollment Trend
 let kpiMetric = 'all', kpiStatusMetric = 'all';
 let hsMetric = 'avg_grade', hsView = 'bar', hsSortDir = 'desc', hsModalKey = null;
 let riskMetric = 'FAILED';
-let kpiData = null, hsData = null, gwaData = null, riskData = null;
+let kpiData = null, hsData = null, gwaData = null, riskData = null, ktData = null, etData = null;
+let ktMetric = 'FAILED', etMetric = 'all';
+const ENROLL_METRIC_LABEL = { all: 'All', regular: 'Regular', irregular: 'Irregular' };
+const COMPARE_DESC = {
+  '':     '',
+  '1sem': '1st Semester only, year-over-year',
+  '2sem': '2nd Semester only, year-over-year',
+};
 const tableCtx = {};                                          // prefix -> {rows, headers, name}
 
-/* ── skeleton loading (styles live in skeleton.css) ─────────────────────────
+/* -- skeleton loading (styles live in skeleton.css) -------------------------
    A card shows placeholders while .is-loading is set. Each request adds one
    hold (skOn) and releases it when it finishes (skDone); the page also holds
-   every card once at start so nothing flashes "—" before the first response. */
+   every card once at start so nothing flashes "\u2014" before the first response. */
 const _skCount = {}, _skInit = {};
 function skOn(id) {
   const el = $(id); if (!el) return;
@@ -515,11 +539,11 @@ function skDone(id) {
   skOff(id);
   if (_skInit[id]) { _skInit[id] = 0; skOff(id); }              // release the start-up hold once
 }
-const SK_CARDS = ['kpiCard', 'hardestCard', 'gwaCard', 'riskCard'];
+const SK_CARDS = ['kpiCard', 'enrollTrendCard', 'kpiTrendCard', 'hardestCard', 'gwaCard', 'riskCard'];
 SK_CARDS.forEach(id => { skOn(id); _skInit[id] = 1; });
 setTimeout(() => SK_CARDS.forEach(id => { if (_skInit[id]) { _skInit[id] = 0; skOff(id); } }), 25000);  // never stay grey forever
 
-/* ── phones: smaller chart text, shorter labels ──────────────────────────── */
+/* -- phones: smaller chart text, shorter labels ---------------------------- */
 const isNarrow = () => window.matchMedia('(max-width: 640px)').matches;
 const baseFs = card => (isFs(card) ? 13 : (isNarrow() ? 10 : 11));
 const shortTerm = l => String(l).replace(/^(\d{4})-(\d{4})\s+(1st|2nd)\s+Sem$/, (m, a, b, sm) => `${a.slice(2)}-${b.slice(2)} ${sm}`);
@@ -528,7 +552,7 @@ const shortTerm = l => String(l).replace(/^(\d{4})-(\d{4})\s+(1st|2nd)\s+Sem$/, 
 const scopeOf = F => ({ department:F.dept, course:F.course, year_level:F.yl });
 const isFs = id => !!$(id)?.classList.contains('is-fullscreen');
 
-/* ── Forecast band + line chart (solid = recorded, dashed/hollow = forecast) ── */
+/* -- Forecast band + line chart (solid = recorded, dashed/hollow = forecast) -- */
 const forecastBand = {
   id: 'forecastBand',
   beforeDatasetsDraw(chart, _a, opts) {
@@ -557,7 +581,7 @@ function lineChart(canvasId, data, o) {
     return {
       label: o.labelOf ? o.labelOf(d) : shortCourse(d.label), data: d.data,
       borderColor: color, backgroundColor: color, borderWidth: cp ? 1.6 : 2,
-      tension: 0, spanGaps: true, pointRadius: cp ? 2.5 : 4, pointHoverRadius: cp ? 5 : 6,
+      tension: 0.3, spanGaps: true, pointRadius: cp ? 2.5 : 4, pointHoverRadius: cp ? 5 : 6,
       pointBorderWidth: cp ? 1.5 : 2, pointBorderColor: color,
       pointBackgroundColor: c => (pred[c.dataIndex] ? '#fff' : color),
       segment: { borderDash: c => (pred[c.p1DataIndex] ? (cp ? [4, 3] : [6, 4]) : undefined) },
@@ -576,24 +600,47 @@ function lineChart(canvasId, data, o) {
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
-      layout: { padding: cp ? { left: 0, right: 4, top: 4, bottom: 0 } : {} },
-      scales: { x: { grid: { display: false }, ticks: { font: { size: fs }, maxRotation: cp ? 0 : 45, maxTicksLimit: cp ? 5 : 20, autoSkip: true,
-        callback(v) { const l = this.getLabelForValue(v); return isNarrow() ? shortTerm(l) : l; } } }, y },
+      layout: { padding: cp ? { left: 0, right: 4, top: 4, bottom: 0 } : { right: 4, top: 4 } },
+      scales: {
+        x: {
+          border: { display: true, color: '#e5e7eb' },
+          grid: { color: '#f0f0f0', drawTicks: false },
+          ticks: { font: { size: fs }, maxRotation: cp ? 0 : 35, maxTicksLimit: cp ? 5 : 20, autoSkip: true,
+            callback(v) { const l = this.getLabelForValue(v); return isNarrow() ? shortTerm(l) : l; } }
+        },
+        y: { ...y, border: { display: true, color: '#e5e7eb' }, grid: { color: '#f0f0f0', drawTicks: false } },
+      },
       plugins: {
-        datalabels: { display: false },
+        datalabels: o.noLabels ? { display: false } : {
+          display: ctx => ctx.dataset.data[ctx.dataIndex] != null,
+          anchor: 'end', align: 'top', offset: 4, clip: false,
+          font: { size: cp ? 8 : 9 },
+          color: ctx => ctx.dataset.borderColor,
+          formatter: v => (v == null ? '' : (o.valFmt ? o.valFmt(v) : Number(v).toLocaleString())),
+        },
         forecastBand: { firstPred: pred.indexOf(true) },
-        legend: { display: !(cp && data.datasets.length > 6), position: 'bottom',
-          labels: { usePointStyle: true, boxWidth: cp ? 6 : 8, padding: cp ? 8 : 10, font: { size: fs } } },
+        legend: {
+          display: !(cp && data.datasets.length > 6),
+          position: 'top',
+          align: 'center',
+          rtl: false,
+          labels: { usePointStyle: true, boxWidth: cp ? 6 : 8, padding: cp ? 8 : 12, font: { size: fs }, color: '#374151' },
+        },
         tooltip: { callbacks: {
-          title: items => items[0].label + (pred[items[0].dataIndex] ? '  (forecast)' : '  (recorded)'),
-          label: c => (c.parsed.y == null ? null : `${c.dataset.label}: ${o.valFmt ? o.valFmt(c.parsed.y) : c.parsed.y}`),
+          title: items => items[0].label + (pred[items[0].dataIndex] ? '  \u2726 forecast' : '  \u00b7 recorded'),
+          label: c => (c.parsed.y == null ? null : ` ${c.dataset.label}: ${o.valFmt ? o.valFmt(c.parsed.y) : c.parsed.y}`),
+          afterBody: items => {
+            if (!o.showTotal || items.length < 2) return [];
+            const sum = items.reduce((acc, c) => acc + (c.parsed.y ?? 0), 0);
+            return ['---------', `Total: ${o.valFmt ? o.valFmt(sum) : Math.round(sum)}`];
+          },
         } },
       },
     },
   });
 }
 
-/* ── shared: horizon / department / course / year-level selects ────────────── */
+/* -- shared: horizon / department / course / year-level selects -------------- */
 function horizonOptions(p) {
   const sel = $(p + 'Horizon');
   if (!sel || !META) return;
@@ -610,7 +657,7 @@ function fillCourses(p) {
   while (cs.options.length > 1) cs.remove(1);
   (META.departments || []).filter(d => !dept || d.name === dept)
     .flatMap(d => d.courses).sort()
-    .forEach(c => cs.add(new Option(shortCourse(c), c)));
+    .forEach(c => cs.add(new Option(c, c)));   // filter keeps the full program name
   cs.value = [...cs.options].some(o => o.value === cur) ? cur : '';
 }
 function fillScopeSelects(p) {
@@ -641,18 +688,19 @@ function scopeText(F) {
   if (F.dept) bits.push(F.dept);
   if (F.course) bits.push(shortCourse(F.course));
   if (F.yl) bits.push(ordinal(Number(F.yl)) + ' year');
-  return bits.length ? bits.join(' · ') : (window.NS_LOCK_COLLEGE || 'all colleges');
+  return bits.length ? bits.join(' \u00b7 ') : (window.NS_LOCK_COLLEGE || 'all colleges');
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
+/* ==========================================================================
    1. KPI  (1 semester ahead)
-   ══════════════════════════════════════════════════════════════════════════ */
+   ========================================================================== */
 async function loadKpi() {
+  if (!$('kpiCard')) return;   // this page doesn't ship the KPI card — nothing to load
   const id = ++seq.kpi;
   skOn('kpiCard');
-  $('kpiSubtitle').textContent = 'Loading forecast…';
+  $('kpiSubtitle').textContent = 'Loading forecast\u2026';
   try {
-    const d = await api('/kpi', scopeOf(KF));
+    const d = await api('/kpi', { ...scopeOf(KF), compare: cmpOf('kpiCompare') });
     if (id !== seq.kpi) return;
     kpiData = d;
     if (d.available === false) return kpiUnavailable(d.reason);
@@ -668,16 +716,16 @@ async function loadKpi() {
 function kpiUnavailable(msg) {
   kpiData = null;
   $('kpiSubtitle').textContent = msg || 'No forecast available.';
-  ['kpiEnrollVal','kpiGwaVal','kpiCompVal','kpiStatusVal'].forEach(i => { $(i).textContent = '—'; });
+  ['kpiEnrollVal','kpiGwaVal','kpiCompVal','kpiStatusVal'].forEach(i => { $(i).textContent = '\u2014'; });
   ['kpiEnrollPct','kpiEnrollDelta','kpiGwaDelta','kpiCompDelta','kpiYearLevelRow','kpiStatusBreakdown']
     .forEach(i => { $(i).innerHTML = ''; });
-  ['kpiGwaPct','kpiCompPct','kpiStatusPct'].forEach(i => { $(i).className = 'kpi-mini-pct-badge flat'; $(i).textContent = '—'; });
+  ['kpiGwaPct','kpiCompPct','kpiStatusPct'].forEach(i => { $(i).className = 'kpi-mini-pct-badge flat'; $(i).textContent = '\u2014'; });
 }
 function pctBadge(el, pct, higherIsBetter) {
-  if (pct == null || isNaN(pct)) { el.className = 'kpi-mini-pct-badge flat'; el.textContent = '—'; return; }
+  if (pct == null || isNaN(pct)) { el.className = 'kpi-mini-pct-badge flat'; el.textContent = '\u2014'; return; }
   const up = pct > 0;
   el.className = 'kpi-mini-pct-badge ' + (pct === 0 ? 'flat' : ((up === higherIsBetter) ? 'up' : 'down'));
-  el.textContent = (pct === 0 ? '' : (up ? '▲ ' : '▼ ')) + Math.abs(pct).toFixed(1) + '%';
+  el.textContent = (pct === 0 ? '' : (up ? '\u25b2 ' : '\u25bc ')) + Math.abs(pct).toFixed(1) + '%';
 }
 function renderKpi() {
   const d = kpiData;
@@ -688,7 +736,7 @@ function renderKpi() {
   }
   const prevLbl = d.prev_term.label;
   $('kpiSubtitle').innerHTML =
-    `Predicted for <b>${esc(d.term.label)}</b> — 1 semester ahead of ${esc(prevLbl)} · ${esc(scopeText(KF))}`;
+    `Predicted for <b>${esc(d.term.label)}</b> \u2014 1 semester ahead of ${esc(prevLbl)} \u00b7 ${esc(scopeText(KF))}`;
   $('kpiEnrollVs').textContent = `vs ${prevLbl}`;
   document.querySelectorAll('#kpiCard .kpi-delta-label').forEach(el => {
     if (el.id !== 'kpiEnrollVs') el.textContent = ` vs ${prevLbl}`;
@@ -700,9 +748,9 @@ function renderKpi() {
   const delta = seg.prev == null ? null : seg.value - seg.prev;
   $('kpiEnrollDelta').innerHTML = delta == null ? ''
     : (delta === 0 ? enrollPill('No change', null, 14)
-       : enrollPill(`${delta > 0 ? '▲' : '▼'} ${fmt(Math.abs(delta))}`, delta > 0, 14));
+       : enrollPill(`${delta > 0 ? '\u25b2' : '\u25bc'} ${fmt(Math.abs(delta))}`, delta > 0, 14));
   $('kpiEnrollPct').innerHTML = seg.pct == null ? ''
-    : enrollPill(`${seg.pct > 0 ? '▲' : seg.pct < 0 ? '▼' : ''} ${Math.abs(seg.pct).toFixed(1)}%`, seg.pct > 0 ? true : seg.pct < 0 ? false : null, 18);
+    : enrollPill(`${seg.pct > 0 ? '\u25b2' : seg.pct < 0 ? '\u25bc' : ''} ${Math.abs(seg.pct).toFixed(1)}%`, seg.pct > 0 ? true : seg.pct < 0 ? false : null, 18);
 
   // Regular vs Irregular split bar
   const reg = d.enrollment.regular.value, irr = d.enrollment.irregular.value, tot = reg + irr;
@@ -713,7 +761,7 @@ function renderKpi() {
   $('kpiRegIrregRegPct').textContent = tot ? ` (${(reg / tot * 100).toFixed(1)}%)` : '';
   $('kpiRegIrregIrregPct').textContent = tot ? ` (${(irr / tot * 100).toFixed(1)}%)` : '';
 
-  // Year-level chips (1st–4th + Irreg)
+  // Year-level chips (1st\u20134th + Irreg)
   const all = d.enrollment.all;
   $('kpiYearLevelRow').innerHTML = all.by_year.map(y => `
     <div class="kpi-yl-chip"><span class="kpi-yl-chip-num">${fmt(y.value)}</span>
@@ -724,13 +772,13 @@ function renderKpi() {
       <span class="kpi-yl-chip-pct">${all.value ? (irr / all.value * 100).toFixed(1) : '0.0'}%</span></div>`;
 
   // GWA (lower is better)
-  $('kpiGwaVal').textContent = d.gwa.value != null ? Number(d.gwa.value).toFixed(2) : '—';
+  $('kpiGwaVal').textContent = d.gwa.value != null ? Number(d.gwa.value).toFixed(2) : '\u2014';
   $('kpiGwaDelta').innerHTML = (d.gwa.value != null && d.gwa.prev != null)
     ? deltaHtml(d.gwa.value - d.gwa.prev, '', true) : '';
   pctBadge($('kpiGwaPct'), d.gwa.pct, false);
 
   // Completion (higher is better)
-  $('kpiCompVal').textContent = d.completion.value != null ? Number(d.completion.value).toFixed(1) + '%' : '—';
+  $('kpiCompVal').textContent = d.completion.value != null ? Number(d.completion.value).toFixed(1) + '%' : '\u2014';
   $('kpiCompDelta').innerHTML = (d.completion.value != null && d.completion.prev != null)
     ? deltaHtml(d.completion.value - d.completion.prev, '%') : '';
   pctBadge($('kpiCompPct'), d.completion.pct, true);
@@ -754,9 +802,9 @@ function renderKpiStatus() {
     $('kpiStatusVal').textContent = fmt(s.count);
     pctBadge($('kpiStatusPct'), s.pct, false);
     $('kpiStatusBreakdown').innerHTML = `
-      <div class="status-chip"><span class="status-chip-val">${s.ratio == null ? '—' : s.ratio + '%'}</span>
+      <div class="status-chip"><span class="status-chip-val">${s.ratio == null ? '\u2014' : s.ratio + '%'}</span>
         <span class="status-chip-label">of forecast students</span></div>
-      <div class="status-chip"><span class="status-chip-val">${s.ratio_prev == null ? '—' : s.ratio_prev + '%'}</span>
+      <div class="status-chip"><span class="status-chip-val">${s.ratio_prev == null ? '\u2014' : s.ratio_prev + '%'}</span>
         <span class="status-chip-label">last recorded</span></div>`;
   }
 }
@@ -764,10 +812,10 @@ function kpiTableRows() {
   const d = kpiData; if (!d || d.empty) return [];
   const rows = []; let i = 0;
   const add = (metric, now, prev, unit = '') => {
-    const ch = (now == null || prev == null) ? '—'
+    const ch = (now == null || prev == null) ? '\u2014'
       : ((now - prev >= 0 ? '+' : '') + (Math.round((now - prev) * 100) / 100) + unit);
-    rows.push({ '#': String(++i), 'Metric': metric, 'Predicted': now == null ? '—' : fmt(now) + unit,
-                [`Last recorded`]: prev == null ? '—' : fmt(prev) + unit, 'Change': ch });
+    rows.push({ '#': String(++i), 'Metric': metric, 'Predicted': now == null ? '\u2014' : fmt(now) + unit,
+                [`Last recorded`]: prev == null ? '\u2014' : fmt(prev) + unit, 'Change': ch });
   };
   const e = d.enrollment;
   add('Total Enrollment', e.all.value, e.all.prev);
@@ -784,23 +832,23 @@ function renderKpiTable() {
   const rows = kpiTableRows();
   const headers = ['#','Metric','Predicted','Last recorded','Change'];
   tableCtx.kpi = { rows, headers, name: 'kpi_forecast' };
-  $('kpiTableModalTitle').textContent = `KPI — Table View (${kpiData?.term?.label || ''})`;
+  $('kpiTableModalTitle').textContent = `KPI \u2014 Table View (${kpiData?.term?.label || ''})`;
   buildTable('kpiTableInner', rows, headers, '#', 'asc',
     { pageSize: 25, filename: 'kpi_forecast', searchable: false, filterable: false });
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
+/* ==========================================================================
    2. TOP HARDEST SUBJECTS
-   ══════════════════════════════════════════════════════════════════════════ */
+   ========================================================================== */
 const hsIsGrade = () => hsMetric === 'avg_grade';
-const hsMetricLabel = () => hsIsGrade() ? 'Predicted average grade (1.00 best – 5.00 worst)'
+const hsMetricLabel = () => hsIsGrade() ? 'Predicted average grade (1.00 best \u2013 5.00 worst)'
   : `Predicted ${STATUS_LABEL[hsMetric]} rate (% of enrolled students)`;
 const hsVal = i => hsIsGrade() ? i.avg_grade : i.rate;
-const hsFmt = v => v == null ? '—' : hsIsGrade() ? Number(v).toFixed(2) : Number(v).toFixed(1) + '%';
+const hsFmt = v => v == null ? '\u2014' : hsIsGrade() ? Number(v).toFixed(2) : Number(v).toFixed(1) + '%';
 const hsKey = i => `${i.code}|${i.course}`;
 const hsChange = i => hsIsGrade() ? i.grade_change : i.rate_change;
 const hsPrevVal = i => !i.prev ? null : (hsIsGrade() ? i.prev.avg_grade : i.prev.rate);
-const hsChgText = c => c == null ? '' : (c > 0 ? '▲ ' : c < 0 ? '▼ ' : '')
+const hsChgText = c => c == null ? '' : (c > 0 ? '\u25b2 ' : c < 0 ? '\u25bc ' : '')
   + (hsIsGrade() ? Math.abs(c).toFixed(2) : Math.abs(c).toFixed(1) + ' pts');
 const hsChgClass = c => c == null || c === 0 ? 'flat' : (c > 0 ? 'worse' : 'better');   // higher grade / rate = worse
 const hsBarText = i => {
@@ -824,19 +872,21 @@ function hsColor(val, max, isGrade) {
   return 'rgba(34,197,94,0.75)';
 }
 async function loadHardest() {
+  if (!$('hardestCard')) return;   // this page doesn't ship the Subjects card — nothing to load
   const id = ++seq.hs;
   skOn('hardestCard');
-  ['hsBarArea','hsCardsArea','hsTrendArea'].forEach(a => { if (!$(a).classList.contains('hidden')) loading(a); });
+  ['hsBarArea','hsCardsArea','hsTrendArea'].forEach(a => { const el = $(a); if (el && !el.classList.contains('hidden')) loading(a); });
   try {
     const d = await api('/hardest', {
       ...scopeOf(HSF), metric: hsIsGrade() ? 'FAILED' : hsMetric, rank_by: hsIsGrade() ? 'grade' : 'rate',
+      compare: cmpOf('hsCompare'),
       top: HSF.top, subject: HSF.subject, horizon: HSF.horizon, history: 1,
     });
     if (id !== seq.hs) return;
     hsData = d;
     if (d.available === false) { hsData = null; return showHsEmpty(d.reason); }
     fillSubjectOptions(d.options || []);
-    $('hsSubtitle').innerHTML = `Predicted for <b>${esc(d.target_term.label)}</b> (next semester) vs each subject’s last recorded offering · ${esc(scopeText(HSF))}`;
+    $('hsSubtitle').innerHTML = `Predicted for <b>${esc(d.target_term.label)}</b> (next semester) vs each subject\u2019s last recorded offering \u00b7 ${esc(scopeText(HSF))}`;
     renderHardestActive();
   } catch (e) {
     if (id !== seq.hs) return;
@@ -855,12 +905,12 @@ function fillSubjectOptions(opts) {
   sel.value = [...sel.options].some(o => o.value === cur) ? cur : '';
 }
 function showHsEmpty(msg) {
-  ['hsBarArea','hsCardsArea','hsTrendArea'].forEach(a => empty(a, msg));
-  $('hsBarArea').classList.remove('clickable');
+  ['hsBarArea','hsCardsArea','hsTrendArea'].forEach(a => { if ($(a)) empty(a, msg); });
+  $('hsBarArea')?.classList.remove('clickable');
 }
 function renderHardestActive() {
   const areas = { bar: 'hsBarArea', cards: 'hsCardsArea', trend: 'hsTrendArea' };
-  Object.entries(areas).forEach(([v, a]) => $(a).classList.toggle('hidden', v !== hsView));
+  Object.entries(areas).forEach(([v, a]) => $(a)?.classList.toggle('hidden', v !== hsView));
   if (!hsData) return;
   if (hsView === 'bar') renderHardestBar();
   else if (hsView === 'cards') renderHardestCards();
@@ -886,12 +936,12 @@ function renderHardestBar() {
     type: 'bar',
     data: { labels: subs.map(s => (isNarrow() && !isFs('hardestCard')) ? [clip(s.title, 24)] : [clip(s.title, 34), clip(shortCourse(s.course), 34)]),
       datasets: [
-        { label: `Predicted · ${tgt}`, data: vals,
+        { label: `Predicted \u00b7 ${tgt}`, data: vals,
           backgroundColor: vals.map(v => hsColor(v, maxV, isGrade)),
           minBarLength: 6, borderRadius: 5, borderSkipped: false, barPercentage: 0.9, categoryPercentage: 0.8,
           datalabels: { anchor: 'end', align: 'right', clip: false, color: '#111',
             font: { size: fs, weight: '600' }, formatter: (v, ctx) => hsBarText(subs[ctx.dataIndex]) } },
-        { label: `Last recorded offering${prevLbl ? ' · ' + prevLbl : ''}`, data: prevVals,
+        { label: `Last recorded offering${prevLbl ? ' \u00b7 ' + prevLbl : ''}`, data: prevVals,
           backgroundColor: 'rgba(156,163,175,0.55)', minBarLength: 6, borderRadius: 5, borderSkipped: false,
           barPercentage: 0.9, categoryPercentage: 0.8,
           datalabels: { anchor: 'end', align: 'right', clip: false, color: '#6b7280',
@@ -914,13 +964,13 @@ function renderHardestBar() {
             const s = subs[c.dataIndex];
             if (c.datasetIndex === 1) {
               return s.prev ? [`Last recorded (${s.prev.term.label}): ${prevText(c.raw)}`,
-                               `${fmt(s.prev.students)} students · ${fmt(s.prev.affected)} ${STATUS_LABEL[hsIsGrade() ? 'FAILED' : hsMetric]}`] : null;
+                               `${fmt(s.prev.students)} students \u00b7 ${fmt(s.prev.affected)} ${STATUS_LABEL[hsIsGrade() ? 'FAILED' : hsMetric]}`] : null;
             }
             return [
               `${isGrade ? 'Predicted avg grade' : 'Predicted ' + STATUS_LABEL[hsMetric] + ' rate'}: ${hsFmt(c.raw)}`,
               hsChgText(hsChange(s)) ? `Change vs last offering: ${hsChgText(hsChange(s))}` : 'No earlier offering to compare',
-              shortCourse(s.course) + ' · ' + s.college,
-              `${fmt(s.students)} students · ${fmt(s.affected)} ${STATUS_LABEL[hsIsGrade() ? 'FAILED' : hsMetric]}`,
+              shortCourse(s.course) + ' \u00b7 ' + s.college,
+              `${fmt(s.students)} students \u00b7 ${fmt(s.affected)} ${STATUS_LABEL[hsIsGrade() ? 'FAILED' : hsMetric]}`,
             ];
           } } },
       },
@@ -953,8 +1003,8 @@ function renderHardestCards() {
           ${hsChange(s) != null ? `<span class="rb-delta ${hsChgClass(hsChange(s))}">${hsChgText(hsChange(s)) || 'No change'}</span>` : ''}
         </div>
         <div class="rb-track"><div class="rb-fill" style="width:${pct(v).toFixed(1)}%; background:${hsColor(v, maxV, isGrade)}"></div></div>
-        <div class="rb-meta">${esc(shortCourse(s.course))} · ${esc(s.college)} · ${fmt(s.students)} students predicted for ${esc(s.term.label)}</div>
-        <div class="rb-prevline">${s.prev ? `Last recorded offering (${esc(s.prev.term.label)}): <b>${hsFmt(hsPrevVal(s))}</b> · ${fmt(s.prev.students)} students` : 'No earlier recorded offering to compare'}</div>
+        <div class="rb-meta">${esc(shortCourse(s.course))} \u00b7 ${esc(s.college)} \u00b7 ${fmt(s.students)} students predicted for ${esc(s.term.label)}</div>
+        <div class="rb-prevline">${s.prev ? `Last recorded offering (${esc(s.prev.term.label)}): <b>${hsFmt(hsPrevVal(s))}</b> \u00b7 ${fmt(s.prev.students)} students` : 'No earlier recorded offering to compare'}</div>
         <div class="rb-chips">
           ${c.FAILED != null ? `<span class="rc-chip">F:${c.FAILED}</span>` : ''}
           ${c.INC != null ? `<span class="rc-chip inc">INC:${c.INC}</span>` : ''}
@@ -985,12 +1035,12 @@ function hsTableRows(key) {
     const c = s.counts || {};
     const r = { '#': String(i + 1), 'Code': s.code, 'Subject': s.title, 'Department': s.college,
       'Course': shortCourse(s.course), 'Predicted term': s.term.label, 'Students': fmt(s.students),
-      'Failed': c.FAILED ?? '—', 'INC': c.INC ?? '—', 'DRP': c.DRP ?? '—', 'UDR': c.UDR ?? '—', 'W': c.W ?? '—',
-      'Avg Grade': s.avg_grade == null ? '—' : Number(s.avg_grade).toFixed(2) };
+      'Failed': c.FAILED ?? '\u2014', 'INC': c.INC ?? '\u2014', 'DRP': c.DRP ?? '\u2014', 'UDR': c.UDR ?? '\u2014', 'W': c.W ?? '\u2014',
+      'Avg Grade': s.avg_grade == null ? '\u2014' : Number(s.avg_grade).toFixed(2) };
     if (!hsIsGrade()) r[`${STATUS_LABEL[hsMetric]} rate`] = hsFmt(s.rate);
-    r['Last recorded term'] = s.prev ? s.prev.term.label : '—';
-    r['Last recorded'] = s.prev ? hsFmt(hsPrevVal(s)) : '—';
-    r['Change'] = hsChange(s) == null ? '—' : (hsChange(s) > 0 ? '+' : '') + (hsIsGrade() ? hsChange(s).toFixed(2) : hsChange(s).toFixed(1) + ' pts');
+    r['Last recorded term'] = s.prev ? s.prev.term.label : '\u2014';
+    r['Last recorded'] = s.prev ? hsFmt(hsPrevVal(s)) : '\u2014';
+    r['Change'] = hsChange(s) == null ? '\u2014' : (hsChange(s) > 0 ? '+' : '') + (hsIsGrade() ? hsChange(s).toFixed(2) : hsChange(s).toFixed(1) + ' pts');
     return r;
   });
 }
@@ -999,7 +1049,7 @@ function renderHsTable() {
   const headers = rows.length ? Object.keys(rows[0]) : ['#'];
   tableCtx.hs = { rows, headers, name: 'hardest_subjects_forecast' };
   const one = hsModalKey ? rows[0] : null;
-  $('hsTableModalTitle').textContent = one ? `${one['Subject']} — Table View` : 'Top Hardest Subjects — Table View';
+  $('hsTableModalTitle').textContent = one ? `${one['Subject']} \u2014 Table View` : 'Top Hardest Subjects \u2014 Table View';
   buildTable('hsTableInner', rows, headers, '#', 'asc', {
     pageSize: 10, filename: 'hardest_subjects_forecast',
     title: one ? '' : 'Predicted for the next semester, compared with the last recorded offering',
@@ -1007,19 +1057,20 @@ function renderHsTable() {
   });
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
+/* ==========================================================================
    3 + 4. GWA TREND and AT-RISK FORECAST (shared line-chart card logic)
-   ══════════════════════════════════════════════════════════════════════════ */
+   ========================================================================== */
 async function loadGwa() {
+  if (!$('gwaCard')) return;   // this page doesn't ship the GWA card — nothing to load
   const id = ++seq.gwa;
   skOn('gwaCard');
   loading('gwaArea');
   try {
-    const d = await api('/gwa_trend', { ...scopeOf(GF), horizon: GF.horizon, history: GF.history ? 1 : 0 });
+    const d = await api('/gwa_trend', { ...scopeOf(GF), horizon: GF.horizon, history: GF.history ? 1 : 0, compare: cmpOf('gwaCompare') });
     if (id !== seq.gwa) return;
     gwaData = d.available === false ? null : d;
     if (!gwaData) return empty('gwaArea', d.reason);
-    $('gwaSubtitle').innerHTML = `Predicted average GWA per ${d.group_by} — next <b>${d.steps}</b> semester${d.steps === 1 ? '' : 's'} · ${esc(scopeText(GF))}`;
+    $('gwaSubtitle').innerHTML = `Predicted average GWA per ${d.group_by} \u2014 next <b>${d.steps}</b> semester${d.steps === 1 ? '' : 's'} \u00b7 ${esc(scopeText(GF))}`;
     renderGwa();
   } catch (e) {
     if (id !== seq.gwa) return;
@@ -1045,16 +1096,85 @@ function renderGwa() {
   o.card = 'gwaCard';
   lineChart('gwaTrendChart', gwaData, o);
 }
+async function loadKpiTrend() {
+  if (!$('kpiTrendCard')) return;   // this page doesn't ship the Status Trend card — nothing to load
+  const id = ++seq.kt;
+  skOn('kpiTrendCard');
+  loading('kpiTrendArea');
+  try {
+    const cmp = $('kpiTrendCompare')?.value || '';
+    const d = await api('/kpi_trend', { ...scopeOf(KTF), metric: ktMetric, compare: cmp, horizon: KTF.horizon, history: KTF.history ? 1 : 0 });
+    if (id !== seq.kt) return;
+    ktData = d.available === false ? null : d;
+    if (!ktData) return empty('kpiTrendArea', d.reason);
+    const sub = $('kpiTrendSubtitle');
+    const cmpDesc = COMPARE_DESC[d.compare || ''];
+    if (sub) sub.innerHTML = `Predicted students with ${esc(STATUS_LABEL[ktMetric] || ktMetric)} per ${d.group_by} \u2014 next <b>${d.steps}</b> semester${d.steps === 1 ? '' : 's'} \u00b7 ${esc(scopeText(KTF))}` + (cmpDesc ? ` \u00b7 ${esc(cmpDesc)}` : '');
+    renderKpiTrend();
+  } catch (e) {
+    if (id !== seq.kt) return;
+    console.error(e); ktData = null; empty('kpiTrendArea', 'Could not load the status trend.');
+  } finally {
+    skDone('kpiTrendCard');
+  }
+}
+function renderKpiTrend() {
+  const area = $('kpiTrendArea');
+  if (!ktData?.datasets?.some(d => d.data.some(v => v != null))) {
+    empty('kpiTrendArea', 'No predicted status data for this filter.'); area.classList.remove('clickable'); return;
+  }
+  area.classList.add('clickable');
+  area.innerHTML = '<canvas id="kpiTrendChart"></canvas>';
+  lineChart('kpiTrendChart', ktData, { card: 'kpiTrendCard', fs: baseFs('kpiTrendCard'), beginAtZero: true,
+    yTitle: `Students with ${STATUS_LABEL[ktMetric] || ktMetric}`,
+    valFmt: v => fmt(Math.round(v)),
+    showTotal: true });
+}
+async function loadEnrollTrend() {
+  if (!$('enrollTrendCard')) return;   // this page doesn't ship the Enrollment Trend card — nothing to load
+  const id = ++seq.et;
+  skOn('enrollTrendCard');
+  loading('enrollTrendArea');
+  try {
+    const cmp = $('enrollTrendCompare')?.value || '';
+    const d = await api('/enrollment_trend', { ...scopeOf(ETF), metric: etMetric, compare: cmp, horizon: ETF.horizon, history: ETF.history ? 1 : 0 });
+    if (id !== seq.et) return;
+    etData = d.available === false ? null : d;
+    if (!etData) return empty('enrollTrendArea', d.reason);
+    const sub = $('enrollTrendSubtitle');
+    const cmpDesc = COMPARE_DESC[d.compare || ''];
+    if (sub) sub.innerHTML = `Predicted ${esc(ENROLL_METRIC_LABEL[etMetric] || etMetric)} enrollment per ${d.group_by} \u2014 next <b>${d.steps}</b> semester${d.steps === 1 ? '' : 's'} \u00b7 ${esc(scopeText(ETF))}` + (cmpDesc ? ` \u00b7 ${esc(cmpDesc)}` : '');
+    renderEnrollTrend();
+  } catch (e) {
+    if (id !== seq.et) return;
+    console.error(e); etData = null; empty('enrollTrendArea', 'Could not load the enrollment trend.');
+  } finally {
+    skDone('enrollTrendCard');
+  }
+}
+function renderEnrollTrend() {
+  const area = $('enrollTrendArea');
+  if (!etData?.datasets?.some(d => d.data.some(v => v != null))) {
+    empty('enrollTrendArea', 'No predicted enrollment data for this filter.'); area.classList.remove('clickable'); return;
+  }
+  area.classList.add('clickable');
+  area.innerHTML = '<canvas id="enrollTrendChart"></canvas>';
+  lineChart('enrollTrendChart', etData, { card: 'enrollTrendCard', fs: baseFs('enrollTrendCard'), beginAtZero: true,
+    yTitle: `${ENROLL_METRIC_LABEL[etMetric] || etMetric} Enrollment`,
+    valFmt: v => fmt(Math.round(v)),
+    showTotal: true });
+}
 async function loadRisk() {
+  if (!$('riskCard')) return;   // this page doesn't ship the Risk card — nothing to load
   const id = ++seq.risk;
   skOn('riskCard');
   loading('riskArea');
   try {
-    const d = await api('/at_risk', { ...scopeOf(RF), metric: riskMetric, horizon: RF.horizon, history: RF.history ? 1 : 0 });
+    const d = await api('/at_risk', { ...scopeOf(RF), metric: riskMetric, horizon: RF.horizon, history: RF.history ? 1 : 0, compare: cmpOf('riskCompare') });
     if (id !== seq.risk) return;
     riskData = d.available === false ? null : d;
     if (!riskData) return empty('riskArea', d.reason);
-    $('riskSubtitle').innerHTML = `Predicted students with ${esc(STATUS_LABEL[riskMetric])} per ${d.group_by} — next <b>${d.steps}</b> semester${d.steps === 1 ? '' : 's'} · ${esc(scopeText(RF))}`;
+    $('riskSubtitle').innerHTML = `Predicted students with ${esc(STATUS_LABEL[riskMetric])} per ${d.group_by} \u2014 next <b>${d.steps}</b> semester${d.steps === 1 ? '' : 's'} \u00b7 ${esc(scopeText(RF))}`;
     renderRisk();
   } catch (e) {
     if (id !== seq.risk) return;
@@ -1071,12 +1191,14 @@ function renderRisk() {
   area.classList.add('clickable');
   area.innerHTML = '<canvas id="atRiskChart"></canvas>';
   lineChart('atRiskChart', riskData, { card: 'riskCard', fs: baseFs('riskCard'), beginAtZero: true,
-    yTitle: `Students predicted with ${STATUS_LABEL[riskMetric]}`, valFmt: v => fmt(Math.round(v)) });
+    yTitle: `Students with ${STATUS_LABEL[riskMetric] || riskMetric}`,
+    valFmt: v => fmt(Math.round(v)),
+    showTotal: true });
 }
 function lineTableRows(data, unit) {
   return data.labels.map((lbl, i) => {
     const r = { '#': String(i + 1), 'Term': lbl, 'Type': data.predicted[i] ? 'Forecast' : 'Recorded' };
-    data.datasets.forEach(d => { const v = d.data[i]; r[shortCourse(d.label)] = v == null ? '—' : (unit ? unit(v) : v); });
+    data.datasets.forEach(d => { const v = d.data[i]; r[shortCourse(d.label)] = v == null ? '\u2014' : (unit ? unit(v) : v); });
     return r;
   });
 }
@@ -1088,14 +1210,14 @@ function renderLineTable(p, data, title, unit) {
     { pageSize: 12, filename: tableCtx[p].name, searchable: false, filterable: false });
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
+/* ==========================================================================
    Banner + wiring
-   ══════════════════════════════════════════════════════════════════════════ */
+   ========================================================================== */
 function setBanner(meta) {
   const b = $('predBanner'), t = $('predBannerText');
   if (!meta || meta.available === false) {
     b.classList.add('pred-note-warn');
-    t.textContent = (meta && meta.reason) || 'No prediction model yet — upload enough semesters and let training finish.';
+    t.textContent = (meta && meta.reason) || 'No prediction model yet \u2014 upload enough semesters and let training finish.';
     return;
   }
   b.classList.remove('pred-note-warn');
@@ -1110,51 +1232,81 @@ function unavailable(meta) {
   SK_CARDS.forEach(skDone);
   setBanner(meta);
   kpiUnavailable(meta?.reason);
-  ['hsBarArea','hsCardsArea','hsTrendArea','gwaArea','riskArea'].forEach(a => empty(a, meta?.reason || 'No prediction model yet.'));
-  ['hsBarArea','gwaArea','riskArea'].forEach(a => $(a).classList.remove('clickable'));
+  ['hsBarArea','hsCardsArea','hsTrendArea','gwaArea','riskArea','kpiTrendArea','enrollTrendArea'].forEach(a => empty(a, meta?.reason || 'No prediction model yet.'));
+  ['hsBarArea','gwaArea','riskArea','kpiTrendArea','enrollTrendArea'].forEach(a => $(a)?.classList.remove('clickable'));
 }
-function refreshAll() { loadKpi(); loadHardest(); loadGwa(); loadRisk(); }
+function refreshAll() { loadKpi(); loadEnrollTrend(); loadKpiTrend(); loadHardest(); loadGwa(); loadRisk(); }
 
 let hsModal = null;
 function wire() {
   // filter popovers (the main dashboard's own widget)
-  ['kpi','hs','gwa','risk'].forEach(p => initFilterPopover({
+  ['kpi','hs','gwa','risk','kt','et'].forEach(p => initFilterPopover({
     toggleId: p + 'FilterToggle', popoverId: p + 'FilterPopover', closeId: p + 'FilterClose', applyId: p + 'BtnApply' }));
-  ['kpi','hs','gwa','risk'].forEach(p => fillScopeSelects(p));
-  ['hs','gwa','risk'].forEach(p => horizonOptions(p));
+  ['kpi','hs','gwa','risk','kt','et'].forEach(p => fillScopeSelects(p));
+  ['hs','gwa','risk','kt','et'].forEach(p => horizonOptions(p));
 
   // Apply
-  $('kpiBtnApply').addEventListener('click', () => { KF = readScope('kpi'); loadKpi(); });
-  $('hsBtnApply').addEventListener('click', () => {
+  // Optional-chained throughout: a page that only ships a subset of the four
+  // cards (e.g. a KPI-only prediction page) must not have missing elements
+  // here abort the rest of wire() — every card wires up independently.
+  $('kpiBtnApply')?.addEventListener('click', () => { KF = readScope('kpi'); loadKpi(); });
+  $('hsBtnApply')?.addEventListener('click', () => {
     HSF = { ...readScope('hs'), horizon: $('hsHorizon').value, subject: $('hsSubject').value, top: $('hsTopN').value };
     loadHardest();
   });
-  $('gwaBtnApply').addEventListener('click', () => {
+  $('gwaBtnApply')?.addEventListener('click', () => {
     GF = { ...readScope('gwa'), horizon: $('gwaHorizon').value, history: $('gwaHistory').checked, zoom: $('gwaZoom').checked };
     loadGwa();
   });
-  $('riskBtnApply').addEventListener('click', () => {
+  $('riskBtnApply')?.addEventListener('click', () => {
     RF = { ...readScope('risk'), horizon: $('riskHorizon').value, history: $('riskHistory').checked };
     loadRisk();
   });
+  $('ktBtnApply')?.addEventListener('click', () => {
+    KTF = { ...readScope('kt'), horizon: $('ktHorizon').value, history: $('ktHistory').checked };
+    loadKpiTrend();
+  });
+  $('etBtnApply')?.addEventListener('click', () => {
+    ETF = { ...readScope('et'), horizon: $('etHorizon').value, history: $('etHistory').checked };
+    loadEnrollTrend();
+  });
   // Reset
   const maxH = String(META.horizon.chart_steps || 1);
-  $('kpiBtnReset').addEventListener('click', () => { KF = blank(); writeScope('kpi', KF); kpiMetric = 'all'; kpiStatusMetric = 'all';
-    syncBtns('[data-kpi-metric]', 'kpiMetric', 'all'); syncBtns('[data-status-metric]', 'statusMetric', 'all'); loadKpi(); });
-  $('hsBtnReset').addEventListener('click', () => {
+  $('kpiBtnReset')?.addEventListener('click', () => { KF = blank(); writeScope('kpi', KF); kpiMetric = 'all'; kpiStatusMetric = 'all';
+    if ($('kpiCompare')) $('kpiCompare').value = '';
+    syncBtns('[data-kpi-metric]', 'kpiMetric', 'all'); syncBtns('[data-status-metric]', 'statusMetric', 'all');
+    syncBtns('[data-kpi-compare]', 'kpiCompare', ''); loadKpi(); });
+  $('hsBtnReset')?.addEventListener('click', () => {
     HSF = { ...blank(), horizon: maxH, subject: '', top: '10' };
     writeScope('hs', HSF); $('hsHorizon').value = maxH; $('hsSubject').value = ''; $('hsTopN').value = '10';
     hsMetric = 'avg_grade'; hsSortDir = 'desc'; $('hsSort').value = 'desc'; syncBtns('[data-hs-metric]', 'hsMetric', hsMetric); loadHardest(); });
-  $('gwaBtnReset').addEventListener('click', () => {
+  $('gwaBtnReset')?.addEventListener('click', () => {
     GF = { ...blank(), horizon: maxH, history: true, zoom: false };
     writeScope('gwa', GF); $('gwaHorizon').value = maxH; $('gwaHistory').checked = true; $('gwaZoom').checked = false; loadGwa(); });
-  $('riskBtnReset').addEventListener('click', () => {
+  $('riskBtnReset')?.addEventListener('click', () => {
     RF = { ...blank(), horizon: maxH, history: true }; riskMetric = 'FAILED';
     writeScope('risk', RF); $('riskHorizon').value = maxH; $('riskHistory').checked = true;
     syncBtns('[data-risk-metric]', 'riskMetric', 'FAILED'); loadRisk(); });
-  HSF.horizon = GF.horizon = RF.horizon = maxH;
+  $('ktBtnReset')?.addEventListener('click', () => {
+    KTF = { ...blank(), horizon: maxH, history: true }; ktMetric = 'FAILED';
+    writeScope('kt', KTF); $('ktHorizon').value = maxH; $('ktHistory').checked = true;
+    if ($('kpiTrendCompare')) $('kpiTrendCompare').value = '';
+    syncBtns('[data-kt-metric]', 'ktMetric', 'FAILED');
+    syncBtns('[data-kt-compare]', 'ktCompare', '');
+    loadKpiTrend(); });
+  $('etBtnReset')?.addEventListener('click', () => {
+    ETF = { ...blank(), horizon: maxH, history: true }; etMetric = 'all';
+    writeScope('et', ETF); $('etHorizon').value = maxH; $('etHistory').checked = true;
+    if ($('enrollTrendCompare')) $('enrollTrendCompare').value = '';
+    syncBtns('[data-et-metric]', 'etMetric', 'all');
+    syncBtns('[data-et-compare]', 'etCompare', '');
+    loadEnrollTrend(); });
+  HSF.horizon = GF.horizon = RF.horizon = KTF.horizon = ETF.horizon = maxH;
   if ($('hsTopN')) $('hsTopN').value = HSF.top;          // the dropdown must show what the chart is really using
-  $('gwaHistory').checked = true; $('riskHistory').checked = true;
+  if ($('gwaHistory')) $('gwaHistory').checked = true;
+  if ($('riskHistory')) $('riskHistory').checked = true;
+  if ($('ktHistory')) $('ktHistory').checked = true;
+  if ($('etHistory')) $('etHistory').checked = true;
 
   // metric buttons
   const bindBtns = (sel, dsKey, set) => document.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => {
@@ -1164,27 +1316,53 @@ function wire() {
   bindBtns('[data-status-metric]', 'statusMetric', v => { kpiStatusMetric = v; renderKpiStatus(); });
   bindBtns('[data-hs-metric]', 'hsMetric', v => { hsMetric = v; loadHardest(); });
   bindBtns('[data-risk-metric]', 'riskMetric', v => { riskMetric = v; loadRisk(); });
+  bindBtns('[data-kt-metric]', 'ktMetric', v => { ktMetric = v; loadKpiTrend(); });
+  bindBtns('[data-et-metric]', 'etMetric', v => { etMetric = v; loadEnrollTrend(); });
+  document.querySelectorAll('[data-kpi-compare]').forEach(b => b.addEventListener('click', () => {
+    const sel = $('kpiCompare'); if (!sel) return;
+    sel.value = b.dataset.kpiCompare;
+    document.querySelectorAll('[data-kpi-compare]').forEach(x => x.classList.toggle('active', x.dataset.kpiCompare === sel.value));
+    loadKpi();
+  }));
+  document.querySelectorAll('[data-kt-compare]').forEach(b => b.addEventListener('click', () => {
+    const sel = $('kpiTrendCompare'); if (!sel) return;
+    sel.value = b.dataset.ktCompare;
+    document.querySelectorAll('[data-kt-compare]').forEach(x => x.classList.toggle('active', x.dataset.ktCompare === sel.value));
+    loadKpiTrend();
+  }));
+  document.querySelectorAll('[data-et-compare]').forEach(b => b.addEventListener('click', () => {
+    const sel = $('enrollTrendCompare'); if (!sel) return;
+    sel.value = b.dataset.etCompare;
+    document.querySelectorAll('[data-et-compare]').forEach(x => x.classList.toggle('active', x.dataset.etCompare === sel.value));
+    loadEnrollTrend();
+  }));
   document.querySelectorAll('[data-hs-view]').forEach(b => b.addEventListener('click', () => {
     hsView = b.dataset.hsView;
     document.querySelectorAll('[data-hs-view]').forEach(x => x.classList.toggle('active', x === b));
     renderHardestActive();
   }));
-  $('hsSort').addEventListener('change', e => { hsSortDir = e.target.value; renderHardestActive(); });
+  $('hsSort')?.addEventListener('change', e => { hsSortDir = e.target.value; renderHardestActive(); });
 
   // table modals
   initTableModal({ openId: 'kpiViewTable', modalId: 'kpiTableModal', closeId: 'kpiTableModalClose', onOpen: renderKpiTable });
-  $('hsViewTable').addEventListener('click', () => { hsModalKey = null; });   // icon = every subject (runs before the modal opens)
+  $('hsViewTable')?.addEventListener('click', () => { hsModalKey = null; });   // icon = every subject (runs before the modal opens)
   hsModal = initTableModal({ openId: 'hsViewTable', modalId: 'hsTableModal', closeId: 'hsTableModalClose',
     onOpen: () => renderHsTable() });
-  $('hsBarArea').addEventListener('click', () => { if (hsData?.items?.length) { hsModalKey = null; hsModal.open(); } });
-  $('hsCardsArea').addEventListener('click', () => { if (hsData?.items?.length) { hsModalKey = null; hsModal.open(); } });
+  $('hsBarArea')?.addEventListener('click', () => { if (hsData?.items?.length) { hsModalKey = null; hsModal.open(); } });
+  $('hsCardsArea')?.addEventListener('click', () => { if (hsData?.items?.length) { hsModalKey = null; hsModal.open(); } });
   const gwaModal = initTableModal({ openId: 'gwaViewTable', modalId: 'gwaTableModal', closeId: 'gwaTableModalClose',
     onOpen: () => gwaData && renderLineTable('gwa', gwaData, 'GWA Trend', v => Number(v).toFixed(2)) });
   const riskModal = initTableModal({ openId: 'riskViewTable', modalId: 'riskTableModal', closeId: 'riskTableModalClose',
     onOpen: () => riskData && renderLineTable('risk', riskData, 'At-Risk Forecast', v => fmt(Math.round(v))) });
-  $('gwaArea').addEventListener('click', () => { if (gwaData) gwaModal.open(); });
-  $('riskArea').addEventListener('click', () => { if (riskData) riskModal.open(); });
-  ['kpi','hs','gwa','risk'].forEach(p => $(p + 'TableDownloadCsv')?.addEventListener('click', () => {
+  $('gwaArea')?.addEventListener('click', () => { if (gwaData) gwaModal.open(); });
+  $('riskArea')?.addEventListener('click', () => { if (riskData) riskModal.open(); });
+  const ktModal = initTableModal({ openId: 'ktViewTable', modalId: 'ktTableModal', closeId: 'ktTableModalClose',
+    onOpen: () => ktData && renderLineTable('kt', ktData, 'Status Trend', v => fmt(Math.round(v))) });
+  $('kpiTrendArea')?.addEventListener('click', () => { if (ktData) ktModal.open(); });
+  const etModal = initTableModal({ openId: 'etViewTable', modalId: 'etTableModal', closeId: 'etTableModalClose',
+    onOpen: () => etData && renderLineTable('et', etData, 'Enrollment Trend', v => fmt(Math.round(v))) });
+  $('enrollTrendArea')?.addEventListener('click', () => { if (etData) etModal.open(); });
+  ['kpi','hs','gwa','risk','kt','et'].forEach(p => $(p + 'TableDownloadCsv')?.addEventListener('click', () => {
     const c = tableCtx[p]; if (c && c.rows.length) downloadCsv(c.rows, c.headers, c.name);
   }));
 
@@ -1208,7 +1386,7 @@ function syncBtns(sel, dsKey, val) {
   document.querySelectorAll(sel).forEach(b => b.classList.toggle('active', b.dataset[dsKey] === val));
 }
 
-/* ── Phones: each chart's description sits behind a dropdown (styles: responsive.css) ──
+/* -- Phones: each chart's description sits behind a dropdown (styles: responsive.css) --
    Desktop is untouched: the button is display:none and the description stays visible. */
 (function initExplainerToggles() {
   const CHEVRON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>';
@@ -1242,7 +1420,7 @@ async function initDashboard() {
 }
 
 
-/* ── Fullscreen card toggle (same as the main dashboard) ───────────────── */
+/* -- Fullscreen card toggle (same as the main dashboard) ----------------- */
 (function initFullscreenToggles() {
   const EXPAND_PATH = 'm13.28 7.78 3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 0 0 1.06 1.06ZM2 17.25v-4.5a.75.75 0 0 1 1.5 0v2.69l3.22-3.22a.75.75 0 0 1 1.06 1.06L4.56 16.5h2.69a.75.75 0 0 1 0 1.5h-4.5a.747.747 0 0 1-.75-.75ZM12.22 13.28l3.22 3.22h-2.69a.75.75 0 0 0 0 1.5h4.5a.747.747 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.69l-3.22-3.22a.75.75 0 1 0-1.06 1.06ZM3.5 4.56l3.22 3.22a.75.75 0 0 0 1.06-1.06L4.56 3.5h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0V4.56Z';
   const COMPRESS_PATH = 'M3.28 2.22a.75.75 0 0 0-1.06 1.06L5.44 6.5H2.75a.75.75 0 0 0 0 1.5h4.5A.75.75 0 0 0 8 7.25v-4.5a.75.75 0 0 0-1.5 0v2.69L3.28 2.22Zm10.22.53a.75.75 0 0 0-1.5 0v4.5c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-2.69l3.22-3.22a.75.75 0 0 0-1.06-1.06L13.5 5.44V2.75ZM3.28 17.78l3.22-3.22v2.69a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.69l-3.22 3.22a.75.75 0 1 0 1.06 1.06Zm10.22-3.22 3.22 3.22a.75.75 0 1 0 1.06-1.06l-3.22-3.22h2.69a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0v-2.69Z';
@@ -1317,7 +1495,286 @@ async function initDashboard() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && activeCard) collapse(); });
 })();
 
-/* ── INIT ─────────────────────────────────────────────────────────────── */
+/* -- Global comparison: pushes one value into every chart's Comparison select -- */
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#globalBtnApply, #globalBtnReset');
+  if (!b) return;
+  const g = document.getElementById('globalCompare');
+  const v = b.id === 'globalBtnReset' ? '' : (g ? g.value : '');
+  if (b.id === 'globalBtnReset' && g) g.value = '';
+  ['kpi','hs','gwa','risk','kpiTrend','enrollTrend'].forEach(p => { const el = document.getElementById(p + 'Compare'); if (el) el.value = v; });
+  document.querySelectorAll('[data-kt-compare]').forEach(x => x.classList.toggle('active', x.dataset.ktCompare === v));
+  document.querySelectorAll('[data-et-compare]').forEach(x => x.classList.toggle('active', x.dataset.etCompare === v));
+  setTimeout(() => { loadKpi(); loadHardest(); loadGwa(); loadRisk(); loadKpiTrend(); loadEnrollTrend(); }, 60);
+}, true);
+
+/* -- data handed to the Insights modal (it lives outside this closure) ---- */
+window.PD = {
+  kpi: () => kpiData, hs: () => hsData, gwa: () => gwaData, risk: () => riskData, kpiTrend: () => ktData, enrollTrend: () => etData,
+  riskLabel: () => STATUS_LABEL[riskMetric] || riskMetric,
+  scope: id => scopeText({ kpiCard: KF, hardestCard: HSF, gwaCard: GF, riskCard: RF, kpiTrendCard: KTF, enrollTrendCard: ETF }[id] || KF),
+  sc: shortCourse,
+  filters: id => {
+    const asof = META?.horizon?.last_t ?? '';
+    const cmp = { kpiCard:'kpi', hardestCard:'hs', gwaCard:'gwa', riskCard:'risk', kpiTrendCard:'kpiTrend', enrollTrendCard:'enrollTrend' }[id];
+    const c = cmp ? (document.getElementById(cmp + 'Compare')?.value || '') : '';
+    const base = { kpiCard: KF, hardestCard: { ...HSF, metric: hsMetric }, gwaCard: GF, riskCard: { ...RF, metric: riskMetric }, kpiTrendCard: { ...KTF, metric: ktMetric }, enrollTrendCard: { ...ETF, metric: etMetric } }[id] || {};
+    const o = { ...base, compare: c, asof };
+    delete o.zoom;
+    return o;
+  },
+};
+
+/* -- INIT --------------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', initDashboard);
 
 })();
+
+/* ==========================================================================
+   DOWNLOAD CHART AS PNG \u2014 prediction dashboard
+   ========================================================================== */
+(function () {
+  const DL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:15px">
+    <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z"/>
+    <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z"/>
+  </svg>`;
+
+  const CARD_CANVAS = { kpiTrendCard:['kpiTrendChart'], enrollTrendCard:['enrollTrendChart'], gwaCard:['gwaTrendChart'], riskCard:['atRiskChart'], hardestCard:['hsBarCanvas','hsTrendCanvas'] };
+  const CARD_TITLES = { kpiCard:'KPI Forecast', kpiTrendCard:'Status Trend Forecast', enrollTrendCard:'Enrollment Trend Forecast', gwaCard:'GWA Trend Forecast', riskCard:'At-Risk Forecast', hardestCard:'Hardest Subjects' };
+
+  // Confirmation modal
+  const confirmModal = document.createElement('div');
+  confirmModal.id = 'dlConfirmModal';
+  confirmModal.className = 'dl-confirm-modal hidden';
+  confirmModal.innerHTML = `
+    <div class="dl-confirm-card">
+      <div class="dl-confirm-icon">${DL_SVG.replace('style="width:15px"','style="width:28px;color:#7B1113"')}</div>
+      <div class="dl-confirm-body">
+        <h4 class="dl-confirm-title">Download Chart Image</h4>
+        <p class="dl-confirm-sub" id="dlConfirmSub">Save this chart as a PNG image file?</p>
+        <p class="dl-confirm-note">The image will include the chart with a white background, ready to insert into reports or presentations.</p>
+      </div>
+      <div class="dl-confirm-actions">
+        <button class="dl-btn-cancel" id="dlConfirmCancel">Cancel</button>
+        <button class="dl-btn-confirm" id="dlConfirmOk">${DL_SVG.replace('style="width:15px"','style="width:14px"')} Download PNG</button>
+      </div>
+    </div>`;
+  document.body.appendChild(confirmModal);
+
+  let _pending = null;
+  document.getElementById('dlConfirmCancel').addEventListener('click', () => { confirmModal.classList.add('hidden'); _pending=null; });
+  confirmModal.addEventListener('click', e => { if(e.target===confirmModal){confirmModal.classList.add('hidden');_pending=null;} });
+  document.getElementById('dlConfirmOk').addEventListener('click', () => {
+    confirmModal.classList.add('hidden');
+    if (_pending) { _doDownload(_pending); _pending=null; }
+  });
+
+  function _h2c() {
+    return window.html2canvas ? Promise.resolve(window.html2canvas) : new Promise((ok, no) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      sc.onload = () => ok(window.html2canvas); sc.onerror = () => no(new Error('html2canvas failed to load'));
+      document.head.appendChild(sc);
+    });
+  }
+  function _doKpi(fname) {
+    const card = document.getElementById('kpiCard');
+    _h2c().then(h => h(card, { backgroundColor: '#ffffff', scale: 2, useCORS: true,
+      ignoreElements: el => el.classList && (el.classList.contains('kpi-header-actions') || el.classList.contains('kpi-filter-popover')) }))
+      .then(c => _save(c, fname))
+      .catch(() => {
+        const sub = document.getElementById('dlConfirmSub');
+        if (sub) sub.textContent = 'Could not create the KPI image. Check your connection and try again.';
+        confirmModal.classList.remove('hidden');
+      });
+  }
+
+  function _doDownload(cardId) {
+    const title = CARD_TITLES[cardId]||cardId;
+    const fname = 'novasight_'+title.toLowerCase().replace(/[^a-z0-9]+/g,'_');
+    if (cardId === 'kpiCard') { _doKpi(fname); return; }
+    for (const cid of (CARD_CANVAS[cardId]||[])) {
+      const c = document.getElementById(cid);
+      if (c && c.width>0) { _save(c,fname); return; }
+    }
+    const fallback = document.querySelector('#'+cardId+' .chart-area canvas');
+    if (fallback && fallback.width>0) { _save(fallback,fname); return; }
+    const sub=document.getElementById('dlConfirmSub');
+    const ok=document.getElementById('dlConfirmOk');
+    if(sub) sub.textContent='No chart found. Make sure the chart has finished loading.';
+    if(ok) ok.style.display='none';
+    confirmModal.classList.remove('hidden');
+    setTimeout(()=>{ if(ok) ok.style.display=''; if(sub) sub.textContent='Save this chart as a PNG image file?'; },4000);
+  }
+
+  function _save(canvas, fname) {
+    const off=document.createElement('canvas');
+    off.width=canvas.width; off.height=canvas.height;
+    const ctx=off.getContext('2d');
+    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,off.width,off.height); ctx.drawImage(canvas,0,0);
+    const a=document.createElement('a'); a.href=off.toDataURL('image/png'); a.download=fname+'.png'; a.click();
+  }
+
+  ['kpiCard','enrollTrendCard','kpiTrendCard','gwaCard','riskCard','hardestCard'].forEach(cardId => {
+    const card=document.getElementById(cardId); if(!card) return;
+    const actions=card.querySelector('.kpi-header-actions'); if(!actions) return;
+    const btn=document.createElement('button');
+    btn.className='btn-icon btn-download-chart';
+    btn.title='Download chart as PNG'; btn.setAttribute('aria-label','Download chart as PNG');
+    btn.innerHTML=DL_SVG;
+    btn.addEventListener('click',()=>{
+      _pending=cardId;
+      const sub=document.getElementById('dlConfirmSub');
+      if(sub) sub.textContent=`Save "${CARD_TITLES[cardId]||cardId}" as a PNG image?`;
+      const ok=document.getElementById('dlConfirmOk'); if(ok) ok.style.display='';
+      confirmModal.classList.remove('hidden');
+    });
+    const fsBtn=actions.querySelector('.btn-fullscreen');
+    if(fsBtn) actions.insertBefore(btn,fsBtn); else actions.appendChild(btn);
+  });
+})();
+
+/* ==========================================================================
+   GENERATE CHART INSIGHTS - same floating, editable, shared modal as the main dashboard
+   (saved through /api/dash/insights with dashboard = 'pred')
+   ========================================================================== */
+document.addEventListener('DOMContentLoaded', function () {
+  const _$ = id => document.getElementById(id);
+  const modal = _$('aiInsightsModal');
+  if (!modal) return;
+  const titleEl = _$('aiInsightsTitle'), ctxEl = _$('aiInsightsContext'), loadEl = _$('aiInsightsLoading'),
+        textArea = _$('aiInsightsTextarea'), badge = _$('aiInsightsSaveBadge'), metaEl = _$('aiInsightsMeta'),
+        saveBtn = _$('aiInsightsSave'), regenBtn = _$('aiInsightsRegen');
+  const DASH = 'pred';
+  let _card = null, _dirty = false, _savedText = '';
+  const filtersOf = id => PD.filters(id);
+
+  const AI_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:16px"><path fill-rule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5ZM18 1.5a.75.75 0 0 1 .728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 0 1 0 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 0 1-1.456 0l-.258-1.036a2.625 2.625 0 0 0-1.91-1.91l-1.036-.258a.75.75 0 0 1 0-1.456l1.036-.258a2.625 2.625 0 0 0 1.91-1.91l.258-1.036A.75.75 0 0 1 18 1.5ZM16.5 15a.75.75 0 0 1 .712.513l.394 1.183c.15.447.5.799.948.948l1.183.395a.75.75 0 0 1 0 1.422l-1.183.395c-.447.15-.799.5-.948.948l-.395 1.183a.75.75 0 0 1-1.422 0l-.395-1.183a1.5 1.5 0 0 0-.948-.948l-1.183-.395a.75.75 0 0 1 0-1.422l1.183-.395c.447-.15.799-.5.948-.948l.395-1.183A.75.75 0 0 1 16.5 15Z" clip-rule="evenodd"/></svg>';
+  ['kpiCard','kpiTrendCard','enrollTrendCard','hardestCard','gwaCard','riskCard'].forEach(id => {
+    const actions = document.querySelector('#' + id + ' .kpi-header-actions');
+    if (!actions || actions.querySelector('[data-ai-card]')) return;
+    const b = document.createElement('button');
+    b.className = 'btn-icon btn-ai-insights'; b.dataset.aiCard = id; b.title = 'Generate Chart Insights';
+    b.setAttribute('aria-label', 'Generate Chart Insights'); b.innerHTML = AI_SVG;
+    const fs = actions.querySelector('.btn-fullscreen');
+    fs ? actions.insertBefore(b, fs) : actions.appendChild(b);
+    b.addEventListener('click', () => openModal(id));
+  });
+
+  const TITLES = { kpiCard:'KPI Forecast', kpiTrendCard:'Status Trend Forecast', enrollTrendCard:'Enrollment Trend Forecast', hardestCard:'Subjects Requiring Intervention', gwaCard:'GWA Trend Forecast', riskCard:'At-Risk Forecast' };
+  const PLACEHOLDER = {
+    kpiCard: 'Add your insights about the KPI forecast here. What do the predicted enrollment, GWA and at-risk numbers imply for next semester?',
+    kpiTrendCard: 'Add your insights about the status trend forecast here. Which colleges or programs are predicted to see this status rise or fall?',
+    enrollTrendCard: 'Add your insights about the enrollment trend forecast here. Is total enrollment predicted to grow or shrink, and how might the regular/irregular mix shift?',
+    hardestCard: 'Add your insights about the predicted hardest subjects here. Which subjects need support first?',
+    gwaCard: 'Add your insights about the GWA forecast here. Which colleges or courses are improving or worsening?',
+    riskCard: 'Add your insights about the at-risk forecast here. Where should support be planned first?',
+  };
+
+  function setDirty(v) { _dirty = v; if (!saveBtn) return; saveBtn.classList.toggle('ai-save-btn-dirty', v); saveBtn.disabled = !v; saveBtn.title = v ? 'Save changes' : 'No unsaved changes'; }
+  function setBadge(cls, txt) { if (!badge) return; badge.textContent = txt; badge.className = 'ai-save-badge' + (cls ? ' ' + cls : ''); }
+  const subOf = id => document.querySelector('#' + id + ' .card-subtitle')?.textContent || '';
+
+  async function loadInsight(id) {
+    try { const r = await fetch('/api/dash/insights?chart_key=' + id + '&dashboard=' + DASH + '&filters=' + encodeURIComponent(JSON.stringify(filtersOf(id)))); if (!r.ok) return null; const d = await r.json(); return d.found ? d : null; }
+    catch { return null; }
+  }
+  async function doSave() {
+    const text = textArea?.innerText?.trim() || '';
+    if (!text || !_card) return;
+    setBadge('unsaved', 'Saving\u2026');
+    try {
+      const r = await fetch('/api/dash/insights', { method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ chart_key: _card, dashboard: DASH, insight_text: text, filter_label: subOf(_card), filters: filtersOf(_card) }) });
+      const d = await r.json();
+      if (d.saved) { _savedText = text; setBadge('saved', 'Saved \u2014 visible to all users'); setDirty(false); if (metaEl) metaEl.textContent = 'Just saved by you'; }
+      else setBadge('error', 'Save failed');
+    } catch { setBadge('error', 'Save failed'); }
+  }
+  async function openModal(id) {
+    _card = id; _savedText = ''; setDirty(false);
+    if (titleEl) { const svg = titleEl.querySelector('svg'); titleEl.textContent = ' Generate Chart Insights \u2014 ' + (TITLES[id] || id); if (svg) titleEl.prepend(svg); }
+    if (ctxEl) ctxEl.textContent = subOf(id);
+    if (metaEl) metaEl.textContent = '';
+    setBadge('', '');
+    textArea.textContent = ''; textArea.contentEditable = 'true';
+    modal.classList.remove('hidden');
+    loadEl?.classList.add('active');
+    const saved = await loadInsight(id);
+    loadEl?.classList.remove('active');
+    if (saved?.insight_text) {
+      _savedText = saved.insight_text; textArea.innerText = saved.insight_text;
+      setBadge('saved', 'Saved \u2014 visible to all users');
+      if (saved.legacy) { _savedText = ''; setDirty(true); setBadge('unsaved', 'Earlier general insight - click Save to keep it for these filters'); }
+      if (metaEl && saved.updated_at) metaEl.textContent = 'Last updated ' + new Date(saved.updated_at).toLocaleDateString('en-PH', {month:'short', day:'numeric', year:'numeric'}) + (saved.updated_by ? ' by ' + saved.updated_by : '');
+    } else { textArea.setAttribute('data-placeholder', PLACEHOLDER[id] || 'Type your insight here\u2026'); regenBtn?.click(); }
+  }
+  textArea?.addEventListener('input', () => {
+    const differs = (textArea.innerText?.trim() || '') !== _savedText;
+    if (differs !== _dirty) setDirty(differs);
+    if (!differs) setBadge(_savedText ? 'saved' : '', _savedText ? 'Saved \u2014 visible to all users' : '');
+    else setBadge('unsaved', 'Unsaved \u2014 click Save to share');
+  });
+  saveBtn?.addEventListener('click', () => { if (_dirty) doSave(); });
+
+  const INST = 'Bataan Peninsula State University (BPSU) Main Campus';
+  const SCALE = 'GWA uses the Philippine 1.00\u20135.00 scale \u2014 1.00 is best, 5.00 is failing.';
+  function lines(d, f) { return d.datasets.slice(0, 6).map(x => { const v = x.data.filter(n => n != null); return '  ' + PD.sc(x.label) + ': ' + f(v[v.length - 1]); }).join('\n'); }
+  function buildPrompt(id) {
+    const ctx = 'Filters: ' + PD.scope(id) + '\n';
+    const head = 'You are an academic analytics assistant for ' + INST + '. ' + SCALE + '\n' + ctx;
+    const tail = '\nProvide 3\u20135 concise numbered insights and recommended actions for administrators.';
+    if (id === 'kpiCard') {
+      const d = PD.kpi(); if (!d || d.empty || !d.enrollment) return null;
+      const e = d.enrollment, st = d.statuses || {};
+      const sl = Object.keys(st).map(k => '  ' + k + ': ' + st[k].count + ' (last recorded ' + (st[k].prev_count ?? 'n/a') + ')').join('\n');
+      return head + 'KPI forecast for ' + d.term.label + ' vs last recorded ' + d.prev_term.label + ':\n  Enrollment ' + e.all.value + ' (was ' + (e.all.prev ?? 'n/a') + '); regular ' + e.regular.value + ', irregular ' + e.irregular.value + '\n  GWA ' + (d.gwa.value ?? 'n/a') + ' (was ' + (d.gwa.prev ?? 'n/a') + ')\n  Completion ' + (d.completion.value ?? 'n/a') + '% (was ' + (d.completion.prev ?? 'n/a') + '%)\n' + sl + tail;
+    }
+    if (id === 'kpiTrendCard') { const d = PD.kpiTrend(); if (!d?.datasets?.length) return null; return head + `Predicted ${STATUS_LABEL[ktMetric] || ktMetric} status, by ${d.group_by} (latest forecast point):\n` + lines(d, v => Math.round(v ?? 0) + ' students') + tail; }
+    if (id === 'enrollTrendCard') { const d = PD.enrollTrend(); if (!d?.datasets?.length) return null; return head + `Predicted ${ENROLL_METRIC_LABEL[etMetric] || etMetric} enrollment, by ${d.group_by} (latest forecast point):\n` + lines(d, v => Math.round(v ?? 0) + ' students') + tail; }
+    if (id === 'gwaCard') { const d = PD.gwa(); if (!d?.datasets?.length) return null; return head + 'Predicted average GWA per ' + d.group_by + ' (latest forecast point):\n' + lines(d, v => v == null ? 'n/a' : Number(v).toFixed(2)) + tail; }
+    if (id === 'riskCard') { const d = PD.risk(); if (!d?.datasets?.length) return null; return head + 'Predicted students with ' + PD.riskLabel() + ' status per ' + d.group_by + ':\n' + lines(d, v => Math.round(v ?? 0) + ' students') + tail; }
+    if (id === 'hardestCard') {
+      const subs = PD.hs()?.subjects || []; if (!subs.length) return null;
+      return head + 'Subjects predicted to be hardest next semester:\n' + subs.slice(0, 8).map((s, i) => '  ' + (i + 1) + '. ' + (s.title || s.code) + ' (' + s.students + ' students)').join('\n') + tail;
+    }
+    return null;
+  }
+  regenBtn?.addEventListener('click', async () => {
+    if (!_card) return;
+    const prompt = buildPrompt(_card);
+    if (!prompt) { setBadge('error', 'Load the chart data first, then regenerate.'); return; }
+    loadEl?.classList.add('active'); textArea.contentEditable = 'false'; regenBtn.disabled = true;
+    try {
+      const res = await fetch('/api/dash/insights/generate', { method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type':'application/json'}, body: JSON.stringify({ prompt }) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const text = (data.text || '').trim();
+      if (text) { textArea.innerText = text; setDirty(true); setBadge('unsaved', 'AI draft \u2014 review and edit, then click Save to share'); }
+      else setBadge('error', 'No response from AI. Try again.');
+    } catch (e) { setBadge('error', 'AI error: ' + e.message); }
+    finally { loadEl?.classList.remove('active'); textArea.contentEditable = 'true'; regenBtn.disabled = false; }
+  });
+
+  _$('aiInsightsDownloadWord')?.addEventListener('click', () => {
+    const title = TITLES[_card] || _card || '', sub = ctxEl?.textContent || '', text = textArea?.innerText || '';
+    let img = '';
+    if (_$('aiInsightsIncludeChart')?.checked) {
+      const c = document.querySelector('#' + _card + ' .chart-area:not(.hidden) canvas');
+      if (c && c.width) { const o = document.createElement('canvas'); o.width = c.width; o.height = c.height; const x = o.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, o.width, o.height); x.drawImage(c, 0, 0); img = '<img src="' + o.toDataURL('image/png') + '" style="max-width:100%;margin:12px 0;" alt="' + title + '">'; }
+    }
+    const doc = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:Calibri,Arial,sans-serif;margin:2cm;color:#1f2937;line-height:1.7}h1{font-size:17pt;color:#7B1113;margin-bottom:2px}p.sub{font-size:10pt;color:#6b7280;margin:0 0 14px}hr{border:none;border-top:1px solid #e5e7eb;margin:14px 0}pre{font-family:inherit;font-size:11pt;white-space:pre-wrap;margin:0}footer{font-size:8pt;color:#9ca3af;margin-top:28px}</style></head><body><h1>' + title + '</h1><p class="sub">' + sub + '</p><hr>' + img + '<pre>' + text.replace(/</g, '&lt;') + '</pre><hr><footer>NovaSight Prediction Analysis &middot; Bataan Peninsula State University<br>Forecasts are for planning only.</footer></body></html>';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\ufeff' + doc], { type: 'application/msword' }));
+    a.download = 'novasight_insight_' + title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '.doc';
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
+
+  function closeModal() {
+    if (_dirty) { if (_savedText) textArea.innerText = _savedText; else textArea.textContent = ''; setDirty(false); setBadge(_savedText ? 'saved' : '', _savedText ? 'Saved \u2014 visible to all users' : ''); }
+    modal.classList.add('hidden');
+  }
+  _$('aiInsightsClose')?.addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+});

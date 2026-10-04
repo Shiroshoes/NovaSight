@@ -1,0 +1,22 @@
+{# MISO profile header — Tutorial button + user chip.
+   Identical structure to admin/_admin_topbar.html but profile link
+   points to MISO_bp.profile_MISO instead of admin_bp.profile.
+   Include inside .page-userbar / .dash-sticky of each MISO page.
+#}
+<div class="page-userbar">
+  <button type="button" class="userbar-tutorial" id="tutorialLink" title="Open the system tutorial">
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.3 2.841A1.5 1.5 0 0 0 4 4.11V15.89a1.5 1.5 0 0 0 2.3 1.269l9.344-5.89a1.5 1.5 0 0 0 0-2.538L6.3 2.84Z"/></svg>
+    Tutorial
+  </button>
+  <a class="userbar-user" href="{{ url_for('MISO_bp.profile_MISO') }}" title="Profile">
+    {% if user and user.profile_image_url %}
+      <img class="userbar-avatar" src="{{ user.profile_image_url }}" alt="">
+    {% else %}
+      <span class="userbar-avatar userbar-avatar-fallback" {% if user and user.avatar_color %}style="background:{{ user.avatar_color }}"{% endif %}>{{ (user.username if user else 'U')[:1]|upper }}</span>
+    {% endif %}
+    <span class="userbar-meta">
+      <span class="userbar-name">{{ user.username if user else 'MISO' }}</span>
+      <span class="userbar-email">{{ user.account if user else '' }}</span>
+    </span>
+  </a>
+</div>

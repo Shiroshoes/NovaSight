@@ -4,56 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Home-nologin</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/no login/home_nologin.css') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/no login/home_nologin.css') }}">
   <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/responsive.css') }}">
 </head>
 <body>
 
 
-  <!-- fixed side bar -->
-  <aside class="sidebar">
-    <nav class="pad">
-      <a href="/" class="menu-active">
-        <div class="active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icon">
-            <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
-            <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
-          </svg>
-        </div>
-        <span>Home</span>
-      </a>
-      
-      <div>
-        <hr class="sidebardivider">
-      </div>
+  <main>
 
-        <a href="/help" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <span>Help</span>
-        </a>
-
-      <div class="sidebar-footer">
-        <a href="/privacy-policy" class="btn-privacy">
-          &bull; Privacy Policy
-        </a>
-
-        <p class="copyright">
-          &copy; 2026 NovaSight Dev Team. All rights reserved.
-        </p>
-      </div>
-    </nav>
-  </aside>
-<main>
- 
   <!--header -->
         <header class="topmenu">
           <div class="brand">
-            <a href="/" class="brand-link">
+            <a href="#home" class="brand-link">
               <div class="logo-sq">
                 <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="BPSU Logo" class="brand-logo">
               </div>
@@ -63,14 +29,26 @@
                 </div>
             </a>
           </div>
-            
+
+          <nav class="main-nav" id="mainNav" aria-label="Primary">
+            <a href="#home" class="nav-link">Home</a>
+            <a href="#features" class="nav-link">Features</a>
+            <a href="#how-it-works" class="nav-link">How It Works</a>
+            <a href="#about" class="nav-link">About</a>
+            <a href="#developers" class="nav-link">Developers</a>
+            <a href="#help" data-open-modal="helpModal" class="nav-link">Help</a>
+          </nav>
+
+          <div class="header-right">
+            <button type="button" class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="mainNav">
+              <span></span><span></span><span></span>
+            </button>
             <a href="/login" class="user-profile">
                 <span>Login</span>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar">
-                  <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="login-ico" aria-hidden="true"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
 
               </a>
+          </div>
         </header>
 
     <!-- Flash messages (flask flash()) — e.g. "your role was updated,
@@ -264,7 +242,7 @@
           <p style="margin:0;">
             By continuing to use this site, you're okay with that one
             functional cookie. See our
-            <a href="{{ url_for('privacy_policy') }}">Privacy Policy</a>
+            <a href="#privacy" data-open-modal="privacyModal">Privacy Policy</a>
             for full details on what information NovaSight collects and
             how it's used.
           </p>
@@ -317,105 +295,1046 @@
 
       
 
-  <!-- loading placeholders: swapped for the real cards below once the hero image is ready -->
-  <section class="dashboard-grid skeleton-grid" id="dashboardSkeleton" aria-hidden="true">
-    <div class="card welcome-card">
-      <div class="welcome-content">
+  <!-- Skeleton placeholder shown while the home content (and its hero
+       image) finishes loading. Swapped for #dashboardContent below by
+       js/dashboard-skeleton.js. -->
+  <div class="skeleton-grid" id="dashboardSkeleton" aria-hidden="true">
+    <section class="hero hero-skel">
+      <div class="hero-copy">
         <span class="skel skel-title"></span>
+        <span class="skel skel-title short"></span>
         <span class="skel skel-line"></span>
-        <span class="skel skel-line" style="width:88%"></span>
-        <span class="skel skel-line" style="width:70%"></span>
+        <span class="skel skel-line short"></span>
         <span class="skel skel-btn-lg"></span>
       </div>
-    </div>
-    <div class="card dashboard-card">
-      <span class="skel skel-visual"></span>
-      <div class="dashboard-text">
-        <span class="skel skel-line"></span><span class="skel skel-line"></span><span class="skel skel-line"></span>
-        <span class="skel skel-line"></span><span class="skel skel-line" style="width:82%"></span><span class="skel skel-line" style="width:60%"></span>
+    </section>
+    <section class="features features-skel">
+      <div class="feature-grid">
+        <div class="skel-col"><span class="skel skel-line short"></span><span class="skel skel-line"></span><span class="skel skel-line"></span><span class="skel skel-icon"></span></div>
+        <div class="skel-col"><span class="skel skel-line short"></span><span class="skel skel-line"></span><span class="skel skel-line"></span><span class="skel skel-icon"></span></div>
+        <div class="skel-col"><span class="skel skel-line short"></span><span class="skel skel-line"></span><span class="skel skel-line"></span><span class="skel skel-icon"></span></div>
+        <div class="skel-col"><span class="skel skel-line short"></span><span class="skel skel-line"></span><span class="skel skel-line"></span><span class="skel skel-icon"></span></div>
       </div>
-    </div>
-  </section>
-  <noscript><style>#dashboardSkeleton{display:none}#dashboardContent[hidden]{display:block}</style></noscript>
-
-  <div id="dashboardContent" hidden>
-  <section class="dashboard-grid">
-  <div class="card welcome-card">
-    <div class="welcome-content">
-      <h2>Welcome to BPSU Academic Prediction</h2>
-      <p>A Dashboard system designed to display the predictive result of student performance in Bataan Peninsula State University - Main Campus</p>
-      
-      <a href="/login" class="btn-login-large">Login</a>
-    </div>
+    </section>
   </div>
 
-  <div class="card dashboard-card">
-    <div class="visual-placeholder"></div>
-    
-    <div class="dashboard-text">
-      <p>This system uses machine learning models trained on historical academic data like grades, GWA, enrollment status (regular/irregular), gender distribution,
-         drops, and INCs, to surface early trends and risk indicators that manual review alone can miss. Student records are referenced only by an anonymized 
-         student ID, never by name, so no individual identity is exposed on the dashboard. Model reliability varies by prediction type, and that reliability 
-         is shown transparently on the dashboard rather than presented as one certain number, so results are meant to inform judgment, not replace it. 
-         Models are retrained as new academic data is uploaded each term, keeping forecasts current without overstating how certain any forecast of the future 
-         can be. By design, this system is built for decision support, flagging at-risk records or cohorts who may benefit from additional academic 
-         assistance, and is not intended as a performance score for any college, department, or dean, so the incentive stays on early intervention rather 
-         than on managing the numbers themselves.
-      </p>
-    </div>
-  </div>
+  <div id="dashboardContent" class="hidden"
+       data-visual-src="{{ url_for('static', filename='image/homeimg.png') }}">
 
-  </section>
+    <!-- 1 · HERO — full-width photo, big centered headline, one big button -->
+    <section class="hero" id="home">
+      <div class="visual-placeholder" aria-hidden="true"></div>
+
+      <div class="hero-copy">
+        <h2 class="reveal" style="--d:.08s">Welcome to BPSU Academic Performance Prediction</h2>
+        <p class="hero-lead reveal" style="--d:.16s">A dashboard system that displays the predicted performance of students at Bataan Peninsula State University &ndash; Main Campus.</p>
+
+        <div class="login-section reveal" style="--d:.24s">
+          <div class="hero-actions">
+            <a class="btn-scroll" href="#how-it-works">See how it works <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="arrow-down" aria-hidden="true"><path d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg></a>
+          </div>
+          <small class="login-note">Only verified BPSU personnel can sign in. Accounts are created by Academic Affairs.</small>
+        </div>
+      </div>
+
+      <a class="hero-help" href="#help" data-open-modal="helpModal">
+        Questions? We can help
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/></svg>
+      </a>
+    </section>
+
+    <!-- 2 · HOW IT WORKS — light band attached under the hero -->
+    <section class="features" id="features">
+      <div class="feature-grid">
+        <article class="feature-item reveal">
+          <h4>Trained on academic history</h4>
+          <p>Grades, GWA, enrollment status, gender distribution, drops and INCs help surface early risk trends that manual review can miss.</p>
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 40V28M20 40V12M32 40V22M44 40H4"/></svg>
+          </div>
+        </article>
+        <article class="feature-item reveal" style="--d:.1s">
+          <h4>Anonymous by design</h4>
+          <p>Records are referenced only by an anonymized student ID, never by name, so no identity is exposed.</p>
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M24 5l15 6v11c0 10-6 17-15 21C15 39 9 32 9 22V11z"/><path d="M17 24l5 5 9-10"/></svg>
+          </div>
+        </article>
+        <article class="feature-item reveal" style="--d:.2s">
+          <h4>Honest about reliability</h4>
+          <p>Reliability differs by prediction type and is shown on the dashboard instead of as one certain number.</p>
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="16" stroke-opacity=".22"/><path d="M24 8a16 16 0 1 1-14.2 8.7"/></svg>
+          </div>
+        </article>
+        <article class="feature-item reveal" style="--d:.3s">
+          <h4>Always current</h4>
+          <p>Models are retrained as new academic data is uploaded each term, without overstating how certain a forecast is.</p>
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M41 24a17 17 0 1 1-5-12"/><path d="M41 6v9h-9"/></svg>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="home-section callout-section">
+      <div class="callout reveal">
+        <h4>Decision support, not a scorecard</h4>
+        <p>NovaSight flags at-risk records and cohorts who may benefit from additional academic assistance. It is not a performance score for any college, department, or dean, so the incentive stays on early intervention rather than on managing the numbers.</p>
+      </div>
+    </section>
+
+      <!-- 3 · HOW IT WORKS — three steps from upload to dashboard -->
+    <section class="home-section lp-section" id="how-it-works">
+      <div class="section-head reveal">
+        <h3>From term records to an early outlook</h3>
+        <p>NovaSight works quietly in the background of the normal academic cycle. Three steps turn the grades the university already collects into a forward-looking view.</p>
+      </div>
+      <div class="lp-grid cols-3">
+        <article class="lp-card reveal">
+          <span class="lp-step">1</span>
+          <h4>Term data goes in</h4>
+          <p>Authorized staff from Academic Affairs and MISO upload each term&rsquo;s grade sheets. Every file is checked for the right format and for duplicates before any of it is used.</p>
+        </article>
+        <article class="lp-card reveal" style="--d:.1s">
+          <span class="lp-step">2</span>
+          <h4>Models learn the history</h4>
+          <p>Once enough semesters are on record, the system trains its prediction models on the accumulated history and retrains whenever a new term is added.</p>
+        </article>
+        <article class="lp-card reveal" style="--d:.2s">
+          <span class="lp-step">3</span>
+          <h4>Dashboards show the outlook</h4>
+          <p>Deans, the Registrar and Academic Affairs see where risk is likely to rise by college, program and year level, each prediction shown with its own reliability.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- 4 · WHAT'S ON THE DASHBOARDS -->
+    <section class="home-section lp-section">
+      <div class="section-head reveal">
+        <h3>What you can see once you sign in</h3>
+        <p>Every chart is built to answer a practical question, and every chart can be filtered, reset or expanded to full screen.</p>
+      </div>
+      <div class="lp-grid cols-4">
+        <article class="lp-card lp-card-icon reveal">
+          <span class="lp-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 38l11-13 8 8 15-19"/><path d="M30 14h8v8"/></svg></span>
+          <h4>Enrollment &amp; status trends</h4>
+          <p>See how enrollment and academic standing have moved term after term, instead of a single snapshot.</p>
+        </article>
+        <article class="lp-card lp-card-icon reveal" style="--d:.08s">
+          <span class="lp-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v36"/><path d="M12 9h24l-6 9 6 9H12"/></svg></span>
+          <h4>Early risk flags</h4>
+          <p>Failed, Dropped, Incomplete, Unofficial Drop and Withdrawn records, broken down by college, program and year level.</p>
+        </article>
+        <article class="lp-card lp-card-icon reveal" style="--d:.16s">
+          <span class="lp-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M7 33a17 17 0 0 1 34 0"/><path d="M24 33l8-11"/><circle cx="24" cy="33" r="2"/></svg></span>
+          <h4>Reliability, not false certainty</h4>
+          <p>Each prediction type shows how much it can be trusted, so planning decisions rest on honest numbers.</p>
+        </article>
+        <article class="lp-card lp-card-icon reveal" style="--d:.24s">
+          <span class="lp-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h36L28 25v13l-8 4V25z"/></svg></span>
+          <h4>Filters &amp; comparisons</h4>
+          <p>Narrow every chart by academic year, term and more, or compare a term against the same term the year before.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- 5 · WHO IT'S FOR -->
+    <section class="home-section lp-section">
+      <div class="section-head reveal">
+        <h3>Built for the people who plan and advise</h3>
+        <p>Access is limited to verified BPSU personnel. What each person sees depends on their role.</p>
+      </div>
+      <div class="lp-grid cols-3">
+        <article class="lp-card reveal">
+          <h4>Academic Affairs &amp; MISO</h4>
+          <p>Academic Affairs creates and manages accounts. Academic Affairs and MISO upload each term&rsquo;s grade sheets and keep the data current.</p>
+        </article>
+        <article class="lp-card reveal" style="--d:.1s">
+          <h4>Registrar</h4>
+          <p>The Registrar reads the main and predictive dashboards across every college to see university-level patterns.</p>
+        </article>
+        <article class="lp-card reveal" style="--d:.2s">
+          <h4>College Deans</h4>
+          <p>Deans of CAHS, CBA, CCST, CEA, CoAS and CTEC get dashboards for their college so they can spot cohorts that may need extra support.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- 6 · FAQ -->
+    <section class="home-section lp-section" id="faq">
+      <div class="section-head reveal">
+        <h3>Common questions</h3>
+      </div>
+      <div class="faq-list">
+        <details class="faq-item reveal">
+          <summary>Who can sign in?</summary>
+          <p>Only verified BPSU personnel. Accounts are created by Academic Affairs, so there is no public sign-up. If you need access, ask Academic Affairs.</p>
+        </details>
+        <details class="faq-item reveal" style="--d:.06s">
+          <summary>Does NovaSight show student names?</summary>
+          <p>No. Records are referenced only by an anonymized student ID, never by name, so no student&rsquo;s identity is exposed on the dashboards.</p>
+        </details>
+        <details class="faq-item reveal" style="--d:.12s">
+          <summary>Is a prediction the same as a grade or a rating?</summary>
+          <p>No. A prediction is an early signal, shown with its own reliability. NovaSight is decision support: it is not a score for any college, department or dean, and it is meant to inform judgment, not replace it.</p>
+        </details>
+        <details class="faq-item reveal" style="--d:.18s">
+          <summary>How current is the information?</summary>
+          <p>The models are retrained as new academic data is uploaded each term, so the outlook follows the latest records on file.</p>
+        </details>
+        <details class="faq-item reveal" style="--d:.24s">
+          <summary>Where do I go if something isn&rsquo;t working?</summary>
+          <p>Open the <a href="#help" data-open-modal="helpModal">Help page</a> for step-by-step guides and common fixes.</p>
+        </details>
+      </div>
+    </section>
   </div>
+  <noscript><style>#dashboardSkeleton{display:none}#dashboardContent.hidden{display:block}</style></noscript>
 
   <script>
-    /* Show the real cards as soon as the hero image (the .visual-placeholder background) is loaded.
-       Cached image => instant, so the skeleton never flashes; 4 s cap in case the image never arrives. */
+    /* Swap the skeleton for the real content as soon as the hero photo has loaded.
+       A cached photo shows instantly, so the skeleton never flashes; 4 s cap in case it never arrives. */
     (function () {
       var sk = document.getElementById('dashboardSkeleton'), real = document.getElementById('dashboardContent');
       if (!sk || !real) return;
       var done = false;
       function show() {
         if (done) return; done = true;
-        sk.parentNode && sk.parentNode.removeChild(sk);
-        real.hidden = false; real.classList.add('is-visible');
+        if (sk.parentNode) sk.parentNode.removeChild(sk);
+        real.hidden = false; real.classList.remove('hidden'); real.classList.add('is-visible');
       }
-      var hero = real.querySelector('.visual-placeholder');
-      var m = hero && /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(hero).backgroundImage || '');
-      if (!m) { show(); return; }
+      var src = real.getAttribute('data-visual-src');
+      if (!src) { show(); return; }
       var img = new Image();
       img.onload = img.onerror = show;
-      img.src = m[1];
+      img.src = src;
       if (img.complete) show();
       setTimeout(show, 4000);
     })();
   </script>
 
-  <div class="footer-brand">
-      <hr class="footer-divider">
+  <!-- ══════════════════════════════════════════════════════════════════
+       ABOUT NOVASIGHT — Vision/Mission, rationale, purpose, dev team.
+       Each .reveal block fades/slides in the first time it scrolls into
+       view (see the IntersectionObserver script near the bottom of this
+       file) and stays visible after that — it doesn't replay on scroll-up.
+       ══════════════════════════════════════════════════════════════════ -->
+  <section class="about-section" id="about">
+    <div class="about-inner">
 
-      <div class="footer-brand-content">
-          <img src="{{ url_for('static', filename='image/logo.png') }}"
-              alt="NovaSight Logo"
-              class="footer-logo">
-
-          <div class="footer-brand-text">
-              <h3>NovaSight</h3>
-              <p>Machine Learning-Based Student Performance Prediction System</p>
-              <small>2026 Bataan Peninsula State University</small>
-          </div>
+      <div class="section-head about-head reveal">
+        <h3>About NovaSight</h3>
       </div>
-  </div>
 
-  <footer class="footer">
+      <!-- Image panel (Vision + Mission) | Why this study + Purpose -->
+      <div class="about-split">
 
-    <div class="footer-content">
-        <span class="page-label">Page/</span><span class="page-name">Home</span>
+        <div class="about-visual reveal">
+          <img src="{{ url_for('static', filename='image/homeimg.png') }}" alt="" aria-hidden="true" draggable="false">
+          <div class="about-vm">
+            <span class="about-eyebrow">Vision</span>
+            <p>To Act As The Organization&rsquo;s Lodestar by Altering Historical Data of Record into Proactive, Reliable Outlook and Prognosis that Empower Practical Judgement, Operation and Mitigating Risk</p>
+          </div>
+          <div class="about-vm">
+            <span class="about-eyebrow">Mission</span>
+            <p>To Designed A Utility For Metamorphosis Of Complex Data of Fact In Lucid Acumen And Precise Prediction With Reliable Outlook, Prognosis, forecast</p>
+          </div>
+        </div>
+
+        <div class="about-points">
+          <article class="about-point reveal">
+            <h3>Why This Study</h3>
+            <p>
+          <!-- TODO: personalize this with your own rationale / problem statement from Chapter 1 -->
+          Academic records at BPSU &mdash; grades, enrollment status, dropouts, incompletes &mdash; are already
+          collected every term, but they are reviewed manually and looked at after the fact, once a
+          student has already struggled for a semester or more. The development team set out to build
+          NovaSight after observing that colleges and departments had no shared, forward-looking view of
+          this data: no early signal for which cohorts were trending toward higher failure, drop, or
+          incompletion rates before the numbers were already final. The goal was a system that turns
+          historical academic records into a proactive outlook, not just a historical record.
+        </p>
+            <a class="about-link" href="#how-it-works"><span>See how it works</span><span class="circ"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg></span></a>
+          </article>
+          <article class="about-point reveal" style="--d:.1s">
+            <h3>What This Study Is Used For</h3>
+            <p>
+          NovaSight is built for decision support, not for scoring or ranking any college, department,
+          or dean. It flags at-risk records and cohorts early &mdash; by status (Failed, Dropped,
+          Incomplete, Unofficial Drop, Withdrawn), by college and program, and by year level &mdash; so
+          that academic staff can direct intervention and advising where it is likely to matter most,
+          instead of reviewing every record after each term closes. Every prediction is shown alongside
+          its own reliability, rather than as a single certain number, so the dashboard is meant to
+          inform judgment and planning, not replace it.
+        </p>
+            <a class="about-link" href="#faq"><span>Read the FAQ</span><span class="circ"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg></span></a>
+          </article>
+        </div>
+
+      </div>
+
     </div>
-  </footer> 
+  </section>
+
+  <!-- Development team — its own section, well apart from About.
+       Photos: put each member's picture at static/image/team/<name>.jpg
+       (perdio, palermo, saladanan, santo). Until then the initials show. -->
+  <section class="dev-section" id="developers">
+    <div class="dev-inner">
+      <div class="dev-head reveal">
+        <h3>Meet the Team</h3>
+        <p>The dedicated researchers behind NovaSight &middot; Group 5 / BSDS - 4A, Bataan Peninsula State University</p>
+      </div>
+      <div class="dev-grid">
+        <div class="dev-card reveal">
+          <div class="dev-photo" data-initials="JP">
+            <img src="{{ url_for('static', filename='image/team/perdio.jpg') }}" alt="Perdio, Jeo-Criz Izzack E." draggable="false" onerror="this.remove()">
+          </div>
+          <span class="dev-name">Perdio, Jeo-Criz Izzack E.</span>
+          <span class="dev-role">Frontend, Backend &amp; UI/UX</span>
+        </div>
+        <div class="dev-card reveal">
+          <div class="dev-photo" data-initials="RP">
+            <img src="{{ url_for('static', filename='image/team/palermo.jpg') }}" alt="Palermo, Rhommel M." draggable="false" onerror="this.remove()">
+          </div>
+          <span class="dev-name">Palermo, Rhommel M.</span>
+          <span class="dev-role">Frontend &amp; UI/UX</span>
+        </div>
+        <div class="dev-card reveal">
+          <div class="dev-photo" data-initials="RS">
+            <img src="{{ url_for('static', filename='image/team/saladanan.jpg') }}" alt="Saladanan, Rodrigo II D." draggable="false" onerror="this.remove()">
+          </div>
+          <span class="dev-name">Saladanan, Rodrigo II D.</span>
+          <span class="dev-role">UI/UX &amp; Documentation</span>
+        </div>
+        <div class="dev-card reveal">
+          <div class="dev-photo" data-initials="MS">
+            <img src="{{ url_for('static', filename='image/team/santo.jpg') }}" alt="Santo, Marielle Andrea M." draggable="false" onerror="this.remove()">
+          </div>
+          <span class="dev-name">Santo, Marielle Andrea M.</span>
+          <span class="dev-role">Documentation</span>
+        </div>
+      </div>
+    </div>
+  </section>
+  <script>
+    // Scroll animation: every .reveal block fades + slides in when it enters
+    // the viewport and slides back out when it leaves, so it replays whether
+    // you scroll down OR up (it waits below the screen after leaving through
+    // the bottom, and above the screen after leaving through the top).
+    // Children use --d (inline) for a staggered delay. Reduced-motion users,
+    // and browsers without IntersectionObserver, just see everything.
+    (function () {
+      var items = document.querySelectorAll('.reveal');
+      if (!items.length) return;
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce || !('IntersectionObserver' in window)) {
+        items.forEach(function (el) { el.classList.add('is-visible'); });
+        return;
+      }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          var el = entry.target;
+          if (entry.isIntersecting) {
+            el.classList.remove('is-above');
+            el.classList.add('is-visible');
+          } else {
+            el.classList.remove('is-visible');
+            el.classList.toggle('is-above', entry.boundingClientRect.top < 0);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+      items.forEach(function (el) { io.observe(el); });
+    })();
+  </script>
+
+
+  <footer class="bp-footer" role="contentinfo">
+    <img class="bp-watermark" src="{{ url_for('static', filename='image/logo2.png') }}" alt="" aria-hidden="true" draggable="false">
+
+    <div class="bp-footer-main">
+      <div class="bp-seals">
+        <span class="bp-seal"><img src="{{ url_for('static', filename='image/logo2.png') }}" alt="BPSU logo" draggable="false"></span>
+        <span class="bp-seal-line" aria-hidden="true"></span>
+        <span class="bp-seal bp-seal-nova"><img src="{{ url_for('static', filename='image/logo.png') }}" alt="NovaSight logo" draggable="false"></span>
+      </div>
+
+      <h5 class="bp-uni">Bataan Peninsula State University</h5>
+      <p class="bp-campus">Main Campus &middot; Balanga City, Bataan</p>
+
+      <div class="bp-ornament" aria-hidden="true"><span></span><i></i><span></span></div>
+
+      <p class="bp-tagline"><strong>NovaSight</strong> &mdash; Machine Learning-Based Student Performance Prediction System. Turning the university&rsquo;s academic records into an early, proactive outlook for advising and planning.</p>
+
+      <nav class="bp-links" aria-label="Footer">
+        <a href="#home">Home</a>
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#about">About</a>
+        <a href="#developers">Developers</a>
+        <a href="#help" data-open-modal="helpModal">Help</a>
+        <a href="#privacy" data-open-modal="privacyModal">Privacy Policy</a>
+      </nav>
+
+      <a class="bp-login" href="/login"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="login-ico" aria-hidden="true"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg> Login</a>
+    </div>
+
+    <div class="bp-footer-base">
+      <p>&copy; 2026 NovaSight Dev Team. All rights reserved.</p>
+      <p>Group 5 / BSDS - 4A &middot; Bataan Peninsula State University</p>
+    </div>
+  </footer>
 </main>
 
-<script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
+  <!-- helpModal: the former public page, now a popup on this one page -->
+  <div class="info-modal" id="helpModal" data-hash="help" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle" aria-hidden="true">
+    <div class="info-modal-panel">
+      <button type="button" class="info-modal-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div class="info-modal-scroll">
+        <div class="help-content">
+<div class="help-hero">
+      <div class="help-header">
+        <span class="role-badge">Public Access</span>
+        <h2 id="helpModalTitle">Help Center</h2>
+      </div>
+      <p class="help-intro">
+          This Help Center is for visitors and for BPSU staff who are not
+          signed in yet. It explains what NovaSight is, how to log in, and
+          what to do if you can't. Once you are signed in, your role's own
+          Help Center has more.
+      </p>
+      </div>
+
+      <hr>
+
+      <div class="help-columns">
+        <div class="help-col">
+
+<div class="help-section">
+  <span class="help-section-tag">About</span>
+  <div class="help-topic">
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                </svg>
+              </span>
+              <h3>What is NovaSight?</h3>
+            </div>
+            <p>
+                NovaSight is the Bataan Peninsula State University
+                (BPSU) student performance prediction system. It turns the
+                academic records that authorized staff upload each semester
+                into dashboards and forecasts that help flag groups of
+                students who may benefit from extra academic support.
+            </p>
+            <p>
+                It is an internal tool for BPSU personnel. This public
+                site never shows student data; everything is behind the
+                login.
+            </p>
+</div>
+
+<div class="help-section help-group">
+  <span class="help-section-tag">Getting Started</span>
+  <div class="help-topic">
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                </svg>
+              </span>
+              <h3>Logging In</h3>
+            </div>
+            <ol>
+                <li>Select <strong>Login</strong> at the top right of any
+                    page.</li>
+                <li>Enter your BPSU email (for example
+                    <code>Account@bpsu.edu.ph</code>) and your password.
+                    Use the eye icon to show or hide what you type.</li>
+                <li>Press <strong>LOGIN</strong>.</li>
+            </ol>
+            <p>
+                Accounts are created only for verified BPSU personnel;
+                there is no self-registration. If you do not have an
+                account yet, please contact the Academic Affairs.
+            </p>
+<div class="help-topic">
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" />
+                </svg>
+              </span>
+              <h3>What You Will See After Logging In</h3>
+            </div>
+            <p>
+                The pages you can open depend on the role assigned to
+                your account. Signed-in users can typically open:
+            </p>
+            <ul>
+                <li><strong>Dashboard</strong> - recorded student
+                    performance data for your college or area of
+                    responsibility.</li>
+                <li><strong>Prediction Analysis</strong> - forecasts of
+                    enrollment, GWA, at-risk counts, and the subjects
+                    expected to be hardest next semester.</li>
+                <li><strong>Profile</strong> and <strong>Help</strong> - your
+                    own account details and a Help Center written for your
+                    role.</li>
+            </ul>
+</div>
+
+<div class="help-section">
+  <span class="help-section-tag">Good to Know</span>
+  <div class="help-topic">
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                </svg>
+              </span>
+              <h3>Predictions Are Decision Support</h3>
+            </div>
+            <p>
+                NovaSight is built for decision support, not evaluation.
+                Predictions are meant to help flag student cohorts who may
+                benefit from additional academic support. They are not a
+                performance score for any college, department, or dean, and
+                are never used to rank or compare colleges against each
+                other.
+            </p>
+</div>
+
+<div class="help-section">
+  <span class="help-section-tag">Tips</span>
+  <div class="help-topic">
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                </svg>
+              </span>
+              <h3>Using NovaSight on a Phone or Tablet</h3>
+            </div>
+            <p>
+                On a tablet or phone the menu links collapse into the <strong>&#9776;</strong>
+                button at the top-right of the header. Tap it to open the menu,
+                then tap <strong>&#10005;</strong> (or any link) to close it.
+            </p>
+</div>
+
+<div class="help-section">
+  <span class="help-section-tag">Privacy</span>
+  <div class="help-topic">
+              <span class="help-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                </svg>
+              </span>
+              <h3>Cookies and Privacy</h3>
+            </div>
+            <p>
+                NovaSight uses a single session cookie that keeps you
+                signed in after you log in. It does not track you and is
+                never shared with third parties. The first time you visit
+                you are asked to accept it; that choice is remembered for a
+                year. Read the full details in the
+                <a class="email-link" href="#privacy" data-open-modal="privacyModal">Privacy Policy</a>.
+            </p>
+</div>
+
+<div class="help-section">
+  <span class="help-section-tag">Troubleshooting</span>
+  <div class="help-topic">
+              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" fill="currentColor"/></svg></span>
+              <h3>Common Issues</h3>
+            </div>
+            <details>
+                <summary>I can't log in.</summary>
+                <p>
+                    Enter your full BPSU email and check that Caps Lock is off; use the eye icon to make sure the password is what you meant to type. If both are correct, your account may have been deactivated - please contact the Academic Affairs.
+                </p>
+            </details>
+
+            <details>
+                <summary>I forgot my password.</summary>
+                <p>
+                    Please contact the Academic Affairs. An administrator can set a new password for your account.
+                </p>
+            </details>
+
+            <details>
+                <summary>It says my role was updated and I have to log in again.</summary>
+                <p>
+                    When the role on your account changes, NovaSight signs you out so that your pages match your new role. Log in again to continue.
+                </p>
+            </details>
+
+            <details>
+                <summary>The cookie notice keeps appearing.</summary>
+                <p>
+                    Your choice is remembered with a cookie. If your browser blocks or clears cookies, the notice appears again. Accepting it again is safe.
+                </p>
+            </details>
+
+            <details>
+                <summary>The page looks cut off on my phone.</summary>
+                <p>
+                    Refresh the page and make sure your browser is up to date. Tap the &#9776; button to open the menu.
+                </p>
+            </details>
+</div>
+
+<div class="help-section help-callout">
+  <span class="help-section-tag">Support</span>
+  <div class="help-topic">
+              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2.25c-2.429 0-4.817.178-7.152.521C2.87 3.061 1.5 4.795 1.5 6.741v6.018c0 1.946 1.37 3.68 3.348 3.97.877.129 1.761.234 2.652.316V21a.75.75 0 0 0 1.28.53l4.184-4.183a.39.39 0 0 1 .266-.112c2.006-.05 3.982-.22 5.922-.506 1.978-.29 3.348-2.023 3.348-3.97V6.741c0-1.947-1.37-3.68-3.348-3.97A49.145 49.145 0 0 0 12 2.25ZM8.25 8.625a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Zm2.625 1.125a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875-1.125a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd" fill="currentColor"/></svg></span>
+              <h3>Need Assistance?</h3>
+            </div>
+            <p>
+              If the problem persists, please contact the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=jieperdio23@bpsu.edu.ph" target="_blank">NovaSight development team</a>
+               for further assistance.
+            </p>
+</div>
+
+        </div>
+      </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- privacyModal: the former public page, now a popup on this one page -->
+  <div class="info-modal" id="privacyModal" data-hash="privacy" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle" aria-hidden="true">
+    <div class="info-modal-panel">
+      <button type="button" class="info-modal-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div class="info-modal-scroll">
+        <div class="help-content">
+<div class="help-hero">
+      <div class="help-header">
+        <span class="role-badge">Public Access</span>
+        <h2 id="privacyModalTitle">Privacy Policy</h2>
+      </div>
+      <p class="help-intro">
+          This page explains what information NovaSight collects, how
+          it's used, and how it's protected. It applies to every account
+          type like MISO, Academic Affairs, Registrar, SASO, and college
+          deans, as well as anyone visiting the public pages of this
+          site. Last updated: <strong>September 21, 2026</strong>.
+      </p>
+      </div>
+
+      <hr>
+
+      <div class="help-col">
+
+        
+<div class="help-section">
+  <span class="help-section-tag">Terms</span>
+  <div class="help-topic">
+          <h3>General</h3>
+        </div>
+        <p>
+            The Terms and Conditions contained herein on this Website Dashboard
+             (the "NovaSight") shall govern your use of this
+            System, including all pages to which you may be redirected.
+            These terms apply in full force and effect to your use of
+            this System. Your personal data, whenever provided within the
+            System, shall be processed and shall be governed by the
+            provisions of Republic Act No. 10173, or the Data Privacy Act
+            of 2012 (DPA), and all other applicable laws. Whenever used
+            herein, "NovaSight" shall mean the Researchers and
+            Developers responsible for the creation and maintenance of
+            the NovaSight application, in coordination with Bataan
+            Peninsula State University.
+        </p>
+</div>
+
+<div class="help-section">
+  <span class="help-section-tag">Terms</span>
+  <div class="help-topic">
+          <h3>Authority</h3>
+        </div>
+        <p>
+            By logging into the System, you warrant that you are a duly
+            authorized BPSU personnel member, granted access by MISO on
+            behalf of your assigned role. NovaSight may, at its
+            sole discretion, request additional or supporting
+            verification to confirm such authority. You also warrant that
+            all information you supply or upload, including any academic
+            dataset submitted through the System, is verified, true, and
+            correct to the best of your knowledge.
+        </p>
+</div>
+
+<div class="help-section help-wide">
+  <span class="help-section-tag">Terms</span>
+  <div class="help-topic">
+          <h3>Use</h3>
+        </div>
+        <p>
+            Through registration and by having access to the System, you
+            hereby warrant that the System shall only be used for the
+            following purposes:
+        </p>
+        <ul>
+            <li>Accessing academic performance dashboards (Main Dashboard)
+                and predictive analytics (Prediction Analysis) for your
+                assigned college, department, or area of responsibility.</li>
+            <li>Uploading official academic grade-sheet datasets for
+                processing, limited to authorized Academic Affairs and
+                MISO accounts.</li>
+            <li>Viewing recorded indicators such as risk heatmaps, status
+                breakdowns, GWA, and hardest subjects, together with
+                forecasts of enrollment, GWA, at-risk counts, and subject
+                difficulty generated by the System's machine learning
+                models.</li>
+            <li>Managing your own account profile, password, and related
+                account settings.</li>
+            <li>Any other academic reporting or decision-support function
+                related to student performance monitoring offered by the
+                NovaSight.</li>
+        </ul>
+</div>
+
+<div class="help-section help-policy">
+  <span class="help-section-tag">Policy</span>
+  <div class="help-topic">
+          <h3>1. Who This Applies To</h3>
+        </div>
+        <p>
+            NovaSight is an internal academic prediction system built for
+            Bataan Peninsula State University staff. It is not a public
+            registration service, accounts are created only by MISO for
+            verified BPSU personnel. This policy covers both those
+            account holders and anyone browsing the public, no-login
+            pages of the site (such as this one).
+        </p>
+
+  <div class="help-topic">
+          <h3>2. Information We Collect</h3>
+        </div>
+        <p><strong>Account information</strong>, for every staff account
+          MISO creates: first name, last name, middle initial/suffix (if
+          provided), BPSU account email, a securely hashed password
+          (never stored in plain text), assigned role, and an optional
+          profile picture, plus small interface settings such as the
+          default avatar color assigned to your role or department and
+          whether you have already seen a page's tutorial video. This
+          information identifies real staff members and is used solely to
+          operate their account within the system.
+        </p>
+        <p><strong>Uploaded academic datasets</strong>, submitted only by
+          Academic Affairs and MISO accounts, which power every dashboard
+          and prediction in the system. Each upload is processed as one
+          semester. The original file, the cleaned student and grade
+          records for that semester, and a small database record (academic
+          year, semester, number of rows, parsing accuracy, and who
+          uploaded it) are kept on secured, university-managed storage,
+          accessible only to the same MISO/Academic Affairs roles
+          authorized to upload them in the first place, for record keeping
+          and to allow re-processing if needed. On every dashboard,
+          individual student records are shown only by an anonymized
+          student ID (never by name) so no student identity is exposed to
+          deans, Registrar, or SASO through the dashboards themselves.
+        </p>
+        <p><strong>Trained models and forecasts</strong>. The prediction
+          models are trained from the uploaded semesters. They store
+          statistical parameters and aggregated figures, for example
+          headcount, average GWA, and status rates per college, course,
+          year level, and subject, not copies of student records. The
+          Prediction Analysis page displays only these aggregates and
+          never an individual student.
+        </p>
+        <p><strong>Session data</strong>: a single authentication cookie
+          that keeps you signed in. It is not used for tracking, does not
+          follow you across other sites, and carries no advertising or
+          analytics identifiers, because NovaSight does not run any
+          analytics, tracking, or advertising scripts of any kind.
+        </p>
+        <p><strong>Uploaded profile pictures</strong> are re-processed
+          on upload, decoded, stripped of any embedded file metadata,
+          and re-saved as a clean image before being stored, so no
+          hidden metadata from the original file (such as device or
+          location information some images carry) is retained.
+        </p>
+
+  <div class="help-topic">
+          <h3>3. How Information Is Used</h3>
+        </div>
+        <p>
+            Account information is used only to operate the system:
+            authenticating logins, displaying who uploaded a dataset for
+            audit purposes, and personalizing each account's profile.
+            Uploaded academic data is used only to generate the
+            dashboards, trends, and predictions NovaSight was built to
+            provide; forecasts are recalculated from all uploaded
+            semesters each time new data arrives. NovaSight does not sell,
+            rent, or share any information collected here with third
+            parties, and does not use it for any purpose beyond operating
+            the system for BPSU.
+        </p>
+
+  <div class="help-topic">
+          <h3>4. Predictions Are Decision Support, Not Evaluation</h3>
+        </div>
+        <p>
+            NovaSight's predictions are built to help flag student
+            cohorts who may benefit from additional academic support.
+            They are not a performance score for any college, department,
+            or dean, and information collected through this system is
+            never used to rank or compare colleges against one another.
+        </p>
+
+  <div class="help-topic">
+          <h3>5. How Information Is Protected</h3>
+        </div>
+        <ul>
+            <li>Passwords are never stored in plain text, only a
+                one-way secure hash.</li>
+            <li>Student records are referenced only by an anonymized ID
+                on every dashboard, never by name, and forecast pages
+                show aggregated figures only.</li>
+            <li>Login sessions are transmitted only over an encrypted
+                (HTTPS) connection.</li>
+            <li>Access to uploading academic data and to the admin
+                account-management tools is restricted by role; most
+                accounts can only view dashboards, not modify data or
+                other users.</li>
+            <li>Regular backups are kept so academic records and account
+                data are not lost to a technical failure.</li>
+        </ul>
+
+  <div class="help-topic">
+          <h3>6. Third-Party Resources</h3>
+        </div>
+        <p>
+            To draw charts and display fonts, some pages load open-source
+            libraries (Chart.js and its labels plugin) from the jsDelivr
+            content delivery network and typefaces from Google Fonts. When
+            your browser requests these files, those providers can see
+            standard connection details such as your IP address, browser
+            type, and the page that requested the file. No account
+            details, student records, or academic data are sent to them,
+            and NovaSight does not use them for analytics or advertising.
+        </p>
+
+  <div class="help-topic">
+          <h3>7. Data Retention</h3>
+        </div>
+        <p>
+            Account and academic dataset records are retained for as long
+            as needed to support BPSU's academic reporting and
+            record-keeping requirements. Deactivated ("archived") accounts
+            are retained rather than immediately erased, so historical
+            audit trails (such as who uploaded a given dataset) remain
+            intact. Prediction models are recalculated from the stored
+            semester records whenever new data is uploaded. If you wish to
+            have your account deactivated, please contact the Academic
+            Affairs.
+        </p>
+
+  <div class="help-topic">
+          <h3>8. Your Choices and Rights</h3>
+        </div>
+        <p>
+            Account holders can update their profile picture and password
+            at any time from their Profile page. For any other change,
+            such as correcting account details, deactivating an account,
+            or questions about what information is held, please contact
+            the Academic Affairs.
+        </p>
+        <p>
+            Under the Data Privacy Act of 2012 you may also have the right
+            to be informed about how your personal data is processed, to
+            access and correct it, to object to its processing, to request
+            its erasure or blocking where the law allows, and to file a
+            complaint with the National Privacy Commission
+            (<a class="email-link" href="https://privacy.gov.ph" target="_blank" rel="noopener">privacy.gov.ph</a>).
+        </p>
+
+  <div class="help-topic">
+          <h3>9. Changes to This Policy</h3>
+        </div>
+        <p>
+            If this policy changes, the "Last updated" date at the top of
+            this page will change accordingly. Significant changes will
+            be communicated to account holders directly where practical.
+        </p>
+</div>
+
+<div class="help-section help-callout">
+  <span class="help-section-tag">Contact</span>
+  <div class="help-topic">
+          <h3>10. Contact</h3>
+        </div>
+        <p>
+            Questions or concerns about this policy or about information
+            NovaSight holds can be directed to the NovaSight system
+            Developer or Academic Affairs.
+        </p>
+</div>
+
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Help Center + Privacy Policy popups. Any link with data-open-modal opens
+  // its popup on this same page; Esc, the X, or a click outside closes it.
+  // #help and #privacy in the address bar open them too (shareable links).
+  (function () {
+    var modals = {}, current = null, lastFocus = null;
+    document.querySelectorAll('.info-modal').forEach(function (m) { modals[m.id] = m; });
+    var byHash = { help: 'helpModal', privacy: 'privacyModal' };
+
+    function setHash(h) {
+      try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (e) {}
+    }
+    function openModal(id, trigger) {
+      var m = modals[id];
+      if (!m || m === current) return;
+      if (current) { current.classList.remove('is-open'); current.setAttribute('aria-hidden', 'true'); }
+      else { lastFocus = trigger || document.activeElement; }
+      m.classList.add('is-open');
+      m.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      m.querySelector('.info-modal-scroll').scrollTop = 0;
+      current = m;
+      m.querySelector('.info-modal-close').focus({ preventScroll: true });
+      setHash(m.getAttribute('data-hash'));
+    }
+    function closeModal() {
+      if (!current) return;
+      current.classList.remove('is-open');
+      current.setAttribute('aria-hidden', 'true');
+      current = null;
+      document.body.classList.remove('modal-open');
+      setHash('');
+      if (lastFocus && lastFocus.focus) { try { lastFocus.focus({ preventScroll: true }); } catch (e) {} }
+      lastFocus = null;
+    }
+
+    document.addEventListener('click', function (e) {
+      var opener = e.target.closest && e.target.closest('[data-open-modal]');
+      if (opener) { e.preventDefault(); openModal(opener.getAttribute('data-open-modal'), opener); return; }
+      if (!current) return;
+      if (e.target === current || e.target.closest('.info-modal-close')) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (!current) return;
+      if (e.key === 'Escape') { closeModal(); return; }
+      if (e.key !== 'Tab') return;
+      var f = current.querySelectorAll('a[href], button, summary, [tabindex]:not([tabindex="-1"])');
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+    window.addEventListener('hashchange', function () {
+      var id = byHash[location.hash.replace('#', '')];
+      if (id) openModal(id); else if (current && !location.hash) closeModal();
+    });
+    var start = byHash[location.hash.replace('#', '')];
+    if (start) openModal(start);
+  })();
+</script>
+
+
+<script>
+  // Mobile nav toggle (hamburger <-> the header's nav links) + scrollspy
+  // (highlights whichever section is currently in view) + closes the
+  // mobile menu automatically once a link is tapped.
+  (function () {
+    var toggle = document.getElementById('navToggle');
+    var nav    = document.getElementById('mainNav');
+    if (toggle && nav) {
+      toggle.addEventListener('click', function () {
+        var open = nav.classList.toggle('is-open');
+        var hdr = document.querySelector('header.topmenu');
+        if (hdr) hdr.classList.toggle('menu-open', open);
+        toggle.classList.toggle('is-open', open);
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      });
+      nav.querySelectorAll('.nav-link').forEach(function (link) {
+        link.addEventListener('click', function () {
+          nav.classList.remove('is-open');
+          var hdr2 = document.querySelector('header.topmenu');
+          if (hdr2) hdr2.classList.remove('menu-open');
+          toggle.classList.remove('is-open');
+          toggle.setAttribute('aria-expanded', 'false');
+          toggle.setAttribute('aria-label', 'Open menu');
+        });
+      });
+    }
+
+    var sections = ['home', 'features', 'how-it-works', 'about', 'developers']
+      .map(function (id) { return document.getElementById(id); })
+      .filter(Boolean);
+    var links = Array.prototype.slice.call(document.querySelectorAll('.nav-link[href^="#"]'));
+    if (!sections.length || !links.length || !('IntersectionObserver' in window)) return;
+
+    function setActive(id) {
+      links.forEach(function (link) {
+        link.classList.toggle('is-active', link.getAttribute('href') === '#' + id);
+      });
+    }
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) setActive(entry.target.id);
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' }); // "in view" = crossing the middle of the screen
+    sections.forEach(function (el) { spy.observe(el); });
+  })();
+</script>
+<script>
+  // Header sits transparent on top of the hero photo and turns solid maroon once you scroll.
+  (function () {
+    var header = document.querySelector('header.topmenu');
+    if (!header) return;
+    function update() { header.classList.toggle('is-scrolled', (window.pageYOffset || document.documentElement.scrollTop) > 40); }
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+  })();
+</script>
+
+<!-- Back-to-top button: appears after scrolling down -->
+<button type="button" class="back-to-top" id="backToTop" aria-label="Back to top" title="Back to top">
+  <svg class="btt-ring" viewBox="0 0 52 52" aria-hidden="true">
+    <circle class="btt-track" cx="26" cy="26" r="23"/>
+    <circle class="btt-bar" id="bttBar" cx="26" cy="26" r="23"/>
+  </svg>
+  <svg class="btt-arrow" viewBox="0 0 24 24" aria-hidden="true">
+    <path class="btt-stem" d="M12 20V5"/>
+    <path class="btt-head" d="M5 12l7-7 7 7"/>
+  </svg>
+</button>
+<script>
+  (function () {
+    var btn = document.getElementById('backToTop');
+    var bar = document.getElementById('bttBar');
+    if (!btn) return;
+    var C = 144.5, SHOW_AFTER = 300, ticking = false;
+
+    function update() {
+      var y = window.pageYOffset || document.documentElement.scrollTop;
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      btn.classList.toggle('is-visible', y > SHOW_AFTER);
+      if (bar && max > 0) bar.style.strokeDashoffset = C * (1 - Math.min(y / max, 1));
+      ticking = false;
+    }
+    window.addEventListener('scroll', function () {
+      if (!ticking) { ticking = true; requestAnimationFrame(update); }
+    }, { passive: true });
+    update();
+
+    btn.addEventListener('click', function () {
+      btn.classList.add('is-going');
+      window.scrollTo({ top: 0, behavior: 'smooth' });   // CSS already sets smooth; this keeps it explicit
+      setTimeout(function () { btn.classList.remove('is-going'); }, 600);
+    });
+  })();
+</script>
 </body>
 
 </html>

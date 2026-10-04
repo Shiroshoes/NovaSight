@@ -1,5 +1,6 @@
 import os
 import time
+import unicodedata
 from io import BytesIO
 
 from PIL import Image, UnidentifiedImageError
@@ -101,3 +102,96 @@ def save_file(file, user_id, upload_folder=UPLOAD_FOLDER):
         f.write(clean_buf.read())
 
     return '/static/uploads/' + filename
+
+
+# ───────────────────────────────────────────────────────────────
+# Profile-name validation / sanitizing
+# ───────────────────────────────────────────────────────────────
+# Used by the shared POST /update-name route in app.py.
+#
+# SQL-injection defence is layered:
+#   1. The route only writes through the SQLAlchemy ORM (attribute
+#      assignment + commit), which sends every value as a bound
+#      parameter — user text is never concatenated into SQL.
+#   2. This function is a strict WHITELIST on top of that: anything that
+#      isn't a plain letter / allowed punctuation is REJECTED (not
+#      silently "cleaned"), so quotes, semicolons, comment markers,
+#      angle brackets, control characters, etc. never reach the database.
+#   3. Only the four known keys are ever read from the request, so extra
+#      fields (role, account, acaduser_id ...) can't be mass-assigned.
+# Limits sit at or below the acad_user column sizes (first/last 100,
+# mi 5, suffix 10).
+
+NAME_MAX_LEN   = 50
+MI_MAX_LEN     = 5
+SUFFIX_MAX_LEN = 10
+_NAME_PUNCT    = set(" .'\u2019-")          # space . ' ’ -
+
+
+def _tidy(value, label):
+    """Type-check, normalise Unicode, collapse all whitespace. Returns '' for empty."""
+    if value is None:
+        return ''
+    if not isinstance(value, str):                 # JSON could send a list / dict / number
+        raise ValueError(f"{label} is invalid.")
+    value = unicodedata.normalize('NFC', value)
+    return ' '.join(value.split())                 # trims + collapses tabs/newlines/NBSP
+
+
+def _is_name_char(ch):
+    # letters (any language), combining accent marks, plus . ' ’ - and space
+    return ch.isalpha() or unicodedata.category(ch).startswith('M') or ch in _NAME_PUNCT
+
+
+def _clean_name(value, label, required):
+    value = _tidy(value, label)
+    if not value:
+        if required:
+            raise ValueError(f"{label} is required.")
+        return None
+    if len(value) > NAME_MAX_LEN:
+        raise ValueError(f"{label} must be {NAME_MAX_LEN} characters or fewer.")
+    if not value[0].isalpha():
+        raise ValueError(f"{label} must start with a letter.")
+    if not all(_is_name_char(c) for c in value):
+        raise ValueError(f"{label} can only contain letters, spaces, periods, hyphens and apostrophes.")
+    return value
+
+
+def _clean_mi(value):
+    value = _tidy(value, 'Middle initial').rstrip('.').strip()   # stored WITHOUT the dot; models.py adds it
+    if not value:
+        return None
+    if len(value) > MI_MAX_LEN:
+        raise ValueError(f"Middle initial must be {MI_MAX_LEN} letters or fewer.")
+    if not all(c.isalpha() for c in value):
+        raise ValueError("Middle initial can only contain letters.")
+    return value.upper() if len(value) == 1 else value
+
+
+def _clean_suffix(value):
+    value = _tidy(value, 'Suffix')
+    if not value:
+        return None
+    if len(value) > SUFFIX_MAX_LEN:
+        raise ValueError(f"Suffix must be {SUFFIX_MAX_LEN} characters or fewer.")
+    if not value[0].isalnum() or not all(c.isalnum() or c == '.' for c in value):
+        raise ValueError("Suffix can only contain letters, numbers and periods (e.g. Jr., III).")
+    return value
+
+
+def clean_name_parts(data):
+    """
+    Validates and sanitizes the four editable name parts from a JSON body.
+    Returns {'first_name', 'last_name', 'mi', 'suffix'} (mi / suffix may be None).
+    Raises ValueError with a user-safe message on the first problem found.
+    Ignores every other key in `data` on purpose.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Invalid request.")
+    return {
+        'first_name': _clean_name(data.get('first_name'), 'First name', required=True),
+        'last_name':  _clean_name(data.get('last_name'),  'Last name',  required=True),
+        'mi':         _clean_mi(data.get('mi')),
+        'suffix':     _clean_suffix(data.get('suffix')),
+    }

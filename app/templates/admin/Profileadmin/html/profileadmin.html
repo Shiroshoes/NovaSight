@@ -10,184 +10,48 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/logout/logout.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tutorial/page-video-modal.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/responsive.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/admin-shell.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/tutorial-modal.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/tutorial-modal-v2.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/sidebar-compact.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/sidebar-maroon.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/admin-float-footer.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/maindash-readable.css') }}">
 </head>
 <body>
-  <!-- fixed side bar -->
-  <aside class="sidebar">
-    <nav class="pad">
-      <a href="{{ url_for('admin_bp.dashboard') }}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icon">
-            <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
-            <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
-          </svg>
-        </div>
-        <span>Home</span>
-      </a>
-  <!-- drop down dashboard -->
-      <a href="javascript:void(0)" class="menu-btn" id="dashboardToggle">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.035-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z"/>
-          </svg>
-        </div>
-        <span>Data & Analysis</span>
-        <svg id="dashboardChevronIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6" style="width:16px;margin-left:auto;">
-          <path id="dashboardChevronPath" fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
-        </svg>
-        <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
-      </a>
 
-<div class="submenu-container" id="dashboardSubmenu">
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-  <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Overview</p>
-
-    <a href="{{url_for('admin_bp.maindash_admin')}}" class="dash-btn">
-    <div class="non-active-bordericondash">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-      </svg>
+{% set active_page = 'profile' %}
+{% include 'admin/_admin_sidebar.html' %}
+<main class="profile-main">
+  <!-- Fixed header: Welcome on the left, Tutorial button on the same line (right) -->
+  <div class="dash-sticky profile-sticky">
+    <div class="page-head page-head-wide">
+      <h2>Welcome, <span class="welcome-name">{{ user.first_name or user.username }}</span>, to NovaSight</h2>
+      <p>Manage your account details, profile picture and password.</p>
     </div>
-    <span>Dashboard</span>
-    </a>
+    <button type="button" class="userbar-tutorial" id="tutorialLink" title="Open the system tutorial">
+      <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.3 2.841A1.5 1.5 0 0 0 4 4.11V15.89a1.5 1.5 0 0 0 2.3 1.269l9.344-5.89a1.5 1.5 0 0 0 0-2.538L6.3 2.84Z"/></svg>
+      Tutorial
+    </button>
+  </div>
 
+  <!-- Scrollable area (the header above stays put) -->
+  <div class="main-scroll">
 
-      <div>
-        <hr class="sidebardivider">
-      </div>
+    <div class="profile-card settings-card">
+      <div class="settings-layout">
 
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Machine Learning & Prediction</p>
+        <!-- LEFT: photo + password -->
+        <aside class="settings-side">
+          <div class="settings-panel">
+          <h3 class="settings-title">Account Management</h3>
 
-    <a href="{{url_for('admin_bp.preddash_admin')}}" class="dash-btn">
-    <div  class="non-active-bordericondash">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="non-active-icondash">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-    </svg>
-    </div>
-
-    <span>Prediction Analysis</span></a>
-
-</div>
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Account Panel</p>
-      
-      <a href="{{ url_for('admin_bp.profile') }}" class="menu-active">
-        <div class="active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <span>Profile</span>
-      </a>
-
-        <a href="{{ url_for('admin_bp.help_admin')}}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <span>Help</span>
-        </a>
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Admin Panel</p>
-
-        <a href="{{ url_for('admin_bp.admin_page') }}" class="menu-btn">
-          <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 0 0-1.032 0 11.209 11.209 0 0 1-7.877 3.08.75.75 0 0 0-.722.515A12.74 12.74 0 0 0 2.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 0 0 .374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 0 0-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08Zm3.094 8.016a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-
-          <span>Admin</span>
-        </a>
-
-        <a href="{{ url_for('admin_bp.fileupload_admin') }}" class="menu-btn">
-          <div class="non-active-bordericon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon"><path d="M11.47 1.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 0 1-1.06-1.06l3-3ZM11.25 7.5V15a.75.75 0 0 0 1.5 0V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z"/></svg></div>
-          <span>Upload File</span>
-        </a>
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-        <a href="#" id="logoutLink" class="menu-btn">
-          <div class="non-active-bordericon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-              <path fill-rule="evenodd" d="M16.5 3.75a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5V15a.75.75 0 0 0-1.5 0v3.75a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5.25a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3V9A.75.75 0 1 0 9 9V5.25a1.5 1.5 0 0 1 1.5-1.5h6ZM5.78 8.47a.75.75 0 0 0-1.06 0l-3 3a.75.75 0 0 0 0 1.06l3 3a.75.75 0 0 0 1.06-1.06l-1.72-1.72H15a.75.75 0 0 0 0-1.5H4.06l1.72-1.72a.75.75 0 0 0 0-1.06Z" clip-rule="evenodd" />
-            </svg>
-          </div>
-
-          <span>Logout</span>
-        </a>
-
-      <div class="sidebar-footer">
-        <a href="{{ url_for('admin_bp.privacy_policy_admin') }}" class="btn-privacy">
-          &bull; Privacy Policy
-        </a>
-
-        <p class="copyright">
-          &copy; 2026 NovaSight Dev Team. All rights reserved.
-        </p>
-      </div>
-    </nav>
-  </aside>
-<main>
- 
-  <!--header -->
-        <header class="topmenu">
-            <div class="brand">
-              <div class="logo-sq">
-                <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="NovaSight Logo" class="brand-logo">
-              </div>
-                <div class="brand-text">
-                    <h1>Bataan Peninsula State University</h1>
-                    <span>ACADEMIC PREDICTION</span>
-                </div>
-            </div>
-
-            <!-- user-profile section -->
-            <a href="{% if user %}{{ url_for('admin_bp.profile') }}{% else %}{{ url_for('login') }}{% endif %}" class="user-profile">
-                {% if user %}
-                    <!-- Logged-in user -->
-                    <span>{{ user.username }}</span>
-
-                {% if user.profile_image_url %}
-                    <img src="{{ user.profile_image_url }}" alt="User Avatar" class="avatar">
-                    {% else %}
-                        <!-- Default SVG when logged in but NO image — tinted per role/user via currentColor -->
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar avatar-default" style="width: 32px; height: 32px; --avatar-color: {{ user.avatar_color }}; --avatar-icon-color: {{ user.avatar_icon_color }};">
-                          <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
-                        </svg>
-                    {% endif %}
-
-                {% else %}
-                    <!-- Not logged in -->
-                    <span>Login</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar" style="width: 32px; height: 32px;">
-                      <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
-                    </svg>
-                {% endif %}
-            </a>
-        </header>
-  
-    <div class="profile-card">
-        <div class="card-layout">
-            <!-- Avatar Section -->
-            <div class="avatar-container">
+          <div class="avatar-container">
                 <span class="avatar-upload-error" id="avatarUploadError"></span>
                 <div class="circle" id="avatarDisplay" style="--avatar-color: {{ user.avatar_color }}; --avatar-icon-color: {{ user.avatar_icon_color }};">
                     {% if user_image_url %}
-                        <img src="{{ user_image_url }}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">
+                        <img src="{{ user_image_url }}" alt="Avatar" style="width:100%; height:100%; border-radius:0; object-fit:cover;">
                     {% else %}
                         <!-- Default SVG Avatar, tinted per role/user via --avatar-color -->
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" id="defaultIcon">
@@ -203,17 +67,17 @@
                 <input type="file" id="cameraInput" accept="image/png,image/jpeg" capture hidden>
             </div>
 
-            <!-- Info & Password Section -->
-            <div class="info-container">
-                <div class="user-text">
-                    <p><strong>Username:</strong> {{ user.profile_name }}</p>
-                    <p><strong>Account:</strong> {{ account }}</p>
-                    <p><strong>Role:</strong> {{ role }}</p>
-                </div>
+          <div class="upload-box">
+            <button type="button" class="upload-btn" id="uploadPhotoBtn">Upload Photo</button>
+            <small>JPEG or PNG</small>
+          </div>
 
-              <!-- Password Toggle Area -->
-              <div class="password-trigger-area">
-                  <a href="#" id="pwToggle" class="pw-link">Change password?</a>
+          </div>
+
+          <div class="settings-panel">
+          <h4 class="settings-sub">Password</h4>
+          <div class="password-trigger-area">
+                  <a href="#" id="pwToggle" class="pw-link">Change Password</a>
 
                   <!-- Hidden by default -->
                   <div id="pwFields" class="hidden-fields" style="display:none;">
@@ -289,11 +153,72 @@
                       border-radius:8px;
                       transition:opacity 0.3s ease;"></div>
               </div>
+          </div>
+        </aside>
+
+        <!-- RIGHT: details -->
+        <section class="settings-main">
+          <div class="settings-panel">
+          <h3 class="settings-title">Profile Information</h3>
+
+          <!-- POSTs to the shared /update-name route in app.py (same {success, message} format as /update-password) -->
+          <div id="profileForm" data-update-url="/update-name">
+            <div class="field-grid">
+              <div class="field">
+                <label for="firstNameInput">First Name <span class="req">*</span></label>
+                <input type="text" id="firstNameInput" value="{{ user.first_name or '' }}" maxlength="50" autocomplete="given-name">
+              </div>
+              <div class="field">
+                <label for="lastNameInput">Last Name <span class="req">*</span></label>
+                <input type="text" id="lastNameInput" value="{{ user.last_name or '' }}" maxlength="50" autocomplete="family-name">
+              </div>
+              <div class="field">
+                <label for="miInput">M.I. <span class="opt">(optional)</span></label>
+                <input type="text" id="miInput" value="{{ user.mi or '' }}" maxlength="1" autocomplete="off" placeholder="e.g. D">
+              </div>
+              <div class="field">
+                <label for="suffixInput">Suffix <span class="opt">(optional)</span></label>
+                <input type="text" id="suffixInput" value="{{ user.suffix or '' }}" maxlength="4" list="suffixOptions" autocomplete="off" placeholder="e.g. Jr., III">
+                <datalist id="suffixOptions">
+                  <option value="Jr."></option><option value="Sr."></option>
+                  <option value="II"></option><option value="III"></option><option value="IV"></option>
+                </datalist>
+              </div>
             </div>
-        </div>
+            <div class="field-actions">
+              <button type="button" class="btn blue" id="saveProfileBtn" disabled>Save Changes</button>
+              <span class="field-status" id="profileStatus" role="status" aria-live="polite"></span>
+            </div>
+          </div>
+
+          </div>
+
+          <div class="settings-panel">
+          <h3 class="settings-title settings-title-gap">Access</h3>
+          <div class="field-grid">
+            <div class="field">
+              <label for="accountInput">Account</label>
+              <div class="locked-wrap">
+                <input type="text" id="accountInput" value="{{ account }}" readonly>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="lock-icon" aria-hidden="true"><path fill-rule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clip-rule="evenodd"/></svg>
+              </div>
+            </div>
+            <div class="field">
+              <label for="roleInput">Role</label>
+              <div class="locked-wrap">
+                <input type="text" id="roleInput" value="{{ role }}" disabled aria-describedby="roleHint">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="lock-icon" aria-hidden="true"><path fill-rule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clip-rule="evenodd"/></svg>
+              </div>
+            </div>
+          </div>
+          <p class="field-hint" id="roleHint">Your account and role are assigned by Academic Affair and can&rsquo;t be changed from this page.</p>
+          </div>
+        </section>
+
+      </div>
     </div>
 
-  <!-- Logout Modal Structure -->
+<!-- Logout Modal Structure -->
   <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
     <div class="logout-card">
       <h1 class="brand-name">NovaSight</h1>
@@ -305,6 +230,8 @@
     </div>
   </div>
   <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+
+{% include 'admin/_admin_tutorial.html' %}
 
   <!-- Change Profile Picture Modal — same centered/overlay pattern as the
        Logout modal above (reuses .modal-overlay), just with its own card. -->
@@ -371,29 +298,112 @@
     </div>
   </div>
 
-  <div class="footer-brand">
-      <hr class="footer-divider">
-
-      <div class="footer-brand-content">
-          <img src="{{ url_for('static', filename='image/logo.png') }}"
-              alt="NovaSight Logo"
-              class="footer-logo">
-
-          <div class="footer-brand-text">
-              <h3>NovaSight</h3>
-              <p>Machine Learning-Based Student Performance Prediction System</p>
-              <small>2026 Bataan Peninsula State University</small>
-          </div>
-      </div>
-  </div>
-
-  <footer class="footer">
-    <div class="footer-content">
-        <span class="page-label">Page/</span><span class="page-name">Profile</span>
-    </div>
-  </footer> 
+  {% include 'admin/_admin_footer.html' %}
+  </div><!-- /main-scroll -->
   </main>
     <script src="{{url_for('static', filename='js/profile.js')}}"></script>
+  <script>
+    // "Upload Photo" opens the same picture modal the old + badge did.
+    // Name editing sends ONLY first_name / last_name / mi / suffix to
+    // /update-name. Account and role are read-only and never sent. The
+    // server re-validates everything, so these checks are just for speed.
+    (function () {
+      var up = document.getElementById('uploadPhotoBtn');
+      var plus = document.getElementById('avatarPlusBtn');
+      if (up && plus) up.addEventListener('click', function () { plus.click(); });
+
+      var box = document.getElementById('profileForm');
+      var btn = document.getElementById('saveProfileBtn');
+      var msg = document.getElementById('profileStatus');
+      if (!box || !btn) return;
+
+      var NAME_RE   = /^[\p{L}\p{M}][\p{L}\p{M} .'\u2019-]*$/u;   // letters, spaces, . ' -
+      var MI_RE     = /^\p{L}$/u;                                 // one letter only (dot is added for you)
+      var SUFFIX_RE = /^[\p{L}\p{N}][\p{L}\p{N}.]*$/u;            // Jr.  III  2nd
+
+      var fields = [
+        { key: 'first_name', id: 'firstNameInput', label: 'First name', max: 50, required: true,  re: NAME_RE },
+        { key: 'last_name',  id: 'lastNameInput',  label: 'Last name',  max: 50, required: true,  re: NAME_RE },
+        { key: 'mi',         id: 'miInput',        label: 'M.I.',       max: 1,  required: false, re: MI_RE, mi: true },
+        { key: 'suffix',     id: 'suffixInput',    label: 'Suffix',     max: 4, required: false, re: SUFFIX_RE }
+      ];
+
+      function clean(v, f) {
+        v = (v || '').trim().replace(/\s+/g, ' ');
+        if (f && f.mi) v = v.replace(/\.+$/, '').trim();     // "D." -> "D"
+        return v;
+      }
+      fields.forEach(function (f) {
+        f.el = document.getElementById(f.id);
+        f.original = clean(f.el.value, f);
+      });
+
+      function show(text, ok) {
+        msg.textContent = text;
+        msg.className = 'field-status' + (text ? (ok ? ' ok' : ' err') : '');
+      }
+      function dirty() {
+        return fields.some(function (f) { return clean(f.el.value, f) !== f.original; });
+      }
+      function refresh() {
+        fields.forEach(function (f) { f.el.classList.remove('invalid'); });
+        show('', true);
+        btn.disabled = !dirty();
+      }
+      function validate() {
+        for (var i = 0; i < fields.length; i++) {
+          var f = fields[i], v = clean(f.el.value, f), problem = '';
+          if (!v && f.required)       problem = f.label + ' is required.';
+          else if (v.length > f.max)  problem = f.label + ' must be ' + f.max + (f.max === 1 ? ' character' : ' characters') + ' or fewer.';
+          else if (v && !f.re.test(v)) {
+            problem = f.key === 'mi'     ? 'M.I. must be a single letter.'
+                    : f.key === 'suffix' ? 'Suffix can only contain letters, numbers and periods, up to 4 characters (e.g. Jr., III).'
+                    : f.label + ' can only contain letters, spaces, periods, hyphens and apostrophes.';
+          }
+          if (problem) { f.el.classList.add('invalid'); f.el.focus(); return problem; }
+        }
+        return '';
+      }
+
+      fields.forEach(function (f) {
+        f.el.addEventListener('input', refresh);
+        f.el.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && !btn.disabled) btn.click();
+        });
+      });
+
+      btn.addEventListener('click', function () {
+        var problem = validate();
+        if (problem) { show(problem, false); return; }
+
+        var payload = {};
+        fields.forEach(function (f) { payload[f.key] = clean(f.el.value, f); });
+
+        btn.disabled = true;
+        fetch(box.dataset.updateUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        .then(function (r) {
+          return r.json().then(function (d) { return { ok: r.ok && d.success === true, d: d }; });
+        })
+        .then(function (res) {
+          if (res.ok) {
+            fields.forEach(function (f) { f.original = payload[f.key]; });
+            show('Name updated.', true);
+            setTimeout(function () { window.location.reload(); }, 700);   // refresh the name everywhere it's server-rendered
+          } else {
+            show((res.d && res.d.message) || 'Could not save your name.', false);
+            btn.disabled = false;
+          }
+        })
+        .catch(function () { show('Network error. Please try again.', false); btn.disabled = false; });
+      });
+    })();
+  </script>
+
 
 <!-- Floating Page Tutorial Video Modal -->
 <div id="pageTutorialModal" class="page-tutorial-overlay"
@@ -412,6 +422,7 @@
 </div>
 <script src="{{ url_for('static', filename='js/page-video-modal.js') }}"></script>
 
-<script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/tutorial.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/sidebar-collapse.js') }}" defer></script>
 </body>
 </html>

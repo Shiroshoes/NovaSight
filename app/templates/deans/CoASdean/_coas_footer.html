@@ -1,0 +1,24 @@
+{# CoAS footer — independent copy of admin/_admin_footer.html with CoAS routes. #}
+<footer class="bp-footer" role="contentinfo">
+  <img class="bp-watermark" src="{{ url_for('static', filename='image/logo2.png') }}" alt="" aria-hidden="true" draggable="false">
+  <div class="bp-footer-main">
+    <div class="bp-seals">
+      <span class="bp-seal"><img src="{{ url_for('static', filename='image/logo2.png') }}" alt="BPSU logo" draggable="false"></span>
+      <span class="bp-seal-line" aria-hidden="true"></span>
+      <span class="bp-seal bp-seal-nova"><img src="{{ url_for('static', filename='image/logo.png') }}" alt="NovaSight logo" draggable="false"></span>
+    </div>
+    <h5 class="bp-uni">NovaSight</h5>
+    <p class="bp-campus">Bataan Peninsula State University &middot; Balanga City, Bataan</p>
+    <p class="bp-tagline">Machine Learning-Based Student Performance Prediction System.</p>
+    <nav class="bp-links" aria-label="Footer">
+      <a href="{{ url_for('coas_bp.coasdash_coas') }}">CoAS Dashboard</a>
+      <a href="{{ url_for('coas_bp.preddash_coas') }}">Prediction Analysis</a>
+      <a href="{{ url_for('coas_bp.help_coas') }}">Help</a>
+      <a href="{{ url_for('coas_bp.privacy_policy_CoASdean') }}">Privacy Policy</a>
+    </nav>
+  </div>
+  <div class="bp-footer-base">
+    <p>&copy; 2026 NovaSight Dev Team. All rights reserved.</p>
+    <p>Group 5 / BSDS - 4A &middot; Bataan Peninsula State University</p>
+  </div>
+</footer>

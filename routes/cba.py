@@ -4,76 +4,98 @@ from configs.config import MIN_PASSWORD_LENGTH
 from util.utils import allowed_file, save_file
 
 # Create a new Blueprint for CBA Dean
-cba_bp = Blueprint('cba_bp', __name__, url_prefix='/NovaSight/cba') 
+cba_bp = Blueprint('cba_bp', __name__, url_prefix='/NovaSight/cba')
+
+
+def _is_cba():
+    return 'user_id' in session and session.get('role') == 'CBAdean'
+
+
+def _current_user():
+    return AcadUser.query.get(session['user_id'])
+
 
 # --- CBA Dean Routes ---
 
-# Dashboard (CBA Dean Home)
+# Landing: CBA has no Home page any more. /NovaSight/cba/ and the old
+# /NovaSight/cba/home (kept so old bookmarks and any template still calling
+# url_for('cba_bp.home_cba') keep working) go straight to the CBA Dashboard.
+# The Home tutorial now lives in the shared popup (_cba_tutorial.html),
+# opened by the Tutorial button on every page.
+@cba_bp.route('/')
 @cba_bp.route('/home')
 def home_cba():
-    # Check if user is logged in and has the 'CBAdean' role
-    if 'user_id' not in session or session.get('role') != 'CBAdean': 
-        return redirect(url_for('home')) 
-    return render_template('deans/CBADean/home/html/cbadeanhome.html') 
+    if not _is_cba():
+        return redirect(url_for('home'))
+    return redirect(url_for('cba_bp.cbadash_cba'))
 
-# prwd dash
+
+# CBA Dashboard  <-- first page a CBA Dean sees after logging in
+@cba_bp.route('/cbadashboard')
+def cbadash_cba():
+    if not _is_cba():
+        return redirect(url_for('home'))
+    return render_template(
+        'deans/CBADean/dashboard/cbadashboardcbadean.html',
+        college_type='CBA',
+        user=_current_user()
+    )
+
+
+# Prediction Dashboard
 @cba_bp.route('/predictivedashboard')
 def preddash_cba():
-    if 'user_id' not in session or session.get('role') != 'CBAdean':
+    if not _is_cba():
         return redirect(url_for('home'))
-    return render_template('deans/CBAdean/dashboard/predictiondashboardcba.html', college_type='all')
+    return render_template(
+        'deans/CBADean/dashboard/predictiondashboardcba.html',
+        college_type='all',
+        user=_current_user()
+    )
 
 
 # Profile Page (CBA Dean)
 @cba_bp.route('/profile')
 def profile_cba():
-    # Check if user is logged in and has the 'CBAdean' role
-    if 'user_id' not in session or session.get('role') != 'CBAdean': 
+    if not _is_cba():
         return redirect(url_for('home'))
-    
-    user = AcadUser.query.get(session['user_id'])
+
+    user = _current_user()
     return render_template(
         'deans/CBADean/profile/html/cbadeanprofile.html',
+        user=user,
         username=user.username,
         account=user.account,
         role=user.role,
         user_image_url=user.profile_image_url
     )
 
+
 # Help (CBA Dean)
 @cba_bp.route('/help')
 def help_cba():
-    # Check if user is logged in and has the 'CBAdean' role
-    if 'user_id' not in session or session.get('role') != 'CBAdean':
+    if not _is_cba():
         return redirect(url_for('home'))
-    return render_template('deans/CBADean/help/html/cbadeanhelp.html')
+    return render_template('deans/CBADean/help/html/cbadeanhelp.html', user=_current_user())
 
-# privacy policy
+
+# Privacy Policy (CBA Dean)
 @cba_bp.route('/privacy-policy')
 def privacy_policy_CBADean():
-    if 'user_id' not in session or session.get('role') != 'CBAdean':
+    if not _is_cba():
         return redirect(url_for('home'))
-    return render_template('deans/CBADean/privacypolCBA/privacypolicyCBA.html')
-
-# --- CBA Dean Specific Dashboards ---
-
-@cba_bp.route('/cbadashboard')
-def cbadash_cba():
-    if 'user_id' not in session or session.get('role') != 'CBAdean':
-        return redirect(url_for('home'))
-
-    return render_template('deans/CBADean/dashboard/cbadashboardcbadean.html', college_type='CBA')
+    return render_template('deans/CBADean/privacypolCBA/privacypolicyCBA.html', user=_current_user())
 
 
 # --- Common Routes (Password Update, Image Upload) ---
-# These functions are generally role-agnostic if they operate on the logged-in user's ID.
+# Role-agnostic: they operate on the logged-in user's ID.
 
 # Update Password (CBA Dean)
 @cba_bp.route('/update_password', methods=['POST'])
 def update_password_cba():
     # Ensure user is logged in
     if 'user_id' not in session:
-        return jsonify({"error": "Unauthorized"}), 401 
+        return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json()
     password = data.get('password')
@@ -81,7 +103,7 @@ def update_password_cba():
     if not password or len(password) < MIN_PASSWORD_LENGTH:
         return jsonify({"error": f"Password is required and must be at least {MIN_PASSWORD_LENGTH} characters."}), 400
 
-    user = AcadUser.query.get(session['user_id'])
+    user = _current_user()
     if not user:
         return jsonify({"error": "User not found"}), 404
 
@@ -92,6 +114,7 @@ def update_password_cba():
     db.session.commit()
 
     return jsonify({"success": True})
+
 
 # Upload Profile Image (CBA Dean)
 @cba_bp.route('/upload_image', methods=['POST'])
@@ -106,10 +129,10 @@ def upload_image_cba():
     if not allowed_file(file.filename):
         return jsonify({"error": "Invalid file type"}), 400
 
-    user = AcadUser.query.get(session['user_id'])
+    user = _current_user()
     if not user:
         return jsonify({"error": "User not found"}), 404
-        
+
     filepath = save_file(file, user.acaduser_id)
     user.profile_image_url = filepath
     db.session.commit()

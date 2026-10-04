@@ -838,3 +838,337 @@ footer{
 /* Cards not in the active category are fully removed from the grid flow
    (display:none), same mechanism already used for .no-print. */
 [data-tab-category].dash-tab-hidden { display: none !important; }
+
+/* ── Reset-success modal close button ────────────────────────────────
+   .logout-card is shared by several modals; position:relative here is a
+   safe addition (just establishes the positioning context this button
+   needs) and doesn't change how any other modal using it looks. */
+.logout-card { position: relative; }
+.modal-close-x {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 22px;
+  line-height: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.modal-close-x:hover { background: #f3f4f6; color: #374151; }
+.modal-close-x:focus-visible { outline: 2px solid #800000; outline-offset: 2px; }
+/* ═══════════════════════════════════════════════════════════
+   ADMIN PAGE SHELL — white fixed header + scrolling content
+   Uses shared .dash-sticky / .main-scroll (admin-float-footer.css)
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 1200px) { main { padding-right: 0; } }   /* old rule fought the new shell */
+
+.dash-sticky.admin-sticky {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #ffffff;
+  padding: 12px 28px;
+}
+.admin-head h2 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2vw, 1.7rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: #111827;
+}
+.admin-head p { margin: 0; font-size: 0.92rem; color: #6b7280; }
+.admin-sticky .userbar-tutorial { flex: 0 0 auto; font-size: 0.88rem; padding: 8px 14px; border-radius: 10px; }
+.admin-sticky .userbar-tutorial svg { width: 15px; height: 15px; }
+
+/* content: centered, with a gap under the header */
+.main-scroll > .dash-tabs { width: 100%; box-sizing: border-box; margin: 24px 0 0; padding: 0 clamp(16px, 2.4vw, 40px); }
+.main-scroll > .dashboard-grid {
+  flex: 1 0 auto;
+  width: 100%;                       /* stretches with the content area (sidebar open or collapsed) */
+  box-sizing: border-box;
+  margin: 0;
+  padding: 24px clamp(16px, 2.4vw, 40px) 48px;
+}
+
+/* ── Readable fonts ── */
+.blue-title                { font-size: 1.1rem; font-weight: 700; }
+.account-item, .user-info  { font-size: 0.93rem; }
+.item-actions              { font-size: 13px; }
+.form-group label          { font-size: 0.85rem; }
+.dash-tab-btn              { font-size: 0.9rem; }
+.card input, .card select  { font-size: 0.92rem; }
+
+@media (max-width: 760px) {
+  .dash-sticky.admin-sticky { padding: 12px 16px; }
+  .admin-head p { display: none; }
+  .main-scroll > .dashboard-grid { padding-left: 16px; padding-right: 16px; }
+}
+
+/* header actions: Reset + Tutorial side by side */
+#dashTabs { display: none !important; }
+.admin-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.admin-sticky .admin-reset { color: #b42318; border-color: #f1c9c5; }
+.admin-sticky .admin-reset svg { color: #b42318; }
+.admin-sticky .admin-reset:hover { background: #b42318; border-color: #b42318; color: #fff; }
+.admin-sticky .admin-reset:hover svg { color: #fff; }
+
+/* ═══════════════════════════════════════════════════════════
+   USER CREATION PORTAL — clean, modern, compact
+   Same markup / ids / JS hooks; styling only.
+   ═══════════════════════════════════════════════════════════ */
+.management-card {
+  padding: 0 0 24px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #ECE6DF;
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(17, 24, 39, .04), 0 12px 32px -18px rgba(17, 24, 39, .18);
+}
+.management-card > :not(.portal-head) { margin-left: 26px; margin-right: 26px; }
+
+/* header */
+.portal-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 26px 18px;
+  border-bottom: 1px solid #F1ECE5;
+}
+.portal-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #fbeeee;
+  color: #800000;
+}
+.portal-icon svg { width: 20px; height: 20px; color: #800000; }
+.portal-head h3 { margin: 0; font-family: var(--font-display); font-size: 1.12rem; font-weight: 700; letter-spacing: -0.01em; color: #111827; }
+.portal-head p  { margin: 2px 0 0; font-size: 0.85rem; color: #6b7280; }
+
+/* section titles */
+.management-card .edit-header { margin-top: 22px; }
+.management-card .blue-title { margin: 0 0 10px; font-size: 1rem; font-weight: 600; color: #111827; letter-spacing: -0.005em; }
+.management-card .card-hr { border: 0; height: 1px; background: #F1ECE5; margin: 0 26px 6px; }
+
+/* "Add User" — light row with a round + */
+.management-card .add-header {
+  justify-content: space-between;
+  margin-top: 18px;
+  padding: 12px 14px 12px 16px;
+  background: #f8f7f5;
+  border: 1px solid #EFEAE2;
+  border-radius: 12px;
+  transition: background .2s ease, border-color .2s ease;
+}
+.management-card .add-header .blue-title { margin: 0; }
+.management-card .add-header:hover { background: #f3f0ec; border-color: #E4DDD2; }
+.management-card .add-header:hover .blue-title { color: #111827; }
+.management-card .add-header .plus-box {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #800000; color: #fff; font-size: 1.1rem; font-weight: 500;
+}
+.management-card .add-header:hover .plus-box { background: #a31515; transform: none; }
+.management-card .add-header + .card-hr { display: none; }
+
+/* forms: small label above a soft, full-width field */
+.management-card .slide-hidden.open { max-height: 1200px; margin-top: 16px; margin-bottom: 4px; }
+.management-card .form-group,
+.management-card .form-group.align-start { flex-direction: column; align-items: stretch; gap: 6px; margin-bottom: 14px; }
+.management-card .form-group label,
+.management-card .form-group.align-start label {
+  width: auto;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #6b7280;
+}
+.management-card .form-group input,
+.management-card .role-selector {
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+  height: 42px;
+  padding: 0 14px;
+  background: #f8f7f5;
+  border: 1px solid #ECE6DF;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #111827;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.management-card .form-group input::placeholder { color: #a8adb7; }
+.management-card .form-group input:hover,
+.management-card .role-selector:hover { border-color: #DDD5C8; }
+.management-card .form-group input:focus,
+.management-card .role-selector:focus {
+  background: #fff;
+  border-color: #800000;
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, .1);
+}
+.management-card .form-group input[readonly] { background: #f3f1ed !important; color: #8b919c !important; cursor: not-allowed; }
+.management-card .role-selector {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236b7280'%3E%3Cpath fill-rule='evenodd' d='M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px;
+}
+.management-card .role-selector option { font-size: 0.9rem; }
+
+/* MI + Suffix row */
+.management-card .form-group > div[style*="display:flex"] { gap: 10px !important; flex-wrap: wrap; }
+.management-card .form-group > div[style*="display:flex"] label { margin-left: 4px !important; font-size: 0.78rem !important; }
+
+/* password: eye inside the input, Generate beside it */
+.management-card .password-field-container .password-wrapper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  transform: none;
+}
+.management-card .password-wrapper > input { grid-area: 1 / 1; padding-right: 44px !important; }
+.management-card .password-wrapper > button[id$="TogglePassword"] {
+  grid-area: 1 / 1;
+  justify-self: end;
+  position: static !important;
+  transform: none !important;
+  margin: 0 12px 0 0 !important;
+  color: #6b7280 !important;
+}
+.management-card .password-wrapper > button[id$="TogglePassword"]:hover { color: #800000 !important; }
+.management-card .password-wrapper > .generateBtn {
+  grid-area: 1 / 2;
+  width: auto;
+  height: 42px;
+  padding: 0 14px;
+  white-space: nowrap;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.management-card .password-hint { margin-top: 6px; font-size: 0.76rem; color: #8b919c; line-height: 1.45; }
+
+/* buttons */
+.management-card .btn-row { flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.management-card .btn-row .btn {
+  flex: 1 1 110px;
+  width: auto;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.management-card .btn:hover { transform: none; opacity: 1; }
+.management-card .btn.blue  { background: #800000; }
+.management-card .btn.blue:hover { background: #a31515; }
+.management-card .btn.grey  { background: #fff; color: #4b5563; border: 1px solid #E4DDD2; }
+.management-card .btn.grey:hover { background: #f8f7f5; color: #111827; }
+.management-card .btn.red   { background: #fff; color: #c62828; border: 1px solid #f1c9c5; }
+.management-card .btn.red:hover { background: #c62828; color: #fff; }
+.management-card .btn.green { background: #fff; color: #2e7d32; border: 1px solid #c9e3cb; }
+.management-card .btn.green:hover { background: #2e7d32; color: #fff; }
+.management-card .spacebtn { flex: 1 1 110px; display: flex; }
+.management-card .spacebtn .btn { flex: 1; }
+.management-card #editDeactivatedText { font-size: 0.82rem !important; }
+
+/* Account list — same quiet style so both cards match */
+.account-list-card { border: 1px solid #ECE6DF; border-radius: 18px; box-shadow: 0 1px 2px rgba(17,24,39,.04), 0 12px 32px -18px rgba(17,24,39,.18); }
+.account-list-card .card-hr { border: 0; height: 1px; background: #F1ECE5; margin: 10px 0 4px; }
+.account-list-card .account-item { background: #f8f7f5; border: 1px solid #EFEAE2; border-radius: 12px; margin-top: 10px; padding: 10px 14px; }
+
+@media (max-width: 760px) {
+  .management-card > :not(.portal-head) { margin-left: 16px; margin-right: 16px; }
+  .management-card .card-hr { margin-left: 16px; margin-right: 16px; }
+  .portal-head { padding: 18px 16px 14px; }
+  .management-card .password-field-container .password-wrapper { grid-template-columns: minmax(0, 1fr); }
+  .management-card .password-wrapper > .generateBtn { grid-area: 2 / 1; width: 100%; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE — follows the width of the content area, so it
+   adapts when the sidebar is collapsed / expanded (and on
+   tablet + phone). Columns wrap on their own instead of using
+   fixed viewport breakpoints.
+   ═══════════════════════════════════════════════════════════ */
+.main-scroll > .dashboard-grid {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+.main-scroll > .dashboard-grid > .dashboard-col-left  { flex: 1 1 340px; width: auto; min-width: 0; }
+.main-scroll > .dashboard-grid > .dashboard-col-right { flex: 1.25 1 420px; width: auto; min-width: 0; }
+.dashboard-col-left, .dashboard-col-right { box-sizing: border-box; }
+
+/* header wraps instead of squeezing */
+.dash-sticky.admin-sticky { flex-wrap: wrap; row-gap: 10px; }
+.admin-head { min-width: 0; flex: 1 1 260px; }
+.admin-head h2 { overflow-wrap: anywhere; }
+.admin-actions { margin-left: auto; }
+
+/* account rows never overflow the card */
+.account-list-card .account-item { gap: 10px; flex-wrap: wrap; }
+.account-list-card .user-info { min-width: 0; flex: 1 1 200px; }
+.account-list-card .user-info > div { min-width: 0; overflow-wrap: anywhere; }
+.account-list-card .item-actions { flex: 0 0 auto; }
+
+/* cards + forms shrink with their column */
+.management-card, .account-list-card { max-width: 100%; box-sizing: border-box; }
+.management-card .form-group input, .management-card .role-selector { min-width: 0; }
+
+/* tablet: sidebar is a drawer, content takes the full width */
+@media (max-width: 1100px) {
+  .main-scroll > .dashboard-grid { padding: 20px 20px 40px; }
+}
+/* phone */
+@media (max-width: 760px) {
+  .main-scroll > .dashboard-grid { padding: 16px 14px 32px; gap: 16px; }
+  .main-scroll > .dashboard-grid > .dashboard-col-left,
+  .main-scroll > .dashboard-grid > .dashboard-col-right { flex: 1 1 100%; }
+  .dash-sticky.admin-sticky { padding: 10px 14px; }
+  .admin-head { flex-basis: 100%; }
+  .admin-head h2 { font-size: 1.25rem; }
+  .admin-actions { margin-left: 0; width: 100%; }
+  .admin-actions .userbar-tutorial { flex: 1; justify-content: center; }
+  .account-list-card .account-item { padding: 10px 12px; }
+}
+@media (max-width: 400px) {
+  .management-card > :not(.portal-head) { margin-left: 12px; margin-right: 12px; }
+  .management-card .card-hr { margin-left: 12px; margin-right: 12px; }
+  .management-card .btn-row .btn, .management-card .spacebtn { flex-basis: 100%; }
+}
+
+/* ── Logout modal: same look as the Profile page ──
+   Only the logout modal; the Reset / Deactivate modals are untouched. */
+#logoutModal .button-group { flex-direction: column; }
+#logoutModal .btn { width: auto; }
+#logoutModal .btn:hover { opacity: 1; transform: none; }
+/* ── Wide screens (sidebar collapsed): give the two cards more room and a softer look ── */
+.management-card, .account-list-card { border-radius: 22px; }
+.account-list-card .account-item { transition: border-color .2s, box-shadow .2s, transform .2s; }
+.account-list-card .account-item:hover { border-color: #e3c9c9; box-shadow: 0 6px 16px rgba(128,0,0,.08); transform: translateY(-1px); background: #fff; }
+@media (min-width: 1500px) {
+  .main-scroll > .dashboard-grid > .dashboard-col-left  { flex: 1 1 420px; }
+  .main-scroll > .dashboard-grid > .dashboard-col-right { flex: 1.4 1 560px; }
+}

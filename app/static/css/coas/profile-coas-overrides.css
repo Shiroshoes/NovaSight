@@ -1,0 +1,75 @@
+/* profile-coas-overrides.css
+   Neutralises the rules in the old coas profile css that conflict
+   with the admin shell (sidebar-compact-coas + sidebar-maroon-coas +
+   admin-float-footer-coas). Link LAST in coasprofile.html, after all
+   other CSS. No rules here affect the profile form content itself —
+   only the shell (body, sidebar, main, header). */
+
+/* ── Body: admin shell already sets display:flex + overflow:hidden ── */
+body {
+  overflow: hidden !important;
+}
+
+/* ── Sidebar: let sidebar-maroon-coas own it completely ── */
+@media (min-width: 1101px) {
+  body:not(.sidebar-collapsed) .sidebar { width: var(--sb-w, 224px) !important; }
+  body.sidebar-collapsed .sidebar       { width: var(--sb-w-collapsed, 72px) !important; }
+}
+.sidebar {
+  background: var(--maroon, #800000) !important;
+  background: linear-gradient(180deg, #8a0000 0%, #650000 100%) !important;
+  border-right: none !important;
+  color: #fff !important;
+}
+
+/* ── .pad: admin shell controls the scroll area ── */
+.pad {
+  margin-top: 0 !important;
+  margin-bottom: 112px !important;   /* room for pinned footer + collapse btn */
+  padding: 6px 12px 10px !important;
+}
+
+/* ── main: admin shell controls margin-left and overflow ── */
+@media (min-width: 1101px) {
+  main {
+    margin-left: var(--sb-w, 224px) !important;
+    overflow: hidden !important;        /* main-scroll does the scrolling */
+    height: 100vh !important;
+    height: 100dvh !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  body.sidebar-collapsed main {
+    margin-left: var(--sb-w-collapsed, 72px) !important;
+  }
+}
+@media (max-width: 1100px) {
+  main {
+    margin-left: 0 !important;
+    padding-top: 54px !important;       /* mobile bar height */
+    overflow-y: auto !important;
+  }
+}
+
+/* ── Kill the old wide fixed .topmenu if it somehow still renders ── */
+.topmenu:not(.topbar):not(.dash-sticky) {
+  display: none !important;
+}
+
+/* ── menu-btn hover: old css pushed everything down — kill that ── */
+.menu-btn:hover {
+  margin-bottom: 0 !important;
+  width: auto !important;
+}
+
+/* ── THE SPILL FIX ──
+   profilecoas.css has a leftover `.profile-card { height: 600px; width: 1335px }`
+   (admin pages neutralise it with responsive.css, coas doesn't load that file).
+   The settings card must grow with its content instead of stopping at 600px. */
+main .profile-card.settings-card {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.settings-layout { height: auto; }

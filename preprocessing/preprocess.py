@@ -213,7 +213,7 @@ UNITS_ENROLLED_COL  = 17  # col R — credit units enrolled
 UNITS_EARNED_COL    = 18  # col S — credit units earned
 GWA_COL             = 19  # col T — the registrar's own GWA (credit-weighted)
 
-# ── Filename validation (rule: "May format ng name file") ────────────
+# ── Filename validation (rule: "The file name has a required format") ────────────
 FILENAME_REGEX = re.compile(
     r'^\d{4}-[12][_\-\s]+Student[_\-\s]+Performance[_\-\s]+Dataset\.(xlsx|xls|csv)$',
     re.IGNORECASE,
@@ -258,8 +258,8 @@ KNOWN_YEAR_LEVELS = [
 ]
 
 # Subject-count sanity range — outside this, the student's row is held
-# back from the training dataset and flagged (rule: "kapag sumobra wag
-# muna ienclude"). 13 = the full width of the subject grid (cols D..P),
+# back from the training dataset and flagged (rule: "if it exceeds the
+# range, don't include it yet"). 13 = the full width of the subject grid (cols D..P),
 # so a student who legitimately fills the grid is not excluded.
 EXPECTED_SUBJECT_COUNT_RANGE = (1, 13)
 
@@ -276,15 +276,55 @@ TYPO_CUTOFF = 0.72   # difflib similarity cutoff for fuzzy/typo correction
 # treated as a misspelling of a program name.
 TYPO_CUTOFF_COURSE = 0.95
 
+# Official program name (UPPER-CASED, the same key Course holds while parsing)
+# -> acronym. Feeds the extra Course_Acronym column; Course itself is untouched.
+COURSE_ACRONYMS = {
+    "BACHELOR OF SCIENCE IN MIDWIFERY": "BSM",
+    "BACHELOR OF SCIENCE IN PUBLIC HEALTH": "BSPH",
+    "BACHELOR OF SCIENCE IN NURSING": "BSN",
+    "BACHELOR OF SCIENCE IN TOURISM MANAGEMENT": "BSTM",
+    "BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT": "BSHM",
+    "BACHELOR OF SCIENCE IN DATA SCIENCE": "BSDS",
+    "BACHELOR OF SCIENCE IN ENTERTAINMENT AND MULTIMEDIA COMPUTING": "BSEMC",
+    "BACHELOR OF SCIENCE IN COMPUTER SCIENCE": "BSCS",
+    "BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY": "BSIT",
+    "BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING": "BSEE",
+    "BACHELOR OF SCIENCE IN COMPUTER ENGINEERING": "BSCpE",   # your list had BSCE (clashes with Civil)
+    "BACHELOR OF SCIENCE IN ARCHITECTURE": "BS Arch",
+    "BACHELOR OF SCIENCE IN ELECTRONICS ENGINEERING": "BSECE",
+    "BACHELOR OF SCIENCE IN CIVIL ENGINEERING": "BSCE",
+    "BACHELOR OF SCIENCE IN INDUSTRIAL ENGINEERING": "BSIE",
+    "BACHELOR OF SCIENCE IN MECHANICAL ENGINEERING": "BSME",
+    "BACHELOR OF SCIENCE IN RAILWAY ENGINEERING": "BSRE",
+    "BACHELOR OF ARTS IN COMMUNICATION": "BA Comm",
+    "BACHELOR OF SCIENCE IN DEVELOPMENT COMMUNICATION": "BS DevComm",
+    "BACHELOR OF TECHNICAL-VOCATIONAL TEACHER EDUCATION": "BTVTED",
+    "BACHELOR OF SCIENCE IN INDUSTRIAL TECHNOLOGY": "BS IndTech",
+}
+
+
+def course_acronym(course_upper) -> str | None:
+    """Acronym for an upper-cased course name — EXACT match only, deliberately
+    no fuzzy fallback. The acronym list is small and curated; unlike
+    normalize_course()'s typo-correction (which legitimately needs to catch
+    near-identical spellings of the SAME program), guessing a near-match here
+    risks showing one program under a DIFFERENT program's acronym — e.g. two
+    distinct "...Communication" programs. None (shown as the full name,
+    never shortened) is always the safer outcome than a wrong acronym."""
+    if course_upper is None or (isinstance(course_upper, float) and pd.isna(course_upper)):
+        return None
+    v = re.sub(r"\s+", " ", str(course_upper).strip().upper().replace("\u2013", "-").replace("\u2014", "-"))
+    return COURSE_ACRONYMS.get(v)
+
 
 def validate_filename(path: str) -> tuple[bool, str]:
     name = os.path.basename(path)
     if FILENAME_REGEX.match(name):
         return True, "OK"
     return False, (
-        f"Hindi tugma ang filename format: '{name}'. "
-        f"Kailangan: 'YYYY-S Student-Performance Dataset.xlsx' "
-        f"(hal. '2022-1 Student-Performance Dataset.xlsx')."
+        f"Filename format doesn't match: '{name}'. "
+        f"Required: 'YYYY-S Student-Performance Dataset.xlsx' "
+        f"(e.g. '2022-1 Student-Performance Dataset.xlsx')."
     )
 
 
@@ -367,8 +407,9 @@ def normalize_college(raw, warn: WarningCollector, ref: str) -> str | None:
         return unified
     warn.add(
         "Unrecognised College",
-        f"'{raw}' does not match any known college (no fuzzy match). NOT removed; kept as '{v}' in the outputra ma-review — baka bagong college o typo "
-        f"na sobrang layo for ma-guess nang tama.",
+        f"'{raw}' does not match any known college (no fuzzy match). NOT removed; "
+        f"kept as '{v}' in the output for review — might be a new college or a typo "
+        f"too far off to guess correctly.",
         ref,
     )
     return v
@@ -431,7 +472,7 @@ def normalize_year_level(raw, warn: WarningCollector, ref: str) -> str | None:
 
 # ════════════════════════════════════════════════════════════════════
 # 4. SEMESTER / ACADEMIC YEAR NORMALIZATION
-#    (rule: "I check kung 1st sem" + "kapag 2022 make it 2022-2023")
+#    (rule: "Check if it's 1st sem" + "if it's 2022 make it 2022-2023")
 # ════════════════════════════════════════════════════════════════════
 
 def normalize_semester_year(raw_year, raw_sem, warn: WarningCollector, ref: str):
@@ -562,7 +603,7 @@ def parse_grade_v2(raw, credit_units, credits_earned, warn: WarningCollector, re
             "Invalid grade text",
             f"'{raw}' is not a number and not a recognised status keyword (DRP/UDR/W/INC/NGA/CRD/FAILED) — "
             f"no close fuzzy match found. NOT removed; original value is kept "
-            f"sa Grade_Raw column ng output for ma-review.",
+            f"in the output's Grade_Raw column for review.",
             ref,
         )
         return None, None
@@ -620,10 +661,10 @@ def _validate_numeric_grade(num: float, warn: WarningCollector, ref: str):
 
     if has_gwa_like_precision:
         warn.add(
-            "Di-karaniwang grade value",
-            f"'{num}' may sobrang precision (higit sa 2 decimal) — possibly a GWA na "
-            f"naligaw sa grade column (nearest opisyal na grade: {nearest:.2f}), "
-            f"pwede ring typo lang. Nakalagay pa rin ito ({round(num, 2):.2f}), pakisuri.",
+            "Unusual grade value",
+            f"'{num}' has excessive precision (more than 2 decimals) — possibly a GWA "
+            f"that strayed into the grade column (nearest official grade: {nearest:.2f}), "
+            f"could also just be a typo. Value is kept as-is ({round(num, 2):.2f}), please review.",
             ref,
         )
         return round(num, 2), "flagged_gwa_like"
@@ -637,17 +678,17 @@ def _validate_numeric_grade(num: float, warn: WarningCollector, ref: str):
     # (e.g. 1.10, 2.60) — not a precision artifact, just doesn't match
     # the grading scale. Still kept, still flagged.
     warn.add(
-        "Di-karaniwang grade value",
+        "Unusual grade value",
         f"'{num}' is not an official grade point (nearest: {nearest:.2f}) — "
-        f"possible grade typo. Value is kept; please reviewi.",
+        f"possible grade typo. Value is kept; please review.",
         ref,
     )
     return round(num, 2), "flagged"
 
 
 def _cross_check_credits(credit_units, credits_earned, status: str, warn: WarningCollector, ref: str):
-    """Rule: 'Double checker sa DRP or INC etc kapag ang Credits unit
-    hindi tugma sa credits earned.' A DRP/INC/UDR/W student should
+    """Rule: 'Double-check DRP or INC etc. when the Credit Units
+    doesn't match Credits Earned.' A DRP/INC/UDR/W student should
     normally have Credits Earned = 0 (or blank) — if the sheet shows
     earned credits alongside a non-passing status, that's inconsistent
     and worth a warning (not an auto-fix)."""
@@ -714,7 +755,7 @@ def _subject_span(row):
 # legacy codes like "EEAL-323", "CE 323a" and "ACAD" from older
 # curricula. Requiring the strict form here silently loses those
 # students entirely — 259 of them in 2022-1, each one read as a student
-# with zero subjects. What this has to do instead is seforte a code
+# with zero subjects. What this has to do instead is separate a code
 # cell from a prose cell (sheet titles, the university address), which
 # length and the absence of commas handle well enough.
 LOOSE_CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 .\-/&+]{0,14}$")
@@ -998,9 +1039,9 @@ def parse_workbook_wide(path: str, academic_year_hint: str | None, semester_hint
                     for col, g in grades.items():
                         if g is not None and str(g).strip() != "" and col not in pending_codes:
                             warn.add(
-                                "Orphan grade (walang code)",
+                                "Orphan grade (no code)",
                                 f"Grade value '{g}' in column {col} but no subject code "
-                                f"sa code row sa itaas ({pending_codes_ref}) — pakisuri",
+                                f"in the code row above ({pending_codes_ref}) — please review",
                                 ref,
                             )
 
@@ -1020,7 +1061,7 @@ def parse_workbook_wide(path: str, academic_year_hint: str | None, semester_hint
                     warn.add(
                         "Duplicate identifier (exact)",
                         f"Seq {seq_raw} in course '{course}' appears multiple times (exact duplicate) — "
-                        f"tinanggal ang pangalawang entry",
+                        f"the second entry was removed",
                         dup["row_ref"],
                     )
                     dup["_drop"] = True
@@ -1066,9 +1107,9 @@ def parse_workbook_wide(path: str, academic_year_hint: str | None, semester_hint
                     for it in reversed(warn.items):
                         if it["category"] == "Duplicate Subject (same student)"                                 and it["ref"] == rec["row_ref"]:
                             it["message"] = (
-                                f"Seq {orig} in course '{course_key}' paulit-ulit pero "
-                                f"magkaiba ang laman (grades/subjects/atbp.) — "
-                                f"ibinigay ang bagong Seq {counter}"
+                                f"Seq {orig} in course '{course_key}' repeated but has "
+                                f"different content (grades/subjects/etc.) — "
+                                f"given new Seq {counter}"
                             )
                             break
 
@@ -1122,24 +1163,24 @@ def _flatten_records(records: list[dict], warn: WarningCollector) -> pd.DataFram
             warn.add(
                 "Abnormal subject count",
                 f"{subj_count} subjects — outside expected range "
-                f"{EXPECTED_SUBJECT_COUNT_RANGE}, excluded from training for nowama",
+                f"{EXPECTED_SUBJECT_COUNT_RANGE}, excluded from training for now",
                 rec["row_ref"],
             )
             exclude = True
 
         # Subject count mismatch: col Q (reported) ≠ actual encoded subjects.
         # diff > 0 → sheet claims more subjects than the code row has
-        #   → may naiwan na subject na hindi na-encode, incomplete record.
+        #   → a subject was left out / not encoded, incomplete record.
         # diff < 0 → script found MORE than reported
-        #   → may extra code sa code row na hindi dapat kasama, o maling Q.
+        #   → there's an extra code in the code row that shouldn't be there, or Q is wrong.
         # Either way, the record is unreliable — excluded from training.
         sc_reported = _try_float(rec.get("Subject_Count_Reported"))
         if subj_count > 0 and sc_reported is not None and abs(sc_reported - subj_count) > 0:
             warn.add(
                 "Subject Count mismatch",
-                f"Sheet (col Q) reports {int(sc_reported)} subject(s) but "
-                f"{subj_count} lang ang na-encode sa code row — possible typo sa col Q "
-                f"o may naiwan/dagdag na subject, hindi isasama sa training",
+                f"Sheet (col Q) reports {int(sc_reported)} subject(s) but only "
+                f"{subj_count} were encoded in the code row — possible typo in col Q "
+                f"or a subject was left out/added, will not be included in training",
                 rec["row_ref"],
             )
             exclude = True
@@ -1269,7 +1310,7 @@ def finalize_gwa(df: pd.DataFrame, warn: WarningCollector) -> pd.DataFrame:
                 "GWA out of range → MISSING",
                 f"Student '{key}': computed unweighted average = {unweighted} "
                 f"— outside valid Philippine grade range ({GRADE_MIN}–{GRADE_MAX}). "
-                f"Hindi maaaring maging GWA; namarkahan bilang MISSING.",
+                f"Cannot be used as GWA; marked as MISSING.",
                 key,
             )
             continue
@@ -1287,10 +1328,10 @@ def finalize_gwa(df: pd.DataFrame, warn: WarningCollector) -> pd.DataFrame:
             )
             warn.add(
                 "GWA not summable (majority non-numeric)",
-                f"Student '{key}': {numeric_subjs}/{total_subjs} subjects lang "
-                f"ang may numeric grade — {status_subjs} ay INC/DRP/UDR/W/NGA. "
-                f"Ang average ng iilang numeric grade ay hindi mapagkakatiwalaan "
-                f"bilang GWA; namarkahan bilang MISSING.",
+                f"Student '{key}': only {numeric_subjs}/{total_subjs} subjects "
+                f"have a numeric grade — {status_subjs} are INC/DRP/UDR/W/NGA. "
+                f"The average of so few numeric grades isn't reliable "
+                f"as a GWA; marked as MISSING.",
                 key,
             )
             continue
@@ -1300,11 +1341,11 @@ def finalize_gwa(df: pd.DataFrame, warn: WarningCollector) -> pd.DataFrame:
         df.loc[group.index, "GWA_Source"] = "Unweighted average (fallback)"
         warn.add(
             "GWA fallback (unweighted average)",
-            f"Student '{key}': walang GWA sa col T at hindi ma-compute ang "
-            f"credit-weighted GWA (no catalog, or may subject na wala sa catalog). "
-            f"Unweighted average ng {numeric_subjs}/{total_subjs} numeric grade(s) "
-            f"ang ginamit ({unweighted:.4f}). Valid Philippine grade value ito "
-            f"pero hindi katumbas ng credit-weighted GWA — pakisuri.",
+            f"Student '{key}': no GWA in col T and the credit-weighted GWA "
+            f"couldn't be computed (no catalog, or a subject isn't in the catalog). "
+            f"The unweighted average of {numeric_subjs}/{total_subjs} numeric grade(s) "
+            f"was used ({unweighted:.4f}). This is a valid Philippine grade value "
+            f"but is not equivalent to a credit-weighted GWA — please review.",
             key,
         )
 
@@ -1312,7 +1353,7 @@ def finalize_gwa(df: pd.DataFrame, warn: WarningCollector) -> pd.DataFrame:
 
 
 # ════════════════════════════════════════════════════════════════════
-# 9. VALIDATION / ACCURACY  (rule: "may nulls makakabawas ito sa accuracy")
+# 9. VALIDATION / ACCURACY  (rule: "having nulls will reduce the accuracy")
 # ════════════════════════════════════════════════════════════════════
 
 # Subject_Name / Credit_Units / Credits_Earned are deliberately NOT here.
@@ -1378,7 +1419,7 @@ def _aggregate_warnings(items, keep_individual: int = 3, max_refs: int = 15,
         refs = [str(g["ref"]) for g in grp if g.get("ref")]
         ref_txt = ", ".join(refs[:max_refs]) + (f", +{len(refs) - max_refs} more" if len(refs) > max_refs else "")
         where = f" in sheet '{sheet}'" if sheet != "—" else ""
-        msg = (f"{len(grp)} pangyayari{where} — halimbawa: {grp[0].get('message', '')} | "
+        msg = (f"{len(grp)} occurrence(s){where} — e.g.: {grp[0].get('message', '')} | "
                f"{grp[1].get('message', '')}" + (f" — Refs: {ref_txt}" if ref_txt else ""))
         out.append({"category": category, "message": msg[:max_len],
                     "ref": sheet if sheet != "—" else None})
@@ -1401,7 +1442,7 @@ def _aggregate_warnings(items, keep_individual: int = 3, max_refs: int = 15,
 _LEGACY_SEM = {"1st Semester": "1sem", "2nd Semester": "2sem", "Summer": "summer"}
 
 LEGACY_LONG_COLUMNS = [
-    "Student_ID", "Student_Seq", "Gender", "College", "Course",
+    "Student_ID", "Student_Seq", "Gender", "College", "Course", "Course_Acronym",
     "Year_Level", "Year_Level_Num", "Subject", "Subject_Name", "Grade",
     "Semester", "Year",
 ]
@@ -1445,15 +1486,15 @@ def _wide_to_legacy_long(wide: pd.DataFrame, course_display: dict,
 
     if held_students:
         if HOLD_BACK_EXCLUDED_STUDENTS:
-            warn.add("Hindi isinama sa dataset",
-                     f"{held_students} estudyante ang hindi isinama sa dataset dahil hindi "
-                     f"maaasahan ang record nila (see related warnings: Subject "
-                     f"Count mismatch, Abnormal subject count, Zero subjects, atbp.)",
+            warn.add("Not included in dataset",
+                     f"{held_students} student(s) were not included in the dataset because "
+                     f"their records are unreliable (see related warnings: Subject "
+                     f"Count mismatch, Abnormal subject count, Zero subjects, etc.)",
                      "file")
         else:
-            warn.add("Nakatakdang i-exclude (isinama pa rin)",
+            warn.add("Flagged for exclusion (kept anyway)",
                      f"{held_students} students have unreliable records but "
-                     f"isinama pa rin (HOLD_BACK_EXCLUDED_STUDENTS=False)", "file")
+                     f"were kept anyway (HOLD_BACK_EXCLUDED_STUDENTS=False)", "file")
 
     status = df["Status"]
     grade = pd.to_numeric(df["Grade"], errors="coerce")
@@ -1465,9 +1506,9 @@ def _wide_to_legacy_long(wide: pd.DataFrame, course_display: dict,
     # Only truly unresolvable cells (invalid text with no status) are dropped.
     no_grade = grade.isna() & ~status_rows
     if no_grade.any():
-        warn.add("Grade rows nilaktawan",
+        warn.add("Grade rows skipped",
                  f"{int(no_grade.sum())} grade cell(s) with no assignable grade "
-                 f"(invalid na text, o wala sa 1.00-5.00) — hindi isinama sa long-form table",
+                 f"(invalid text, or outside 1.00-5.00) — not included in the long-form table",
                  "file")
     df = df[~no_grade].copy()
     grade  = grade[~no_grade]
@@ -1475,6 +1516,8 @@ def _wide_to_legacy_long(wide: pd.DataFrame, course_display: dict,
 
     yl_cache = {v: parse_year_level(v) for v in df["Year_Level"].dropna().unique()}
     unknown_yl = (None, "Unknown")
+    # Acronym looked up once per DISTINCT course (difflib is slow per row).
+    acr_cache = {c: course_acronym(c) for c in df["Course"].dropna().unique()}
 
     out = pd.DataFrame({
         "Student_ID":     df["Student_ID"].values,
@@ -1482,6 +1525,7 @@ def _wide_to_legacy_long(wide: pd.DataFrame, course_display: dict,
         "Gender":         df["Gender"].map({"MALE": "Male", "FEMALE": "Female"}).fillna("Unknown").values,
         "College":        df["College"].fillna("Unknown").values,
         "Course":         df["Course"].map(lambda c: course_display.get(c, c)).fillna("Unknown").values,
+        "Course_Acronym": df["Course"].map(acr_cache).values,
         "Year_Level":     df["Year_Level"].map(lambda v: yl_cache.get(v, unknown_yl)[1]).values,
         "Year_Level_Num": df["Year_Level"].map(lambda v: yl_cache.get(v, unknown_yl)[0]).values,
         "Subject":        df["Subject_Code"].values,
@@ -1588,7 +1632,7 @@ def parse_workbook(filepath: str, warnings: list | None = None,
             wide = course_catalog_checker.run_course_code_checks(wide, cat, warn)
         except Exception as e:
             log.error(f"    Course catalog check failed (non-fatal): {e}")
-            warn.add("Catalog check failed", f"Hindi natapos ang course-catalog check: {e}", display_name)
+            warn.add("Catalog check failed", f"The course-catalog check did not finish: {e}", display_name)
             wide = backup
     else:
         reason = f"file not found: '{cat}'" if cat else "no catalog configured"
@@ -1826,7 +1870,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df["Sem_Numeric"] = df["Semester"].map(sem_map).fillna(1)
 
     # Per-student aggregates (groupby student × semester × year)
-    key = ["Student_ID", "Student_Seq", "Gender", "College", "Course",
+    key = ["Student_ID", "Student_Seq", "Gender", "College", "Course", "Course_Acronym",
            "Year_Level", "Year_Level_Num",
            "Semester", "Year", "Year_Numeric", "Sem_Numeric"]
 
@@ -2126,7 +2170,10 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
         student_df[["Student_ID", "College", "Course", "Semester",
                     "Sem_Numeric", "Year_Numeric", "GWA", "fail_rate", "is_drop"]],
         "03_dropout_ranking_college_college_ranking_chart.csv",
-        accuracy=_pct_valid(student_df, ["College", "Course", "GWA"]),
+        # GWA excluded: legitimately None for students whose grades don't
+        # support a trustworthy average (see the "GWA out of range -> MISSING"
+        # / "GWA not summable" rules above) — not missing/bad data.
+        accuracy=_pct_valid(student_df, ["College", "Course"]),
     )
 
     # 04 – GWA ranking college (student-level)
@@ -2134,7 +2181,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
         student_df[["Student_ID", "College", "Course",
                     "Year_Numeric", "Sem_Numeric", "GWA"]].dropna(subset=["GWA"]),
         "04_gwa_ranking_college_gwa_ranking_chart.csv",
-        accuracy=_pct_valid(student_df, ["College", "Course", "GWA"]),
+        accuracy=_pct_valid(student_df, ["College", "Course"]),
     )
 
     # 05 – GWA trend timeseries (college × year × sem)
@@ -2164,7 +2211,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
     # College-only before, which is why the original inc_forecast
     # trainer/model was abandoned (every course under a college silently
     # reused the same college-wide forecast). A college-level rollup is
-    # just this table re-grouped without Course — no seforte dataset
+    # just this table re-grouped without Course — no separate dataset
     # needed for that case.
     inc = (
         student_df.groupby(["Year_Numeric", "Sem_Numeric", "College", "Course"])
@@ -2210,7 +2257,7 @@ def build_model_datasets(student_df: pd.DataFrame, long_df: pd.DataFrame, out_di
         student_df[["Student_ID", "College", "Course",
                     "Year_Numeric", "Sem_Numeric", "GWA"]].dropna(subset=["GWA"]),
         "08_kpi_gwa_student_kpi_tiles.csv",
-        accuracy=_pct_valid(student_df, ["College", "Course", "GWA"]),
+        accuracy=_pct_valid(student_df, ["College", "Course"]),
     )
 
     # 09 – KPI enrollment college
@@ -2635,7 +2682,7 @@ BY_YEAR_DIR     = _BY_YEAR_DIR
 # Columns that auto_train.py keeps when it de-dupes the master CSV.
 # Must match the student-level CSV produced by engineer_features().
 FINAL_COLUMNS = [
-    "Student_ID", "Student_Seq", "Gender", "College", "Course",
+    "Student_ID", "Student_Seq", "Gender", "College", "Course", "Course_Acronym",
     "Year_Level", "Year_Level_Num",
     "Semester", "Year", "Year_Numeric", "Sem_Numeric",
     "GWA", "Avg_Grade", "Std_Grade", "Sub_Count",
@@ -2653,8 +2700,8 @@ FINAL_COLUMNS = [
 #  LongForm_Grades}.csv — holding ONLY that one file's rows. Uploading a
 #  new semester NEVER reads, appends to, or merges with any other
 #  semester's folder, including a different semester of the SAME year.
-#  Two semesters of the same year sit in two completely seforte folders.
-#  The only place seforte semesters are ever combined is in memory, at
+#  Two semesters of the same year sit in two completely separate folders.
+#  The only place separate semesters are ever combined is in memory, at
 #  train time, by load_all_semesters() — nothing on disk is ever rewritten
 #  as a combined/merged file except the derived master CSV/model_datasets,
 #  which are fully regenerated (not appended to) each time training runs.
@@ -2712,7 +2759,7 @@ def write_semester_folder(student_df: pd.DataFrame, long_df: pd.DataFrame,
     that folder is no longer populated here.
 
     FIX (2026-09-15, part 5): `long_df` IS now also persisted — as its
-    own CSV blob in a seforte `longform_uploads` table (same
+    own CSV blob in a separate `longform_uploads` table (same
     (academic_year, semester, ..., csv_file) shape as semester_uploads,
     auto-created on first write same as every other CSV-blob table
     here). Before this fix, long_df's row count went into
@@ -2837,7 +2884,7 @@ def process_file(xlsx_path: str) -> pd.DataFrame:
     write_semester_folder) — it does NOT touch any shared/master CSV and
     does NOT read or merge with any other semester's or year's data, not
     even a different semester of the same academic year. The caller
-    (auto_train) decides sefortely whether enough years now exist to
+    (auto_train) decides separately whether enough years now exist to
     rebuild the shared master CSV / model_datasets and (re)train — see
     load_all_semesters() / count_years_with_data().
 

@@ -122,6 +122,8 @@
   let alertTimer = null;
   let fadeTimer  = null;
 
+  let alertOwner = null;   // pipeline card that owns the current alert (if any)
+
   function scheduleAlertHide() {
     clearTimeout(alertTimer);
     alertTimer = setTimeout(() => {
@@ -129,16 +131,24 @@
       fadeTimer = setTimeout(clearAlert, FADE_MS);
     }, ALERT_MS);
   }
-  function showAlert(msg, kind) {
+  // `owner` = the pipeline card this alert belongs to. An owned alert stays
+  // until that card is gone (no timed auto-hide); un-owned alerts auto-hide.
+  function showAlert(msg, kind, owner) {
     clearTimeout(alertTimer); clearTimeout(fadeTimer);
+    alertOwner = owner || null;
     uploadAlert.className = 'upload-alert upload-alert--' + kind;
     uploadAlert.innerHTML = `<span class="alert-msg">${msg}</span>`;
     uploadAlert.style.transition = 'opacity ' + FADE_MS + 'ms ease';
     uploadAlert.style.opacity = '1';
     uploadAlert.classList.remove('hidden');
-    scheduleAlertHide();
+    if (!alertOwner) scheduleAlertHide();
+  }
+  // Clear the banner only if it belongs to this card
+  function clearAlertFor(card) {
+    if (card && alertOwner === card) clearAlert();
   }
   function clearAlert() {
+    alertOwner = null;
     clearTimeout(alertTimer); clearTimeout(fadeTimer);
     uploadAlert.classList.add('hidden');
     uploadAlert.innerHTML = '';
@@ -234,6 +244,7 @@
     card.querySelector('.pipeline-close-btn').addEventListener('click', () => {
       card.style.transition = 'opacity 300ms ease';
       card.style.opacity = '0';
+      clearAlertFor(card);
       setTimeout(() => {
         card.remove();
         if (card._uploadId) uploadQueue.delete(card._uploadId);
@@ -253,6 +264,7 @@
         const idx = fileQueue.findIndex(item => item.card === card || item.uploadId === uploadId);
         if (idx !== -1) fileQueue.splice(idx, 1);
         if (uploadId) uploadQueue.delete(uploadId);
+        clearAlertFor(card);
         card.style.transition = 'opacity 300ms ease';
         card.style.opacity = '0';
         setTimeout(() => { card.remove(); updateQueueSection(); }, 300);
@@ -306,12 +318,29 @@
       if (!card.isConnected) return;
       card.style.transition = 'opacity 400ms ease';
       card.style.opacity = '0';
+      clearAlertFor(card);
       setTimeout(() => {
         card.remove();
         if (card._uploadId) uploadQueue.delete(card._uploadId);
         updateQueueSection();
       }, 400);
     }, 30000);
+  }
+
+  // Single poller per upload: always clears any previous timer first, so a
+  // second interval can never be left running (that orphan kept re-firing the
+  // 'done' handler -> repeated alerts + table reloads).
+  function startQueuePoll(uploadId, card) {
+    stopQueuePoll(uploadId);
+    const timer = setInterval(() => {
+      fetch('/api/upload-status/' + uploadId)
+        .then(r => r.json())
+        .then(d => onQueueStatusUpdate(uploadId, card, d))
+        .catch(() => {});
+    }, 2500);
+    const entry = uploadQueue.get(uploadId);
+    if (entry) entry.pollTimer = timer;
+    else uploadQueue.set(uploadId, { card, pollTimer: timer });
   }
 
   function stopQueuePoll(uploadId) {
@@ -386,10 +415,20 @@
     const fd = new FormData();
     fd.append('file', file);
 
+    // Reserve this file's spot in line RIGHT NOW, synchronously, in the
+    // order the user actually picked it — not whenever its defer POST
+    // happens to come back. Two files' requests can resolve out of order
+    // (server/network timing), and without this, whichever response
+    // landed first got pushed first — jumping an earlier-picked file.
+    const queueItem = { uploadId: null, card };
+    fileQueue.push(queueItem);
+
     fetch('/api/upload-dataset?defer=1', { method:'POST', body:fd })
       .then(async r => ({ ok:r.ok, data: await r.json().catch(()=>({})) }))
       .then(({ ok, data }) => {
         if (!ok) {
+          const idx = fileQueue.indexOf(queueItem);
+          if (idx !== -1) fileQueue.splice(idx, 1);   // rejected — give up its reserved spot
           const isDup = !!data.duplicate;
           const kind  = isDup ? 'warning' : 'error';
           setCardPill(card, isDup ? 'Duplicate' : 'Rejected', kind);
@@ -402,17 +441,23 @@
               `<strong class="result-label">${isDup ? 'Rejected — Duplicate' : 'Rejected — Invalid file'}</strong>` +
               `<span class="result-msg">${data.error || 'Upload failed.'}</span>` +
             `</span>`;
-          showAlert(data.error || 'Upload failed.', kind);
+          showAlert(data.error || 'Upload failed.', kind, card);
           revealCardClose(card);
+          drainQueue();   // this slot is free now — let the next ready item go
           return;
         }
         // File saved on server — won’t be lost on page navigation
         const uploadId = data.upload_id || data.record_id;
         card._uploadId = uploadId;
-        fileQueue.push({ uploadId, card });
+        queueItem.uploadId = uploadId;   // fill in the reserved spot — position unchanged
         uploadQueue.set(uploadId, { card, pollTimer: null });
+        // The slot may have been freed while this request was in flight —
+        // without this the card would sit on "Queued" forever.
+        drainQueue();
       })
       .catch(err => {
+        const idx = fileQueue.indexOf(queueItem);
+        if (idx !== -1) fileQueue.splice(idx, 1);
         setCardPill(card, 'Error', 'error');
         const resultEl = card.querySelector('.pipeline-result');
         resultEl.classList.remove('hidden');
@@ -425,6 +470,7 @@
           `</span>`;
         showAlert('Network error: ' + esc(err.message || String(err)), 'error');
         revealCardClose(card);
+        drainQueue();
       });
   }
 
@@ -432,6 +478,12 @@
   function drainQueue() {
     if (activeCard) return;                       // slot busy — one at a time
     if (fileQueue.length === 0) { isProcessing = false; return; }
+    const front = fileQueue[0];
+    // The file at the front of the line is still waiting on its own defer
+    // POST to resolve (reserved a spot, but no uploadId yet) — do nothing;
+    // its own .then() will call drainQueue() again once it's ready, and by
+    // then it's still correctly at the front.
+    if (!front.uploadId && !front.file) return;
     const item = fileQueue.shift();
     activeCard = item.card;
     setCardPill(item.card, 'Uploading…', null);
@@ -479,15 +531,7 @@
         setStepOn(card, 'validate', 'done');
         setStepOn(card, 'upload', 'done');
         setStepOn(card, 'clean', 'running');
-        const timer = setInterval(() => {
-          fetch('/api/upload-status/' + uploadId)
-            .then(r => r.json())
-            .then(d => onQueueStatusUpdate(uploadId, card, d))
-            .catch(() => {});
-        }, 2500);
-        const entry = uploadQueue.get(uploadId);
-        if (entry) entry.pollTimer = timer;
-        else uploadQueue.set(uploadId, { card, pollTimer: timer });
+        startQueuePoll(uploadId, card);
       })
       .catch(() => { setCardPill(card, 'Error', 'error'); revealCardClose(card); releaseSlot(card); });
   }
@@ -523,7 +567,7 @@
               `<span class="result-msg">${data.error || 'Upload failed.'}</span>` +
             `</span>`;
 
-          showAlert(data.error || 'Upload failed.', kind);
+          showAlert(data.error || 'Upload failed.', kind, card);
           revealCardClose(card);
           releaseSlot(card);   // rejection doesn't block the queue
           return;
@@ -533,18 +577,12 @@
         setStepOn(card, 'validate', 'done');
         setStepOn(card, 'upload', 'done');
         setStepOn(card, 'clean', 'running');
-        showAlert(data.message || 'File accepted — preprocessing started.', 'success');
+        showAlert(data.message || 'File accepted — preprocessing started.', 'success', card);
 
         const uploadId = data.upload_id || data.record_id;
         card._uploadId = uploadId;
 
-        const timer = setInterval(() => {
-          fetch('/api/upload-status/' + uploadId)
-            .then(r => r.json())
-            .then(d => onQueueStatusUpdate(uploadId, card, d))
-            .catch(() => {});
-        }, 2500);
-        uploadQueue.set(uploadId, { card, pollTimer: timer });
+        startQueuePoll(uploadId, card);
       })
       .catch(err => {
         setCardPill(card, 'Error', 'error');
@@ -555,9 +593,10 @@
           `<span class="result-icon">${HI.xmark}</span>` +
           `<span class="result-body">` +
             `<strong class="result-label">Network error</strong>` +
-            `<span class="result-msg">${data.error || 'Upload failed.'}</span>` +
+            `<span class="result-msg">${esc((err && err.message) || 'Upload failed.')}</span>` +
           `</span>`;
-        showAlert('Network error: ' + err.message, 'error');
+        console.error('[fileupload] upload failed:', err);
+        showAlert('Network error: ' + esc((err && err.message) || 'Upload failed.'), 'error', card);
         revealCardClose(card);
         releaseSlot(card);
       });
@@ -586,18 +625,13 @@
       setStepOn(card, 'clean', 'done');
       setStepOn(card, 'confirm', 'running');
       openPreprocModal(uploadId, data, card);
-      const timer = setInterval(() => {
-        fetch('/api/upload-status/' + uploadId)
-          .then(r => r.json())
-          .then(d => onQueueStatusUpdate(uploadId, card, d))
-          .catch(() => {});
-      }, 2500);
-      const entry = uploadQueue.get(uploadId);
-      if (entry) entry.pollTimer = timer;
+      startQueuePoll(uploadId, card);
       return;
     }
     if (data.status === 'done') {
       stopQueuePoll(uploadId);
+      if (card._doneHandled) return;     // handle success exactly once
+      card._doneHandled = true;
       setStepOn(card, 'clean', 'done');
       setStepOn(card, 'confirm', 'done');
       setStepOn(card, 'separate', 'done');
@@ -609,8 +643,8 @@
         (data.row_count ? ` — ${fmtNum(data.row_count)} student rows.` : '.');
       showAlert(
         `<strong>${esc(data.original_filename || 'File')}</strong> uploaded successfully` +
-        (data.row_count ? ` — ${fmtNum(data.row_count)} student rows.` : '.'), 'success');
-      refreshAllTables();
+        (data.row_count ? ` — ${fmtNum(data.row_count)} student rows.` : '.'), 'success', card);
+      refreshAllTables();            // one reload: upload succeeded
       setStepOn(card, 'train', 'running');
       // Don't drain the queue yet — wait until training finishes
       fetch('/api/training-run')
@@ -621,6 +655,8 @@
     }
     if (data.status === 'failed') {
       stopQueuePoll(uploadId);
+      if (card._failHandled) return;
+      card._failHandled = true;
       card.querySelectorAll('[data-step]').forEach(el => {
         if (el.classList.contains('step--running')) {
           el.classList.remove('step--running');
@@ -635,7 +671,7 @@
         esc(data.error_message || 'Unknown error.');
       showAlert(
         `<strong>${esc(data.original_filename || 'Upload')}</strong> upload failed — ` +
-        esc(data.error_message || 'Unknown error.'), 'error');
+        esc(data.error_message || 'Unknown error.'), 'error', card);
       revealCardClose(card);
       refreshAllTables();
       // Failed — release the slot so the next queued file can start
@@ -690,14 +726,18 @@
     } else if (st === 'done') {
       setStepOn(card, 'train', 'done');
       if (stepDesc) stepDesc.textContent = run.has_warnings ? 'Models trained — some had warnings' : 'Models trained successfully';
-      if (run.has_warnings) { showAlert('Model training finished <strong>with warnings</strong>.', 'warning'); showTrainingResult(run); }
-      else showTrainedAlert(run);
+      if (!card._trainHandled) {
+        card._trainHandled = true;
+        if (run.has_warnings) { showAlert('Model training finished <strong>with warnings</strong>.', 'warning', card); showTrainingResult(run); }
+        else showTrainedAlert(run, card);
+        refreshAllTables();          // one reload: training succeeded
+      }
       revealCardClose(card);
       releaseSlot(card);   // training done — start next
     } else {
       setStepOn(card, 'train', 'error');
       if (stepDesc) stepDesc.textContent = run.error || 'Training did not complete.';
-      showAlert('Model training <strong>' + esc(st) + '</strong> — ' + esc(run.error || 'see details below.'), 'error');
+      showAlert('Model training <strong>' + esc(st) + '</strong> — ' + esc(run.error || 'see details below.'), 'error', card);
       showTrainingResult(run);
       revealCardClose(card);
       releaseSlot(card);   // training errored — start next anyway
@@ -802,9 +842,9 @@
 
   // Clean success: only a short alert (same banner as every other message, gone
   // after ALERT_MS). No numbers, no metrics — it just signals that a model was trained.
-  function showTrainedAlert(run) {
+  function showTrainedAlert(run, card) {
     dismissRun(run.run_id);                 // never re-announced on a later page load
-    showAlert('<strong>Machine learning model trained successfully.</strong>', 'success');
+    showAlert('<strong>Machine learning model trained successfully.</strong>', 'success', card);
   }
 
   // Failed / interrupted / finished with errored models: stays until dismissed.
@@ -997,14 +1037,7 @@
       if (card) {
         setStepOn(card, 'confirm', 'done');
         setStepOn(card, 'separate', 'running');
-        const timer = setInterval(() => {
-          fetch('/api/upload-status/' + uploadId)
-            .then(r => r.json())
-            .then(d => onQueueStatusUpdate(uploadId, card, d))
-            .catch(() => {});
-        }, 2500);
-        const entry = uploadQueue.get(uploadId);
-        if (entry) entry.pollTimer = timer;
+        startQueuePoll(uploadId, card);
       } else {
         setStep('step-confirm','done');
         setStep('step-separate','running');
@@ -1053,6 +1086,7 @@
         preprocModal.classList.remove('open');
         if (card) {
           stopQueuePoll(uploadId);
+          clearAlertFor(card);
           card.style.transition = 'opacity 300ms ease';
           card.style.opacity = '0';
           setTimeout(() => { card.remove(); uploadQueue.delete(uploadId); updateQueueSection(); }, 300);
@@ -1395,13 +1429,36 @@
 
   // full=true rebuilds header + body (load / sort / clear). Otherwise only the
   // body and pager change, so a filter box being typed in keeps its focus.
+  // Columns long enough to crowd out the rest of the table (right now just
+  // "Message" from the warnings viewer) get truncated with an ellipsis and
+  // expand in place on click, instead of forcing every other column to
+  // shrink or scroll off. Matched by header name, so this only affects
+  // whichever table actually has that column.
+  const CSV_TRUNCATE_COLS = new Set(['Message']);
+  const CSV_TRUNCATE_LEN = 70;
+
+  function csvCellHtml(cell, colIdx) {
+    const text = esc(cell);
+    if (!CSV_TRUNCATE_COLS.has(csvHeaders[colIdx]) || String(cell ?? '').length <= CSV_TRUNCATE_LEN) {
+      return `<td>${text}</td>`;
+    }
+    const short = esc(String(cell).slice(0, CSV_TRUNCATE_LEN)) + '&hellip;';
+    return `<td class="csv-cell-truncated" tabindex="0" role="button" title="Click to view the full message">` +
+             `<span class="csv-cell-short">${short}</span>` +
+             `<span class="csv-cell-full">${text}</span>` +
+           `</td>`;
+  }
+
   function renderCsvPage(full) {
     const start = csvPage * CSV_PAGE;
     const end   = Math.min(start + CSV_PAGE, csvFiltered.length);
     const pageRows = csvFiltered.slice(start, end);
 
+    const tipEl = document.getElementById('csvTruncateTip');
+    if (tipEl) tipEl.classList.toggle('hidden', !csvHeaders.some(h => CSV_TRUNCATE_COLS.has(h)));
+
     const tbHtml = pageRows.length
-      ? pageRows.map(row => `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')
+      ? pageRows.map(row => `<tr>${row.map((cell, i) => csvCellHtml(cell, i)).join('')}</tr>`).join('')
       : `<tr><td class="csv-empty" colspan="${Math.max(csvHeaders.length, 1)}">No rows match the current search / filters.</td></tr>`;
 
     const table = csvWrap.querySelector('table.csv-tbl');
@@ -1410,6 +1467,11 @@
     } else {
       table.tBodies[0].innerHTML = tbHtml;
     }
+    csvWrap.querySelectorAll('.csv-cell-truncated').forEach(td => {
+      const toggle = () => td.classList.toggle('is-expanded');
+      td.addEventListener('click', toggle);
+      td.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    });
 
     const narrowed = csvFiltered.length < csvAllRows.length;
     csvPagerInfo.textContent = csvFiltered.length
@@ -1478,7 +1540,8 @@
     pendingArchive = { upload_id: uploadId, academic_year: ay, semester: sem };
     archiveConfirmText.textContent =
       `Archive "${filename}" (${ay} ${sem})? All CSV data will move to the archive. ` +
-      `You can restore it unless the same semester is re-uploaded.`;
+      `You can restore it unless the same semester is re-uploaded. ` +
+      `Prediction models already trained on it keep using it until the next retrain.`;
     archiveModal.classList.add('open');
   }
 
@@ -1645,7 +1708,7 @@
 
   // Tab 3: CSV Separation (model_datasets DS00-DS06)
   const DS_NAMES = {
-    DS00:'Enrollment headcount',DS01:'KPI student',DS02:'Heatmap risk',
+    DS00:'Enrollment headcount',DS01:'KPI student',DS02:'Histogram risk',
     DS03:'Gender at-risk',DS04:'Hardest subjects',DS05:'At-risk forecast',DS06:'GWA trend',
   };
 
@@ -1781,8 +1844,59 @@
       });
   });
 
+  // ── Model backup / rollback ────────────────────────────────
+  const backupCard      = document.getElementById('modelBackupCard');
+  const backupText      = document.getElementById('modelBackupText');
+  const rollbackBtn     = document.getElementById('modelRollbackBtn');
+  const rollbackModal   = document.getElementById('rollbackConfirmModal');
+  const rollbackCancel  = document.getElementById('rollbackCancelBtn');
+  const rollbackDoBtn   = document.getElementById('rollbackDoBtn');
+
+  function loadModelBackup() {
+    if (!backupCard) return;
+    fetchJson('/api/model-backup-info')
+      .then(info => {
+        if (!info || !info.has_backup) { backupCard.classList.add('hidden'); return; }
+        const when = info.created_at ? new Date(info.created_at).toLocaleString() : '';
+        backupText.textContent =
+          `A backup of the previous models (trained on ${info.trained_semesters ?? '?'} semesters, ` +
+          `saved ${when}) is kept. If the latest training was confirmed by mistake, restore it — ` +
+          `the newer models then become the backup.`;
+        rollbackBtn.disabled = !!info.training_active;
+        rollbackBtn.title = info.training_active ? 'Wait for training to finish' : '';
+        backupCard.classList.remove('hidden');
+      })
+      .catch(() => { /* non-critical */ });
+  }
+
+  rollbackBtn?.addEventListener('click', () => rollbackModal.classList.add('open'));
+  rollbackCancel?.addEventListener('click', () => rollbackModal.classList.remove('open'));
+  closeOnBackdropClick(rollbackModal, () => {
+    if (rollbackDoBtn && rollbackDoBtn.disabled) return;
+    rollbackModal.classList.remove('open');
+  });
+  rollbackDoBtn?.addEventListener('click', () => {
+    if (rollbackDoBtn.disabled) return;
+    rollbackDoBtn.disabled = true;
+    rollbackDoBtn.textContent = 'Restoring…';
+    fetch('/api/rollback-models', { method: 'POST' })
+      .then(async r => ({ ok: r.ok, data: await r.json().catch(() => ({})) }))
+      .then(({ ok, data }) => {
+        if (ok && data.ok) showAlert('<strong>Previous models restored.</strong> The prediction dashboard now uses them.', 'success');
+        else showAlert('Restore failed: ' + esc(data.error || 'Unknown error.'), 'error');
+      })
+      .catch(() => showAlert('Network error while restoring models.', 'error'))
+      .finally(() => {
+        rollbackModal.classList.remove('open');
+        rollbackDoBtn.disabled = false;
+        rollbackDoBtn.textContent = 'Restore models';
+        loadModelBackup();
+      });
+  });
+
   // ── Refresh all ────────────────────────────────────────────
   function refreshAllTables() {
+    loadModelBackup();
     loadInvalidTable();
     loadTrainingTable();
     loadSeparationTable();
@@ -1854,13 +1968,7 @@
               confirmedIds.add(uploadId);
             }
 
-            const timer = setInterval(() => {
-              fetch('/api/upload-status/' + uploadId)
-                .then(r => r.json())
-                .then(d => onQueueStatusUpdate(uploadId, card, d))
-                .catch(() => {});
-            }, 2500);
-            uploadQueue.set(uploadId, { card, pollTimer: timer });
+            startQueuePoll(uploadId, card);
           } else {
             // Extra in-progress — re-queue as deferred, it will start after primary finishes
             setCardPill(card, 'Queued', null);
@@ -1895,7 +2003,146 @@
   // ── Init ───────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     loadInvalidTable();   // active tab on load
+    loadModelBackup();
     resumeActiveUpload();
   });
 
+})();
+
+
+/* ═══════════════════════════════════════════════════════════
+   Table filters (Academic Year + Term) for the four tabs:
+   Files with Errors / Flags · Training CSV · CSV Separation · Archive
+   Pick values in the dropdowns, then press Apply. Reset clears both.
+   Runs on top of the existing loaders — it reads each table after the
+   rows are rendered, builds the dropdown choices from the data that is
+   actually there, and hides the rows that don't match.
+   ═══════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  function cellText(tr, col) {
+    var td = tr.children[col];
+    return td ? td.textContent.trim() : '';
+  }
+  function isRealValue(v) { return v && v !== '\u2014' && v !== '-'; }
+
+  // "2024-2025" newest first; terms in natural order (1st, 2nd, Summer…)
+  function sortAY(a, b)   { return b.localeCompare(a, undefined, { numeric: true }); }
+  function sortTerm(a, b) { return a.localeCompare(b, undefined, { numeric: true }); }
+
+  function setupFilter(bar) {
+    var tbody = document.getElementById(bar.dataset.body);
+    if (!tbody) return;
+    var ayCol   = parseInt(bar.dataset.ayCol, 10);
+    var termCol = parseInt(bar.dataset.semCol, 10);   // (data attr kept from the first version)
+    var selAY   = bar.querySelector('.flt-ay');
+    var selTerm = bar.querySelector('.flt-sem');
+    var applyBtn = bar.querySelector('.flt-apply');
+    var resetBtn = bar.querySelector('.flt-reset');
+    var count   = bar.querySelector('.flt-count');
+    var colSpan = tbody.closest('table').querySelectorAll('thead th').length;
+
+    var applied = { ay: '', term: '' };               // what the table is filtered by right now
+
+    function dataRows() {
+      return Array.prototype.filter.call(tbody.children, function (tr) {
+        return !tr.classList.contains('skel-row') &&
+               !tr.classList.contains('flt-empty') &&
+               !tr.querySelector('.tbl-empty');
+      });
+    }
+
+    function fillOptions(select, values, sorter, allLabel) {
+      var keep = select.value;
+      var uniq = Array.from(new Set(values.filter(isRealValue))).sort(sorter);
+      select.innerHTML = '<option value="">' + allLabel + '</option>' +
+        uniq.map(function (v) {
+          var o = document.createElement('option');
+          o.value = v; o.textContent = v;
+          return o.outerHTML;
+        }).join('');
+      select.value = uniq.indexOf(keep) !== -1 ? keep : '';
+      return uniq;
+    }
+
+    // Show/hide rows using the APPLIED values (not the dropdowns).
+    function filterRows() {
+      var rows = dataRows(), shown = 0;
+      rows.forEach(function (tr) {
+        var ok = (!applied.ay   || cellText(tr, ayCol)   === applied.ay) &&
+                 (!applied.term || cellText(tr, termCol) === applied.term);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) shown++;
+      });
+
+      var empty = tbody.querySelector('.flt-empty');
+      if (rows.length && !shown) {
+        if (!empty) {
+          empty = document.createElement('tr');
+          empty.className = 'flt-empty';
+          empty.innerHTML = '<td colspan="' + colSpan + '" class="tbl-empty">No records match the selected filters.</td>';
+          tbody.appendChild(empty);
+        }
+      } else if (empty) {
+        empty.remove();
+      }
+
+      var filtering = !!(applied.ay || applied.term);
+      count.textContent = rows.length
+        ? (filtering ? 'Showing ' + shown + ' of ' + rows.length
+                     : rows.length + (rows.length === 1 ? ' record' : ' records'))
+        : '';
+      updateControls(rows.length);
+    }
+
+    // Apply is live only when the dropdowns differ from what's applied;
+    // Reset is live when anything is picked or applied.
+    function updateControls(rowCount) {
+      if (rowCount === undefined) rowCount = dataRows().length;
+      var pendingChange = selAY.value !== applied.ay || selTerm.value !== applied.term;
+      selAY.disabled = selTerm.disabled = !rowCount;
+      applyBtn.disabled = !rowCount || !pendingChange;
+      resetBtn.disabled = !rowCount || !(selAY.value || selTerm.value || applied.ay || applied.term);
+      selAY.classList.toggle('is-active', !!applied.ay);
+      selTerm.classList.toggle('is-active', !!applied.term);
+    }
+
+    function rebuild() {
+      var rows = dataRows();
+      var ays   = fillOptions(selAY,   rows.map(function (tr) { return cellText(tr, ayCol);   }), sortAY, 'All Years');
+      var terms = fillOptions(selTerm, rows.map(function (tr) { return cellText(tr, termCol); }), sortTerm, 'All Terms');
+      // an applied value that no longer exists in the data (e.g. after archiving) is dropped
+      if (applied.ay   && ays.indexOf(applied.ay)     === -1) applied.ay = '';
+      if (applied.term && terms.indexOf(applied.term) === -1) applied.term = '';
+      filterRows();
+    }
+
+    selAY.addEventListener('change', function () { updateControls(); });
+    selTerm.addEventListener('change', function () { updateControls(); });
+
+    applyBtn.addEventListener('click', function () {
+      applied.ay = selAY.value;
+      applied.term = selTerm.value;
+      filterRows();
+    });
+    resetBtn.addEventListener('click', function () {
+      selAY.value = ''; selTerm.value = '';
+      applied.ay = ''; applied.term = '';
+      filterRows();
+    });
+
+    // Re-run whenever the table is re-rendered (first load, Refresh, archive/restore…).
+    var obs = new MutationObserver(function () {
+      if (tbody.querySelector('.skel-row')) return;      // still loading
+      rebuild();
+      obs.takeRecords();                                  // ignore our own "no match" row change
+    });
+    obs.observe(tbody, { childList: true });
+    rebuild();
+  }
+
+  function init() { document.querySelectorAll('.tbl-filters').forEach(setupFilter); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();

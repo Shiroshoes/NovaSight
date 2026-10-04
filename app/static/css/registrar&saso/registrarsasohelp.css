@@ -789,13 +789,8 @@ footer{
 
 
 p:not(.confirmation-text, .copyright) {
-    text-align: justify;
-    hyphens: auto;
-    color:#000000;
-}
-
-.help-col p {
-  text-indent: 40px;
+    text-align: left;
+    color: #4b5563;
 }
 
 .email-link {
@@ -846,4 +841,374 @@ p:not(.confirmation-text, .copyright) {
     transform: translateY(-2px);
     font-weight: bold;
     text-decoration: underline;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MINIMAL / MODERN — Help Center + Privacy Policy
+   One clean white card holds the whole page so it reads as an
+   important document: big title, generous whitespace, hairline
+   dividers and one accent colour (maroon). Left-aligned text.
+   ═══════════════════════════════════════════════════════════ */
+.help-card {
+  background: #fff;
+  border: 1px solid #E7E1D6;
+  border-radius: 28px;
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04), 0 12px 32px rgba(17, 24, 39, 0.05);
+  display: block;
+  min-height: 0;
+  padding: clamp(28px, 4vw, 56px);
+  overflow: visible;
+  box-sizing: border-box;
+}
+.help-content { max-width: 1200px; margin: 0 auto; }
+
+/* title block */
+.help-content .help-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.help-header .role-badge {
+  margin: 0 0 16px;
+  padding: 7px 14px;
+  background: rgba(128, 0, 0, 0.08);
+  color: #800000;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+}
+.help-content .help-header h2 {
+  display: block;
+  font-size: clamp(2rem, 4.4vw, 3.2rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  color: #111827;
+  border: none;
+  padding: 0;
+  margin: 0 0 18px;
+}
+.help-content .help-intro {
+  max-width: 720px;
+  font-size: 1.15rem;
+  font-weight: 300;
+  line-height: 1.7;
+  color: #4b5563;
+  border: none;
+  padding: 0;
+  margin: 0 0 40px;
+}
+.help-content > hr { border: none; border-top: 1px solid #DCD6C9; margin: 0; }
+
+/* columns: no vertical line, just space */
+.help-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 clamp(40px, 6vw, 88px);
+  margin-top: 40px;
+}
+.help-columns::before { display: none; }
+
+/* topics */
+.help-content .help-topic { display: flex; align-items: center; gap: 12px; margin: 48px 0 14px; }
+.help-topic h3 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: #111827; }
+.help-icon-badge { width: 36px; height: 36px; border-radius: 10px; background: rgba(128, 0, 0, 0.08); }
+.help-icon-badge svg { width: 18px; height: 18px; color: #800000; }
+.help-content h4 {
+  margin: 26px 0 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #800000;
+}
+
+/* body text */
+.help-content p,
+.help-content li { font-size: 1rem; line-height: 1.75; font-weight: 400; color: #4b5563; }
+.help-content p { margin: 0 0 14px; }
+.help-content ul { margin: 0 0 14px; padding-left: 1.2rem; }
+.help-content li { margin: 6px 0; }
+.help-content li::marker { color: #c9b9b9; }
+.help-content strong { color: #111827; font-weight: 600; }
+
+/* code, download button */
+.help-content code,
+.help-code { background: #fff; border: 1px solid #E7E1D6; border-radius: 6px; color: #800000; }
+.help-code { padding: 10px 14px; margin: 4px 0 12px; }
+.help-download { margin: 20px 0 28px; text-align: left; }
+.help-download br { display: none; }
+.help-download-btn { padding: 12px 22px; border-radius: 9999px; font-weight: 600; gap: 10px; }
+.help-download-btn:hover { background: #9a1414; }
+.help-download-note { display: block; margin-top: 12px; max-width: 420px; font-size: 0.85rem; line-height: 1.6; color: #6b7280; }
+
+/* FAQ: hairline rows instead of boxes */
+.help-content details { border: none; border-bottom: 1px solid #E7E1D6; border-radius: 0; margin: 0; background: transparent; }
+.help-content details[open] { border-color: #E7E1D6; }
+main .help-content details summary { padding: 16px 0; background: transparent; font-size: 0.98rem; font-weight: 600; color: #111827; }
+main .help-content details summary:hover { background: transparent; color: #800000; }
+main .help-content details p { padding: 0 0 16px; margin: 0; }
+
+.email-link { color: #800000; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.email-link:hover { color: #9a1414; font-weight: 600; text-decoration: none; }
+
+/* Privacy Policy: one readable column, numbered sections divided by hairlines */
+main .privacy-card { width: min(920px, calc(100% - 32px)) !important; margin: 0 auto 40px !important; }
+.privacy-card .help-content { max-width: none; }
+.privacy-card .help-col { margin-top: 40px; }
+.privacy-card .help-topic { margin: 44px 0 12px; padding-top: 32px; border-top: 1px solid #E7E1D6; }
+.privacy-card .help-col > .help-topic:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.privacy-card .help-topic h3 { font-size: 1.25rem; }
+
+@media (max-width: 1100px) {
+  .help-card { padding: 32px 24px; }
+  .help-columns { grid-template-columns: minmax(0, 1fr); margin-top: 28px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HOME-STYLE LAYOUT — Help Center + Privacy Policy
+   Same look as the Home page: a maroon header band, then white
+   cards (tan border, 20px corners, maroon uppercase label, light
+   body text), plus the same fade-in-on-scroll animation.
+   ═══════════════════════════════════════════════════════════ */
+
+/* the big outer white box goes away; the cards sit on the page */
+.help-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  overflow: visible;
+}
+.help-card .help-content { max-width: none; }
+.help-card .help-content > hr { display: none; }
+
+/* ── header band (same as Home's maroon callout) ───────────── */
+.help-card .help-hero {
+  background: #800000;
+  border-radius: 24px;
+  padding: 44px 48px;
+  margin-bottom: 24px;
+  box-sizing: border-box;
+}
+.help-card .help-hero .help-header { display: flex; flex-direction: column; align-items: flex-start; }
+.help-card .help-hero .role-badge {
+  margin: 0 0 16px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+.help-card .help-hero .help-header h2 {
+  color: #ffffff;
+  font-size: clamp(1.8rem, 3.6vw, 2.6rem);
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+.help-card .help-hero .help-intro {
+  max-width: 820px;
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.75;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.9);
+}
+.help-card .help-hero .help-intro strong { color: #ffffff; }
+
+/* ── card layout: two balanced columns, cards never split ──── */
+.help-card .help-columns,
+.privacy-card .help-content > .help-col {
+  display: block;
+  column-count: 2;
+  column-gap: 24px;
+  margin-top: 0;
+}
+.help-card .help-columns > .help-col { display: contents; }
+.privacy-card .help-content > .help-col { margin-top: 0; }
+
+.help-card .help-section {
+  display: block;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin: 0 0 24px;
+  padding: 32px;
+  background: #ffffff;
+  border: 1px solid #DCD6C9;
+  border-radius: 20px;
+  box-sizing: border-box;
+}
+
+/* small maroon label, same as Home's "About" eyebrow */
+.help-section-tag {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #800000;
+}
+
+/* title row */
+.help-card .help-content .help-section > .help-topic {
+  margin: 0 0 14px;
+  padding: 0;
+  border: none;
+  gap: 14px;
+}
+.help-card .help-section .help-topic h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #111827;
+}
+
+/* outlined circle icon (like Home's team avatars) */
+.help-card .help-section .help-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid #800000;
+  box-sizing: border-box;
+}
+.help-card .help-section .help-icon-badge svg { width: 18px; height: 18px; color: #800000; }
+
+/* body text: light weight like Home */
+.help-card .help-section p,
+.help-card .help-section li {
+  font-weight: 300;
+  line-height: 1.8;
+}
+.help-card .help-section strong { font-weight: 600; }
+.help-card .help-section > :last-child { margin-bottom: 0; }
+
+/* code + file-name chips use Home's warm tint */
+.help-card .help-section code,
+.help-card .help-section .help-code { background: #faf8f5; border: 1px solid #ECE6DF; }
+
+/* FAQ rows become small rounded tiles (Home's team-card tint) */
+.help-card .help-section details {
+  border: 1px solid #ECE6DF;
+  border-radius: 14px;
+  background: #faf8f5;
+  margin: 0 0 10px;
+  overflow: hidden;
+}
+.help-card .help-section details[open] { border-color: #800000; background: #ffffff; }
+main .help-card .help-section details summary { padding: 14px 18px; background: transparent; }
+main .help-card .help-section details p { padding: 0 18px 16px; }
+
+/* last card in Help = Home's maroon callout */
+.help-card .help-section.help-callout {
+  background: #800000;
+  border-color: #800000;
+  border-radius: 24px;
+  padding: 40px 44px;
+}
+.help-callout .help-section-tag { color: rgba(255, 255, 255, 0.7); }
+.help-card .help-callout .help-topic h3 { color: #ffffff; }
+.help-card .help-callout .help-icon-badge { border-color: #ffffff; }
+.help-card .help-callout .help-icon-badge svg { color: #ffffff; }
+.help-card .help-callout p { color: rgba(255, 255, 255, 0.9); }
+.help-card .help-callout .email-link { color: #ffffff; }
+
+/* Privacy page uses the same full width as Help */
+main .help-card.privacy-card { width: 1390px !important; margin: 0 0 40px 24px !important; }
+
+/* ── responsive ────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .help-card .help-columns,
+  .privacy-card .help-content > .help-col { column-count: 1; }
+  main .help-card.privacy-card { width: auto !important; margin: 0 16px 40px !important; }
+  .help-card .help-hero { padding: 32px 28px; }
+}
+@media (max-width: 768px) {
+  .help-card .help-section { padding: 24px; }
+  .help-card .help-section.help-callout { padding: 28px 24px; }
+}
+
+
+/* ── Data Upload: normal card, just flagged as important ──── */
+.help-card .help-section.help-feature {
+  position: relative;
+  border: 2px solid #800000;
+  background: #fffaf9;
+}
+.help-card .help-section.help-feature::after {
+  content: "! Important";
+  position: absolute;
+  top: 26px;
+  right: 28px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #800000;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.help-card .help-feature code,
+.help-card .help-feature .help-code { background: #ffffff; }
+
+/* ── Privacy Policy: read across rows (left, right, left, right…)
+      instead of filling the left column first ─────────────── */
+.privacy-card .help-content > .help-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-count: auto;
+  gap: 24px;
+  align-items: stretch;
+}
+.privacy-card .help-section { margin: 0; }
+
+@media (max-width: 1100px) {
+  .privacy-card .help-content > .help-col { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 768px) {
+  .help-card .help-section.help-feature::after { top: 20px; right: 22px; }
+}
+
+
+/* ── Justified text with an indented first line ────────────── */
+.help-card .help-section p,
+.help-card .help-section li {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+.help-card .help-section > p { text-indent: 2em; }   /* the "tab" on the first line */
+
+
+/* ── Privacy Policy layout: Use / Policy / Contact are full-width ── */
+.privacy-card .help-wide,
+.privacy-card .help-policy,
+.privacy-card .help-callout { grid-column: 1 / -1; }
+
+/* the numbered policy sections live inside ONE card, split by hairlines */
+.help-card .help-content .help-policy > .help-topic ~ .help-topic {
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid #ECE6DF;
+}
+
+
+/* ── Help layout: merged groups, every card full width ───────
+      (User Management and Dashboards are each ONE card; all cards
+       now span the full row, like Use / Policy / Contact in the Privacy page.) */
+.help-card .help-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-count: auto;
+  gap: 24px;
+}
+.help-card .help-columns > .help-col { display: contents; }
+.help-card .help-columns .help-section { margin: 0; }
+
+/* topics inside a merged card are separated by hairlines */
+.help-card .help-content .help-group > .help-topic ~ .help-topic {
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid #ECE6DF;
 }

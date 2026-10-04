@@ -4,112 +4,209 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BPSU | Login</title>
+    <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login/login.css') }}">
-  <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/login-responsive.css') }}">
 </head>
 <body>
 
-    <div class="login-container">
-        <nav class="floating-nav">
-            <a href="{{ url_for('home') }}" class="nav-link">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon-floatingnav">
-                <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
-                <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
-                </svg>
+    <div class="stage" style="--stage-bg: url('{{ url_for('static', filename='image/homeimg.png') }}');">
 
-            <span>Home</span>
+        <!-- Top bar: the logo + name take you back to the landing page -->
+        <header class="topbar">
+            <a href="{{ url_for('home') }}" class="brand" aria-label="Back to the NovaSight home page" title="Back to the home page">
+                <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="BPSU Logo" class="brand-logo">
+                <span class="brand-text">
+                    <strong>Bataan Peninsula State University</strong>
+                    <small>ACADEMIC PREDICTION</small>
+                </span>
             </a>
 
-            <a href="/help" class="nav-link">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon-floatingnav">
-            <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
-            </svg>
+            <nav class="top-links" aria-label="Page links">
+                <a href="{{ url_for('home') }}">Home</a>
+                <a href="{{ url_for('home') }}#help">Help</a>
+            </nav>
+        </header>
 
+        <main class="main">
 
-            <span>Help</span></a>
-        </nav>
+            <!-- Login card -->
+            <div class="login-col">
+                <section class="card" aria-labelledby="loginTitle">
+                    <span class="chip">Verified BPSU personnel only</span>
+                    <header class="card-head">
+                        <h2 id="loginTitle">Welcome to NovaSight</h2>
+                        <p>Please enter your BPSU email and password to log in.</p>
+                    </header>
 
-        <br>
+                    <!-- alert messages -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                        <div id="alert-box" class="alert {{ category }}" role="alert">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    {% endwith %}
 
-        <div class="login-left">
-            <div class="logo-wrapper">
-                <div class="logo-box-large">
-                    <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="NovaSight Logo" class="brand-img">
-                </div>
-                <div class="brand-title">
-                    <h1>Bataan Peninsula State University</h1>
-                    <span>ACADEMIC PREDICTION</span>
-                </div>
-            </div>
-            <div class="watermark">BPSU</div>
-        </div>
-
-        <div class="login-right">
-            <div class="form-container">
-                <header class="form-header">
-                    <h2>Welcome to NovaSight</h2>
-                    <p>Please enter your BPSU Email and Password to Login</p>
-                </header>
-
-                <!-- alert mmessages -->
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                    <div id="alert-box" class="alert {{ category }}" style="color: #F95547; margin-bottom: 10px;">
-                        {{ message }}
-                    </div>
-                    {% endfor %}
-                {% endif %}
-                {% endwith %}
-
-                <form action="/login" method="POST" class="login-form">
-                    <div class="input-field">
-                        <label>Email</label>
-                        <input type="email" name="account" placeholder="Account@bpsu.edu.ph" autocomplete="username" required>
-                    </div>
-
-                    <div class="input-field">
-                        <label>Password</label>
-                        <div style="position: relative; display: flex; align-items: center;">
-                            <input type="password" name="password" id="password" placeholder="Your password" autocomplete="current-password" required style="width: 100%; padding-right: 40px;">
-                            
-                            <!-- Toggle Button -->
-                            <button type="button" id="togglePassword" style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: #666; width: 24px; height: 24px; padding: 0;">
-                                <!-- Eye (Open) -->
-                                <svg id="eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon-eye">
-                                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                                    <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
-                                </svg>
-                                <!-- Eye (Slashed/Closed) -->
-                                <svg id="eye-closed" class="hidden icon-eye" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M3.53 2.47a.75.75 0 0 0-1.06 1.06l18 18a.75.75 0 1 0 1.06-1.06l-18-18ZM22.676 12.553a11.249 11.249 0 0 1-2.631 4.31l-3.099-3.099a5.25 5.25 0 0 0-6.71-6.71L7.759 4.577a11.217 11.217 0 0 1 4.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113Z" />
-                                    <path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0 1 15.75 12ZM12.53 15.713l-4.243-4.244a3.75 3.75 0 0 0 4.244 4.243Z" />
-                                    <path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 0 0-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 0 1 6.75 12Z" />
-                                </svg>
-                            </button>
+                    <form action="/login" method="POST" class="login-form">
+                        <div class="input-field">
+                            <label for="account">Email</label>
+                            <!-- Only email characters are accepted: letters, numbers and . _ % + - @
+                                 (anything else is removed as you type or paste) -->
+                            <input type="email" name="account" id="account" placeholder="Account@bpsu.edu.ph"
+                                   autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="email"
+                                   maxlength="254"
+                                   pattern="[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"
+                                   title="Enter a valid email address. Only letters, numbers and . _ % + - @ are allowed."
+                                   required autofocus>
+                            <p class="field-hint" id="accountHint" role="status" style="display:none;">Only letters, numbers and . _ % + - @ are allowed in the email.</p>
                         </div>
+
+                        <div class="input-field">
+                            <label for="password">Password</label>
+                            <div class="pw-wrap">
+                                <input type="password" name="password" id="password" placeholder="Your password" autocomplete="current-password" maxlength="128" required>
+
+                                <!-- Toggle Button -->
+                                <button type="button" id="togglePassword" class="pw-toggle" aria-label="Show or hide password">
+                                    <!-- Eye (Open) -->
+                                    <svg id="eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon-eye">
+                                        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                                        <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
+                                    </svg>
+                                    <!-- Eye (Slashed/Closed) -->
+                                    <svg id="eye-closed" class="hidden icon-eye" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M3.53 2.47a.75.75 0 0 0-1.06 1.06l18 18a.75.75 0 1 0 1.06-1.06l-18-18ZM22.676 12.553a11.249 11.249 0 0 1-2.631 4.31l-3.099-3.099a5.25 5.25 0 0 0-6.71-6.71L7.759 4.577a11.217 11.217 0 0 1 4.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113Z" />
+                                        <path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0 1 15.75 12ZM12.53 15.713l-4.243-4.244a3.75 3.75 0 0 0 4.244 4.243Z" />
+                                        <path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 0 0-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 0 1 6.75 12Z" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <p class="field-hint">Forgot your password? Please contact the Academic Affairs.</p>
+                        </div>
+
+                        <button type="submit" class="login-btn">LOGIN</button>
+                    </form>
+
+                    <div class="card-foot">
+                        <p><strong>Don&rsquo;t have an account?</strong> There is no self-registration. Accounts are created only by Academic Affairs for verified BPSU personnel.</p>
                     </div>
-                    <script src="{{ url_for('static', filename='js/togglepassword.js') }}"></script>
+                </section>
 
-                    <button type="submit" class="login-btn">LOGIN</button>
-
-                    <p style="color: #666; font-size: 0.8rem; margin-top: 10px; text-align: center;">
-                        If you don't have an Account, <a class="email-link">Please Contact the Academic Affairs</a>.
-                    </p>
-                </form> 
+                <p class="below-card">
+                    Need help signing in? <a href="{{ url_for('home') }}#help">Open the Help Center</a>
+                </p>
             </div>
 
-            <div class="bottom-info">
-                <div class="page-indicator">Page/<strong>Login</strong></div>
-                <p class="group-credits">&copy; 2026 NovaSight Dev Team. All rights reserved.</p>
-                <a href="/privacy-policy" class="btn-privacy">
-                &bull; Privacy Policy
-                </a>
-            </div>
-        </div>
+            <!-- What's behind the login -->
+            <aside class="info" aria-label="About NovaSight">
+                <span class="info-eyebrow">NovaSight</span>
+                <h2>What&rsquo;s waiting behind the login</h2>
+                <p class="info-lead">A decision-support dashboard that turns the grades the university already collects into an early, forward-looking outlook for advising and planning.</p>
+
+                <ul class="info-list">
+                    <li>
+                        <span class="info-ico" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 38l11-13 8 8 15-19"/><path d="M30 14h8v8"/></svg></span>
+                        <div>
+                            <h3>Dashboards &amp; predictions</h3>
+                            <p>Enrollment, GWA and at-risk trends by college, program and year level, with forecasts for the coming terms.</p>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="info-ico" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M24 5l15 6v11c0 10-6 17-15 21C15 39 9 32 9 22V11z"/><path d="M17 24l5 5 9-10"/></svg></span>
+                        <div>
+                            <h3>Anonymous by design</h3>
+                            <p>Records are referenced only by an anonymized student ID, never by name, so no identity is exposed.</p>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="info-ico" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M7 33a17 17 0 0 1 34 0"/><path d="M24 33l8-11"/><circle cx="24" cy="33" r="2"/></svg></span>
+                        <div>
+                            <h3>Honest about reliability</h3>
+                            <p>Each prediction is shown with its own reliability instead of a single, falsely certain number.</p>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="info-ico" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M41 24a17 17 0 1 1-5-12"/><path d="M41 6v9h-9"/></svg></span>
+                        <div>
+                            <h3>Always current</h3>
+                            <p>Models are retrained whenever new academic data is uploaded each term.</p>
+                        </div>
+                    </li>
+                </ul>
+
+                <div class="info-roles">
+                    <span>Access for</span>
+                    <ul>
+                        <li>Academic Affairs</li>
+                        <li>MISO</li>
+                        <li>Registrar</li>
+                        <li>College Deans</li>
+                    </ul>
+                </div>
+
+                <p class="info-note">NovaSight is decision support, not a scorecard. It is never used to score or rank any college, department or dean. Signing in uses a single session cookie that keeps you logged in &mdash; no tracking, no analytics.</p>
+            </aside>
+        </main>
+
+        <footer class="foot">
+            <p>&copy; 2026 NovaSight Dev Team. All rights reserved.</p>
+            <p>Group 5 / BSDS - 4A &middot; Bataan Peninsula State University</p>
+        </footer>
     </div>
 
+    <script src="{{ url_for('static', filename='js/togglepassword.js') }}"></script>
+    <script>
+    /* Login input hygiene (client side only; the server still validates and uses
+       parameterised queries). Email: keep only characters valid in an email address.
+       Password: keep every symbol (so existing passwords still work), but drop
+       control characters and cap the length. */
+    (function () {
+        'use strict';
+        var form    = document.querySelector('.login-form');
+        var account = document.getElementById('account');
+        var pw      = document.getElementById('password');
+        var hint    = document.getElementById('accountHint');
+        if (!form || !account || !pw) return;
+
+        var BAD_EMAIL_CHARS = /[^A-Za-z0-9._%+\-@]/g;   // everything except email characters
+        var CONTROL_CHARS   = /[\u0000-\u001F\u007F]/g;  // control characters (incl. newlines, tabs, NUL)
+        var hintTimer = null;
+
+        function showHint() {
+            if (!hint) return;
+            hint.style.display = '';
+            clearTimeout(hintTimer);
+            hintTimer = setTimeout(function () { hint.style.display = 'none'; }, 3500);
+        }
+
+        function cleanEmail() {
+            var before = account.value;
+            var after  = before.replace(BAD_EMAIL_CHARS, '');
+            if (after !== before) {
+                account.value = after;
+                showHint();
+            }
+        }
+
+        function cleanPassword() {
+            var after = pw.value.replace(CONTROL_CHARS, '');
+            if (after !== pw.value) pw.value = after;
+        }
+
+        account.addEventListener('input', cleanEmail);
+        account.addEventListener('blur', cleanEmail);
+        pw.addEventListener('input', cleanPassword);
+
+        // Final pass right before sending, in case the browser autofilled the fields.
+        form.addEventListener('submit', function () {
+            cleanEmail();
+            cleanPassword();
+            account.value = account.value.trim();
+        });
+    })();
+    </script>
 </body>
 </html>

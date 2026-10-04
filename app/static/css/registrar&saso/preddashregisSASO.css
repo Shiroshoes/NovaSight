@@ -41,7 +41,16 @@
 .gwa-card, .risk-card { overflow: visible; }
 
 /* ── Chart areas (same pattern as #hsBarArea / #hsTrendArea) ────────────── */
-#gwaArea, #riskArea { height: var(--pd-h, 420px); min-height: 300px; }
+#gwaArea, #riskArea, #kpiTrendArea, #enrollTrendArea { height: var(--pd-h, 420px); min-height: 300px; }
+
+/* Same reasoning as maindashboardregistrarsaso.css: the Comparison→Metrics
+   divider already separates the two button rows, so suppress the card
+   header's own border-bottom here to avoid a second line before the legend. */
+#enrollTrendCard .kpi-card-header,
+#kpiTrendCard .kpi-card-header {
+  border-bottom: none;
+  padding-bottom: 0;
+}
 .chart-area.clickable#gwaArea:hover::after,
 .chart-area.clickable#riskArea:hover::after { content: 'Click to view as table'; }
 
@@ -53,7 +62,9 @@
 .card.is-fullscreen.gwa-card .kpi-explainer,
 .card.is-fullscreen.risk-card .kpi-explainer { flex-shrink: 0; }
 .card.is-fullscreen.gwa-card #gwaArea,
-.card.is-fullscreen.risk-card #riskArea { flex: 1; min-height: 0; height: auto; overflow: hidden; }
+.card.is-fullscreen.risk-card #riskArea,
+.card.is-fullscreen#kpiTrendCard #kpiTrendArea,
+.card.is-fullscreen#enrollTrendCard #enrollTrendArea { flex: 1; min-height: 0; height: auto; overflow: hidden; }
 .card.is-fullscreen.gwa-card .kpi-explainer,
 .card.is-fullscreen.risk-card .kpi-explainer { margin-top: 12px; padding-top: 10px; gap: 8px 24px; }
 
@@ -107,9 +118,9 @@
 .rb-prevline b { color: #374151; }
 
 /* ── Color-blind mode (html.cb-mode, set by #btnColorblind) ─────────────────
-   The toggle itself and the shared badges / deltas are styled in the main
-   dashboard CSS. These cover what only this page uses. Chip text and labels
-   are unchanged, so colour is never the only cue. */
+   The toggle itself and the shared badges / deltas are styled in
+   maindashboardadmin.css. These cover what only this page uses. Chip text and
+   labels are unchanged, so colour is never the only cue. */
 html.cb-mode .rb-delta.worse  { background: #fbe4d3; color: #a84a00; }
 html.cb-mode .rb-delta.better { background: #dcecf7; color: #005a8e; }
 html.cb-mode .pct-pill        { background: #fbe4d3; color: #a84a00; }
@@ -117,3 +128,69 @@ html.cb-mode .pct-pill.low    { background: #dcecf7; color: #005a8e; }
 html.cb-mode .rc-chip.grade   { background: #f1f8fd; color: #005a8e; border-color: rgba(0,90,142,.18); }
 html.cb-mode .kpi-regirreg-bar-fill.regular,
 html.cb-mode .kpi-regirreg-legend .dot.regular { background: #0072B2; }
+/* ── AI Insights (shared with maindashboardadmin.css — add here if pred page loads its own) ── */
+.btn-ai-insights {
+  background:linear-gradient(135deg,#7B1113 0%,#a01416 100%);
+  color:#fff !important; border-radius:8px; padding:5px 7px;
+  box-shadow:0 1px 4px rgba(123,17,19,0.3); transition:opacity 0.15s,box-shadow 0.15s;
+}
+.btn-ai-insights:hover { opacity:.88; box-shadow:0 2px 8px rgba(123,17,19,0.4); }
+.btn-ai-insights svg { color:#fff; }
+.ai-insights-modal {
+  position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.45);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.ai-insights-modal.hidden { display:none; }
+.ai-insights-card {
+  background:#fff; border-radius:18px; box-shadow:0 8px 40px rgba(0,0,0,0.18);
+  width:100%; max-width:680px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden;
+}
+.ai-insights-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 22px 14px; border-bottom:1px solid #f0e8e8;
+  font-size:1rem; font-weight:700; color:#1f2937; flex-shrink:0;
+}
+.ai-insights-context { padding:8px 22px; font-size:0.8rem; color:#9ca3af; border-bottom:1px solid #f8f4f4; flex-shrink:0; }
+.ai-insights-body { flex:1; overflow-y:auto; padding:20px 22px; }
+.ai-insights-loading { display:flex; align-items:center; gap:12px; color:#6b7280; font-size:0.9rem; }
+.ai-insights-text { font-size:0.9rem; line-height:1.75; color:#1f2937; }
+.ai-insights-disclaimer { padding:10px 22px 14px; font-size:0.72rem; color:#9ca3af; border-top:1px solid #f8f4f4; flex-shrink:0; margin:0; }
+
+/* ── Download chart PNG button ───────────────────────────────── */
+.btn-download-chart { color:#6b7280; transition:color 0.15s; }
+.btn-download-chart:hover { color:#7B1113; }
+
+/* ── Download confirmation modal (same as maindashboardadmin.css) ── */
+.dl-confirm-modal {
+  position:fixed; inset:0; z-index:10000;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  background:rgba(0,0,0,0.35); backdrop-filter:blur(2px);
+}
+.dl-confirm-modal.hidden { display:none; }
+.dl-confirm-card {
+  background:#fff; border-radius:16px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.16),0 2px 8px rgba(0,0,0,0.08);
+  padding:28px 28px 22px; width:100%; max-width:380px;
+  display:flex; flex-direction:column; gap:16px;
+}
+.dl-confirm-icon { display:flex; justify-content:center; }
+.dl-confirm-body { text-align:center; }
+.dl-confirm-title { font-size:1rem; font-weight:700; color:#111827; margin:0 0 6px; }
+.dl-confirm-sub { font-size:0.875rem; color:#374151; margin:0 0 8px; line-height:1.5; }
+.dl-confirm-note { font-size:0.78rem; color:#9ca3af; margin:0; line-height:1.4; }
+.dl-confirm-actions { display:flex; gap:10px; justify-content:center; }
+.dl-btn-cancel {
+  flex:1; padding:9px 16px; border-radius:8px;
+  border:1px solid #e5e7eb; background:#f9fafb;
+  font-size:0.875rem; font-weight:600; color:#374151;
+  cursor:pointer; transition:background 0.15s;
+}
+.dl-btn-cancel:hover { background:#f3f4f6; }
+.dl-btn-confirm {
+  flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+  padding:9px 16px; border-radius:8px; border:none; background:#7B1113;
+  font-size:0.875rem; font-weight:700; color:#fff;
+  cursor:pointer; transition:background 0.15s;
+}
+.dl-btn-confirm:hover { background:#6a0f11; }
+.dl-btn-confirm svg { flex-shrink:0; }

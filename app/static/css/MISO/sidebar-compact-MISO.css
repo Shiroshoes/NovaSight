@@ -1,0 +1,108 @@
+/* ═══════════════════════════════════════════════════════════════════
+   sidebar-compact.css — smaller admin sidebar with the BPSU logo on top.
+   Link it LAST in every admin page's <head> (after the page's own css and
+   responsive.css) so it overrides the older, wider sidebar rules:
+
+     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/sidebar-compact.css') }}">
+   ═══════════════════════════════════════════════════════════════════ */
+:root { --sb-w: 224px; }
+
+/* ── Width: desktop only (the tablet/phone drawer keeps its own width) ── */
+@media (min-width: 1101px) {
+  .sidebar { width: var(--sb-w); }
+  main     { margin-left: var(--sb-w); }
+}
+
+/* ── Logo block, pinned above the scrolling menu ─────────────────────── */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid #ECE6DF;
+  color: #111827;
+  text-decoration: none;
+}
+.sidebar-brand-logo { width: 42px; height: 42px; object-fit: contain; flex-shrink: 0; }
+.sidebar-brand-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.sidebar-brand-text strong {
+  font-family: "Outfit", "Inter", sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #800000;
+}
+.sidebar-brand-text small {
+  margin-top: 3px;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: #6b7280;
+}
+.sidebar-brand:focus-visible { outline: 2px solid #800000; outline-offset: -2px; }
+@media (max-width: 1100px) {
+  .sidebar-brand { padding-right: 52px; }        /* room for the drawer's close (X) button */
+}
+
+/* ── Menu area ───────────────────────────────────────────────────────── */
+.pad {
+  margin-top: 0;
+  margin-bottom: 64px;                  /* space for the footer pinned at the bottom */
+  padding: 10px 12px 14px;
+}
+.sidebardivider { margin: 6px 0; }
+
+/* section labels: small caps (beats the inline font-size/colour on them) */
+.sidebar-section-label {
+  margin: 12px 8px 2px;
+  font-size: 0.68rem !important;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9ca3af !important;
+}
+
+/* items: fill the sidebar, smaller text + icons */
+.menu-btn, .menu-active, .dash-btn, .dash-active {
+  box-sizing: border-box;
+  width: auto;
+  margin-top: 4px;
+  padding: 8px 10px;
+  gap: 10px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+.dash-btn, .dash-active { margin-left: 10px; }   /* sub-items sit slightly indented */
+
+.menu-btn:hover, .dash-btn:hover {
+  width: auto;
+  margin-bottom: 0;                    /* the old hover pushed everything below it down */
+  background: rgba(128, 0, 0, 0.07);
+  font-weight: 500;
+  color: #800000;
+}
+
+.menu-active, .dash-active {
+  background: #fbeeee;
+  border: 1px solid #f0d3d3;
+  color: #800000;
+  font-weight: 600;
+}
+
+.non-active-bordericon, .active-bordericon,
+.non-active-bordericondash, .active-bordericondash {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+.non-active-icon, .active-icon,
+.non-active-icondash, .active-icondash { width: 17px; height: 17px; }
+
+/* ── Footer pinned at the bottom ─────────────────────────────────────── */
+.sidebar-footer { padding: 8px 10px 0; }
+.btn-privacy { padding: 2px 0 0; font-size: 0.74rem; }
+.copyright { margin: 2px 4px 10px; font-size: 0.62rem; line-height: 1.35; }

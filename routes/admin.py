@@ -14,14 +14,14 @@ import shutil
 # ---------------- Blueprint Setup ----------------
 admin_bp = Blueprint('admin_bp', __name__, url_prefix='/NovaSight/admin')
 
-# ---------------- Homeadmin ----------------
+# ---------------- Home page removed ----------------
+# /NovaSight/admin/ no longer has a page of its own; it forwards to the Main Dashboard
+# (kept as a route so old bookmarks and any url_for('admin_bp.dashboard') still work).
 @admin_bp.route('/')
 def dashboard():
     if 'user_id' not in session or session.get('role') != 'Academic_Affair':
         return redirect(url_for('home'))
-
-    users = AcadUser.query.filter_by(is_archived=False).all()
-    return render_template('admin/homeadmin/html/homeadmin.html', users=users)
+    return redirect(url_for('admin_bp.maindash_admin'))
 
 # ---------------- Admin Management Page (Adminpage) ----------------
 @admin_bp.route('/adminpage')

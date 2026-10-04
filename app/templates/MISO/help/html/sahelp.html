@@ -2,322 +2,141 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Help</title>
-  <link rel="stylesheet" href="{{url_for('static', filename='css/aa/AcadAffair_Help.css')}}">
-    <link rel="icon" href="{{url_for('static', filename='image/logo3.png')}}" type="image/x-icon">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive/responsive.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Help — NovaSight</title>
+  <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/aa/AcadAffair_Help.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/tutorial-modal-MISO.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/tutorial-modal-v2-MISO.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/admin-shell.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/sidebar-compact-MISO.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/sidebar-maroon-MISO.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/admin-float-footer-MISO.css') }}">
 </head>
 <body>
-  <!-- fixed side bar -->
-  <aside class="sidebar">
-    <nav class="pad">
-      <a href="{{url_for('MISO_bp.home_MISO')}}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="active-icon">
-            <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
-            <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
-          </svg>
-        </div>
-        <span>Home</span>
-      </a>
+  {% set active_page = 'help' %}
+  {% include 'MISO/_MISO_sidebar.html' %}
 
-      <div>
-        <hr class="sidebardivider">
+  <main class="help-main">
+    <!-- Fixed white header: title left + Tutorial button right -->
+    <div class="dash-sticky help-sticky">
+      <div class="help-head">
+        <h2>Help</h2>
+        <p>Guides for using NovaSight as MISO.</p>
       </div>
+      {% include 'MISO/_MISO_topbar.html' %}
+    </div>
 
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Account Panel</p>
-      
-      <a href="{{url_for('MISO_bp.profile_MISO')}}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <span>Profile</span>
-      </a>
+    <!-- Scrollable area (header above stays put) -->
+    <div class="main-scroll">
 
-        <a href="{{url_for('MISO_bp.help_MISO')}}" class="menu-active">
-        <div class="active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <span>Help</span>
-        </a>
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-
-      <p class="sidebar-section-label" style="font-size: .9rem; color: #666;">Upload Panel</p>
-
-
-      <a href="{{url_for('MISO_bp.fileupload_MISO')}}" class="menu-btn">
-        <div class="non-active-bordericon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-            <path d="M11.47 1.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 0 1-1.06-1.06l3-3ZM11.25 7.5V15a.75.75 0 0 0 1.5 0V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z" />
-          </svg>
-        </div>
-        <span>Upload File</span>
-      </a>
-
-      <div>
-        <hr class="sidebardivider">
-      </div>
-      
-        <a href="#" id="logoutLink" class="menu-btn">
-          <div class="non-active-bordericon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="non-active-icon">
-              <path fill-rule="evenodd" d="M16.5 3.75a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5V15a.75.75 0 0 0-1.5 0v3.75a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5.25a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3V9A.75.75 0 1 0 9 9V5.25a1.5 1.5 0 0 1 1.5-1.5h6ZM5.78 8.47a.75.75 0 0 0-1.06 0l-3 3a.75.75 0 0 0 0 1.06l3 3a.75.75 0 0 0 1.06-1.06l-1.72-1.72H15a.75.75 0 0 0 0-1.5H4.06l1.72-1.72a.75.75 0 0 0 0-1.06Z" clip-rule="evenodd" />
-            </svg>
+  <section class="dashboard-grid">
+      <div class="card help-card">
+        <div class="help-content">
+          <div class="help-hero">
+            <div class="help-header">
+              <span class="role-badge">MISO</span>
+              <h2>Help Center</h2>
+            </div>
+            <p class="help-intro">This Help Center covers the tools available to MISO: uploading student grade data</p>
           </div>
 
-          <span>Logout</span>
-        </a>
+          <hr>
 
-      <div class="sidebar-footer">
-        <a href="{{ url_for('MISO_bp.privacy_policy_MISO') }}" class="btn-privacy">
-          &bull; Privacy Policy
-        </a>
+          <div class="help-columns">
+            <div class="help-col">
 
-        <p class="copyright">
-          &copy; 2026 NovaSight Dev Team. All rights reserved.
-        </p>
-      </div>
-    </nav>
-  </aside>
-<main>
- 
-  <!--header -->
-        <header class="topmenu">
-            <div class="brand">
-              <div class="logo-sq">
-                <img src="{{ url_for('static', filename='image/logo2.png') }}" alt="NovaSight Logo" class="brand-logo">
-              </div>
-                <div class="brand-text">
-                    <h1>Bataan Peninsula State University</h1>
-                    <span>ACADEMIC PREDICTION</span>
+              <div class="help-section help-feature">
+                <span class="help-section-tag">Data Upload</span>
+                <div class="help-topic">
+                  <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 17v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                  <h3>Upload File</h3>
                 </div>
-            </div>
-
-            <!-- user-profile section -->
-            <a href="{% if user %}{{ url_for('MISO_bp.profile_MISO') }}{% else %}{{ url_for('login') }}{% endif %}" class="user-profile">
-                {% if user %}
-                    <!-- Logged-in user -->
-                    <span>{{ user.username }}</span>
-
-                {% if user.profile_image_url %}
-                    <img src="{{ user.profile_image_url }}" alt="User Avatar" class="avatar">
-                    {% else %}
-                        <!-- Default SVG when logged in but NO image — tinted per role/user -->
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar avatar-default" style="width: 32px; height: 32px; --avatar-color: {{ user.avatar_color }}; --avatar-icon-color: {{ user.avatar_icon_color }};">
-                          <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
-                        </svg>
-                    {% endif %}
-
-                {% else %}
-                    <!-- Not logged in -->
-                    <span>Login</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar" style="width: 32px; height: 32px;">
-                      <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" />
-                    </svg>
-                {% endif %}
-            </a>
-        </header>
-  
-  <section class="dashboard-grid">
-  <div class="card help-card">
-    <div class="help-content">
-      <div class="help-header">
-        <h2>HELP CENTER</h2>
-        <span class="role-badge">MISO</span>
-      </div>
-
-      <p class="help-intro">
-          This Help Center covers the tools available to MISO: uploading student grade data
-      </p>
-
-      <hr>
-
-      <div class="help-columns">
-        <div class="help-col">
-
-            <div class="help-topic">
-              <span class="help-icon-badge">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                </svg>
-              </span>
-              <h3>Profile</h3>
-            </div>
-            <p>
-                Manage your account information, update your profile
-                picture, and change your password from the Profile page.
-            </p>
-
-            <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 17v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-              <h3>Upload File</h3>
-            </div>
-            <p>
-                Upload the official student grade Excel file from the
-                <strong>Upload File</strong> page, one file per semester.
-                NovaSight cleans and stores each file, and once at least
-                <strong>6 semesters</strong> (3 school years) have been
-                uploaded it retrains its prediction models and refreshes
-                every dashboard automatically.
-            </p>
-
-            <h4>Accepted File</h4>
-            <ul>
-                <li>.xlsx (Microsoft Excel) only. The .xls, .csv, and .xlsm are not accepted</li>
-            </ul>
-
-            <h4>Required File Name Format</h4>
-            <p>
-                Your file must be saved with this exact name pattern
-                (spaces or underscores both work) or the upload will be
-                rejected before processing even starts:
-            </p>
-            <div class="help-code">YYYY-N Student-Performance Dataset.xlsx</div>
-            <ul>
-                <li><strong>YYYY</strong> - the year the semester starts (e.g. 2024)</li>
-                <li><strong>N</strong> - <code>1</code> for 1st semester, <code>2</code> for 2nd semester</li>
-            </ul>
-            <p>
-                Examples: <code>2024-1 Student-Performance Dataset.xlsx</code>,
-                <code>2024-2_Student-Performance_Dataset.xlsx</code>
-            </p>
-
-            <h4>Sheet Layout Inside the File</h4>
-            <p>
-                Each sheet tab is one college (e.g. <code>CAHS-SON</code>,
-                <code>CBA</code>, <code>CCST</code>), containing the
-                program name, a semester/year header, and a repeating
-                block per student: a row of subject codes followed by
-                that student's row of grades. Files that don't follow
-                this layout, or that are still open in another program,
-                will fail to process even if the name is correct.
-            </p>
-
-            <div class="help-download">
-                <a href="{{ url_for('static', filename='templates/YYYY-N Student-Performance Dataset TEMPLATE.xlsx') }}"
-                   download class="help-download-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
-                      <path fill-rule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
-                    </svg>
-
-                   Download the Dataset Template (.xlsx)
-                </a>
-                <br>
-                <span class="help-download-note">
-                    A worked reference showing the exact layout, with a
-                    step-by-step "READ ME FIRST" sheet and one sample
-                    college sheet already filled in. Not real student
-                    data.
-                </span>
+                <p>Upload the official student grade Excel file from the <strong>Upload File</strong> page, one file per semester. NovaSight cleans and stores each file, and once at least <strong>6 semesters</strong> (3 school years) have been uploaded it retrains its prediction models and refreshes every dashboard automatically.</p>
+                <h4>Accepted File</h4>
+                <ul><li>.xlsx (Microsoft Excel) only. The .xls, .csv, and .xlsm are not accepted</li></ul>
+                <h4>Required File Name Format</h4>
+                <p>Your file must be saved with this exact name pattern (spaces or underscores both work) or the upload will be rejected before processing even starts:</p>
+                <div class="help-code">YYYY-N Student-Performance Dataset.xlsx</div>
+                <ul>
+                  <li><strong>YYYY</strong> - the year the semester starts (e.g. 2024)</li>
+                  <li><strong>N</strong> - <code>1</code> for 1st semester, <code>2</code> for 2nd semester</li>
+                </ul>
+                <p>Examples: <code>2024-1 Student-Performance Dataset.xlsx</code>, <code>2024-2_Student-Performance_Dataset.xlsx</code></p>
+                <h4>Sheet Layout Inside the File</h4>
+                <p>Each sheet tab is one college (e.g. <code>CAHS-SON</code>, <code>CBA</code>, <code>CCST</code>), containing the program name, a semester/year header, and a repeating block per student: a row of subject codes followed by that student's row of grades. Files that don't follow this layout, or that are still open in another program, will fail to process even if the name is correct.</p>
+                <div class="help-download">
+                  <a href="{{ url_for('static', filename='templates/YYYY-N Student-Performance Dataset TEMPLATE.xlsx') }}" download class="help-download-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6"><path fill-rule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd"/></svg>
+                    Download the Dataset Template (.xlsx)
+                  </a><br>
+                  <span class="help-download-note">A worked reference showing the exact layout, with a step-by-step "READ ME FIRST" sheet and one sample college sheet already filled in. Not real student data.</span>
+                </div>
+                <h4>After an Upload</h4>
+                <ul>
+                  <li>A file that was already uploaded is detected as a duplicate.</li>
+                  <li>When processing finishes, a training summary lists every model as <strong>Trained</strong>, <strong>Skipped</strong> or <strong>Error</strong>.</li>
+                  <li>The more semesters you upload, the further ahead the Prediction Analysis charts can look.</li>
+                </ul>
               </div>
 
-            <h4>After an Upload</h4>
-            <ul>
-                <li>A file that was already uploaded is detected as a duplicate.</li>
-                <li>When processing finishes, a training summary lists every
-                    model as <strong>Trained</strong>, <strong>Skipped</strong>
-                    or <strong>Error</strong>.</li>
-                <li>The more semesters you upload, the further ahead the
-                    Prediction Analysis charts can look.</li>
-            </ul>
+              <div class="help-section">
+                <span class="help-section-tag">Tips</span>
+                <div class="help-topic">
+                  <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg></span>
+                  <h3>Using NovaSight on a Phone or Tablet</h3>
+                </div>
+                <p>On a tablet or phone the sidebar is hidden to give the dashboards more room. Tap the <strong>&#9776;</strong> button in the header (or swipe right from the left edge) to open it; tap outside it, press <strong>&#10005;</strong>, or swipe left to close it.</p>
+              </div>
 
-        </div>
-        <div class="help-col">
+              <div class="help-section">
+                <span class="help-section-tag">Machine Learning</span>
+                <div class="help-topic">
+                  <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg></span>
+                  <h3>Model Training Results</h3>
+                </div>
+                <p>After each upload, a training summary shows every model labeled <strong>Trained</strong>, <strong>Skipped</strong> (not enough data yet), or <strong>Error</strong> (the message explains what went wrong).</p>
+                <p>NovaSight is built for decision support, not evaluation. Predictions are meant to help flag student cohorts who may benefit from additional academic support. They are not a performance score for any college, department, or dean.</p>
+              </div>
 
+              <div class="help-section">
+                <span class="help-section-tag">Account</span>
+                <div class="help-topic">
+                  <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg></span>
+                  <h3>Profile</h3>
+                </div>
+                <p>Manage your account information, update your profile picture, and change your password from the Profile page.</p>
+              </div>
 
-            <div class="help-topic">
-              <span class="help-icon-badge">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-                </svg>
-              </span>
-              <h3>Using NovaSight on a Phone or Tablet</h3>
+              <div class="help-section">
+                <span class="help-section-tag">Troubleshooting</span>
+                <div class="help-topic">
+                  <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" fill="currentColor"/></svg></span>
+                  <h3>Common Issues</h3>
+                </div>
+                <details><summary>My Excel file won't upload.</summary><p>Confirm the file is .xlsx, that the file name matches the required format exactly, and that it isn't still open in Excel.</p></details>
+                <details><summary>I can't log in.</summary><p>Double-check your email and password, and confirm Caps Lock is off. If you still can't sign in, contact the system administrator to verify your account is active.</p></details>
+              </div>
+
+              <div class="help-section help-callout">
+                <span class="help-section-tag">Support</span>
+                <div class="help-topic">
+                  <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6"><path fill-rule="evenodd" d="M12 2.25c-2.429 0-4.817.178-7.152.521C2.87 3.061 1.5 4.795 1.5 6.741v6.018c0 1.946 1.37 3.68 3.348 3.97.877.129 1.761.234 2.652.316V21a.75.75 0 0 0 1.28.53l4.184-4.183a.39.39 0 0 1 .266-.112c2.006-.05 3.982-.22 5.922-.506 1.978-.29 3.348-2.023 3.348-3.97V6.741c0-1.947-1.37-3.68-3.348-3.97A49.145 49.145 0 0 0 12 2.25ZM8.25 8.625a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Zm2.625 1.125a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875-1.125a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd"/></svg></span>
+                  <h3>Need Assistance?</h3>
+                </div>
+                <p>If the problem persists, please contact the NovaSight system administrator or the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=jieperdio23@bpsu.edu.ph" target="_blank">development team</a> for further assistance.</p>
+              </div>
+
             </div>
-            <p>
-                On a tablet or phone the sidebar is hidden to give the
-                dashboards more room. Tap the <strong>&#9776;</strong>
-                button in the header (or swipe right from the left edge) to
-                open it; tap outside it, press <strong>&#10005;</strong>, or
-                swipe left to close it. Filters open as a panel at the
-                bottom of the screen, wide tables scroll sideways, and on a
-                phone each chart's description sits behind an
-                <strong>About this chart</strong> button.
-            </p>
-
-            <div class="help-topic">
-              <span class="help-icon-badge">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                </svg>
-              </span>
-              <h3>Model Training Results</h3>
-            </div>
-            <p>
-                After each upload, a training summary shows every model
-                labeled <strong>Trained</strong>, <strong>Skipped</strong>
-                (not enough data yet), or <strong>Error</strong> (the message
-                explains what went wrong), so you can tell at a glance
-                whether a forecast is backed by a trained model.
-            </p>
-            <p>
-                NovaSight is built for decision support, not evaluation.
-                Predictions are meant to help flag student cohorts who
-                may benefit from additional academic support. They are not
-                a performance score for any college, department, or dean,
-                and are never used to rank or compare colleges against each
-                other.
-            </p>
-
-            <div class="help-topic">
-              <span class="help-icon-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" fill="currentColor"/></svg></span>
-              <h3>Common Issues</h3>
-            </div>
-            <details>
-                <summary>My Excel file won't upload.</summary>
-                <p>
-                    Confirm the file is .xlsx, that the file name matches the required format exactly, and that it isn't still open in Excel.
-                </p>
-            </details>
-
-            <details>
-                <summary>I can't log in.</summary>
-                <p>
-                    Double-check your email and password, and confirm Caps Lock is off. If you still can't sign in, contact the system administrator to verify your account is active.
-                </p>
-            </details>
-
-            <div class="help-topic">
-              <span class="help-icon-badge">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
-                  <path fill-rule="evenodd" d="M12 2.25c-2.429 0-4.817.178-7.152.521C2.87 3.061 1.5 4.795 1.5 6.741v6.018c0 1.946 1.37 3.68 3.348 3.97.877.129 1.761.234 2.652.316V21a.75.75 0 0 0 1.28.53l4.184-4.183a.39.39 0 0 1 .266-.112c2.006-.05 3.982-.22 5.922-.506 1.978-.29 3.348-2.023 3.348-3.97V6.741c0-1.947-1.37-3.68-3.348-3.97A49.145 49.145 0 0 0 12 2.25ZM8.25 8.625a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Zm2.625 1.125a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875-1.125a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd" />
-                </svg>
-              </span>
-              <h3>Need Assistance?</h3>
-            </div>
-            <p>
-                If the problem persists, please contact the NovaSight
-                system administrator or the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=jieperdio23@bpsu.edu.ph" target="_blank">development team</a> for further
-                assistance.
-            </p>
-
+          </div>
         </div>
       </div>
+    </section>
 
-    </div>
-  </div>
-  </section>
-
-  <!-- Logout Modal Structure -->
-  <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
+  <!-- Logout Modal -->
+  <div id="logoutModal" class="modal-overlay" style="display: none;">
     <div class="logout-card">
       <h1 class="brand-name">NovaSight</h1>
       <p class="confirmation-text">Are you sure you want to logout?</p>
@@ -329,28 +148,13 @@
   </div>
   <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
 
-  <div class="footer-brand">
-      <hr class="footer-divider">
+  {% include 'MISO/_MISO_tutorial.html' %}
 
-      <div class="footer-brand-content">
-          <img src="{{ url_for('static', filename='image/logo.png') }}"
-              alt="NovaSight Logo"
-              class="footer-logo">
-
-          <div class="footer-brand-text">
-              <h3>NovaSight</h3>
-              <p>Machine Learning-Based Student Performance Prediction System</p>
-              <small>2026 Bataan Peninsula State University</small>
-          </div>
-      </div>
-  </div>
-  
-  <footer class="footer">
-    <div class="footer-content">
-        <span class="page-label">Page/</span><span class="page-name">Help</span>
-    </div>
-  </footer> 
+  {% include 'MISO/_MISO_footer.html' %}
+    </div><!-- /main-scroll -->
   </main>
-<script src="{{ url_for('static', filename='js/sidebar-drawer.js') }}" defer></script>
+
+  <script src="{{ url_for('static', filename='js/tutorial.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/sidebar-collapse.js') }}" defer></script>
 </body>
 </html>

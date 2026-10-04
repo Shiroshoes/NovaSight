@@ -1,0 +1,323 @@
+/* tutorial-modal-MISO.css
+   Identical to tutorial-modal-v2.css — same classes, same maroon palette, same layout.
+   Kept as a separate file in the MISO CSS folder so the MISO pages are fully
+   self-contained and not dependent on the admin CSS folder.
+   Link order in each MISO page:
+     1. <base page CSS>
+     2. tutorial-modal-MISO.css      ← this file
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Overlay: gray blur, fade-in ── */
+#tutorialModal.modal-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(55, 65, 81, .5);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  animation: tutFade .2s ease;
+}
+@keyframes tutFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tutPop  { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* ── Card: fluid size, rounded, two panes ── */
+#tutorialModal .tutorial-card {
+  width: min(1240px, 96vw); height: min(88vh, 800px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: #fff; border-radius: 20px; text-align: left;
+  box-shadow: 0 30px 80px rgba(17, 24, 39, .4);
+  font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
+  animation: tutPop .25s ease;
+}
+
+/* ── Title bar ── */
+#tutorialModal .tutorial-title-bar {
+  flex: 0 0 auto; height: 60px;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 14px 0 18px; box-sizing: border-box;
+  background: linear-gradient(180deg, #8a0000, #6a0000);
+  border-bottom: 3px solid #D9B25A;
+}
+#tutorialModal .tutorial-bpsu-logo {
+  width: 38px; height: 38px; margin: 0; object-fit: contain;
+  background: #fff; border-radius: 50%; padding: 3px; box-sizing: border-box;
+}
+#tutorialModal .tutorial-titlebar-title {
+  flex: 1; margin: 0;
+  font-size: 1.05rem; font-weight: 700; letter-spacing: .01em; color: #fff;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#tutorialModal .tutorial-x {
+  flex: 0 0 auto; width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: rgba(255,255,255,.16); color: #fff; font-size: 1.5rem; line-height: 1;
+  cursor: pointer; transition: background .2s;
+}
+#tutorialModal .tutorial-x:hover { background: rgba(255,255,255,.3); }
+
+/* ── Body: two-column split ── */
+#tutorialModal .tutorial-sidebar-content {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: row; background: #faf8f4;
+}
+
+/* ── Left: video player ── */
+#tutorialModal .tutorial-main {
+  flex: 1 1 auto; min-width: 0; width: auto; height: auto;
+  border: 0; background: #fff;
+  display: flex; flex-direction: column;
+}
+#tutorialModal .tutorial-video-placeholder {
+  position: relative;
+  margin: 16px 18px 0; border-radius: 14px;
+  background: #0b0b0f; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  flex: 1 1 auto; min-height: 0;
+}
+#tutorialModal .tutorial-video-el { width: 100%; height: 100%; border-radius: 14px; display: block; }
+
+/* Empty state placeholder text */
+#tutorialModal .tutorial-video-placeholder:not(:has(video[src]))::after {
+  content: "Pick a topic from the list to start watching";
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; text-align: center;
+  color: rgba(255,255,255,.75); font-size: 1rem;
+  background: radial-gradient(circle at 50% 40%, #3a0a0a, #0b0b0f 70%);
+  border-radius: 14px;
+}
+
+/* Seek indicators */
+#tutorialModal .tutorial-seek-indicator {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  color: #fff; font-size: .8rem; font-weight: 600;
+  background: rgba(0,0,0,.5); border-radius: 12px; padding: 8px 14px;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+#tutorialModal .tutorial-seek-indicator.is-visible { opacity: 1; }
+#tutorialModal .tutorial-seek-indicator-back  { left: 20px; }
+#tutorialModal .tutorial-seek-indicator-forward { right: 20px; }
+#tutorialModal .tutorial-seek-indicator svg { width: 28px; height: 28px; }
+
+/* Center flash (play/pause tap) */
+#tutorialModal .tutorial-center-flash {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 60px; height: 60px; border-radius: 50%;
+  background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+#tutorialModal .tutorial-center-flash.is-visible { opacity: 1; }
+#tutorialModal .tutorial-center-flash svg { width: 28px; height: 28px; color: #fff; }
+
+/* Captions overlay */
+#tutorialModal .tutorial-captions-overlay {
+  position: absolute; bottom: 8px; left: 0; right: 0;
+  text-align: center; pointer-events: none;
+  font-size: .95rem; font-weight: 500; color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,.9);
+}
+
+/* Progress row */
+#tutorialModal .tutorial-progress-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 22px 0;
+}
+#tutorialModal .tutorial-time-label { font-size: .82rem; color: #6b7280; white-space: nowrap; }
+#tutorialModal .tutorial-seek-range {
+  flex: 1; height: 6px; border-radius: 999px;
+  background: #e5dfd5; accent-color: #800000; cursor: pointer;
+}
+
+/* Info bar (logo + title) */
+#tutorialModal .tutorial-info-bar {
+  display: flex; align-items: center; padding: 8px 22px 0;
+}
+#tutorialModal .tutorial-info-left { display: flex; align-items: center; gap: 10px; }
+#tutorialModal .tutorial-info-logo { width: 34px; height: 34px; border-radius: 50%; }
+#tutorialModal .tutorial-info-title { font-size: 1.05rem; font-weight: 700; color: #111827; }
+
+/* Controls bar */
+#tutorialModal .tutorial-controls-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 22px 16px; gap: 10px;
+}
+#tutorialModal .tutorial-controls-left,
+#tutorialModal .tutorial-controls-right { display: flex; align-items: center; gap: 10px; }
+
+/* Round icon buttons */
+#tutorialModal .tutorial-round-btn {
+  width: 42px; height: 42px; border: 0; border-radius: 50%;
+  background: #800000; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; box-shadow: 0 2px 6px rgba(128,0,0,.3);
+  transition: background .2s, transform .15s;
+}
+#tutorialModal .tutorial-round-btn:hover,
+#tutorialModal .tutorial-round-btn.active { background: #a31515; transform: translateY(-1px); }
+#tutorialModal .tutorial-round-btn svg { width: 20px; height: 20px; }
+
+/* Skip group */
+#tutorialModal .tutorial-skip-group { display: flex; align-items: center; gap: 4px; }
+#tutorialModal .tutorial-skip-btn {
+  width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: rgba(128,0,0,.12); color: #800000;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background .2s;
+}
+#tutorialModal .tutorial-skip-btn:hover { background: rgba(128,0,0,.22); }
+#tutorialModal .tutorial-skip-btn svg { width: 18px; height: 18px; }
+
+/* Volume */
+#tutorialModal .tutorial-volume-wrap { display: flex; align-items: center; gap: 6px; }
+#tutorialModal .tutorial-volume-slider-wrap { width: 80px; }
+#tutorialModal .tutorial-volume-range {
+  width: 100%; height: 4px; accent-color: #800000; cursor: pointer;
+}
+
+/* Settings popup */
+#tutorialModal .tutorial-settings-wrap { position: relative; }
+#tutorialModal .tutorial-settings-menu {
+  position: absolute; bottom: calc(100% + 8px); right: 0;
+  width: 260px; border-radius: 14px;
+  background: rgba(24,20,20,.96); color: #fff;
+  box-shadow: 0 8px 28px rgba(0,0,0,.45);
+  overflow: hidden; z-index: 10;
+}
+#tutorialModal .tutorial-settings-menu.hidden { display: none; }
+#tutorialModal .tutorial-settings-panel { padding: 8px 0; }
+#tutorialModal .tutorial-settings-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 11px 14px; border: 0; background: transparent;
+  color: rgba(255,255,255,.9); font-size: .9rem; text-align: left; cursor: pointer;
+  transition: background .15s;
+}
+#tutorialModal .tutorial-settings-row:hover { background: rgba(255,255,255,.1); }
+#tutorialModal .tutorial-settings-row-icon { flex-shrink: 0; }
+#tutorialModal .tutorial-settings-row-icon svg { width: 18px; height: 18px; }
+#tutorialModal .tutorial-settings-row-label { flex: 1; }
+#tutorialModal .tutorial-settings-row-value { font-size: .82rem; color: rgba(255,255,255,.6); }
+#tutorialModal .tutorial-settings-row-chevron { width: 14px; height: 14px; color: rgba(255,255,255,.5); }
+#tutorialModal .tutorial-settings-options {
+  max-height: 0; overflow: hidden; transition: max-height .2s ease;
+}
+#tutorialModal .tutorial-settings-options.expanded { max-height: 260px; overflow-y: auto; }
+#tutorialModal .tutorial-settings-option {
+  display: block; width: 100%; padding: 9px 20px; border: 0; background: transparent;
+  color: rgba(255,255,255,.8); font-size: .88rem; text-align: left; cursor: pointer;
+  transition: background .15s;
+}
+#tutorialModal .tutorial-settings-option:hover { background: rgba(255,255,255,.1); color: #fff; }
+#tutorialModal .tutorial-settings-option.active { color: #D9B25A; font-weight: 600; }
+
+/* Subtitle toggle */
+#tutorialModal .tutorial-toggle-switch {
+  width: 38px; height: 22px; border-radius: 999px; background: #4b5563;
+  position: relative; flex-shrink: 0; transition: background .2s;
+}
+#tutorialModal .tutorial-toggle-switch.on { background: #800000; }
+#tutorialModal .tutorial-toggle-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  transition: transform .2s;
+}
+#tutorialModal .tutorial-toggle-switch.on .tutorial-toggle-knob { transform: translateX(16px); }
+
+/* ── Right: topic list ── */
+#tutorialModal .tutorial-video-content {
+  flex: 0 0 330px; width: 330px; height: auto;
+  background: #faf8f4; border-left: 1px solid #ece6df;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+#tutorialModal .tutorial-topics-head {
+  padding: 18px 20px 4px;
+  font-size: .75rem; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: #800000;
+}
+#tutorialModal .tutorial-menu-list {
+  padding: 10px 16px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* Accordion */
+#tutorialModal .tutorial-accordion {
+  background: #fff; border: 1px solid #ece6df; border-radius: 14px;
+  overflow: hidden; transition: box-shadow .2s, border-color .2s;
+}
+#tutorialModal .tutorial-accordion:hover { border-color: #d9b6b6; box-shadow: 0 4px 12px rgba(128,0,0,.08); }
+#tutorialModal .tutorial-accordion-header {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 13px 16px; border: 0; border-radius: 0;
+  background: transparent; color: #1f2937;
+  font-size: .95rem; font-weight: 600; cursor: pointer; text-align: left;
+  transition: background .15s, color .15s;
+}
+#tutorialModal .tutorial-accordion-header:hover { background: #fbeeee; color: #800000; }
+#tutorialModal .tutorial-accordion-header.active { background: #800000; color: #fff; }
+#tutorialModal .tutorial-chevron {
+  width: 18px; height: 18px; flex-shrink: 0;
+  transition: transform .2s;
+}
+#tutorialModal .tutorial-accordion-header.active .tutorial-chevron { transform: rotate(180deg); }
+#tutorialModal .tutorial-accordion-panel {
+  max-height: 0; overflow: hidden; transition: max-height .25s ease;
+  background: #fdf9f9; padding: 0 8px;
+}
+#tutorialModal .tutorial-accordion-panel.open { max-height: 400px; padding: 8px; }
+
+/* Video links inside accordion */
+#tutorialModal .tutorial-video-link {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 12px; border: 0; border-radius: 10px;
+  background: transparent; color: #374151;
+  font-size: .9rem; line-height: 1.3; text-align: left; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+#tutorialModal .tutorial-video-link::before {
+  content: "";
+  flex: 0 0 22px; height: 22px; border-radius: 50%;
+  background: #f0e3e3 center / 10px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23800000'%3E%3Cpath d='M6 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L7.5 3.64A1 1 0 0 0 6 4.5Z'/%3E%3C/svg%3E");
+}
+#tutorialModal .tutorial-video-link:hover { background: #f6e8e8; color: #800000; font-weight: 600; }
+#tutorialModal .tutorial-video-link.active { background: #800000; color: #fff; font-weight: 600; }
+#tutorialModal .tutorial-video-link.active::before { background-color: #fff; }
+
+/* Close button at the bottom of the topic list */
+#tutorialModal .tutorial-close-wrap { margin-top: auto; padding: 12px 16px 18px; }
+#tutorialModal .btn-close {
+  display: block; width: 100%; height: 44px;
+  border: 1.5px solid #800000; border-radius: 999px;
+  background: #fff; color: #800000;
+  font-size: .95rem; font-weight: 600; cursor: pointer;
+  transition: background .2s, color .2s;
+}
+#tutorialModal .btn-close:hover { background: #800000; color: #fff; }
+
+/* Scrollbar inside the topic list */
+#tutorialModal .tutorial-video-content::-webkit-scrollbar { width: 8px; }
+#tutorialModal .tutorial-video-content::-webkit-scrollbar-track { background: transparent; }
+#tutorialModal .tutorial-video-content::-webkit-scrollbar-thumb {
+  background: #cdbcbc; border-radius: 999px; border: 2px solid #faf8f4;
+}
+
+/* Utility: hidden class used by tutorial.js */
+#tutorialModal .hidden { display: none !important; }
+
+/* ── Tablet / phone: stack topics below the player ── */
+@media (max-width: 960px) {
+  #tutorialModal .tutorial-card { width: 96vw; height: 92vh; }
+  #tutorialModal .tutorial-sidebar-content { flex-direction: column; overflow-y: auto; }
+  #tutorialModal .tutorial-main { flex: 0 0 auto; }
+  #tutorialModal .tutorial-video-placeholder { flex: 0 0 auto; aspect-ratio: 16 / 9; }
+  #tutorialModal .tutorial-video-content {
+    flex: 0 0 auto; width: 100%; border-left: 0; border-top: 1px solid #ece6df; overflow: visible;
+  }
+}
+@media (max-width: 560px) {
+  #tutorialModal .tutorial-card { width: 100vw; height: 100vh; border-radius: 0; }
+  #tutorialModal .tutorial-title-bar { height: 54px; }
+  #tutorialModal .tutorial-titlebar-title { font-size: .92rem; }
+  #tutorialModal .tutorial-video-placeholder { margin: 10px 10px 0; }
+  #tutorialModal .tutorial-progress-row,
+  #tutorialModal .tutorial-info-bar,
+  #tutorialModal .tutorial-controls-bar { padding-left: 12px; padding-right: 12px; }
+  #tutorialModal .tutorial-controls-bar { flex-wrap: wrap; row-gap: 8px; }
+  #tutorialModal .tutorial-round-btn { width: 38px; height: 38px; }
+}

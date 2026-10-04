@@ -172,7 +172,7 @@ DATASET_FILENAME_REGEX = re.compile(
 CAHS_ROLES = ['NurseDean', 'PHdean', 'MidwifeDeaan', 'CAHSdirector']
 
 ALLOWED_ROLES = [
-    'Academic_Affair', 'Registrar', 'SASO', 'MISO',
+    'Academic_Affair', 'Registrar', 'MISO',
     *CAHS_ROLES, 'CBAdean', 'CCSTdean', 'CEAdean',
     'CoASdean', 'CTECdean',
 ]
@@ -184,7 +184,6 @@ ALLOWED_ROLES = [
 ROLE_DISPLAY_NAMES = {
     'MISO':           'MISO',
     'Registrar':       'Registrar',
-    'SASO':            'SASO',
     'Academic_Affair': 'Academic Affair',
     'NurseDean':       'Nursing Dean',
     'PHdean':          'Public Health Dean',

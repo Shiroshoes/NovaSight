@@ -24,6 +24,7 @@ from util.db_io import (
     find_staged_upload_by_hash, restage_for_upload,
     load_staged_upload, delete_staged_upload,
     save_training_run, load_training_run, count_rows,
+    snapshot_models, rollback_models, get_model_backup_info,
 )
 from configs.config import (
     UNPROCESSED_DATASETS_DIR,
@@ -39,6 +40,11 @@ from configs.config import (
 )
 from training.auto_train import run_full_pipeline
 from util.db_io import load_training_state as _load_training_state
+
+# Retraining cadence. The FIRST training needs MIN_SEMESTERS_FOR_TRAINING semesters
+# (3 academic years). After that the models retrain once per academic year, i.e. only
+# when this many NEW semesters have been confirmed since the last successful training.
+RETRAIN_EVERY_N_SEMESTERS = 2
 
 upload_bp = Blueprint('upload_bp', __name__)
 
@@ -131,6 +137,11 @@ def _reload_ml_models():
         reload_models()
     except Exception as e:
         print(f"[upload_routes] reload_models warning: {e}")
+    try:
+        from ml_route.prediction_api import reload_bundles
+        reload_bundles()
+    except Exception as e:
+        print(f"[upload_routes] reload_bundles warning: {e}")
 
 
 # ── Auto-training tracker ──────────────────────────────────────────────────
@@ -218,17 +229,38 @@ def _run_training(app, run: dict) -> None:
         run.update(status='running', started_at=_now_iso())
         _save_run(run)
         t0 = time.time()
+
+        # Back up the current models BEFORE they are overwritten. Only on a retrain
+        # (a successful training exists), and only once per trained set: if an earlier
+        # attempt already backed up this set and then failed half-way, the live models
+        # may be half-new, so the good backup is kept instead of being overwritten.
         try:
-            run_full_pipeline()
+            prev_sems = run.get('trained_semesters')
+            if prev_sems is not None:
+                info = get_model_backup_info()
+                if not info or info.get('trained_semesters') != prev_sems:
+                    snapshot_models(prev_sems)
+        except Exception as e:
+            print(f"[upload_routes] model backup failed (non-fatal): {e}")
+
+        try:
+            result  = run_full_pipeline()
             state   = _load_training_state() or {}
             summary = _summarize_training(state)
-            if str(state.get('training_status', '')).lower() in ('failed', 'error') \
+            if isinstance(result, dict) and result.get('success') is False:
+                # The pipeline declined to train (too few semesters, no data...). Do NOT
+                # report 'done' off a previous run's saved state, and do NOT advance
+                # trained_semesters, or the next retrain would be delayed.
+                run.update(status='failed', summary=summary,
+                           error=result.get('reason') or 'Training did not run.')
+            elif str(state.get('training_status', '')).lower() in ('failed', 'error') \
                     or summary['models_total'] == 0:
                 run.update(status='failed', summary=summary,
                            error='Training finished without producing any model results.'
                                  + (f" ({summary['errors'][0]})" if summary['errors'] else ''))
             else:
                 run.update(status='done', summary=summary, error=None,
+                           trained_semesters=run.get('semesters_available'),
                            has_warnings=bool(summary['models_errored'] or summary['errors']))
         except Exception as exc:
             traceback.print_exc()
@@ -239,24 +271,54 @@ def _run_training(app, run: dict) -> None:
         _reload_ml_models()          # pick up the freshly trained models
 
 
+def _last_trained_semesters():
+    """Semester count the models were last SUCCESSFULLY trained on (None = never)."""
+    try:
+        prev = load_training_run() or {}
+    except Exception:
+        return None
+    if prev.get('trained_semesters') is not None:
+        return prev['trained_semesters']
+    # run records written before this field existed: a finished run trained on its own count
+    if prev.get('status') == 'done':
+        return prev.get('semesters_available')
+    return None
+
+
 def _start_training(app, upload_id: int, filename: str | None) -> dict:
-    """Record + launch the auto-training run for a just-confirmed upload."""
+    """Record + launch the auto-training run for a just-confirmed upload.
+
+    First training : once MIN_SEMESTERS_FOR_TRAINING semesters are uploaded.
+    After that     : only once RETRAIN_EVERY_N_SEMESTERS (2 = one academic year) more
+                     semesters have been confirmed since the last successful training.
+    """
     try:
         n_sems = count_rows('semester_uploads')
     except Exception:
         n_sems = 0
+    last = _last_trained_semesters()
+    if last is None:
+        needed = MIN_SEMESTERS_FOR_TRAINING
+    else:
+        needed = max(MIN_SEMESTERS_FOR_TRAINING, last + RETRAIN_EVERY_N_SEMESTERS)
     run = {
         'run_id':             f"{int(time.time())}-{upload_id}",
         'upload_id':          upload_id,
         'filename':           filename,
         'semesters_available': n_sems,
-        'semesters_needed':   MIN_SEMESTERS_FOR_TRAINING,
+        'semesters_needed':   needed,
+        'trained_semesters':  last,      # carried forward until a run finishes successfully
         'queued_at':          _now_iso(),
     }
-    if n_sems < MIN_SEMESTERS_FOR_TRAINING:
-        run.update(status='skipped', finished_at=_now_iso(),
-                   message=(f"Training starts once {MIN_SEMESTERS_FOR_TRAINING} semesters are uploaded "
-                            f"({n_sems} so far)."))
+    if n_sems < needed:
+        if last is None:
+            msg = (f"Training starts once {MIN_SEMESTERS_FOR_TRAINING} semesters are uploaded "
+                   f"({n_sems} so far).")
+        else:
+            msg = (f"Models were last trained on {last} semesters and retrain every "
+                   f"{RETRAIN_EVERY_N_SEMESTERS} semesters (one academic year). "
+                   f"{n_sems} uploaded so far; the next training starts at {needed}.")
+        run.update(status='skipped', finished_at=_now_iso(), message=msg)
         _save_run(run)
         return run
     run['status'] = 'queued'
@@ -1024,6 +1086,62 @@ def api_training_run():
         return jsonify(_effective_training_run())
     except Exception as e:
         return jsonify({'status': 'none', 'error': str(e)}), 200
+
+
+@upload_bp.route('/api/model-backup-info')
+def api_model_backup_info():
+    """Is there a previous model set that can be restored?"""
+    try:
+        info = get_model_backup_info()
+    except Exception as e:
+        return jsonify({'has_backup': False, 'error': str(e)}), 200
+    if not info:
+        return jsonify({'has_backup': False})
+    run = _effective_training_run()
+    return jsonify({
+        'has_backup': True,
+        'trained_semesters': info.get('trained_semesters'),
+        'created_at': info.get('created_at'),
+        'live_trained_semesters': run.get('trained_semesters'),
+        'training_active': run.get('status') in _TRAIN_ACTIVE,
+    })
+
+
+@upload_bp.route('/api/rollback-models', methods=['POST'])
+def api_rollback_models():
+    """Swap the live prediction models with the backup (press again to swap back)."""
+    user = _current_user()
+    if not user or user.role not in UPLOAD_ALLOWED_ROLES:
+        return jsonify({'ok': False, 'error': 'Unauthorized.'}), 403
+
+    if not _training_lock.acquire(blocking=False):
+        return jsonify({'ok': False, 'error': 'Training is running — wait for it to finish.'}), 409
+    try:
+        run = _effective_training_run()
+        if run.get('status') in _TRAIN_ACTIVE:
+            return jsonify({'ok': False, 'error': 'Training is running — wait for it to finish.'}), 409
+
+        result = rollback_models(run.get('trained_semesters'))
+        if not result.get('ok'):
+            return jsonify({'ok': False, 'error': result.get('reason')}), 400
+
+        # keep the retrain cadence consistent with the models that are live now
+        stored = load_training_run() or {}
+        summary = _summarize_training(_load_training_state() or {})
+        stored.setdefault('run_id', f"rollback-{int(time.time())}")
+        stored.update(status='done', error=None, summary=summary,
+                      trained_semesters=result['restored_semesters'],
+                      has_warnings=bool(summary['models_errored'] or summary['errors']),
+                      rolled_back_at=_now_iso())
+        _save_run(stored)
+    except Exception as e:
+        return _api_error('/api/rollback-models', e)
+    finally:
+        _training_lock.release()
+
+    _reload_ml_models()
+    return jsonify({'ok': True, 'restored_semesters': result['restored_semesters'],
+                    'message': 'Previous models restored. The newer models are now the backup.'})
 
 
 @upload_bp.route('/api/training-state')
