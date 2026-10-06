@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/maindash-readable.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cea/profile-cea-overrides.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/profile-update.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/logout/logout-polish.css') }}">
 </head>
 <body data-upload-url="{{ url_for('cea_bp.upload_image_cea') }}">
 
@@ -242,13 +243,12 @@
 
 <!-- ── Logout Modal ──────────────────────────────────────── -->
   <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
-    <div class="logout-card modal-card tone-brand" role="dialog" aria-modal="true" aria-labelledby="logoutTitle">
-      <span class="m-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg></span>
-      <h2 class="m-title" id="logoutTitle">Log out?</h2>
-      <p class="m-text">Are you sure you want to logout?</p>
-      <div class="m-actions">
-        <button id="cancelLogoutBtn" class="mbtn mbtn-ghost" type="button">Back</button>
-        <button id="confirmLogoutBtn" class="mbtn mbtn-primary" type="button">Logout</button>
+    <div class="logout-card">
+      <h1 class="brand-name">NovaSight</h1>
+      <p class="confirmation-text">Are you sure you want to logout?</p>
+      <div class="button-group">
+        <button id="confirmLogoutBtn" class="btn btn-primary" type="button">Logout</button>
+        <button id="cancelLogoutBtn" class="btn btn-primary" type="button">Back</button>
       </div>
     </div>
   </div>

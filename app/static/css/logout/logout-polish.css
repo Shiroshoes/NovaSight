@@ -1,0 +1,63 @@
+/* ==========================================================================
+   logout-polish.css — updated logout confirmation modal (standalone)
+   --------------------------------------------------------------------------
+   For pages that use the OLD logout markup:
+     #logoutModal.modal-overlay > .logout-card > .brand-name
+       + .confirmation-text + .button-group > #confirmLogoutBtn / #cancelLogoutBtn
+   (sahelp.html, registrarhelp.html, privacypolicyRegis.html)
+
+   Extracted from dashboard-polish.css so these pages don't need the whole
+   dashboard stylesheet. Load LAST (after logout.css / the page's own CSS).
+   Do NOT load on pages that use the .modal-card / .m-icon logout markup
+   (profile pages, adminpage) — those already have their own design and the
+   #logoutModal selectors here would stack a second icon on top of it.
+   ========================================================================== */
+
+:root {
+  --nd-ease: cubic-bezier(.22, 1, .36, 1);
+  --nd-spring: cubic-bezier(.2, .9, .3, 1.15);
+}
+@keyframes nd-fade     { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nd-pop      { from { opacity: 0; transform: translateY(18px) scale(.95); } to { opacity: 1; transform: none; } }
+@keyframes nd-icon-in  { 0% { transform: scale(.4) rotate(-12deg); opacity: 0; } 60% { transform: scale(1.08) rotate(2deg); opacity: 1; } 100% { transform: none; } }
+
+/* Self-contained overlay base, so the modal doesn't depend on logout.css */
+#logoutModal.modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  justify-content: center; align-items: center;
+  background: rgba(28,12,14,.5);
+  -webkit-backdrop-filter: blur(9px) saturate(1.15); backdrop-filter: blur(9px) saturate(1.15);
+  animation: nd-fade .22s ease both;
+}
+#logoutModal .logout-card {
+  position: relative; box-sizing: border-box; width: min(400px, calc(100vw - 32px));
+  padding: 108px 30px 28px; border-radius: 28px; text-align: center;
+  border: 1px solid rgba(128,0,0,.07);
+  background: radial-gradient(120% 60% at 50% -8%, rgba(128,0,0,.1), transparent 62%), #fff;
+  box-shadow: 0 1px 2px rgba(40,10,10,.05), 0 14px 28px -10px rgba(60,20,20,.2), 0 44px 90px -28px rgba(60,20,20,.4);
+  animation: nd-pop .38s var(--nd-spring) both;
+}
+#logoutModal .logout-card::before {         /* round icon badge (log-out arrow) */
+  content: ''; position: absolute; top: 30px; left: 50%; margin-left: -30px;
+  width: 60px; height: 60px; border-radius: 50%;
+  background: #f9ecec url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23800000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9'/%3E%3C/svg%3E") center / 28px no-repeat;
+  box-shadow: 0 0 0 8px rgba(128,0,0,.07);
+  animation: nd-icon-in .55s .08s var(--nd-spring) both;
+}
+#logoutModal .brand-name { margin: 0 0 8px; font-family: 'Outfit', 'Inter', sans-serif; font-size: 1.4rem; letter-spacing: -.01em; color: #1a1212; }
+#logoutModal .confirmation-text { margin: 0 0 6px; color: #62585a; font-size: .95rem; line-height: 1.6; }
+#logoutModal .button-group { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+#logoutModal .button-group .btn {
+  cursor: pointer; font-family: inherit; width: 100%; box-sizing: border-box;
+  padding: 14px 18px; border: 1px solid transparent; border-radius: 14px; font-size: .95rem; font-weight: 600;
+  transition: background .2s, border-color .2s, box-shadow .25s var(--nd-ease), transform .2s var(--nd-ease), color .2s;
+}
+#logoutModal #confirmLogoutBtn { background: linear-gradient(180deg, #960f0f, #800000); color: #fff; box-shadow: 0 10px 20px -10px rgba(128,0,0,.7); }
+#logoutModal #confirmLogoutBtn:hover { background: linear-gradient(180deg, #a31414, #8a0000); transform: translateY(-1px); box-shadow: 0 14px 24px -10px rgba(128,0,0,.75); }
+#logoutModal #cancelLogoutBtn { background: #fff; color: #3a2d2f; border-color: #e6dede; box-shadow: none; }
+#logoutModal #cancelLogoutBtn:hover { background: #faf6f6; border-color: #d9cdcf; transform: none; }
+#logoutModal .button-group .btn:active { transform: scale(.98); }
+
+@media (prefers-reduced-motion: reduce) {
+  #logoutModal.modal-overlay, #logoutModal .logout-card, #logoutModal .logout-card::before { animation: none; }
+}
