@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Profile — NovaSight</title>
+  <script>document.documentElement.classList.add('is-loading');</script>
   <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/profileadmin-MISO.css') }}">
@@ -16,6 +17,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/sidebar-maroon-MISO.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/admin-float-footer-MISO.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/profile-MISO-overrides.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/MISO/profile-motion.css') }}">
 </head>
 <body data-upload-url="{{ url_for('MISO_bp.upload_image') }}">
 
@@ -262,5 +264,6 @@
   <script src="{{ url_for('static', filename='js/page-video-modal.js') }}"></script>
   <script src="{{ url_for('static', filename='js/tutorial.js') }}"></script>
   <script src="{{ url_for('static', filename='js/sidebar-collapse.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/profile-skeleton.js') }}" defer></script>
 </body>
 </html>

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Profile — NovaSight</title>
+  <script>document.documentElement.classList.add('is-loading');</script>
   <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ctec/profilectec.css') }}">
@@ -17,6 +18,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ctec/admin-float-footer-ctec.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/maindash-readable.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ctec/profile-ctec-overrides.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/profile-update.css') }}">
 </head>
 <body data-upload-url="{{ url_for('ctec_bp.upload_image_ctec') }}">
 
@@ -24,22 +26,20 @@
   {% include 'deans/CTECdean/_ctec_sidebar.html' %}
 
   <main class="profile-main">
- 
-  <!--header -->
-            <!-- Fixed header: Welcome left + Tutorial button right -->
-    <div class="dash-sticky profile-sticky">
-      <div class="page-head page-head-wide">
-        <h2>Welcome, <span class="welcome-name">{{ user.first_name or user.username }}</span>, to NovaSight</h2>
-        <p>Manage your account details, profile picture and password.</p>
-      </div>
-      <button type="button" class="userbar-tutorial" id="tutorialLink" title="Open the system tutorial">
-        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.3 2.841A1.5 1.5 0 0 0 4 4.11V15.89a1.5 1.5 0 0 0 2.3 1.269l9.344-5.89a1.5 1.5 0 0 0 0-2.538L6.3 2.84Z"/></svg>
-        Tutorial
-      </button>
+  <!-- Fixed header: Welcome on the left, Tutorial button on the same line (right) -->
+  <div class="dash-sticky profile-sticky">
+    <div class="page-head page-head-wide">
+      <h2>Welcome, <span class="welcome-name">{{ user.first_name or user.username }}</span>, to NovaSight</h2>
+      <p>Manage your account details, profile picture and password.</p>
     </div>
+    <button type="button" class="userbar-tutorial" id="tutorialLink" title="Open the system tutorial">
+      <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.3 2.841A1.5 1.5 0 0 0 4 4.11V15.89a1.5 1.5 0 0 0 2.3 1.269l9.344-5.89a1.5 1.5 0 0 0 0-2.538L6.3 2.84Z"/></svg>
+      Tutorial
+    </button>
+  </div>
 
-    <!-- Scrollable area (header above stays put) -->
-    <div class="main-scroll">
+  <!-- Scrollable area (the header above stays put) -->
+  <div class="main-scroll">
 
     <div class="profile-card settings-card">
       <div class="settings-layout">
@@ -79,10 +79,12 @@
           <div class="settings-panel">
           <h4 class="settings-sub">Password</h4>
           <div class="password-trigger-area">
-                  <a href="#" id="pwToggle" class="pw-link">Change Password</a>
+                  <a href="#" id="pwToggle" class="pw-link" role="button" aria-expanded="false" aria-controls="pwFields"><svg class="pw-link-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"/></svg><span>Change Password</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a>
 
-                  <!-- Hidden by default -->
-                  <div id="pwFields" class="hidden-fields" style="display:none;">
+                  <!-- Collapsible panel: opens with a height/fade animation (class .is-open, toggled in profile.js) -->
+                  <div id="pwFields" class="pw-collapse" aria-hidden="true" inert>
+                    <div class="pw-collapse-inner">
+                      <div class="pw-body">
                       <div class="input-group">
                           <label class="user-text">Password:</label>
                           <div class="password-field-wrapper">
@@ -109,7 +111,16 @@
                           </div>
                       </div>
 
-                      <div class="input-group" style="margin-top: 10px;">
+                      <!-- Requirements checklist now sits right under the first password box -->
+                      <ul class="pw-requirements" id="pwRequirements" aria-live="polite">
+                          <li class="pw-req" data-rule="length"><span class="pw-req-icon"></span><span class="pw-req-text">8&ndash;16 characters</span></li>
+                          <li class="pw-req" data-rule="upper"><span class="pw-req-icon"></span><span class="pw-req-text">At least one uppercase letter</span></li>
+                          <li class="pw-req" data-rule="number"><span class="pw-req-icon"></span><span class="pw-req-text">At least one number</span></li>
+                          <li class="pw-req" data-rule="special"><span class="pw-req-icon"></span><span class="pw-req-text">At least one special character</span></li>
+                      </ul>
+                      <span id="pwSameAsCurrent" class="pw-mismatch-msg">This is your current password &mdash; please choose a new one.</span>
+
+                      <div class="input-group">
                           <label class="user-text">Confirm Password:</label>
                           <div class="password-field-wrapper">
                               <input type="password" id="confirmPassInput" name="confirm_password" autocomplete="new-password" placeholder="Re-enter new password"
@@ -134,14 +145,12 @@
                           <span id="confirmPassMismatch" style="display:none; color:#cc0000; font-size:0.78rem; margin-top:4px;">Passwords do not match.</span>
                       </div>
 
-                      <span class="password-hint" style="display:block; font-size:0.78rem; color:#777; margin-bottom:10px; max-width:500px;">
-                          Password must be 8-16 characters long, containing at least one uppercase letter, one number, and one special character.
-                      </span>
-
-                      <div class="button-group">
-                          <button type="button" class="btn blue" id="savePwBtn">Save</button>
-                          <button type="button" class="btn grey" id="cancelBtn">Back</button>
+                      <div class="pw-actions">
+                          <button type="button" class="btn-back" id="cancelBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg><span>Back</span></button>
+                          <button type="button" class="btn-save" id="savePwBtn" disabled>Save</button>
                       </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div id="pwStatusMsg" class="pw-status-msg" style="
@@ -161,35 +170,46 @@
         <!-- RIGHT: details -->
         <section class="settings-main">
           <div class="settings-panel">
-          <h3 class="settings-title">Profile Information</h3>
+          <div class="settings-head">
+            <h3 class="settings-title">Profile Information</h3>
+            <div class="settings-head-actions">
+              <button type="button" class="edit-pill" id="editProfileBtn" aria-controls="profileForm" aria-expanded="false" title="Edit your profile details"><span>Edit</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/></svg></button>
+              <span class="editing-chip" id="editingChip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/></svg><span>Editing</span></span>
+            </div>
+          </div>
 
           <!-- POSTs to the shared /update-name route in app.py (same {success, message} format as /update-password) -->
-          <div id="profileForm" data-update-url="/update-name">
+          <div id="profileForm" class="is-viewing" data-update-url="/update-name">
             <div class="field-grid">
               <div class="field">
                 <label for="firstNameInput">First Name <span class="req">*</span></label>
-                <input type="text" id="firstNameInput" value="{{ user.first_name or '' }}" maxlength="50" autocomplete="given-name">
+                <input type="text" id="firstNameInput" readonly value="{{ user.first_name or '' }}" maxlength="50" autocomplete="given-name">
               </div>
               <div class="field">
                 <label for="lastNameInput">Last Name <span class="req">*</span></label>
-                <input type="text" id="lastNameInput" value="{{ user.last_name or '' }}" maxlength="50" autocomplete="family-name">
+                <input type="text" id="lastNameInput" readonly value="{{ user.last_name or '' }}" maxlength="50" autocomplete="family-name">
               </div>
               <div class="field">
                 <label for="miInput">M.I. <span class="opt">(optional)</span></label>
-                <input type="text" id="miInput" value="{{ user.mi or '' }}" maxlength="1" autocomplete="off" placeholder="e.g. D">
+                <input type="text" id="miInput" readonly value="{{ user.mi or '' }}" maxlength="1" autocomplete="off" placeholder="e.g. D">
               </div>
               <div class="field">
                 <label for="suffixInput">Suffix <span class="opt">(optional)</span></label>
-                <input type="text" id="suffixInput" value="{{ user.suffix or '' }}" maxlength="4" list="suffixOptions" autocomplete="off" placeholder="e.g. Jr., III">
+                <input type="text" id="suffixInput" readonly value="{{ user.suffix or '' }}" maxlength="4" list="suffixOptions" autocomplete="off" placeholder="e.g. Jr., III">
                 <datalist id="suffixOptions">
                   <option value="Jr."></option><option value="Sr."></option>
                   <option value="II"></option><option value="III"></option><option value="IV"></option>
                 </datalist>
               </div>
             </div>
-            <div class="field-actions">
-              <button type="button" class="btn blue" id="saveProfileBtn" disabled>Save Changes</button>
-              <span class="field-status" id="profileStatus" role="status" aria-live="polite"></span>
+            <div class="edit-actions" id="profileActions" aria-hidden="true" inert>
+              <div class="edit-actions-inner">
+                <div class="field-actions">
+                  <button type="button" class="btn-back" id="cancelProfileBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg><span>Cancel</span></button>
+                  <button type="button" class="btn-save" id="saveProfileBtn" disabled>Save Changes</button>
+                  <span class="field-status" id="profileStatus" role="status" aria-live="polite"></span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -220,95 +240,125 @@
       </div>
     </div>
 
-  <!-- Logout Modal Structure -->
+<!-- ── Logout Modal ──────────────────────────────────────── -->
   <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
-    <div class="logout-card">
-      <h1 class="brand-name">NovaSight</h1>
-      <p class="confirmation-text">Are you sure you want to logout?</p>
-      <div class="button-group">
-        <button id="confirmLogoutBtn" class="btn btn-primary">Logout</button>
-        <button id="cancelLogoutBtn" class="btn btn-primary">Back</button>
+    <div class="logout-card modal-card tone-brand" role="dialog" aria-modal="true" aria-labelledby="logoutTitle">
+      <span class="m-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg></span>
+      <h2 class="m-title" id="logoutTitle">Log out?</h2>
+      <p class="m-text">Are you sure you want to logout?</p>
+      <div class="m-actions">
+        <button id="cancelLogoutBtn" class="mbtn mbtn-ghost" type="button">Back</button>
+        <button id="confirmLogoutBtn" class="mbtn mbtn-primary" type="button">Logout</button>
       </div>
     </div>
   </div>
   <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
 
-  <!-- Change Profile Picture Modal — same centered/overlay pattern as the
-       Logout modal above (reuses .modal-overlay), just with its own card. -->
+{% include 'deans/CTECdean/_ctec_tutorial.html' %}
+
+  <!-- ═══ Floating modals ═══
+       Shared structure: .modal-overlay > .modal-card. Styles: profileadmin.css
+       ("Modern floating modals"). Ids are used by profile.js — don't rename. -->
+
+  <!-- Change Profile Picture -->
   <div id="avatarModal" class="modal-overlay" style="display: none;">
-    <div class="avatar-modal-card">
-      <div class="avatar-modal-header">
-        <h1 class="brand-name">Change Profile Picture</h1>
-        <button type="button" class="avatar-modal-close" id="avatarModalClose" aria-label="Close">&times;</button>
+    <div class="logout-card modal-card tone-brand m-left" role="dialog" aria-modal="true" aria-labelledby="avatarModalTitle">
+      <div class="m-head">
+        <h2 class="m-title m-title-sm" id="avatarModalTitle">Change profile picture</h2>
+        <button type="button" class="modal-close-x" id="avatarModalClose" aria-label="Close">&times;</button>
       </div>
       <!-- Current-avatar preview — populated by JS from #avatarDisplay each
-           time the modal opens, so it always mirrors the real current
-           picture (or default icon) without duplicating the Jinja logic. -->
+           time the modal opens, so it always mirrors the real current picture. -->
       <div class="avatar-modal-preview-wrap">
         <div class="circle avatar-modal-preview-circle" id="avatarModalPreview"></div>
       </div>
-      <div class="avatar-modal-options">
-        <button type="button" class="avatar-modal-option" id="chooseDeviceBtn">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar-modal-icon">
-            <path fill-rule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clip-rule="evenodd" />
-          </svg>
-          <span>Choose from Gallery</span>
+      <div class="m-options">
+        <button type="button" class="m-opt" id="chooseDeviceBtn">
+          <span class="m-opt-ico"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"> <path fill-rule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clip-rule="evenodd" /> </svg></span>
+          <span class="m-opt-text"><strong>Choose from gallery</strong><small>JPEG or PNG, up to 5 MB</small></span>
+          <svg class="m-opt-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
         </button>
-        <button type="button" class="avatar-modal-option" id="takePhotoBtn">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="avatar-modal-icon">
-            <path fill-rule="evenodd" d="M12 9a3.75 3.75 0 1 0 0 7.5A3.75 3.75 0 0 0 12 9Z" clip-rule="evenodd" />
-            <path fill-rule="evenodd" d="M9.344 3.071a49.52 49.52 0 0 1 5.312 0c.967.052 1.83.585 2.332 1.39l.821 1.317c.24.383.645.643 1.11.71.386.054.77.113 1.152.177 1.432.239 2.429 1.493 2.429 2.909V18a3 3 0 0 1-3 3h-15a3 3 0 0 1-3-3V9.574c0-1.416.997-2.67 2.429-2.909.382-.064.766-.123 1.151-.178a1.56 1.56 0 0 0 1.11-.71l.822-1.315a2.942 2.942 0 0 1 2.332-1.39ZM6.75 12.75a5.25 5.25 0 1 1 10.5 0 5.25 5.25 0 0 1-10.5 0Zm12-1.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
-          </svg>
-          <span>Open Camera</span>
+        <button type="button" class="m-opt" id="takePhotoBtn">
+          <span class="m-opt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></span>
+          <span class="m-opt-text"><strong>Open camera</strong><small>Take a new photo now</small></span>
+          <svg class="m-opt-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Live Camera modal — a real getUserMedia feed from the device's own
-       camera, not just the OS file-picker's "take a photo" shortcut. -->
+  <!-- Live Camera (a real getUserMedia feed from the device's camera) -->
   <div id="cameraModal" class="modal-overlay" style="display: none;">
-    <div class="camera-modal-card">
-      <div class="avatar-modal-header">
-        <h1 class="brand-name">Take a Photo</h1>
-        <button type="button" class="avatar-modal-close" id="cameraModalClose" aria-label="Close">&times;</button>
+    <div class="logout-card modal-card tone-brand m-left m-camera" role="dialog" aria-modal="true" aria-labelledby="cameraModalTitle">
+      <div class="m-head">
+        <h2 class="m-title m-title-sm" id="cameraModalTitle">Take a photo</h2>
+        <button type="button" class="modal-close-x" id="cameraModalClose" aria-label="Close">&times;</button>
       </div>
       <div class="camera-preview-wrap">
         <video id="cameraVideo" autoplay playsinline muted></video>
       </div>
-      <div class="camera-modal-actions">
-        <button type="button" class="btn blue" id="captureBtn">Capture</button>
+      <div class="m-actions m-actions-center">
+        <button type="button" class="mbtn mbtn-primary mbtn-wide" id="captureBtn">Capture</button>
       </div>
     </div>
   </div>
   <canvas id="cameraCanvas" hidden></canvas>
 
-  <!-- Confirmation modal — shown after a picture is chosen/captured, before
-       it's actually uploaded. Avatar preview up top, then Update Profile / No. -->
+  <!-- Confirmation — shown after a picture is chosen/captured, before it is uploaded -->
   <div id="avatarConfirmModal" class="modal-overlay" style="display: none;">
-    <div class="avatar-confirm-card">
+    <div class="logout-card modal-card tone-brand" role="dialog" aria-modal="true" aria-labelledby="avatarConfirmTitle">
       <div class="avatar-confirm-preview">
         <img id="avatarConfirmImg" src="" alt="New profile picture preview">
       </div>
-      <p class="confirmation-text">Update profile picture?</p>
-      <div class="button-group">
-        <button type="button" class="btn blue" id="confirmAvatarBtn">Update Profile</button>
-        <button type="button" class="btn grey" id="cancelAvatarBtn">No</button>
+      <h2 class="m-title" id="avatarConfirmTitle">Update profile picture?</h2>
+      <p class="m-text">This will replace your current picture.</p>
+      <div class="m-actions">
+        <button type="button" class="mbtn mbtn-ghost" id="cancelAvatarBtn">Cancel</button>
+        <button type="button" class="mbtn mbtn-primary" id="confirmAvatarBtn">Update Profile</button>
       </div>
     </div>
   </div>
 
-  {% include 'deans/CTECdean/_ctec_tutorial.html' %}
+  <!-- Generic confirm dialog (profile details + password): driven by NSModal.confirm() in profile.js.
+       Cancel closes it WITHOUT saving anything. -->
+  <div id="nsConfirmModal" class="modal-overlay" style="display: none;">
+    <div class="logout-card modal-card tone-brand" id="nsConfirmCard" role="dialog" aria-modal="true" aria-labelledby="nsConfirmTitle">
+      <span class="m-icon" id="nsConfirmIcon" aria-hidden="true"></span>
+      <h2 class="m-title" id="nsConfirmTitle"></h2>
+      <p class="m-text" id="nsConfirmText"></p>
+      <ul class="m-changes" id="nsConfirmChanges"></ul>
+      <div class="m-actions">
+        <button type="button" class="mbtn mbtn-ghost" id="nsConfirmCancel">Cancel</button>
+        <button type="button" class="mbtn mbtn-primary" id="nsConfirmOk">Save changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic status toast (success / error): driven by NSModal.notify() in profile.js. Auto-closes. -->
+  <div id="nsStatusModal" class="modal-overlay" style="display: none;">
+    <div class="logout-card modal-card tone-success" id="nsStatusCard" role="alertdialog" aria-modal="true" aria-labelledby="nsStatusTitle">
+      <button type="button" class="modal-close-x" id="nsStatusClose" aria-label="Close">&times;</button>
+      <span class="m-icon" id="nsStatusIcon" aria-hidden="true"></span>
+      <h2 class="m-title" id="nsStatusTitle"></h2>
+      <p class="m-text" id="nsStatusText"></p>
+      <span class="m-progress" aria-hidden="true"></span>
+    </div>
+  </div>
 
   {% include 'deans/CTECdean/_ctec_footer.html' %}
-  </div><!-- /main-scroll --> 
+  </div><!-- /main-scroll -->
   </main>
     <script src="{{url_for('static', filename='js/profile.js')}}"></script>
   <script>
     // "Upload Photo" opens the same picture modal the old + badge did.
-    // Name editing sends ONLY first_name / last_name / mi / suffix to
-    // /update-name. Account and role are read-only and never sent. The
-    // server re-validates everything, so these checks are just for speed.
+    //
+    // Profile details are read-only until the user presses Edit. While editing:
+    //   • Save Changes stays disabled until something actually changes
+    //   • Save Changes asks for confirmation in a floating modal (Cancel = nothing is saved)
+    //   • Cancel (button) puts every field back to what is stored and leaves edit mode
+    // Only first_name / last_name / mi / suffix are sent to /update-name. Account and
+    // role are read-only and never sent. The server re-validates everything, so these
+    // checks are just for speed.
     (function () {
       var up = document.getElementById('uploadPhotoBtn');
       var plus = document.getElementById('avatarPlusBtn');
@@ -317,6 +367,10 @@
       var box = document.getElementById('profileForm');
       var btn = document.getElementById('saveProfileBtn');
       var msg = document.getElementById('profileStatus');
+      var editBtn   = document.getElementById('editProfileBtn');
+      var cancelBtn = document.getElementById('cancelProfileBtn');
+      var actions   = document.getElementById('profileActions');
+      var chip      = document.getElementById('editingChip');
       if (!box || !btn) return;
 
       var NAME_RE   = /^[\p{L}\p{M}][\p{L}\p{M} .'\u2019-]*$/u;   // letters, spaces, . ' -
@@ -340,6 +394,9 @@
         f.original = clean(f.el.value, f);
       });
 
+      var editing = false;
+      var saving  = false;
+
       function show(text, ok) {
         msg.textContent = text;
         msg.className = 'field-status' + (text ? (ok ? ' ok' : ' err') : '');
@@ -350,7 +407,7 @@
       function refresh() {
         fields.forEach(function (f) { f.el.classList.remove('invalid'); });
         show('', true);
-        btn.disabled = !dirty();
+        btn.disabled = saving || !dirty();
       }
       function validate() {
         for (var i = 0; i < fields.length; i++) {
@@ -367,44 +424,105 @@
         return '';
       }
 
+      // ── edit mode on / off ──
+      function setEditing(on) {
+        editing = on;
+        box.classList.toggle('is-editing', on);
+        box.classList.toggle('is-viewing', !on);
+        fields.forEach(function (f) { f.el.readOnly = !on; });
+        if (actions) { actions.classList.toggle('is-open', on); actions.setAttribute('aria-hidden', String(!on)); actions.inert = !on; }
+        if (editBtn) { editBtn.classList.toggle('is-away', on); editBtn.setAttribute('aria-expanded', String(on)); editBtn.tabIndex = on ? -1 : 0; }
+        if (chip)    { chip.classList.toggle('is-on', on); }
+        if (on) {
+          setTimeout(function () {
+            var f = fields[0].el; f.focus();
+            var n = f.value.length; try { f.setSelectionRange(n, n); } catch (e) {}
+          }, 120);
+        }
+      }
+      function discardAndExit() {
+        fields.forEach(function (f) { f.el.value = f.original; f.el.classList.remove('invalid'); });
+        show('', true);
+        btn.disabled = true;
+        setEditing(false);
+        if (editBtn) editBtn.focus();
+      }
+
+      if (editBtn)   editBtn.addEventListener('click', function () { if (!editing) setEditing(true); });
+      if (cancelBtn) cancelBtn.addEventListener('click', discardAndExit);
+
       fields.forEach(function (f) {
         f.el.addEventListener('input', refresh);
         f.el.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter' && !btn.disabled) btn.click();
+          if (e.key === 'Enter' && !btn.disabled) { e.preventDefault(); btn.click(); }
+          else if (e.key === 'Escape' && editing && !(window.NSModal && NSModal.isOpen())) { discardAndExit(); }
         });
       });
 
-      btn.addEventListener('click', function () {
+      // ── save: validate → confirm in a floating modal → send ──
+      var hasModals = function () { return !!(window.NSModal && NSModal.available()); };
+
+      btn.addEventListener('click', async function () {
+        if (!editing || saving) return;
         var problem = validate();
         if (problem) { show(problem, false); return; }
 
-        var payload = {};
-        fields.forEach(function (f) { payload[f.key] = clean(f.el.value, f); });
+        var payload = {}, changes = [];
+        fields.forEach(function (f) {
+          var v = clean(f.el.value, f);
+          payload[f.key] = v;
+          if (v !== f.original) changes.push({ label: f.label, from: f.original || '\u2014', to: v || '\u2014' });
+        });
+        if (!changes.length) return;
 
-        btn.disabled = true;
-        fetch(box.dataset.updateUrl, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        .then(function (r) {
-          return r.json().then(function (d) { return { ok: r.ok && d.success === true, d: d }; });
-        })
-        .then(function (res) {
-          if (res.ok) {
+        if (hasModals()) {
+          var ok = await NSModal.confirm({
+            tone: 'brand', icon: 'user',
+            title: 'Save these changes?',
+            text: 'Your profile details will be updated.',
+            changes: changes,
+            okText: 'Save changes', cancelText: 'Cancel'
+          });
+          if (!ok) return;           // Cancel: nothing is saved, user stays in edit mode
+        }
+
+        saving = true; btn.disabled = true;
+        var label = btn.textContent; btn.textContent = 'Saving\u2026';
+        function done() { saving = false; btn.textContent = label; refresh(); }
+
+        try {
+          var r = await fetch(box.dataset.updateUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          var d = await r.json();
+          if (r.ok && d.success === true) {
             fields.forEach(function (f) { f.original = payload[f.key]; });
-            show('Name updated.', true);
-            setTimeout(function () { window.location.reload(); }, 700);   // refresh the name everywhere it's server-rendered
-          } else {
-            show((res.d && res.d.message) || 'Could not save your name.', false);
-            btn.disabled = false;
+            if (hasModals()) {
+              await NSModal.notify({ tone: 'success', icon: 'check', title: 'Profile updated',
+                                     text: 'Your details were saved successfully.', duration: 1800 });
+            } else {
+              show('Name updated.', true);
+              await new Promise(function (res) { setTimeout(res, 700); });
+            }
+            window.location.reload();      // refresh the name everywhere it's server-rendered
+            return;
           }
-        })
-        .catch(function () { show('Network error. Please try again.', false); btn.disabled = false; });
+          var m = (d && d.message) || 'Could not save your changes.';
+          if (hasModals()) NSModal.notify({ tone: 'danger', icon: 'x', title: 'Couldn\u2019t save', text: m, duration: 4200 });
+          else show(m, false);
+        } catch (err) {
+          var net = 'Network error. Please try again.';
+          if (hasModals()) NSModal.notify({ tone: 'danger', icon: 'x', title: 'Couldn\u2019t save', text: net, duration: 4200 });
+          else show(net, false);
+        }
+        done();
       });
     })();
   </script>
+
 
 <!-- Floating Page Tutorial Video Modal -->
 <div id="pageTutorialModal" class="page-tutorial-overlay"
@@ -424,5 +542,6 @@
 <script src="{{ url_for('static', filename='js/page-video-modal.js') }}"></script>
 <script src="{{ url_for('static', filename='js/tutorial.js') }}"></script>
   <script src="{{ url_for('static', filename='js/sidebar-collapse.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/profile-skeleton.js') }}" defer></script>
 </body>
 </html>

@@ -122,6 +122,18 @@ function fillSelect(selId, items, labelFn = d => d, valFn = d => d) {
   sel.value = cur;
 }
 
+/* ── Academic-year select: no "All Years" option — only real years, with the
+   most recently uploaded one selected. ─────────────────────────────────── */
+function fillYearSelect(selId, years, recent) {
+  const sel = $(selId);
+  if (!sel) return;
+  sel.innerHTML = '';
+  (years || []).forEach(y => { const yr = parseInt(y); sel.add(new Option(`${yr}-${yr+1}`, y)); });
+  const list = (years || []).map(String);
+  if (recent && list.includes(String(recent))) sel.value = String(recent);
+  else if (list.length) sel.value = list[list.length - 1];
+}
+
 /* ── Sortable / searchable / filterable / paginated HTML table ──────────────
    Backward compatible with the old buildTable(id, rows, headers, sort, dir)
    calls — pass an extra `opts` object to turn on the extra features:
@@ -466,8 +478,7 @@ async function initDashboard() {
     window._ayToSems    = meta.ay_to_sems || {};
 
     // Populate KPI year filter
-    fillSelect('kpi-year', window._metaYears,
-      y => { const yr=parseInt(y); return `${yr}-${yr+1}`; }, y=>y);
+    fillYearSelect('kpi-year', window._metaYears, meta.recent_year);
 
     // Populate KPI semester based on most recent year
     _populateKpiSemesters(meta.recent_year || '');
@@ -490,8 +501,7 @@ async function initDashboard() {
     fillSelect('kpi-course', window._allCourses, c=>c.label||c.code, c=>c.code);
 
     // Heatmap: same academic-year / semester defaults as the KPI card
-    fillSelect('hmYear', window._metaYears,
-      y => { const yr=parseInt(y); return `${yr}-${yr+1}`; }, y=>y);
+    fillYearSelect('hmYear', window._metaYears, meta.recent_year);
     _populateSemesters('hmSem', meta.recent_year || '');
     const hmYearSel = $('hmYear');
     if (hmYearSel && meta.recent_year) { hmYearSel.value = meta.recent_year; HF.year = meta.recent_year; }
@@ -501,8 +511,7 @@ async function initDashboard() {
     _fillCourses('hmDept', 'hmCourse');
 
     // Gender & Status: same academic-year / semester defaults as the KPI card + heatmap
-    fillSelect('gdYear', window._metaYears,
-      y => { const yr=parseInt(y); return `${yr}-${yr+1}`; }, y=>y);
+    fillYearSelect('gdYear', window._metaYears, meta.recent_year);
     _populateSemesters('gdSem', meta.recent_year || '');
     const gdYearSel = $('gdYear');
     if (gdYearSel && meta.recent_year) { gdYearSel.value = meta.recent_year; GDF.year = meta.recent_year; }
@@ -512,8 +521,7 @@ async function initDashboard() {
     _fillCourses('gdDept', 'gdCourse');
 
     // Hardest Subjects: same academic-year / semester defaults as the other cards
-    fillSelect('hsYear', window._metaYears,
-      y => { const yr=parseInt(y); return `${yr}-${yr+1}`; }, y=>y);
+    fillYearSelect('hsYear', window._metaYears, meta.recent_year);
     _populateSemesters('hsSem', meta.recent_year || '');
     const hsYearSel = $('hsYear');
     if (hsYearSel && meta.recent_year) { hsYearSel.value = meta.recent_year; HSF.year = meta.recent_year; }
@@ -523,8 +531,7 @@ async function initDashboard() {
     _fillCourses('hsDept', 'hsCourse');
 
     // Performance card: same defaults
-    fillSelect('perfYear', window._metaYears,
-      y => { const yr=parseInt(y); return `${yr}-${yr+1}`; }, y=>y);
+    fillYearSelect('perfYear', window._metaYears, meta.recent_year);
     _populateSemesters('perfSem', meta.recent_year || '');
     const perfYearSel = $('perfYear');
     if (perfYearSel && meta.recent_year) { perfYearSel.value = meta.recent_year; PF.year = meta.recent_year; }
@@ -532,6 +539,14 @@ async function initDashboard() {
     if (perfSemSel && meta.recent_sem)   { perfSemSel.value = meta.recent_sem;   PF.sem  = meta.recent_sem; }
     fillSelect('perfDept', window._metaDepts);
     _fillCourses('perfDept', 'perfCourse');
+
+    // Global filter bar: Academic Year + Term show only real periods and
+    // default to the most recently uploaded academic year + semester.
+    fillYearSelect('globalYear', window._metaYears, meta.recent_year);
+    _populateSemesters('globalSem', $('globalYear')?.value || meta.recent_year || '');
+    const globalSemSel = $('globalSem');
+    if (globalSemSel && meta.recent_sem) globalSemSel.value = meta.recent_sem;
+    $('globalYear')?.addEventListener('change', () => _populateSemesters('globalSem', $('globalYear').value));
 
     // KPI Trend card: dept/course only (no year/sem — it always spans every period)
     fillSelect('kpiTrend-dept', window._metaDepts);
@@ -570,8 +585,15 @@ function _populateSemesters(selId, yr) {
   const semSel = $(selId);
   if (!semSel) return;
   const prevVal = semSel.value;
-  semSel.innerHTML = '<option value="">All</option>';
-  const sems = (window._ayToSems || {})[yr] || [];
+  semSel.innerHTML = '';
+  // No "All" option: a specific semester is always selected. With no year chosen,
+  // offer every semester that exists in any year (or 1st/2nd as a last resort).
+  let sems = (window._ayToSems || {})[yr] || [];
+  if (!sems.length) {
+    const all = [];
+    Object.values(window._ayToSems || {}).forEach(list => (list || []).forEach(x => { if (!all.includes(x)) all.push(x); }));
+    sems = all.length ? all : ['1sem', '2sem'];
+  }
   const semLabels = {
     '1sem':'1st Semester', '2sem':'2nd Semester', 'Summer':'Summer',
     '1st Semester':'1st Semester', '2nd Semester':'2nd Semester',
@@ -3054,6 +3076,28 @@ $('btnColorblind')?.addEventListener('click', () => {
 /* ── INIT ────────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', initDashboard);
 
+/* Chart data + filters handed to the Insights modal and insight-engine.js
+   (they live outside this closure, so they can't see the `let` variables above). */
+const _stripSort = o => { const r = { ...o }; delete r.sort; return r; };
+window.MD = {
+  kpi: () => kpiData, hm: () => hmData, perf: () => perfData, gd: () => gdData, hs: () => hsData,
+  hsRows: () => hsRows(),
+  kt: () => window.ktData, et: () => window.etData,
+  filters(id) {
+    switch (id) {
+      case 'kpiCard':         return _stripSort(KF);
+      case 'kpiTrendCard':    return window.REG ? window.REG.ktFilters() : {};
+      case 'enrollTrendCard': return window.REG ? window.REG.etFilters() : {};
+      case 'heatmapCard':     return _stripSort(HF);
+      case 'perfCard':        return { ..._stripSort(PF), rank: perfRank };
+      case 'genderCard':      return { ..._stripSort(GDF), enroll: gdEnroll, status: gdMetric };
+      case 'hardestCard':     return { ..._stripSort(HSF), metric: hsMetric, top_n: $('hsTopN')?.value || '' };
+    }
+    return {};
+  },
+};
+window.MD.insightFilters = window.MD.filters;
+
 })();
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -3225,7 +3269,8 @@ document.addEventListener('DOMContentLoaded', function () {
   let _card      = null;
   let _dirty     = false;
   let _savedText = '';
-  const filtersOf = id => {
+  const filtersOf = id => (window.MD ? window.MD.insightFilters(id) : _legacyFiltersOf(id));
+  const _legacyFiltersOf = id => {
     try {
       const strip = o => { const r = {...o}; delete r.sort; return r; };
       switch (id) {
@@ -3415,8 +3460,73 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  /* TEMPORARY fallback: the AI service (/api/dash/insights/generate) is not available, so a hard-coded
+     sample insight is shown instead. It says so explicitly and contains no real figures. Remove this
+     block (and the applyFallback() calls) once the AI endpoint exists. */
+  const FALLBACK_INSIGHT = {
+    kpiCard: [
+      "1. Read enrollment, average GWA and the at-risk count together. A rising at-risk count with steady enrollment points to academic pressure rather than a change in intake.",
+      "2. Check the regular/irregular split. A growing irregular share usually means more students are carrying back subjects.",
+      "3. Suggested action: ask program chairs to review the at-risk list early in the term and schedule advising before midterms."
+    ].join("\n"),
+    kpiTrendCard: [
+      "1. Look at which colleges or programs are moving in the opposite direction from the overall line; those are the ones to investigate first.",
+      "2. A status that rises for several consecutive semesters is a pattern, not noise. A single-semester spike may be a one-off.",
+      "3. Suggested action: share the groups with the sharpest changes with their deans and agree on a follow-up target for next semester."
+    ].join("\n"),
+    enrollTrendCard: [
+      "1. Compare the direction of total enrollment with the regular/irregular mix to see whether growth is coming from new intake or from students staying longer.",
+      "2. Groups that shrink while others grow may need a closer look at retention rather than admissions.",
+      "3. Suggested action: use this trend when planning section offerings and faculty load for the coming term."
+    ].join("\n"),
+    heatmapCard: [
+      "1. The darkest cells mark the college, course and year-level combinations with the highest rates; start intervention planning there.",
+      "2. Compare year levels within the same course. A high rate only in the early years suggests a bridging or foundation-subject issue.",
+      "3. Suggested action: pair the highest-rate groups with tutoring or peer-mentoring and re-check the same cells next semester."
+    ].join("\n"),
+    perfCard: [
+      "1. Departments at the top of the ranking can share what they do in advising and assessment with those at the bottom.",
+      "2. Look at the gap between first and last place; a wide gap suggests uneven support rather than uniformly hard programs.",
+      "3. Suggested action: schedule a short review with the lowest-ranked departments and agree on one improvement target."
+    ].join("\n"),
+    genderCard: [
+      "1. Compare the status mix for male and female students. Small differences are normal; consistent gaps across semesters deserve attention.",
+      "2. Check whether any gap is concentrated in specific colleges before drawing campus-wide conclusions.",
+      "3. Suggested action: if a gap persists, review whether advising and support services reach both groups equally."
+    ].join("\n"),
+    hardestCard: [
+      "1. Subjects at the top of the list combine many failures with a high failure rate; these are the first candidates for intervention.",
+      "2. Look for patterns across the list, such as several math or foundation subjects, which would point to a shared prerequisite gap.",
+      "3. Suggested action: offer review sessions or remedial support for the top subjects before the next enrollment period."
+    ].join("\n"),
+    _default: [
+      "1. Compare the largest and smallest values on this chart to find where attention is needed first.",
+      "2. Check whether the pattern holds across semesters before treating it as a trend.",
+      "3. Suggested action: share the main finding with the relevant deans and agree on a follow-up."
+    ].join("\n"),
+  };
+  /* Rule-based insight written from the data the chart already loaded from Python
+     (insight-engine.js). Used instead of the AI service, which isn't available. */
+  function applyEngine() {
+    const txt = window.InsightEngine && window.InsightEngine.generate(_card, 'main');
+    if (!txt) return false;
+    textArea.innerText = txt;
+    setDirty(true);
+    setBadge('unsaved', 'Auto-generated from the current chart data (rule-based, no AI). Review, edit, then click Save.');
+    return true;
+  }
+  function applyFallback(prompt) {
+    const m = /Filters:\s*([^\n]+)/.exec(prompt || '');
+    const body = FALLBACK_INSIGHT[_card] || FALLBACK_INSIGHT._default;
+    textArea.innerText =
+      'Temporary sample insight \u2014 the AI service is not connected yet, so this is placeholder text, not an analysis of your data.' +
+      (m ? '\nScope: ' + m[1].trim() : '') + '\n\n' + body;
+    setDirty(true);
+    setBadge('unsaved', 'Temporary placeholder \u2014 AI service unavailable. Edit it, then click Save.');
+  }
   regenBtn?.addEventListener('click', async () => {
     if (!_card || !textArea) return;
+    if (applyEngine()) return;   // real numbers from the loaded chart; skips the unavailable AI call
     const prompt = buildPrompt(_card);
     if (!prompt) {
       setBadge('error', 'Load the chart data first, then regenerate.');
@@ -3436,10 +3546,11 @@ document.addEventListener('DOMContentLoaded', function () {
         setDirty(true);
         setBadge('unsaved', 'AI draft \u2014 review and edit, then click Save to share');
       } else {
-        setBadge('error', 'No response from AI. Try again.');
+        applyFallback(prompt);   // empty response
       }
     } catch (e) {
-      setBadge('error', 'AI error: ' + e.message);
+      console.warn('[insights] AI unavailable, using temporary fallback:', e.message);
+      applyFallback(prompt);
     } finally {
       if (loadEl) loadEl.classList.remove('active');
       textArea.contentEditable = 'true';

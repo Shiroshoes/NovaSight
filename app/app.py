@@ -248,6 +248,31 @@ def add_no_cache_headers(response):
     response.headers['Expires'] = '0'
     return response
 
+# ---------------- Check Password Reuse (live, as-you-type) ----------------
+# Same "is this your current password" check /update-password already makes
+# server-side on submit — exposed here too so the Change Password form can
+# flag it immediately while typing instead of only after a full Save
+# attempt. Called debounced (not on every keystroke) and only once the
+# candidate already passes the format rules client-side (see profile.js).
+# Never reveals anything beyond this one yes/no for the LOGGED-IN user's
+# OWN account, so it exposes no more than /update-password already does.
+@app.route('/check-password-reuse', methods=['POST'])
+def check_password_reuse():
+    if 'user_id' not in session:
+        return jsonify({"same": False}), 401
+
+    data = request.get_json(silent=True) or {}
+    candidate = data.get('password', '')
+    if not candidate:
+        return jsonify({"same": False})
+
+    user = AcadUser.query.get(session['user_id'])
+    if not user:
+        return jsonify({"same": False}), 404
+
+    return jsonify({"same": bool(user.check_password(candidate))})
+
+
 # ---------------- Change Password (generic) ----------------
 @app.route('/update-password', methods=['POST'])
 def update_password():

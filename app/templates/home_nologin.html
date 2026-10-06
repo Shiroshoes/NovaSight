@@ -62,7 +62,10 @@
     <div class="modal-overlay" id="flashModal" style="display:none;">
       <div class="modal-card" id="flashModalCard">
         <button type="button" class="modal-close" id="flashModalClose" aria-label="Close">&times;</button>
+        <div class="modal-icon" id="flashModalIcon" aria-hidden="true"></div>
+        <p class="modal-title" id="flashModalTitle"></p>
         <p class="modal-message" id="flashModalMessage"></p>
+        <button type="button" class="modal-ack" id="flashModalAck">Got it</button>
         <div class="modal-timer"><div class="modal-timer-fill" id="flashModalTimerFill"></div></div>
       </div>
     </div>
@@ -79,41 +82,101 @@
       .modal-card {
         position: relative;
         background: #fff;
-        border-radius: 10px;
-        padding: 28px 24px 18px;
+        border-radius: 14px;
+        border-top: 4px solid transparent;
+        padding: 30px 26px 22px;
         max-width: 380px;
+        display: flex;
+        flex-direction: column;
         align-items: center;
         width: 90%;
-        box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+        box-shadow: 0 16px 40px rgba(0,0,0,0.22);
         overflow: hidden;
         animation: modal-pop 0.2s ease-out;
       }
       @keyframes modal-pop {
-        from { opacity: 0; transform: scale(0.95); }
-        to   { opacity: 1; transform: scale(1); }
+        from { opacity: 0; transform: scale(0.95) translateY(4px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
       }
-      .modal-card.cat-error   { border-top-color: #785a5a; }
+      /* Category identity: a real top accent bar (the color-only version of
+         this never actually rendered — border-top-color with no width/style
+         set is invisible) plus a matching icon badge, so severity reads at
+         a glance instead of only through the message text. */
+      .modal-card.cat-error   { border-top-color: #9b2226; }
       .modal-card.cat-info    { border-top-color: #800000; }
       .modal-card.cat-success { border-top-color: #2fa361; }
+
+      .modal-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 14px;
+        flex-shrink: 0;
+      }
+      .modal-icon svg { width: 26px; height: 26px; }
+      .cat-error   .modal-icon { background: rgba(155, 34, 38, 0.1);  color: #9b2226; }
+      .cat-info    .modal-icon { background: rgba(128, 0, 0, 0.1);    color: #800000; }
+      .cat-success .modal-icon { background: rgba(47, 163, 97, 0.12); color: #2fa361; }
+
+      .modal-title {
+        margin: 0 0 6px;
+        font-family: var(--font-display, inherit);
+        font-size: 1.1rem;
+        font-weight: 700;
+        text-align: center;
+      }
+      .cat-error   .modal-title { color: #9b2226; }
+      .cat-info    .modal-title { color: #800000; }
+      .cat-success .modal-title { color: #2fa361; }
+
       .modal-message {
-        margin: 0 0 18px;
+        margin: 0 0 20px;
         font-size: 0.95rem;
-        line-height: 1.5;
-        color: #333;
+        line-height: 1.55;
+        color: #444;
         text-align: center;
       }
       .modal-close {
         position: absolute;
-        top: 8px;
-        right: 10px;
+        top: 10px;
+        right: 12px;
         background: none;
         border: none;
         font-size: 1.3rem;
         line-height: 1;
         cursor: pointer;
-        color: #888;
+        color: #999;
+        padding: 4px;
+        border-radius: 6px;
+        transition: color .15s ease, background .15s ease;
       }
-      .modal-close:hover { color: #333; }
+      .modal-close:hover { color: #333; background: rgba(0,0,0,0.05); }
+
+      /* The deliberate close button — shown ONLY for cat-error (see the
+         no-auto-dismiss reasoning in the script below). A message as
+         consequential as "you were signed out because your account was
+         deactivated" shouldn't be able to silently time out unread; it
+         needs an action the user actually takes, not just a tiny corner X. */
+      .modal-ack {
+        display: none;
+        width: 100%;
+        padding: 11px 0;
+        border: none;
+        border-radius: 999px;
+        background: #9b2226;
+        color: #fff;
+        font-size: 0.92rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .15s ease, transform .15s ease;
+      }
+      .modal-ack:hover   { background: #7d1b1e; transform: translateY(-1px); }
+      .cat-error .modal-ack { display: block; }
+      .cat-error .modal-timer { display: none; }
+
       .modal-timer {
         position: absolute;
         left: 0;
@@ -129,7 +192,7 @@
         transform-origin: left;
         transition: transform linear;
       }
-      .cat-error   .modal-timer-fill { color: #785a5a; }
+      .cat-error   .modal-timer-fill { color: #9b2226; }
       .cat-info    .modal-timer-fill { color: #800000; }
       .cat-success .modal-timer-fill { color: #2fa361; }
 
@@ -179,12 +242,41 @@
 
         var overlay   = document.getElementById('flashModal');
         var card      = document.getElementById('flashModalCard');
+        var iconEl    = document.getElementById('flashModalIcon');
+        var titleEl   = document.getElementById('flashModalTitle');
         var messageEl = document.getElementById('flashModalMessage');
         var closeBtn  = document.getElementById('flashModalClose');
+        var ackBtn    = document.getElementById('flashModalAck');
         var timerFill = document.getElementById('flashModalTimerFill');
         var DURATION  = 6000; // ms — same idea as adminpage.js's 3000/4000ms auto-hides
         var queue     = messages.slice();
         var closeTimeoutId = null;
+
+        // Icons match the line-stroke style already used for every other
+        // icon on this page (viewBox 24, stroke=currentColor, round caps) —
+        // kept as inline SVG, no icon-font dependency. Title is deliberately
+        // generic per category (not keyed off the message text) since the
+        // SAME 'error' category covers both a simple "Invalid credentials"
+        // typo and "you were signed out" — one icon+label that's honestly
+        // true for both, with the real explanation left to the message below.
+        var CATEGORY = {
+          error: {
+            title: 'Error',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                + '<path d="M10.29 3.86 1.82 18a1.5 1.5 0 0 0 1.3 2.25h17.76a1.5 1.5 0 0 0 1.3-2.25L13.71 3.86a1.5 1.5 0 0 0-2.42 0Z"/>'
+                + '<path d="M12 9v4"/><path d="M12 16.5h.01"/></svg>',
+          },
+          info: {
+            title: 'Notice',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                + '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.5h.01"/></svg>',
+          },
+          success: {
+            title: 'Success',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                + '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 5-5"/></svg>',
+          },
+        };
 
         function showNext() {
           if (!queue.length) {
@@ -193,22 +285,35 @@
           }
           var next = queue.shift();
           var category = next[0] || 'info';
+          if (!CATEGORY[category]) category = 'info';
           var message  = next[1] || '';
+          var cat = CATEGORY[category];
 
           card.classList.remove('cat-error', 'cat-info', 'cat-success');
           card.classList.add('cat-' + category);
+          iconEl.innerHTML = cat.icon;
+          titleEl.textContent = cat.title;
           messageEl.textContent = message;
           overlay.style.display = 'flex';
 
-          // Reset then start the timer bar draining from full to empty.
-          timerFill.style.transition = 'none';
-          timerFill.style.transform = 'scaleX(1)';
-          // Force reflow so the transition below actually animates.
-          void timerFill.offsetWidth;
-          timerFill.style.transition = 'transform ' + DURATION + 'ms linear';
-          timerFill.style.transform = 'scaleX(0)';
-
-          closeTimeoutId = setTimeout(showNext, DURATION);
+          if (category === 'error') {
+            // Deliberately NOT auto-dismissed. This is the path an account
+            // deactivation / forced-logout message takes — letting it vanish
+            // on a timer risks the user never finding out why they got
+            // bounced here. It waits for the "Got it" button (or the X /
+            // overlay click) instead.
+            timerFill.style.transition = 'none';
+            timerFill.style.transform = 'scaleX(1)';
+          } else {
+            // Reset then start the timer bar draining from full to empty.
+            timerFill.style.transition = 'none';
+            timerFill.style.transform = 'scaleX(1)';
+            // Force reflow so the transition below actually animates.
+            void timerFill.offsetWidth;
+            timerFill.style.transition = 'transform ' + DURATION + 'ms linear';
+            timerFill.style.transform = 'scaleX(0)';
+            closeTimeoutId = setTimeout(showNext, DURATION);
+          }
         }
 
         function dismissCurrent() {
@@ -217,6 +322,7 @@
         }
 
         closeBtn.addEventListener('click', dismissCurrent);
+        ackBtn.addEventListener('click', dismissCurrent);
         overlay.addEventListener('click', function (e) {
           if (e.target === overlay) dismissCurrent();
         });

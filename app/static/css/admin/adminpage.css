@@ -470,6 +470,7 @@ header {
 
 }
 .btn:hover { opacity: 0.8; transform: translateY(-2px); }
+.btn:disabled { opacity: .55; cursor: not-allowed; transform: none; pointer-events: none; }
 .blue { background: var(--bg-glow); }
 .blue:hover { background: #c72828; }
 .grey { background: #5A5F78; }
@@ -1159,11 +1160,6 @@ footer{
   .management-card .btn-row .btn, .management-card .spacebtn { flex-basis: 100%; }
 }
 
-/* ── Logout modal: same look as the Profile page ──
-   Only the logout modal; the Reset / Deactivate modals are untouched. */
-#logoutModal .button-group { flex-direction: column; }
-#logoutModal .btn { width: auto; }
-#logoutModal .btn:hover { opacity: 1; transform: none; }
 /* ── Wide screens (sidebar collapsed): give the two cards more room and a softer look ── */
 .management-card, .account-list-card { border-radius: 22px; }
 .account-list-card .account-item { transition: border-color .2s, box-shadow .2s, transform .2s; }
@@ -1171,4 +1167,463 @@ footer{
 @media (min-width: 1500px) {
   .main-scroll > .dashboard-grid > .dashboard-col-left  { flex: 1 1 420px; }
   .main-scroll > .dashboard-grid > .dashboard-col-right { flex: 1.4 1 560px; }
+}
+/* Add User "+" : drawn with CSS bars instead of a text glyph so it is exactly centered
+   in the round button (font metrics made the "+" sit off-center). Also rotates cleanly into an "x". */
+.plus-box .plus-icon {
+  position: relative;
+  display: block;
+  width: 12px;
+  height: 12px;
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  flex: none;
+}
+.plus-box .plus-icon::before,
+.plus-box .plus-icon::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: #fff;
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+.plus-box .plus-icon::before { width: 12px; height: 2px; }
+.plus-box .plus-icon::after  { width: 2px;  height: 12px; }
+.plus-box .plus-icon.rotated { transform: rotate(45deg); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MODERN FLOATING MODALS
+   One design for every popup on this page: confirm dialogs, status toasts
+   and the tutorial video. Markup: .modal-overlay > .modal-card.
+   Tone classes (.tone-brand / .tone-danger / .tone-success) set the accent.
+   Visibility is still driven by the inline display set in adminpage.js.
+   ═══════════════════════════════════════════════════════════════════════ */
+@keyframes m-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes m-pop {
+  from { opacity: 0; transform: translateY(14px) scale(.95); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes m-icon-in {
+  0%   { transform: scale(.4) rotate(-12deg); opacity: 0; }
+  60%  { transform: scale(1.08) rotate(2deg); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes m-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes m-tip { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* Backdrop: dimmed + softly blurred */
+div.modal-overlay[id] {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(28, 12, 14, .46);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  backdrop-filter: blur(10px) saturate(1.15);
+  animation: m-fade .22s ease both;
+}
+
+/* Card */
+.modal-overlay .modal-card.logout-card {
+  all: unset;
+  --m-accent: #800000;
+  --m-soft: #f9ecec;
+  --m-ring: rgba(128, 0, 0, .07);
+  --m-glow: rgba(128, 0, 0, .10);
+  display: block;
+  box-sizing: border-box;
+  position: relative;
+  width: min(420px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 34px 28px 26px;
+  border: 1px solid rgba(128, 0, 0, .07);
+  border-radius: 28px;
+  background:
+    radial-gradient(120% 70% at 50% -10%, var(--m-glow), transparent 60%),
+    #fff;
+  color: #1f1717;
+  text-align: center;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow:
+    0 1px 2px rgba(40, 10, 10, .05),
+    0 14px 28px -10px rgba(60, 20, 20, .20),
+    0 44px 90px -28px rgba(60, 20, 20, .38);
+  animation: m-pop .34s cubic-bezier(.2, .9, .3, 1.15) both;
+}
+.modal-overlay .modal-card.logout-card.tone-danger  { --m-accent: #c0392b; --m-soft: #fdeceb; --m-ring: rgba(192, 57, 43, .08);  --m-glow: rgba(192, 57, 43, .11); }
+.modal-overlay .modal-card.logout-card.tone-success { --m-accent: #15803d; --m-soft: #e8f6ed; --m-ring: rgba(21, 128, 61, .09);  --m-glow: rgba(21, 128, 61, .11); }
+
+/* Icon badge */
+.modal-card .m-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--m-soft);
+  color: var(--m-accent);
+  box-shadow: 0 0 0 8px var(--m-ring);
+  animation: m-icon-in .5s .08s cubic-bezier(.2, .9, .3, 1.2) both;
+}
+.modal-card .m-icon svg { width: 28px; height: 28px; }
+
+.modal-card .m-title {
+  margin: 22px 0 8px;
+  font-family: "Outfit", "Inter", sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+  color: #1a1212;
+}
+.modal-card .m-text {
+  margin: 0;
+  font-size: .95rem;
+  line-height: 1.65;
+  color: #62585a;
+}
+.modal-card .m-text:empty { display: none; }
+.modal-card .m-text:empty + .m-progress { margin-top: 0; }
+
+/* Account chip (name — role) */
+.modal-card .m-chip {
+  display: inline-block;
+  max-width: 100%;
+  margin: 16px 0 0;
+  padding: 8px 16px;
+  border: 1px solid #efe6e6;
+  border-radius: 999px;
+  background: #faf6f6;
+  color: #2b1f20;
+  font-size: .88rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.modal-card .m-chip:empty { display: none; }
+
+/* Password field (reset modal) */
+.modal-card .m-field { margin-top: 20px; text-align: left; }
+.modal-card .m-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: .8rem;
+  font-weight: 600;
+  color: #62585a;
+}
+.modal-card .m-input-wrap { position: relative; }
+.modal-card .m-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px 46px 13px 16px;
+  border: 1.5px solid #e6dede;
+  border-radius: 14px;
+  background: #faf8f8;
+  color: #1f1717;
+  font: inherit;
+  font-size: .95rem;
+  outline: none;
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.modal-card .m-input::placeholder { color: #a39a9c; }
+.modal-card .m-input:focus {
+  border-color: #800000;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(128, 0, 0, .12);
+}
+.modal-card .m-eye {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: #8b8183;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.modal-card .m-eye:hover { background: rgba(128, 0, 0, .07); color: #800000; }
+.modal-card .m-eye-ico { width: 19px; height: 19px; }
+.modal-card .m-error {
+  display: none;               /* adminpage.js switches this to block when needed */
+  margin: 9px 2px 0;
+  font-size: .83rem;
+  line-height: 1.45;
+  color: #c0392b;
+}
+
+/* Buttons */
+.modal-card .m-actions { display: flex; gap: 10px; margin-top: 26px; }
+.modal-card .mbtn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 13px 18px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  font: inherit;
+  font-size: .95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease, opacity .18s ease;
+}
+.modal-card .mbtn:active { transform: translateY(1px) scale(.99); }
+.modal-card .mbtn:focus-visible { outline: 3px solid rgba(128, 0, 0, .35); outline-offset: 2px; }
+.modal-card .mbtn:disabled { opacity: .65; cursor: not-allowed; transform: none; }
+
+.modal-card .mbtn-ghost { background: #fff; border-color: #e6dede; color: #3a2d2f; }
+.modal-card .mbtn-ghost:hover { background: #faf6f6; border-color: #d9cdcf; }
+
+.modal-card .mbtn-primary { background: #800000; color: #fff; box-shadow: 0 10px 20px -10px rgba(128, 0, 0, .65); }
+.modal-card .mbtn-primary:hover { background: #9a1414; transform: translateY(-1px); box-shadow: 0 14px 24px -10px rgba(128, 0, 0, .7); }
+.modal-card .mbtn-danger  { background: #c0392b; color: #fff; box-shadow: 0 10px 20px -10px rgba(192, 57, 43, .7); }
+.modal-card .mbtn-danger:hover  { background: #a93226; transform: translateY(-1px); box-shadow: 0 14px 24px -10px rgba(192, 57, 43, .75); }
+.modal-card .mbtn-success { background: #15803d; color: #fff; box-shadow: 0 10px 20px -10px rgba(21, 128, 61, .65); }
+.modal-card .mbtn-success:hover { background: #126a33; transform: translateY(-1px); box-shadow: 0 14px 24px -10px rgba(21, 128, 61, .7); }
+.modal-card .mbtn-danger:focus-visible  { outline-color: rgba(192, 57, 43, .4); }
+.modal-card .mbtn-success:focus-visible { outline-color: rgba(21, 128, 61, .4); }
+
+/* Close "x" (reset-success modal) */
+.modal-overlay .modal-close-x {
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  background: #f6f1f1;
+  color: #7d7274;
+  font-size: 20px;
+}
+.modal-overlay .modal-close-x:hover { background: #eadede; color: #3a2d2f; }
+
+/* Auto-close countdown bar (toast-style modals) */
+.modal-card .m-progress {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+  background: rgba(0, 0, 0, .05);
+  overflow: hidden;
+}
+.modal-card .m-progress::after {
+  content: "";
+  display: block;
+  height: 100%;
+  background: var(--m-accent);
+  transform-origin: left center;
+  animation: m-countdown var(--m-dur, 4s) linear forwards;
+}
+#accountCreatedModal { --m-dur: 3s; }
+#accountErrorModal   { --m-dur: 4s; }
+#resetSuccessModal   { --m-dur: 2.5s; }
+#resetErrorModal     { --m-dur: 4s; }
+/* toast-style cards get a little extra room above the bar */
+.modal-card:has(> .m-progress) { padding-bottom: 32px; }
+
+/* Input-hint tooltip (created in adminpage.js) */
+.admin-input-tip { animation: m-tip .18s ease both; }
+
+/* Page tutorial video modal — visual restyle only (layout stays as defined in
+   page-video-modal.css). */
+div.page-tutorial-overlay[id] {
+  background: rgba(28, 12, 14, .55);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  backdrop-filter: blur(10px) saturate(1.15);
+  animation: m-fade .22s ease both;
+}
+.page-tutorial-overlay .page-tutorial-card {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 26px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(40, 10, 10, .05), 0 44px 90px -24px rgba(0, 0, 0, .6);
+  animation: m-pop .34s cubic-bezier(.2, .9, .3, 1.15) both;
+}
+.page-tutorial-overlay .page-tutorial-header { background: #fff; border-bottom: 1px solid #f0e8e8; }
+.page-tutorial-overlay .page-tutorial-title {
+  font-family: "Outfit", "Inter", sans-serif;
+  font-weight: 700;
+  color: #1a1212;
+}
+.page-tutorial-overlay .page-tutorial-close {
+  border-radius: 50%;
+  background: #f6f1f1;
+  color: #7d7274;
+  transition: background .15s ease, color .15s ease, transform .2s ease;
+}
+.page-tutorial-overlay .page-tutorial-close:hover { background: #800000; color: #fff; transform: rotate(90deg); }
+
+/* Small screens: stack the buttons, tighten padding */
+@media (max-width: 480px) {
+  .modal-overlay .modal-card.logout-card { padding: 28px 20px 22px; border-radius: 24px; }
+  .modal-card .m-actions { flex-direction: column-reverse; }
+}
+@media (prefers-reduced-motion: reduce) {
+  div.modal-overlay[id], .modal-overlay .modal-card.logout-card, .modal-card .m-icon,
+  div.page-tutorial-overlay[id], .page-tutorial-overlay .page-tutorial-card, .admin-input-tip { animation: none; }
+  .modal-card .m-progress::after { animation-duration: 0.01s; }
+  .modal-card .mbtn, .modal-card .m-input { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MINIMALIST LAYER — flat, quiet, maroon used only as an accent.
+   Append-only: original rules above are untouched, markup/ids/JS unchanged.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root { --ink: #1f1a1a; --muted: #7a7273; --line: #ece7e1; --maroon: #800000; --maroon-hi: #9a1414; --ease: cubic-bezier(.22, 1, .36, 1); }
+
+@keyframes mn-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+body { background: #faf9f7; }
+
+/* header */
+.admin-head h2 { color: var(--ink); font-weight: 600; letter-spacing: -.01em; }
+.admin-head p  { color: var(--muted); }
+.admin-sticky .userbar-tutorial { transition: background .2s ease, color .2s ease, border-color .2s ease; }
+
+/* cards: flat, hairline border, no shadow */
+.card, .account-list-card, .management-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: none;
+}
+.account-list-card, .management-card { animation: mn-in .45s var(--ease) both; }
+.dashboard-col-left > .card:nth-child(2) { animation-delay: .06s; }
+.dashboard-col-right > .card            { animation-delay: .03s; }
+
+.blue-title, .management-card .blue-title { font-weight: 600; color: var(--ink); }
+.card-hr, .account-list-card .card-hr, .management-card .card-hr { background: var(--line); height: 1px; border: 0; }
+
+/* portal header: no tint block, just a quiet icon */
+.portal-head { border-bottom: 1px solid var(--line); }
+.portal-icon { width: 36px; height: 36px; border-radius: 10px; background: transparent; border: 1px solid var(--line); color: var(--maroon); }
+.portal-icon svg { width: 18px; height: 18px; color: var(--maroon); }
+.portal-head h3 { font-weight: 600; color: var(--ink); }
+.portal-head p  { color: var(--muted); }
+
+/* account list: plain rows separated by hairlines */
+.account-list-card .account-item {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  margin-top: 0;
+  padding: 12px 4px;
+  transition: background .2s ease;
+}
+.account-list-card .account-item:last-child { border-bottom: 0; }
+.account-list-card .account-item:hover { background: #fbfaf8; box-shadow: none; transform: none; border-color: var(--line); }
+.account-list-card .account-item { animation: mn-in .4s var(--ease) backwards; }
+.account-list-card .account-item:nth-of-type(1) { animation-delay: .05s; }
+.account-list-card .account-item:nth-of-type(2) { animation-delay: .09s; }
+.account-list-card .account-item:nth-of-type(3) { animation-delay: .13s; }
+.account-list-card .account-item:nth-of-type(4) { animation-delay: .17s; }
+.account-list-card .account-item:nth-of-type(n+5) { animation-delay: .21s; }
+
+/* edit: text-style button */
+.account-list-card .edit-btn { padding: 4px 8px; border-radius: 8px; color: var(--muted); transition: color .2s ease, background .2s ease; }
+.account-list-card .edit-btn:hover { color: var(--maroon); background: #f6eded; }
+.btn-edit-label { font-size: .85rem; }
+
+/* Add User row: outlined, no fill */
+.management-card .add-header { background: transparent; border: 1px solid var(--line); border-radius: 10px; transition: border-color .2s ease; }
+.management-card .add-header:hover { background: transparent; border-color: #d9cfc6; }
+.management-card .add-header .plus-box { width: 24px; height: 24px; background: var(--maroon); transition: transform .3s var(--ease); }
+.management-card .add-header:hover .plus-box { background: var(--maroon); transform: rotate(90deg); }
+
+/* slide panels: simple, quick */
+.management-card .slide-hidden { transition: max-height .4s var(--ease), opacity .3s ease, margin .3s ease; }
+
+/* inputs: flat, maroon focus line, no glow */
+.management-card .form-group input,
+.management-card .role-selector { background: #fff; border: 1px solid var(--line); border-radius: 8px; transition: border-color .2s ease; }
+.management-card .form-group input:hover,
+.management-card .role-selector:hover { border-color: #d9cfc6; }
+.management-card .form-group input:focus,
+.management-card .role-selector:focus { background: #fff; border-color: var(--maroon); box-shadow: none; }
+.management-card .form-group label { color: var(--muted); font-weight: 500; }
+.management-card .form-group input[readonly] { background: #faf9f7 !important; }
+
+/* buttons: flat maroon / outlined, no gradient, no lift */
+.management-card .btn-row .btn,
+.management-card .password-wrapper > .generateBtn { border-radius: 8px; box-shadow: none; transition: background .2s ease, color .2s ease, border-color .2s ease; }
+.management-card .btn.blue,
+.management-card .password-wrapper > .generateBtn { background: var(--maroon); }
+.management-card .btn.blue:hover,
+.management-card .password-wrapper > .generateBtn:hover { background: var(--maroon-hi); transform: none; box-shadow: none; }
+.management-card .btn.grey { border: 1px solid var(--line); color: var(--muted); }
+.management-card .btn.grey:hover { background: #faf9f7; color: var(--ink); }
+.management-card .btn:active { transform: scale(.98); }
+.management-card .btn:focus-visible { outline: 2px solid var(--maroon); outline-offset: 2px; }
+
+/* modals: quieter shadow, flat primary button */
+.modal-overlay .modal-card.logout-card { border-radius: 20px; box-shadow: 0 24px 60px -24px rgba(0,0,0,.35); }
+.modal-card .mbtn-primary { background: var(--maroon); box-shadow: none; }
+.modal-card .mbtn-primary:hover { background: var(--maroon-hi); transform: none; box-shadow: none; }
+.modal-card .mbtn-danger, .modal-card .mbtn-success { box-shadow: none; }
+.modal-card .mbtn-danger:hover, .modal-card .mbtn-success:hover { transform: none; box-shadow: none; }
+
+/* scrollbar */
+.main-scroll { scrollbar-width: thin; scrollbar-color: #d9d2ca transparent; }
+
+/* ═══ Skeleton loading (minimal) ═══ */
+@keyframes sk-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+@keyframes sk-out     { to { opacity: 0; } }
+@keyframes sk-in      { from { opacity: 0; } to { opacity: 1; } }
+
+.sk,
+html.is-loading .admin-head h2,
+html.is-loading .admin-head p {
+  background: linear-gradient(90deg, #f1eeea 25%, #f9f7f4 37%, #f1eeea 63%);
+  background-size: 400% 100%;
+  animation: sk-shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+}
+html.is-loading .admin-head h2 { color: transparent; max-width: 320px; width: 100%; min-height: 1.5rem; }
+html.is-loading .admin-head p  { color: transparent; max-width: 260px; width: 100%; min-height: .9rem; margin-top: 8px; }
+html.is-loading .admin-actions { opacity: .4; pointer-events: none; }
+html.is-loading .main-scroll > .dashboard-grid:not(.sk-grid) { display: none; }
+
+.sk-grid { animation: sk-in .25s ease both; pointer-events: none; user-select: none; }
+.sk-grid.sk-leaving { animation: sk-out .22s ease forwards; }
+.sk-card { box-sizing: border-box; padding: 25px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+.sk-card::before { display: none; }
+.sk-col { display: flex; flex-direction: column; gap: 24px; }
+.sk-line   { height: 11px; }
+.sk-title  { height: 16px; width: 36%; margin-bottom: 16px; }
+.sk-circle { width: 32px; height: 32px; border-radius: 50%; flex: none; }
+.sk-pill   { height: 24px; width: 54px; border-radius: 8px; flex: none; }
+.sk-rule   { height: 1px; background: var(--line); margin: 0; }
+.sk-row { display: flex; align-items: center; gap: 12px; margin: 0; padding: 12px 4px; background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+.sk-row:last-child { border-bottom: 0; }
+.sk-row .sk-text { flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.sk-row .sk-line:first-child { width: 55%; }
+.sk-row .sk-line:last-child  { width: 28%; height: 8px; }
+.sk-portal { display: flex; align-items: center; gap: 14px; margin: -25px -25px 22px; padding: 20px 26px 16px; border-bottom: 1px solid var(--line); }
+.sk-portal .sk-icon { width: 36px; height: 36px; border-radius: 10px; flex: none; }
+.sk-portal .sk-text { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.sk-portal .sk-line:first-child { width: 40%; height: 13px; }
+.sk-portal .sk-line:last-child  { width: 60%; height: 9px; }
+.sk-add { height: 48px; border-radius: 10px; margin-top: 10px; }
+@media (max-width: 760px) { .sk-col { gap: 16px; } .sk-card { padding: 18px; } .sk-portal { margin: -18px -18px 18px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .account-list-card, .management-card, .account-list-card .account-item,
+  .sk, .sk-grid, .sk-grid.sk-leaving,
+  html.is-loading .admin-head h2, html.is-loading .admin-head p { animation: none !important; }
+  .sk, html.is-loading .admin-head h2, html.is-loading .admin-head p { background: #f1eeea; }
 }

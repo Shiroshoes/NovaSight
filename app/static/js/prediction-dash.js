@@ -499,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* -- State (each card keeps its own applied filters, like the main dashboard) -- */
 let META = null;
-const seq = { kpi: 0, hs: 0, gwa: 0, risk: 0, kt: 0, et: 0 };      // drop stale async responses
+const seq = { kpi: 0, hs: 0, gwa: 0, risk: 0, kt: 0, et: 0, wl: 0 };      // drop stale async responses
 const blank = () => ({ dept:'', course:'', yl:'' });
 let KF  = blank();                                            // KPI
 let HSF = { ...blank(), horizon:'', subject:'', top:'10' };   // Hardest subjects
@@ -1235,7 +1235,141 @@ function unavailable(meta) {
   ['hsBarArea','hsCardsArea','hsTrendArea','gwaArea','riskArea','kpiTrendArea','enrollTrendArea'].forEach(a => empty(a, meta?.reason || 'No prediction model yet.'));
   ['hsBarArea','gwaArea','riskArea','kpiTrendArea','enrollTrendArea'].forEach(a => $(a)?.classList.remove('clickable'));
 }
-function refreshAll() { loadKpi(); loadEnrollTrend(); loadKpiTrend(); loadHardest(); loadGwa(); loadRisk(); }
+/* -- At-Risk Student Watchlist ---------------------------------------------
+   The ONLY card reading at_risk_classifier / gwa_regression /
+   completion_rate_forecast's output (via /api/pred/watchlist, which serves
+   the student_risk_watchlist.pkl bundle auto_train.py now builds from
+   them). Every other card above reads pred_cube.pkl / pred_subjects.pkl,
+   which only ever give college/course/subject-level aggregate trends —
+   this is the one place that answers "which specific students", not just
+   "which group is trending worse". This card's HTML isn't part of this
+   change (same situation as the main dashboard's Performance Trend), so
+   it's built + styled here in JS rather than assumed to already exist. */
+let wlData = null;
+let wlSortBy = 'risk';
+let wlOnlyAtRisk = false;
+
+function _ensureWatchlistCard() {
+  let card = $('watchlistCard');
+  if (card) return card;
+  const anchor = $('riskCard');
+  if (!anchor) return null;   // this page doesn't ship the Risk card either — nothing to anchor to
+
+  if (!$('watchlistCardStyle')) {
+    const style = document.createElement('style');
+    style.id = 'watchlistCardStyle';
+    style.textContent = `
+      #watchlistCard { margin-top: 18px; }
+      .wl-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+      .wl-title { font-weight:700; font-size:14px; color:#1e293b; }
+      .wl-controls { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+      .wl-btn { font-size:11px; padding:4px 10px; border-radius:999px; border:1px solid #e2e8f0; background:#fff; color:#475569; cursor:pointer; }
+      .wl-btn.active { background:#7B1113; border-color:#7B1113; color:#fff; }
+      .wl-toggle { font-size:11px; color:#475569; display:flex; align-items:center; gap:4px; }
+      .wl-table-wrap { max-height: 420px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; }
+      table.wl-table { width:100%; border-collapse:collapse; font-size:12px; }
+      table.wl-table th { position:sticky; top:0; background:#f8fafc; text-align:left; padding:8px 10px; font-weight:600; color:#475569; border-bottom:1px solid #e2e8f0; z-index:1; }
+      table.wl-table td { padding:7px 10px; border-bottom:1px solid #f1f5f9; }
+      table.wl-table tr:hover { background:#f8fafc; }
+      .wl-risk-pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+      .wl-risk-high { background:#fee2e2; color:#991b1b; }
+      .wl-risk-low  { background:#dcfce7; color:#166534; }
+      .wl-summary { font-size:12px; color:#475569; margin-bottom:8px; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  card = document.createElement('div');
+  card.id = 'watchlistCard';
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="wl-header">
+      <div class="wl-title">At-Risk Student Watchlist — next semester</div>
+      <div class="wl-controls">
+        <button type="button" class="wl-btn active" data-wl-sort="risk">By Risk</button>
+        <button type="button" class="wl-btn" data-wl-sort="gwa">By GWA</button>
+        <button type="button" class="wl-btn" data-wl-sort="completion">By Completion</button>
+        <label class="wl-toggle"><input type="checkbox" id="wlOnlyAtRisk"> At-risk only</label>
+      </div>
+    </div>
+    <div class="wl-summary" id="wlSummary"></div>
+    <div id="wlArea"></div>`;
+  anchor.insertAdjacentElement('afterend', card);
+
+  card.querySelectorAll('[data-wl-sort]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      card.querySelectorAll('[data-wl-sort]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      wlSortBy = btn.dataset.wlSort;
+      loadWatchlist();
+    });
+  });
+  $('wlOnlyAtRisk')?.addEventListener('change', (e) => {
+    wlOnlyAtRisk = e.target.checked;
+    loadWatchlist();
+  });
+
+  return card;
+}
+
+async function loadWatchlist() {
+  // The "At-Risk Student Watchlist — next semester" card has been removed from the page.
+  // Kept as a no-op so the existing loadWatchlist() calls elsewhere keep working and the card is never built.
+  return;
+  // eslint-disable-next-line no-unreachable
+  const card = _ensureWatchlistCard();
+  if (!card) return;
+  const id = ++seq.wl;
+  skOn('watchlistCard');
+  loading('wlArea');
+  try {
+    const d = await api('/watchlist', {
+      ...scopeOf(RF), sort_by: wlSortBy, only_at_risk: wlOnlyAtRisk ? 1 : 0, top: 25,
+    });
+    if (id !== seq.wl) return;
+    if (d.available === false) { wlData = null; return empty('wlArea', d.reason); }
+    wlData = d;
+    const sum = $('wlSummary');
+    if (sum) sum.textContent = `${d.count_at_risk} of ${d.total_students} currently-enrolled `
+      + `students flagged at risk for ${esc(d.term)} \u00b7 showing ${d.count}`;
+    renderWatchlist();
+  } catch (e) {
+    if (id !== seq.wl) return;
+    console.error(e); wlData = null; empty('wlArea', 'Could not load the student risk watchlist.');
+  } finally {
+    skDone('watchlistCard');
+  }
+}
+
+function renderWatchlist() {
+  const area = $('wlArea');
+  if (!area) return;
+  if (!wlData?.students?.length) { empty('wlArea', 'No students match this filter.'); return; }
+  const rows = wlData.students.map(s => `
+    <tr>
+      <td>${esc(s.student_id)}</td>
+      <td>${esc(s.college)}</td>
+      <td>${esc(s.course_short || s.course)}</td>
+      <td>${esc(String(s.year_level))}</td>
+      <td>${s.current_gwa != null ? s.current_gwa.toFixed(2) : '\u2014'}</td>
+      <td>${s.predicted_gwa_next.toFixed(2)}</td>
+      <td>${s.predicted_completion_rate_next.toFixed(1)}%</td>
+      <td><span class="wl-risk-pill ${s.predicted_at_risk ? 'wl-risk-high' : 'wl-risk-low'}">${Math.round(s.predicted_at_risk_proba * 100)}%</span></td>
+    </tr>`).join('');
+  area.innerHTML = `
+    <div class="wl-table-wrap">
+      <table class="wl-table">
+        <thead><tr>
+          <th>Student</th><th>College</th><th>Course</th><th>Yr</th>
+          <th>Current GWA</th><th>Predicted GWA (next)</th><th>Predicted Completion (next)</th><th>Risk</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+
+function refreshAll() { loadKpi(); loadEnrollTrend(); loadKpiTrend(); loadHardest(); loadGwa(); loadRisk(); loadWatchlist(); }
 
 let hsModal = null;
 function wire() {
@@ -1261,6 +1395,7 @@ function wire() {
   $('riskBtnApply')?.addEventListener('click', () => {
     RF = { ...readScope('risk'), horizon: $('riskHorizon').value, history: $('riskHistory').checked };
     loadRisk();
+    loadWatchlist();   // shares RF's dept/course/year_level scope with the Risk card
   });
   $('ktBtnApply')?.addEventListener('click', () => {
     KTF = { ...readScope('kt'), horizon: $('ktHorizon').value, history: $('ktHistory').checked };
@@ -1286,7 +1421,7 @@ function wire() {
   $('riskBtnReset')?.addEventListener('click', () => {
     RF = { ...blank(), horizon: maxH, history: true }; riskMetric = 'FAILED';
     writeScope('risk', RF); $('riskHorizon').value = maxH; $('riskHistory').checked = true;
-    syncBtns('[data-risk-metric]', 'riskMetric', 'FAILED'); loadRisk(); });
+    syncBtns('[data-risk-metric]', 'riskMetric', 'FAILED'); loadRisk(); loadWatchlist(); });
   $('ktBtnReset')?.addEventListener('click', () => {
     KTF = { ...blank(), horizon: maxH, history: true }; ktMetric = 'FAILED';
     writeScope('kt', KTF); $('ktHorizon').value = maxH; $('ktHistory').checked = true;
@@ -1505,7 +1640,7 @@ document.addEventListener('click', e => {
   ['kpi','hs','gwa','risk','kpiTrend','enrollTrend'].forEach(p => { const el = document.getElementById(p + 'Compare'); if (el) el.value = v; });
   document.querySelectorAll('[data-kt-compare]').forEach(x => x.classList.toggle('active', x.dataset.ktCompare === v));
   document.querySelectorAll('[data-et-compare]').forEach(x => x.classList.toggle('active', x.dataset.etCompare === v));
-  setTimeout(() => { loadKpi(); loadHardest(); loadGwa(); loadRisk(); loadKpiTrend(); loadEnrollTrend(); }, 60);
+  setTimeout(() => { loadKpi(); loadHardest(); loadGwa(); loadRisk(); loadKpiTrend(); loadEnrollTrend(); loadWatchlist(); }, 60);
 }, true);
 
 /* -- data handed to the Insights modal (it lives outside this closure) ---- */
@@ -1540,7 +1675,9 @@ document.addEventListener('DOMContentLoaded', initDashboard);
   </svg>`;
 
   const CARD_CANVAS = { kpiTrendCard:['kpiTrendChart'], enrollTrendCard:['enrollTrendChart'], gwaCard:['gwaTrendChart'], riskCard:['atRiskChart'], hardestCard:['hsBarCanvas','hsTrendCanvas'] };
-  const CARD_TITLES = { kpiCard:'KPI Forecast', kpiTrendCard:'Status Trend Forecast', enrollTrendCard:'Enrollment Trend Forecast', gwaCard:'GWA Trend Forecast', riskCard:'At-Risk Forecast', hardestCard:'Hardest Subjects' };
+  const CARD_TITLES = { kpiCard:'KPI Forecast', kpiTrendCard:'Status Trend Forecast', enrollTrendCard:'Enrollment Trend Forecast', gwaCard:'GWA Trend Forecast', riskCard:'At-Risk Forecast', hardestCard:'Hardest Subjects', watchlistCard:'At-Risk Student Watchlist' };
+  // watchlistCard has no entry in CARD_CANVAS on purpose — it's a table, not a Chart.js canvas, so the
+  // PNG-download flow (which iterates CARD_CANVAS[cardId]) correctly has nothing to export for it.
 
   // Confirmation modal
   const confirmModal = document.createElement('div');
@@ -1675,6 +1812,18 @@ document.addEventListener('DOMContentLoaded', function () {
   function setBadge(cls, txt) { if (!badge) return; badge.textContent = txt; badge.className = 'ai-save-badge' + (cls ? ' ' + cls : ''); }
   const subOf = id => document.querySelector('#' + id + ' .card-subtitle')?.textContent || '';
 
+  /* No AI call anymore, so hide the "Generating insights…" indicator wherever the template puts it. */
+  function hideSpinner() {
+    if (loadEl) { loadEl.classList.remove('active'); loadEl.style.display = 'none'; }
+    modal.querySelectorAll('*').forEach(el => {
+      if (el === textArea || textArea.contains(el) || el.contains(textArea)) return;
+      if (/^\s*generating insights/i.test(el.textContent || '') && (el.textContent || '').length < 60) {
+        let t = el; while (t.parentElement && t.parentElement !== modal && (t.parentElement.textContent || '').trim() === (el.textContent || '').trim()) t = t.parentElement;
+        t.style.display = 'none';
+      }
+    });
+  }
+  hideSpinner();
   async function loadInsight(id) {
     try { const r = await fetch('/api/dash/insights?chart_key=' + id + '&dashboard=' + DASH + '&filters=' + encodeURIComponent(JSON.stringify(filtersOf(id)))); if (!r.ok) return null; const d = await r.json(); return d.found ? d : null; }
     catch { return null; }
@@ -1699,9 +1848,8 @@ document.addEventListener('DOMContentLoaded', function () {
     setBadge('', '');
     textArea.textContent = ''; textArea.contentEditable = 'true';
     modal.classList.remove('hidden');
-    loadEl?.classList.add('active');
+    try { hideSpinner(); } catch (e) {}
     const saved = await loadInsight(id);
-    loadEl?.classList.remove('active');
     if (saved?.insight_text) {
       _savedText = saved.insight_text; textArea.innerText = saved.insight_text;
       setBadge('saved', 'Saved \u2014 visible to all users');
@@ -1740,8 +1888,68 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     return null;
   }
+  /* TEMPORARY fallback: the AI service (/api/dash/insights/generate) is not available, so a hard-coded
+     sample insight is shown instead. It says so explicitly and contains no real figures. Remove this
+     block (and the applyFallback() calls) once the AI endpoint exists. */
+  const FALLBACK_INSIGHT = {
+    kpiCard: [
+      "1. Compare the forecast enrollment, GWA and at-risk figures with the last recorded semester to see the direction of change.",
+      "2. A forecast at-risk count that rises faster than enrollment suggests more students will need support next term.",
+      "3. Suggested action: use these projections for early planning of advising capacity and subject sections, and re-check once actual data is uploaded."
+    ].join("\n"),
+    kpiTrendCard: [
+      "1. Focus on groups whose forecast line moves against the overall direction; they are the likeliest to need attention.",
+      "2. Forecasts get less certain further out, so give more weight to the next semester than to later points.",
+      "3. Suggested action: flag the groups with rising projections to their deans now, while there is time to prepare."
+    ].join("\n"),
+    enrollTrendCard: [
+      "1. Compare the projected direction of total enrollment with the regular/irregular mix to see where change is expected.",
+      "2. A projected rise in irregular students can signal more back subjects and larger classes in required courses.",
+      "3. Suggested action: use the projection when planning sections and faculty load, and revisit it when new actuals arrive."
+    ].join("\n"),
+    hardestCard: [
+      "1. The subjects at the top are projected to have the most failures next semester, so they are the first candidates for support.",
+      "2. Check the change against the last recorded offering; subjects getting harder deserve earlier action than stable ones.",
+      "3. Suggested action: prepare tutoring or review sessions for the top subjects before the term starts."
+    ].join("\n"),
+    gwaCard: [
+      "1. Remember that on the Philippine scale a lower GWA is better, so a rising line means performance is projected to worsen.",
+      "2. Compare groups against each other; the ones moving toward 3.00 or higher are the ones to look at first.",
+      "3. Suggested action: arrange advising or academic support for projected decliners before the term begins."
+    ].join("\n"),
+    riskCard: [
+      "1. The groups with the highest projected at-risk counts are where support should be planned first.",
+      "2. Compare the projection with the last recorded semester to see whether risk is expected to grow or ease.",
+      "3. Suggested action: line up advising, tutoring and early-warning checks for these groups ahead of the term."
+    ].join("\n"),
+    _default: [
+      "1. Compare the highest and lowest projected values to see where attention is needed first.",
+      "2. Treat later forecast points with caution; they are less certain than the next semester.",
+      "3. Suggested action: share the main projection with the relevant deans and plan around it."
+    ].join("\n"),
+  };
+  /* Rule-based insight written from the forecast data the chart already loaded from Python
+     (insight-engine.js). Used instead of the AI service, which isn't available. */
+  function applyEngine() {
+    const txt = window.InsightEngine && window.InsightEngine.generate(_card, 'pred');
+    if (!txt) return false;
+    textArea.innerText = txt;
+    setDirty(true);
+    setBadge('unsaved', 'Auto-generated from the current forecast data (rule-based, no AI). Review, edit, then click Save.');
+    return true;
+  }
+  function applyFallback(prompt) {
+    const m = /Filters:\s*([^\n]+)/.exec(prompt || '');
+    const body = FALLBACK_INSIGHT[_card] || FALLBACK_INSIGHT._default;
+    textArea.innerText =
+      'Temporary sample insight \u2014 the AI service is not connected yet, so this is placeholder text, not an analysis of your data.' +
+      (m ? '\nScope: ' + m[1].trim() : '') + '\n\n' + body;
+    setDirty(true);
+    setBadge('unsaved', 'Temporary placeholder \u2014 AI service unavailable. Edit it, then click Save.');
+  }
   regenBtn?.addEventListener('click', async () => {
     if (!_card) return;
+    if (applyEngine()) return;   // real numbers from the loaded chart; skips the unavailable AI call
     const prompt = buildPrompt(_card);
     if (!prompt) { setBadge('error', 'Load the chart data first, then regenerate.'); return; }
     loadEl?.classList.add('active'); textArea.contentEditable = 'false'; regenBtn.disabled = true;
@@ -1752,8 +1960,8 @@ document.addEventListener('DOMContentLoaded', function () {
       if (data.error) throw new Error(data.error);
       const text = (data.text || '').trim();
       if (text) { textArea.innerText = text; setDirty(true); setBadge('unsaved', 'AI draft \u2014 review and edit, then click Save to share'); }
-      else setBadge('error', 'No response from AI. Try again.');
-    } catch (e) { setBadge('error', 'AI error: ' + e.message); }
+      else applyFallback(prompt);   // empty response
+    } catch (e) { console.warn('[insights] AI unavailable, using temporary fallback:', e.message); applyFallback(prompt); }
     finally { loadEl?.classList.remove('active'); textArea.contentEditable = 'true'; regenBtn.disabled = false; }
   });
 

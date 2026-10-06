@@ -352,3 +352,255 @@ body {
 @media (prefers-reduced-motion: reduce) {
     .brand, .login-btn, .top-links a, .input-field input { transition: none; }
 }
+/* ── Help Center popup (opens on the login page) ───────────── */
+body.modal-open { overflow: hidden; }
+
+.info-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(10px, 3vw, 36px);
+    background: rgba(20, 8, 8, 0.66);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s;
+}
+.info-modal.is-open { opacity: 1; visibility: visible; }
+
+.info-modal-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(760px, 100%);
+    max-height: 100%;
+    overflow: hidden;
+    background: #F6F4F0;
+    border: 1px solid var(--line);
+    border-radius: 26px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+    transform: translateY(18px) scale(0.98);
+    transition: transform 0.3s cubic-bezier(.2, .7, .2, 1);
+}
+.info-modal.is-open .info-modal-panel { transform: none; }
+
+.info-modal-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: clamp(14px, 2.2vw, 24px);
+    display: grid;
+    gap: 18px;
+}
+
+.info-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    border-radius: 50%;
+    background: var(--maroon);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+.info-modal-close svg { display: block; width: 18px; height: 18px; }
+.info-modal-close:hover { background: #9a1414; transform: rotate(90deg); }
+.info-modal-close:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+.info-modal .help-hero {
+    padding: clamp(26px, 4vw, 38px) clamp(64px, 8vw, 84px) clamp(26px, 4vw, 38px) clamp(22px, 4vw, 40px);
+    border-radius: 20px;
+    background: var(--maroon);
+}
+.info-modal .role-badge {
+    display: inline-block;
+    margin-bottom: 12px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+.info-modal .help-hero h2 {
+    margin-bottom: 10px;
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 3.2vw, 2.3rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: #fff;
+}
+.info-modal .help-intro { font-size: 1rem; line-height: 1.7; font-weight: 300; color: rgba(255, 255, 255, 0.9); }
+
+.info-modal .help-section {
+    padding: clamp(20px, 3vw, 28px);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 12px 30px -24px rgba(70, 20, 20, 0.4);
+}
+.info-modal .help-section-tag {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--maroon);
+}
+.info-modal .help-section h3 {
+    margin-bottom: 12px;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111827;
+}
+.info-modal .help-section p,
+.info-modal .help-section li { font-size: 0.97rem; line-height: 1.75; color: #4b5563; }
+.info-modal .help-section p { margin-bottom: 12px; }
+.info-modal .help-section ol { margin: 0 0 12px; padding-left: 1.4rem; }
+.info-modal .help-section li { margin: 6px 0; }
+.info-modal .help-section li::marker { color: var(--maroon); font-weight: 600; }
+.info-modal .help-section strong { color: #111827; font-weight: 600; }
+.info-modal .help-section > :last-child { margin-bottom: 0; }
+.info-modal code {
+    padding: 1px 6px;
+    border: 1px solid #ECE6DF;
+    border-radius: 6px;
+    background: #faf8f5;
+    color: var(--maroon);
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.9em;
+}
+
+.info-modal details {
+    margin-bottom: 10px;
+    overflow: hidden;
+    border: 1px solid #ECE6DF;
+    border-radius: 14px;
+    background: #faf8f5;
+}
+.info-modal details[open] { border-color: var(--maroon); background: #fff; }
+.info-modal summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    list-style: none;
+    cursor: pointer;
+    font-size: 0.97rem;
+    font-weight: 600;
+    color: #111827;
+}
+.info-modal summary::-webkit-details-marker { display: none; }
+.info-modal summary::after { content: "+"; margin-left: 12px; font-size: 1.4rem; font-weight: 400; color: var(--maroon); }
+.info-modal details[open] summary::after { content: "\2212"; }
+.info-modal summary:hover { color: var(--maroon); }
+.info-modal details p { margin: 0; padding: 0 18px 16px; }
+
+.info-modal .help-section.help-callout { background: var(--maroon); border-color: var(--maroon); }
+.info-modal .help-callout .help-section-tag { color: rgba(255, 255, 255, 0.7); }
+.info-modal .help-callout h3 { color: #fff; }
+.info-modal .help-callout p { color: rgba(255, 255, 255, 0.92); }
+.info-modal .email-link { color: #fff; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.info-modal .email-link:hover { text-decoration: none; }
+
+@media (max-width: 560px) {
+    .info-modal { padding: 0; }
+    .info-modal-panel { width: 100%; height: 100%; border-radius: 0; border: none; }
+    .info-modal .help-hero { padding-top: 64px; padding-right: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .info-modal, .info-modal-panel, .info-modal-close { transition: none; }
+}
+
+/* ── Privacy Policy popup extras ───────────────────────────── */
+.info-modal .help-section ul { margin: 0 0 12px; padding-left: 1.4rem; }
+.info-modal .help-policy h3 + p,
+.info-modal .help-policy h3 + ul { margin-top: 0; }
+.info-modal .help-policy h3:not(:first-of-type) {
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid #ECE6DF;
+}
+.info-modal .help-section a.email-link:not(.help-callout a) { color: var(--maroon); }
+.info-modal .help-callout .email-link { color: #fff; }
+.below-card a + br + a, .below-card br + a { display: inline-block; margin-top: 6px; }
+.foot-link { color: #fff; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.foot-link:hover { color: var(--gold); }
+
+/* ── Fit-to-screen (desktop / landscape) ─────────────────────
+   The whole page (top bar, card, details, footer) is sized to the viewport
+   height so nothing scrolls. Sizes scale with the screen height (vh); on very
+   short windows the page falls back to normal scrolling. Narrow screens keep
+   the stacked layout below. */
+@media (min-width: 1001px) and (min-height: 561px) {
+    html, body { height: 100%; overflow: hidden; }
+    body { min-height: 0; }
+    .stage { height: 100vh; min-height: 0; }
+    @supports (height: 100svh) { .stage { height: 100svh; } }
+
+    .topbar { padding: clamp(8px, 2vh, 28px) clamp(20px, 4.5vw, 64px); }
+    .brand-logo { width: clamp(40px, 7vh, 68px); height: clamp(40px, 7vh, 68px); }
+    .brand-text { gap: clamp(2px, 0.5vh, 5px); }
+    .top-links a { padding: clamp(6px, 1.1vh, 10px) 20px; }
+
+    .main {
+        min-height: 0;
+        padding-top: 0;
+        padding-bottom: clamp(8px, 2vh, 28px);
+    }
+
+    /* login card */
+    .card { padding: clamp(14px, 3vh, 40px) clamp(24px, 3vw, 44px); }
+    .chip { margin-bottom: clamp(6px, 1.4vh, 16px); padding: clamp(3px, 0.7vh, 6px) 14px; }
+    .card-head { margin-bottom: clamp(8px, 2.2vh, 26px); }
+    .card-head h2 { font-size: clamp(1.25rem, 3.4vh, 2rem); margin-bottom: clamp(3px, 0.8vh, 8px); }
+    .card-head p { font-size: clamp(0.8rem, 1.7vh, 0.95rem); line-height: 1.45; }
+    .alert { margin-bottom: clamp(8px, 1.6vh, 18px); padding: clamp(7px, 1.2vh, 12px) 16px; }
+    .input-field { margin-bottom: clamp(8px, 1.9vh, 20px); }
+    .input-field label { margin-bottom: clamp(3px, 0.8vh, 8px); }
+    .input-field input { padding: clamp(8px, 1.6vh, 14px) 16px; }
+    .field-hint { margin-top: clamp(3px, 0.7vh, 8px); font-size: clamp(0.72rem, 1.5vh, 0.8rem); }
+    .login-btn { margin-top: 2px; padding: clamp(9px, 1.7vh, 15px); }
+    .card-foot { margin-top: clamp(10px, 2.2vh, 26px); padding-top: clamp(8px, 1.8vh, 20px); font-size: clamp(0.75rem, 1.6vh, 0.85rem); line-height: 1.5; }
+    .below-card { margin-top: clamp(8px, 1.8vh, 22px); font-size: clamp(0.8rem, 1.7vh, 0.95rem); }
+
+    /* details panel */
+    .info-eyebrow { margin-bottom: clamp(4px, 1.1vh, 14px); }
+    .info h2 { font-size: clamp(1.4rem, 4.6vh, 2.7rem); margin-bottom: clamp(6px, 1.2vh, 14px); }
+    .info-lead { margin-bottom: clamp(10px, 2.6vh, 30px); font-size: clamp(0.82rem, 1.9vh, 1.05rem); line-height: 1.55; }
+    .info-list { gap: clamp(8px, 2.1vh, 20px); }
+    .info-list li { gap: clamp(10px, 1.4vw, 16px); }
+    .info-ico { width: clamp(32px, 5vh, 46px); height: clamp(32px, 5vh, 46px); }
+    .info-ico svg { width: clamp(16px, 2.4vh, 22px); height: clamp(16px, 2.4vh, 22px); }
+    .info-list h3 { font-size: clamp(0.92rem, 1.9vh, 1.08rem); margin-bottom: 2px; }
+    .info-list p { font-size: clamp(0.76rem, 1.65vh, 0.93rem); line-height: 1.5; }
+    .info-roles { margin-top: clamp(10px, 2.6vh, 30px); padding-top: clamp(8px, 2vh, 24px); }
+    .info-roles li { padding: clamp(3px, 0.7vh, 6px) 14px; font-size: clamp(0.74rem, 1.55vh, 0.85rem); }
+    .info-note { margin-top: clamp(8px, 1.8vh, 22px); font-size: clamp(0.7rem, 1.45vh, 0.85rem); line-height: 1.5; }
+
+    .foot { padding: clamp(6px, 1.5vh, 18px) clamp(20px, 4.5vw, 64px); font-size: clamp(0.72rem, 1.5vh, 0.85rem); }
+}
+
+/* Short desktop windows (e.g. small laptops): trim the least important text */
+@media (min-width: 1001px) and (min-height: 561px) and (max-height: 760px) {
+    .info-lead { display: none; }
+}
+@media (min-width: 1001px) and (min-height: 561px) and (max-height: 640px) {
+    .info-note { display: none; }
+}

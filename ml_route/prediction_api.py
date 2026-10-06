@@ -3,10 +3,13 @@ ml_route/prediction_api.py — NovaSight Prediction Analysis API
 ===============================================================
 Serves the *prediction-only* dashboard (predictiondashboardAdmin.html +
 static/js/prediction-dash.js). Nothing here reads CSVs or the database: every
-number comes from the two bundles auto_train.py writes —
+number comes from the three bundles auto_train.py writes —
 
-    pred_cube.pkl      College x Course x Year_Level trends  -> KPI, At-Risk, GWA
-    pred_subjects.pkl  ... x Subject_Code trends             -> Top Hardest Subjects
+    pred_cube.pkl               College x Course x Year_Level trends -> KPI, At-Risk, GWA
+    pred_subjects.pkl           ... x Subject_Code trends             -> Top Hardest Subjects
+    student_risk_watchlist.pkl  PER-STUDENT next-semester forecast, built from
+                                 at_risk_classifier / gwa_regression /
+                                 completion_rate_forecast -> At-Risk Student Watchlist
 
 Register once in your app factory:
 
@@ -22,6 +25,8 @@ instead of failing while no bundle exists yet):
     /api/pred/gwa_trend   ?department=&course=&year_level=&horizon=&history=
     /api/pred/hardest     ?metric=&rank_by=rate|grade &top=5|10|15|20|all &subject=&department=
                           &course=&year_level=&horizon=&history=
+    /api/pred/watchlist   ?department=&course=&year_level=&sort_by=risk|gwa|completion
+                          &only_at_risk=&top=10|25|50|all
 
 Horizon rules live in the bundle (compute_horizon in auto_train.py): KPI is always
 1 semester ahead; the other charts get `chart_steps` semesters, which grows as more
@@ -579,4 +584,59 @@ def pred_hardest():
         "lines": {"labels": [_label(t) for t in ts], "predicted": [t > last_t for t in ts],
                   "datasets": [{"label": f"{i['title']} — {course_short(i['course'])}", "code": i["code"],
                                 "data": [pts.get(t) for t in ts]} for i, pts in lines]},
+    })
+
+
+# ── /api/pred/watchlist ─────────────────────────────────────────────────────
+# The ONLY endpoint reading at_risk_classifier / gwa_regression /
+# completion_rate_forecast's output (via the student_risk_watchlist.pkl
+# bundle auto_train.py builds from them) — everything else above reads
+# pred_cube.pkl / pred_subjects.pkl. Per-STUDENT, not per-group: this is
+# the one place the dashboard can answer "which specific students", not
+# just "which college/course/subject is trending worse".
+
+@pred_bp.route("/api/pred/watchlist")
+def pred_watchlist():
+    b = _bundle("student_risk_watchlist.pkl")
+    if b is None:
+        return _unavailable("No student risk watchlist yet — needs at_risk_classifier, "
+                            "gwa_regression and completion_rate_forecast all trained.")
+
+    dept, course, yl = _filters()
+    sort_by = request.args.get("sort_by", "risk")          # risk | gwa | completion
+    only_at_risk = _flag("only_at_risk", False)
+    top = request.args.get("top", "25")
+
+    students = b.get("students", [])
+    if dept:
+        students = [s for s in students if s["college"] == dept]
+    if course:
+        students = [s for s in students if s["course"] == course]
+    if yl is not None:
+        students = [s for s in students if str(s.get("year_level")) == str(yl)]
+    if only_at_risk:
+        students = [s for s in students if s["predicted_at_risk"]]
+
+    key = {
+        "gwa":        lambda s: -s["predicted_gwa_next"],                    # worst = HIGHEST GWA (PH grading 1-5) -> descending
+        "completion": lambda s: s["predicted_completion_rate_next"],         # worst = LOWEST completion -> ascending (no negation)
+    }.get(sort_by, lambda s: -s["predicted_at_risk_proba"])                  # default: highest risk first
+    students = sorted(students, key=key)
+
+    count_at_risk = sum(1 for s in students if s["predicted_at_risk"])
+    if top != "all":
+        try:
+            students = students[:int(top)]
+        except ValueError:
+            students = students[:25]
+
+    return jsonify({
+        "available": True,
+        "term": b.get("term"),
+        "trained_at": b.get("trained_at"),
+        "sort_by": sort_by,
+        "total_students": len(b.get("students", [])),
+        "count_at_risk": count_at_risk,
+        "count": len(students),
+        "students": [{**s, "course_short": course_short(s["course"])} for s in students],
     })

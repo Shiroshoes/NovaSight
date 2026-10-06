@@ -1,0 +1,107 @@
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MINIMAL MOTION + SKELETON LAYER  (append-only — markup, ids and JS untouched)
+   Flat, quiet, maroon only as an accent. Same visual language as the Admin page.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root { --pf-line: #ece7e1; --pf-maroon: #800000; --pf-maroon-hi: #9a1414; --pf-ease: cubic-bezier(.22, 1, .36, 1); }
+
+@keyframes pf-in  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pf-pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+
+/* ── Entrance: header, card, panels, fields ── */
+.profile-sticky .page-head h2        { animation: pf-in .5s var(--pf-ease) both; }
+.profile-sticky .page-head p         { animation: pf-in .5s .06s var(--pf-ease) both; }
+.profile-sticky .userbar-tutorial    { animation: pf-in .5s .12s var(--pf-ease) both; }
+
+.settings-card:not(.sk-wrap)                         { animation: pf-in .5s var(--pf-ease) both; }
+.settings-card:not(.sk-wrap) .settings-side > .settings-panel:nth-child(1) { animation: pf-in .5s .06s var(--pf-ease) backwards; }
+.settings-card:not(.sk-wrap) .settings-side > .settings-panel:nth-child(2) { animation: pf-in .5s .14s var(--pf-ease) backwards; }
+.settings-card:not(.sk-wrap) .settings-main > .settings-panel:nth-child(1) { animation: pf-in .5s .10s var(--pf-ease) backwards; }
+.settings-card:not(.sk-wrap) .settings-main > .settings-panel:nth-child(2) { animation: pf-in .5s .18s var(--pf-ease) backwards; }
+
+.settings-card:not(.sk-wrap) .settings-side .circle { animation: pf-pop .55s .16s var(--pf-ease) backwards; }
+.settings-card:not(.sk-wrap) .field-grid .field     { animation: pf-in .45s var(--pf-ease) backwards; }
+.settings-card:not(.sk-wrap) .field-grid .field:nth-child(1) { animation-delay: .18s; }
+.settings-card:not(.sk-wrap) .field-grid .field:nth-child(2) { animation-delay: .22s; }
+.settings-card:not(.sk-wrap) .field-grid .field:nth-child(3) { animation-delay: .26s; }
+.settings-card:not(.sk-wrap) .field-grid .field:nth-child(4) { animation-delay: .30s; }
+
+/* ── Quiet interactions ── */
+.settings-side .circle img { transition: transform .6s var(--pf-ease); }
+.settings-side .circle:hover img { transform: scale(1.04); }
+.upload-btn { transition: border-color .2s ease, color .2s ease, background .2s ease, transform .2s var(--pf-ease); }
+.upload-btn:hover  { background: #fdf8f8; }
+.upload-btn:active { transform: scale(.98); }
+.settings-panel { border-color: var(--pf-line); border-radius: 14px; transition: border-color .25s ease; }
+.settings-panel:hover { border-color: #e0d7cd; }
+.settings-head, .settings-title, .settings-sub { border-color: var(--pf-line); }
+.field input { transition: background .2s ease, border-color .2s ease, box-shadow .2s ease; }
+
+/* ── Flatten the glossy buttons to match ── */
+.edit-pill, .btn-save {
+  background: var(--pf-maroon);
+  box-shadow: none;
+  border-radius: 10px;
+}
+.edit-pill:hover, .btn-save:hover:not(:disabled) { background: var(--pf-maroon-hi); box-shadow: none; transform: none; }
+.edit-pill:active, .btn-save:active:not(:disabled) { transform: scale(.98); }
+.btn-save:disabled { background: #ece8e4; color: #a79d9f; }
+.btn-back { border-radius: 10px; }
+.pw-actions .btn-back, .pw-actions .btn-save { border-radius: 10px; }
+.editing-chip { background: #faf3f3; border: 1px solid #efdada; color: var(--pf-maroon); }
+.editing-chip svg { color: var(--pf-maroon); }
+
+/* modals: quieter shadow, flat primary */
+.modal-overlay .modal-card.logout-card { box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .35); }
+.modal-card .mbtn-primary { box-shadow: none; }
+.modal-card .mbtn-primary:hover { box-shadow: none; transform: none; }
+
+/* ═══ Skeleton loading ═══
+   <html> gets .is-loading (inline <head> script). profile-skeleton.js builds a
+   placeholder card that reuses the real layout classes, then swaps it out on load. */
+@keyframes sk-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+@keyframes sk-out     { to { opacity: 0; } }
+@keyframes sk-in      { from { opacity: 0; } to { opacity: 1; } }
+
+.sk,
+html.is-loading .profile-sticky .page-head h2,
+html.is-loading .profile-sticky .page-head p {
+  background: linear-gradient(90deg, #f1eeea 25%, #f9f7f4 37%, #f1eeea 63%);
+  background-size: 400% 100%;
+  animation: sk-shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+}
+/* header text becomes shimmer bars while loading */
+html.is-loading .profile-sticky .page-head h2 { color: transparent; max-width: 420px; width: 100%; min-height: 2rem; }
+html.is-loading .profile-sticky .page-head h2 .welcome-name { color: transparent; }
+html.is-loading .profile-sticky .page-head p  { color: transparent; max-width: 340px; width: 100%; min-height: 1rem; margin-top: 8px; }
+html.is-loading .profile-sticky .userbar-tutorial { opacity: .4; pointer-events: none; animation: none; }
+
+/* hide the real card until ready */
+html.is-loading .main-scroll > .settings-card:not(.sk-wrap) { display: none; }
+
+.sk-wrap { pointer-events: none; user-select: none; animation: sk-in .25s ease both; }
+.sk-wrap.sk-leaving { animation: sk-out .22s ease forwards; }
+.sk-wrap .settings-panel, .sk-wrap .settings-panel:hover { animation: none; border-color: var(--pf-line); }
+
+.sk-title  { height: 22px; width: 52%; margin-bottom: 22px; }
+.sk-square { width: 100%; aspect-ratio: 1 / 1; border-radius: 14px; }
+.sk-box    { height: 92px; border-radius: 14px; margin-top: 16px; }
+.sk-btn    { height: 54px; border-radius: 14px; }
+.sk-head   { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid var(--pf-line); }
+.sk-head .sk-title { margin: 0; width: 45%; }
+.sk-head .sk-pill  { height: 40px; width: 96px; border-radius: 10px; }
+.sk-field .sk-label { height: 12px; width: 38%; margin-bottom: 10px; }
+.sk-field .sk-input { height: 52px; border-radius: 12px; }
+.sk-hint   { height: 12px; width: 80%; margin-top: 16px; }
+.sk-wrap .field-grid { margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-sticky .page-head h2, .profile-sticky .page-head p, .profile-sticky .userbar-tutorial,
+  .settings-card, .settings-card .settings-panel, .settings-card .circle, .settings-card .field,
+  .sk, .sk-wrap, .sk-wrap.sk-leaving,
+  html.is-loading .profile-sticky .page-head h2, html.is-loading .profile-sticky .page-head p { animation: none !important; }
+  .sk, html.is-loading .profile-sticky .page-head h2, html.is-loading .profile-sticky .page-head p { background: #f1eeea; }
+  .settings-side .circle img { transition: none; }
+}

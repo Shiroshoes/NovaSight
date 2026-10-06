@@ -21,6 +21,11 @@ B) Prediction-dashboard bundles  (NEW — replaces the DS04/DS05/DS06 trainers)
                      Subject_Code) series and measure: enrolled students,
                      FAILED/INC/DRP/UDR/W rate, average grade.
                      Feeds: Top Hardest Subjects (bar / cards / lines).
+  student_risk_watchlist.pkl  per-STUDENT (not per-group) next-semester
+                     forecast, built by applying at_risk_classifier /
+                     gwa_regression / completion_rate_forecast (below) to
+                     every currently-enrolled student. Feeds: At-Risk
+                     Student Watchlist.
 
   Why per-series instead of one shared model: a single Ridge over label-encoded
   College/Course cannot give each course its own level, so every line on the
@@ -69,7 +74,7 @@ from preprocessing.preprocess import (
 from util.db_io import (
     record_trained_model, read_semester_csvs, record_training_summary,
     save_model_blob, save_training_state, load_training_state,
-    get_model_dataset,
+    get_model_dataset, load_model_blob,
 )
 
 try:
@@ -745,6 +750,64 @@ def _encode_features(df, cat_cols, feat_cols):
 #  DS01 STUDENT-LEVEL TRAINERS
 # ══════════════════════════════════════════════════════════════════════════
 
+def _build_lagged_pairs(df, feature_cols, cat_cols, target_cols):
+    """
+    Turn same-semester rows into genuine NEXT-SEMESTER forecast pairs:
+    for each student, pair their features at term T with their own
+    target value(s) at term T+1 — the next row is used ONLY when it's
+    exactly one semester later (a gap semester, where the student
+    skipped a term, is a different prediction problem and is NOT
+    paired here, so it doesn't get silently treated as "next semester").
+
+    Without this, a model trained on (this semester's Failed_Count ->
+    this semester's At_Risk/GWA/Completion_Rate) is really just
+    explaining the present, not forecasting the future — by the time
+    you'd know this semester's Failed_Count, the semester is already
+    over. This is what actually turns the 3 DS01 models into forecasts.
+
+    Returns one row per (student, consecutive-pair): the T-side's
+    cat_cols/feature_cols columns unchanged, plus a '<target>_next'
+    column per target holding the T+1-side's value, plus Year_Numeric/
+    Sem_Numeric (the T side's own term) so _temporal_splits() still
+    works unmodified on the result.
+    """
+    sid_col = _pick(df, ["Student_ID", "StudentID"])
+    if not sid_col:
+        _log("  [WARN] no Student_ID column — cannot build lagged (next-semester) pairs")
+        return pd.DataFrame()
+
+    tf = _term_frame(df)
+    if tf.empty:
+        return pd.DataFrame()
+    tf = tf.sort_values([sid_col, "_T"])
+
+    keep_cols = [c for c in set(cat_cols) | set(feature_cols) if c in tf.columns]
+    pairs = []
+    for _, g in tf.groupby(sid_col, sort=False):
+        g = g.reset_index(drop=True)
+        for i in range(len(g) - 1):
+            cur, nxt = g.iloc[i], g.iloc[i + 1]
+            if nxt["_T"] != cur["_T"] + 1:
+                continue   # gap semester — not a direct "next term", skip
+            row = {c: cur[c] for c in keep_cols}
+            ok = True
+            for c in target_cols:
+                if c not in nxt.index or pd.isna(nxt[c]):
+                    ok = False
+                    break
+                row[c + "_next"] = nxt[c]
+            if not ok:
+                continue
+            row["Year_Numeric"], row["Sem_Numeric"] = _year_sem_of(cur["_T"])
+            pairs.append(row)
+
+    out = pd.DataFrame(pairs)
+    _log(f"  lagged pairs: {len(out)} student-semester transitions "
+         f"(from {df[sid_col].nunique() if sid_col in df.columns else '?'} students, "
+         f"{tf['_T'].nunique()} terms)")
+    return out
+
+
 _DS01_CAT = ["College", "Course", "Gender", "Year_Level", "GWA_Source"]
 _DS01_FEAT = ["College_enc", "Course_enc", "Gender_enc", "Year_Level_Num",
               "Units_Enrolled_Reported", "Failed_Count", "DRP_Count",
@@ -755,11 +818,14 @@ _DS01_FEAT = ["College_enc", "Course_enc", "Gender_enc", "Year_Level_Num",
 def train_at_risk(state: dict):
     """
     DS01 — At_Risk classification using Logistic Regression.
-    Temporal leave-one-semester-out CV (metrics are out-of-fold).
+    FORECASTS one semester ahead: trained on (student's features at term T)
+    -> (that SAME student's At_Risk at term T+1), via _build_lagged_pairs().
+    Temporal leave-one-semester-out CV (metrics are out-of-fold, and are
+    genuine forecast accuracy — not same-period reconstruction).
     """
-    _log("Training at_risk model (LogisticRegression)…")
-    df = _dataset_from_table("DS01")
-    if df.empty or "At_Risk" not in df.columns:
+    _log("Training at_risk model (LogisticRegression, next-semester forecast)…")
+    raw = _dataset_from_table("DS01")
+    if raw.empty or "At_Risk" not in raw.columns:
         _log("  DS01 empty — skipping")
         return
 
@@ -767,9 +833,14 @@ def train_at_risk(state: dict):
     # because (nearly) every subject is failed/status is a real, accurate,
     # highest-risk case — dropping them removed exactly the positives this
     # classifier exists to find. GWA isn't a feature of this model anyway.
+    df = _build_lagged_pairs(raw, _DS01_FEAT, _DS01_CAT, ["At_Risk"])
+    if df.empty:
+        _log("  at_risk: no consecutive-semester student pairs yet — skipping "
+             "(need students with 2+ back-to-back recorded semesters)")
+        return
     df = df.reset_index(drop=True)
     X, used, encs = _encode_features(df, _DS01_CAT, _DS01_FEAT)
-    y = df["At_Risk"].astype(int).values
+    y = df["At_Risk_next"].astype(int).values
 
     def _new_clf():
         return Pipeline([
@@ -792,20 +863,22 @@ def train_at_risk(state: dict):
     clf = _new_clf().fit(X, y)
     clf.encoders_ = encs
     clf.feature_names_ = used
+    clf.forecast_horizon_ = 1   # semesters ahead this model was trained to predict
     _save(clf, "at_risk_classifier.pkl")
 
     result = {
-        "algorithm": "LogisticRegression", "target": "At_Risk", "source_dataset": "DS01",
+        "algorithm": "LogisticRegression", "target": "At_Risk (next semester)", "source_dataset": "DS01",
         "f1": round(float(np.mean(f1s)), 4) if f1s else None,
         "accuracy": round(float(np.mean(accs)), 4) if accs else None,
         "r2": None, "mae": None, "rmse": None, "mse": None, "status": "ok",
+        "pairs": len(df),
     }
     state["models"]["at_risk"] = result
     _log(f"  at_risk: F1={result['f1']}  acc={result['accuracy']}  "
-         f"AUC≈{round(float(np.mean(aucs)), 4) if aucs else None}")
+         f"AUC≈{round(float(np.mean(aucs)), 4) if aucs else None}  (n={len(df)} pairs)")
 
     _record(model_name="at_risk_classifier", algorithm="LogisticRegression",
-            target_column="At_Risk", source_dataset="DS01",
+            target_column="At_Risk (t+1)", source_dataset="DS01",
             file_path="at_risk_classifier.pkl", status="ok",
             f1_score=result["f1"], accuracy=result["accuracy"],
             horizon_year=state.get("horizon", {}).get("horizon_year"))
@@ -814,20 +887,26 @@ def train_at_risk(state: dict):
 def train_gwa(state: dict):
     """
     DS01 — GWA regression using Ridge(alpha=1).
+    FORECASTS one semester ahead: trained on (student's features at term T)
+    -> (that SAME student's GWA at term T+1), via _build_lagged_pairs().
     Temporal leave-one-semester-out CV.
     """
-    _log("Training gwa model (Ridge α=1)…")
-    df = _dataset_from_table("DS01")
-    if df.empty or "GWA" not in df.columns:
+    _log("Training gwa model (Ridge α=1, next-semester forecast)…")
+    raw = _dataset_from_table("DS01")
+    if raw.empty or "GWA" not in raw.columns:
         _log("  DS01 empty — skipping")
         return
 
-    gwa = pd.to_numeric(df["GWA"], errors="coerce")
-    df = df[gwa.notna() & (gwa > 0)].reset_index(drop=True)     # blank/0 = no average to learn from
+    df = _build_lagged_pairs(raw, _DS01_FEAT, _DS01_CAT, ["GWA"])
     if df.empty:
-        _log("  DS01 has no valid GWA rows — skipping"); return
+        _log("  gwa_regression: no consecutive-semester student pairs yet — skipping")
+        return
+    gwa_next = pd.to_numeric(df["GWA_next"], errors="coerce")
+    df = df[gwa_next.notna() & (gwa_next > 0)].reset_index(drop=True)  # blank/0 = no next-term average to learn from
+    if df.empty:
+        _log("  gwa_regression: no pairs with a valid next-term GWA — skipping"); return
     X, used, encs = _encode_features(df, _DS01_CAT, _DS01_FEAT)
-    y = pd.to_numeric(df["GWA"]).values
+    y = pd.to_numeric(df["GWA_next"]).values
 
     def _new_reg():
         return Pipeline([("sc", StandardScaler()), ("reg", Ridge(alpha=1.0))])
@@ -841,19 +920,21 @@ def train_gwa(state: dict):
     reg = _new_reg().fit(X, y)
     reg.encoders_ = encs
     reg.feature_names_ = used
+    reg.forecast_horizon_ = 1
     _save(reg, "gwa_regression.pkl")
 
     result = {
-        "algorithm": "Ridge", "alpha": 1, "target": "GWA", "source_dataset": "DS01",
+        "algorithm": "Ridge", "alpha": 1, "target": "GWA (next semester)", "source_dataset": "DS01",
         "r2": round(float(np.mean(r2s)), 4) if r2s else None,
         "mae": round(float(np.mean(maes)), 4) if maes else None,
         "rmse": None, "mse": None, "accuracy": None, "f1": None, "status": "ok",
+        "pairs": len(df),
     }
     state["models"]["gwa_regression"] = result
-    _log(f"  gwa_regression: R²={result['r2']}  MAE={result['mae']}")
+    _log(f"  gwa_regression: R²={result['r2']}  MAE={result['mae']}  (n={len(df)} pairs)")
 
     _record(model_name="gwa_regression", algorithm="Ridge(alpha=1)",
-            target_column="GWA", source_dataset="DS01",
+            target_column="GWA (t+1)", source_dataset="DS01",
             file_path="gwa_regression.pkl", status="ok",
             r2_score=result["r2"], mae=result["mae"],
             horizon_year=state.get("horizon", {}).get("horizon_year"))
@@ -862,19 +943,30 @@ def train_gwa(state: dict):
 def train_completion_rate_forecast(state: dict):
     """
     DS01 — Completion_Rate (Credits_Earned / Credits_Enrolled) using Ridge(alpha=10).
-    Stricter regularization to avoid data leakage.
+    FORECASTS one semester ahead: trained on (student's features at term T)
+    -> (that SAME student's Completion_Rate at term T+1), via
+    _build_lagged_pairs(). Stricter regularization kept as a general
+    regularizer; Units_Enrolled_Reported/Completion_Rate are still excluded
+    from the feature set to keep this change minimal (both are now T-side —
+    i.e. legitimately "past" values relative to the T+1 target — so adding
+    the student's OWN past Completion_Rate back in as a feature would be a
+    reasonable future improvement, just not part of this fix).
     """
-    _log("Training completion_rate forecast (Ridge α=10)…")
-    df = _dataset_from_table("DS01")
-    if df.empty or "Completion_Rate" not in df.columns:
+    _log("Training completion_rate forecast (Ridge α=10, next-semester forecast)…")
+    raw = _dataset_from_table("DS01")
+    if raw.empty or "Completion_Rate" not in raw.columns:
         _log("  DS01 empty — skipping"); return
 
-    df = df[df["Completion_Rate"].notna()].reset_index(drop=True)
+    df = _build_lagged_pairs(raw, _DS01_FEAT, _DS01_CAT, ["Completion_Rate"])
     if df.empty:
-        _log("  DS01 has no Completion_Rate rows — skipping"); return
+        _log("  completion_rate_forecast: no consecutive-semester student pairs yet — skipping")
+        return
+    df = df[df["Completion_Rate_next"].notna()].reset_index(drop=True)
+    if df.empty:
+        _log("  completion_rate_forecast: no pairs with a valid next-term Completion_Rate — skipping"); return
     feat = [f for f in _DS01_FEAT if f not in ("Units_Enrolled_Reported", "Completion_Rate")]
     X, used, encs = _encode_features(df, _DS01_CAT, feat)
-    y = df["Completion_Rate"].values
+    y = df["Completion_Rate_next"].values
 
     def _new_reg():
         return Pipeline([("sc", StandardScaler()), ("reg", Ridge(alpha=10.0))])
@@ -888,21 +980,115 @@ def train_completion_rate_forecast(state: dict):
     reg = _new_reg().fit(X, y)
     reg.encoders_ = encs
     reg.feature_names_ = used
+    reg.forecast_horizon_ = 1
     _save(reg, "completion_rate_forecast.pkl")
 
     result = {
-        "algorithm": "Ridge", "alpha": 10, "target": "Completion_Rate", "source_dataset": "DS01",
+        "algorithm": "Ridge", "alpha": 10, "target": "Completion_Rate (next semester)", "source_dataset": "DS01",
         "r2": round(float(np.mean(r2s)), 4) if r2s else None,
         "mae": round(float(np.mean(maes)), 4) if maes else None,
         "status": "ok",
+        "pairs": len(df),
     }
     state["models"]["completion_rate_forecast"] = result
-    _log(f"  completion_rate_forecast: R²={result['r2']}  MAE={result['mae']}")
+    _log(f"  completion_rate_forecast: R²={result['r2']}  MAE={result['mae']}  (n={len(df)} pairs)")
     _record(model_name="completion_rate_forecast", algorithm="Ridge(alpha=10)",
-            target_column="Completion_Rate", source_dataset="DS01",
+            target_column="Completion_Rate (t+1)", source_dataset="DS01",
             file_path="completion_rate_forecast.pkl", status="ok",
             r2_score=result["r2"], mae=result["mae"],
             horizon_year=state.get("horizon", {}).get("horizon_year"))
+
+
+def _ds01_apply(model, row):
+    """Encode one student row with the MODEL's OWN saved LabelEncoders — never
+    refit here, since an encoder fit on new data could assign different codes
+    than training time did, silently corrupting every prediction. An unseen
+    College/Course/Gender/Year_Level/GWA_Source value encodes as -1 (out of
+    the training range) rather than crashing the whole watchlist."""
+    vals = []
+    for col in model.feature_names_:
+        base = col[:-4] if col.endswith("_enc") else None   # "College_enc" -> "College"
+        if base and base in model.encoders_:
+            le = model.encoders_[base]
+            raw = str(row.get(base, "Unknown"))
+            vals.append(le.transform([raw])[0] if raw in le.classes_ else -1)
+        else:
+            v = row.get(col, 0)
+            vals.append(float(v) if pd.notna(v) else 0.0)
+    return np.array(vals, dtype=float).reshape(1, -1)
+
+
+def train_student_risk_watchlist(state: dict, master_df: pd.DataFrame):
+    """
+    BUNDLE 3 — student_risk_watchlist.pkl
+    This is what actually PUTS at_risk_classifier / gwa_regression /
+    completion_rate_forecast TO USE: pred_cube / pred_subjects only ever
+    produce GROUP-level trend lines (College x Course x Year_Level or
+    x Subject), never a per-student answer. This bundle runs the freshly
+    trained (next-semester-forecasting — see _build_lagged_pairs()) models
+    over every CURRENTLY ENROLLED student — every student in the most
+    recent recorded semester — producing a per-student "what's predicted
+    for them next semester" row, so advisors can see WHO specifically
+    needs attention, not just which group's aggregate trend is worrying.
+
+    Saved as a plain list-of-dicts bundle (same convention as pred_cube /
+    pred_subjects — see training_summary.txt's NOTES), so prediction_api.py
+    can serve it with the SAME _bundle()/load_model_blob() loader it
+    already uses for those two, no scikit-learn-aware serving logic needed.
+    """
+    _log("Building student_risk_watchlist (per-student next-semester forecast)…")
+    clf      = load_model_blob("at_risk_classifier.pkl")
+    gwa_reg  = load_model_blob("gwa_regression.pkl")
+    comp_reg = load_model_blob("completion_rate_forecast.pkl")
+    if clf is None or gwa_reg is None or comp_reg is None:
+        _log("  student_risk_watchlist: one or more DS01 models not trained yet — skipping")
+        return
+
+    tf = _term_frame(master_df)
+    if tf.empty:
+        _log("  student_risk_watchlist: no parsable Academic_Year/Semester — skipping")
+        return
+    latest_t = tf["_T"].max()
+    latest = tf[tf["_T"] == latest_t].copy()
+    sid_col = _pick(latest, ["Student_ID", "StudentID"])
+    if not sid_col:
+        _log("  student_risk_watchlist: no Student_ID column — skipping")
+        return
+    latest = latest.drop_duplicates(subset=[sid_col]).reset_index(drop=True)
+
+    watchlist = []
+    for _, row in latest.iterrows():
+        try:
+            risk_proba = float(clf.predict_proba(_ds01_apply(clf, row))[0, 1])
+            pred_gwa   = float(np.clip(gwa_reg.predict(_ds01_apply(gwa_reg, row))[0], 1.0, 5.0))
+            pred_comp  = float(np.clip(comp_reg.predict(_ds01_apply(comp_reg, row))[0], 0.0, 100.0))
+        except Exception as e:
+            _log(f"  [WARN] student_risk_watchlist: skipped one student ({e})")
+            continue
+        watchlist.append({
+            "student_id":  str(row.get(sid_col, "")),
+            "college":     str(row.get("College", "")),
+            "course":      str(row.get("Course", "")),
+            "year_level":  str(row.get("Year_Level", "")),
+            "current_gwa": None if pd.isna(row.get("GWA")) else round(float(row["GWA"]), 2),
+            "predicted_at_risk_proba":        round(risk_proba, 4),
+            "predicted_at_risk":              bool(risk_proba >= 0.5),
+            "predicted_gwa_next":             round(pred_gwa, 2),
+            "predicted_completion_rate_next": round(pred_comp, 1),
+        })
+
+    bundle = {
+        "format": "novasight_student_risk_watchlist_v1",
+        "trained_at": datetime.now().isoformat(),
+        "term": _term_label(*_year_sem_of(latest_t)),
+        "students": watchlist,
+    }
+    _save_bundle(bundle, "student_risk_watchlist.pkl")
+    state["models"]["student_risk_watchlist"] = {
+        "status": "ok", "students_scored": len(watchlist), "term": bundle["term"],
+    }
+    _log(f"  student_risk_watchlist: {len(watchlist)} currently-enrolled students scored "
+         f"for term {bundle['term']}")
 
 
 # 2026-09-21: train_hardest_subjects (DS04), train_at_risk_forecast (DS05) and
@@ -1019,6 +1205,7 @@ def run_full_pipeline(new_file=None) -> dict:
         ("at_risk",                  lambda s: train_at_risk(s)),
         ("gwa_regression",           lambda s: train_gwa(s)),
         ("completion_rate_forecast", lambda s: train_completion_rate_forecast(s)),
+        ("student_risk_watchlist",   lambda s: train_student_risk_watchlist(s, master_df)),
         ("pred_cube",                lambda s: train_pred_cube(s, master_df)),
         ("pred_subjects",            lambda s: train_pred_subjects(s, long_df, master_df)),
     ]

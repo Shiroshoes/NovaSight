@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin</title>
+  <script>document.documentElement.classList.add('is-loading');</script>
   <link rel="icon" href="{{ url_for('static', filename='image/logo3.png') }}" type="image/x-icon">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/adminpage.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/avatar-color.css') }}">
@@ -19,7 +20,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/admin-float-footer.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/maindash-readable.css') }}">
 </head>
-<body>
+<body data-current-user-id="{{ user.acaduser_id if user is defined and user else '' }}">
   {% with messages = get_flashed_messages(with_categories=true) %}
   <script id="flashData" type="application/json">{{ messages | tojson }}</script>
   {% endwith %}
@@ -218,6 +219,7 @@
                               <option value="CTECdean">CTEC Dean</option>
                           </select>
                       </div>
+                      <span id="editSelfNote" style="display:none; color:#8a6d00; font-weight:600; font-size:0.85rem; margin-bottom:10px;">You can’t deactivate your own account.</span>
                       <span id="editDeactivatedText" style="display:none; color:#cc0000; font-weight:600; font-size:0.9rem; margin-bottom:10px; display:none;">Account Deactivated</span>
                       <div class="btn-row">
                           <button type="submit" class="btn blue">Save</button>
@@ -259,7 +261,7 @@
                         </div>
                       </div>
 
-                      <div class="form-group"><label>Account:</label><input type="text" name="account" placeholder="Account@bpsu.edu.ph" required></div>
+                      <div class="form-group"><label>Account:</label><input type="text" name="account" placeholder="Account@bpsu.edu.ph" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="email" maxlength="254" pattern="[A-Za-z0-9.\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}" title="Enter a valid email address. Only letters, numbers and . - @ are allowed." required></div>
                     
                       <div class="form-group align-start">
                           <label for="password_input">Password:</label>
@@ -335,65 +337,64 @@
   </div><!-- /main-scroll -->
 </main>
 
-<!-- ── Modals (outside the scrolling area so the page layout never touches them) ── -->
+<!-- ── Modals (outside the scrolling area so the page layout never touches them) ──
+     Shared structure: .modal-overlay > .modal-card (icon, title, text, actions).
+     Styles live in adminpage.css ("Modern floating modals"). -->
 
-  <!-- Logout Modal Structure -->
   <!-- ── Reset Database Modal ─────────────────────────────── -->
   <div id="resetDbModal" class="modal-overlay" style="display: none;">
-    <div class="logout-card">
-      <h1 class="brand-name">NovaSight</h1>
-      <p class="confirmation-text">This will permanently delete all uploads, trained models, and datasets. This action cannot be undone.</p>
-      <p class="confirmation-text" style="font-size:0.88rem; color:#666; margin-top:-8px;">Enter your admin password to confirm.</p>
-      <div style="width:100%; margin-bottom:14px; position:relative;">
-        <input id="resetPasswordInput" type="password" placeholder="Admin password"
-               autocomplete="current-password"
-               style="width:100%; box-sizing:border-box; padding:10px 40px 10px 14px;
-                      border:1.5px solid #ddd; border-radius:10px; font-size:0.93rem;
-                      font-family:inherit; outline:none; transition:border-color .2s;">
-        <button type="button" id="resetPwdToggle" tabindex="-1"
-                style="position:absolute; right:10px; top:50%; transform:translateY(-50%);
-                       background:none; border:none; cursor:pointer; color:#888; padding:0; display:flex;">
-          <svg id="resetEyeOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:18px;">
-            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
-            <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd"/>
-          </svg>
-          <svg id="resetEyeClosed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:18px; display:none;">
-            <path d="M3.53 2.47a.75.75 0 0 0-1.06 1.06l18 18a.75.75 0 1 0 1.06-1.06l-18-18ZM22.676 12.553a11.249 11.249 0 0 1-2.631 4.31l-3.099-3.099a5.25 5.25 0 0 0-6.71-6.71L7.759 4.577A11.217 11.217 0 0 1 12 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752.001 1.113ZM15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0 1 15.75 12ZM21.25 17.25l-3.43-3.43A3.75 3.75 0 0 1 12 8.25c-.88 0-1.7.29-2.36.778L6.53 5.918a11.25 11.25 0 0 0-4.407 4.635.75.75 0 0 0 0 .752A11.25 11.25 0 0 0 12 20.25c1.697 0 3.309-.38 4.75-1.056l-1.918-1.918A5.25 5.25 0 0 1 12 18.75a5.25 5.25 0 0 1-4.244-8.36l1.49 1.49A3.75 3.75 0 0 0 12 15.75a3.75 3.75 0 0 0 2.81-1.27l-1.49-1.49Z"/>
-          </svg>
-        </button>
+    <div class="logout-card modal-card tone-danger" role="dialog" aria-modal="true" aria-labelledby="resetDbTitle">
+      <span class="m-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg></span>
+      <h2 class="m-title" id="resetDbTitle">Reset database?</h2>
+      <p class="m-text">This will permanently delete all uploads, trained models, and datasets. This action cannot be undone.</p>
+      <div class="m-field">
+        <label class="m-label" for="resetPasswordInput">Enter your admin password to confirm</label>
+        <div class="m-input-wrap">
+          <input id="resetPasswordInput" class="m-input" type="password" placeholder="Admin password" autocomplete="current-password">
+          <button type="button" id="resetPwdToggle" class="m-eye" tabindex="-1" aria-label="Show or hide password">
+            <svg id="resetEyeOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="m-eye-ico"> <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/> <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd"/> </svg>
+            <svg id="resetEyeClosed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="m-eye-ico" style="display:none;"> <path d="M3.53 2.47a.75.75 0 0 0-1.06 1.06l18 18a.75.75 0 1 0 1.06-1.06l-18-18ZM22.676 12.553a11.249 11.249 0 0 1-2.631 4.31l-3.099-3.099a5.25 5.25 0 0 0-6.71-6.71L7.759 4.577A11.217 11.217 0 0 1 12 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752.001 1.113ZM15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0 1 15.75 12ZM21.25 17.25l-3.43-3.43A3.75 3.75 0 0 1 12 8.25c-.88 0-1.7.29-2.36.778L6.53 5.918a11.25 11.25 0 0 0-4.407 4.635.75.75 0 0 0 0 .752A11.25 11.25 0 0 0 12 20.25c1.697 0 3.309-.38 4.75-1.056l-1.918-1.918A5.25 5.25 0 0 1 12 18.75a5.25 5.25 0 0 1-4.244-8.36l1.49 1.49A3.75 3.75 0 0 0 12 15.75a3.75 3.75 0 0 0 2.81-1.27l-1.49-1.49Z"/> </svg>
+          </button>
+        </div>
+        <p id="resetPwdError" class="m-error" role="alert"></p>
       </div>
-      <p id="resetPwdError" style="color:#cc0000; font-size:0.82rem; margin:-8px 0 10px; display:none; text-align:left; width:100%;"></p>
-      <div class="button-group">
-        <button id="confirmResetBtn" class="btn-new btn-primary" style="background:#b53030;">Reset</button>
-        <button id="cancelResetBtn"  class="btn-new btn-primary">Back</button>
+      <div class="m-actions">
+        <button id="cancelResetBtn" class="mbtn mbtn-ghost" type="button">Back</button>
+        <button id="confirmResetBtn" class="mbtn mbtn-danger" type="button">Reset</button>
       </div>
     </div>
   </div>
 
   <!-- ── Reset Success Modal (auto-closes) ─────────────────── -->
   <div id="resetSuccessModal" class="modal-overlay" style="display: none;">
-    <div class="logout-card">
+    <div class="logout-card modal-card tone-success" role="alertdialog" aria-modal="true" aria-labelledby="resetSuccessTitle">
       <button type="button" class="modal-close-x" id="resetSuccessCloseBtn" aria-label="Close">&times;</button>
-      <h1 class="brand-name">NovaSight</h1>
-      <p class="confirmation-text" style="color:#15803d;">Database reset successfully.</p>
+      <span class="m-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></span>
+      <h2 class="m-title" id="resetSuccessTitle">All clear</h2>
+      <p class="m-text">Database reset successfully.</p>
+      <span class="m-progress" aria-hidden="true"></span>
     </div>
   </div>
 
   <!-- ── Reset Error Modal (auto-closes) ───────────────────── -->
   <div id="resetErrorModal" class="modal-overlay" style="display: none;">
-    <div class="logout-card">
-      <h1 class="brand-name">NovaSight</h1>
-      <p class="confirmation-text" id="resetErrorText" style="color:#cc0000;"></p>
+    <div class="logout-card modal-card tone-danger" role="alertdialog" aria-modal="true" aria-labelledby="resetErrorTitle">
+      <span class="m-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></span>
+      <h2 class="m-title" id="resetErrorTitle">Reset failed</h2>
+      <p class="m-text" id="resetErrorText"></p>
+      <span class="m-progress" aria-hidden="true"></span>
     </div>
   </div>
 
+  <!-- ── Logout Modal ──────────────────────────────────────── -->
   <div id="logoutModal" class="modal-overlay" style="display: none;"> <!-- Initially hidden -->
-    <div class="logout-card">
-      <h1 class="brand-name">NovaSight</h1>
-      <p class="confirmation-text">Are you sure you want to logout?</p>
-      <div class="button-group">
-        <button id="confirmLogoutBtn" class="btn btn-primary">Logout</button>
-        <button id="cancelLogoutBtn" class="btn btn-primary">Back</button>
+    <div class="logout-card modal-card tone-brand" role="dialog" aria-modal="true" aria-labelledby="logoutTitle">
+      <span class="m-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg></span>
+      <h2 class="m-title" id="logoutTitle">Log out?</h2>
+      <p class="m-text">Are you sure you want to logout?</p>
+      <div class="m-actions">
+        <button id="cancelLogoutBtn" class="mbtn mbtn-ghost" type="button">Back</button>
+        <button id="confirmLogoutBtn" class="mbtn mbtn-primary" type="button">Logout</button>
       </div>
     </div>
   </div>
@@ -403,35 +404,39 @@
 
   <!-- Deactivate Account Confirmation Modal -->
   <div id="deactivateModal" class="modal-overlay" style="display: none;">
-    <div class="logout-card">
-      <h1 class="brand-name">NovaSight</h1>
-      <p class="confirmation-text">Do you want to deactivate this account?</p>
-      <p id="deactivateAccountInfo" class="confirmation-text" style="font-weight:700; margin-top:-10px;"></p>
-      <div class="button-group">
-        <button id="confirmDeactivateBtn" class="btn-new btn-primary">Yes</button>
-        <button id="cancelDeactivateBtn" class="btn-new btn-primary">No</button>
+    <div class="logout-card modal-card tone-danger" role="dialog" aria-modal="true" aria-labelledby="deactivateTitle">
+      <span class="m-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM4 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 10.374 21c-2.331 0-4.512-.645-6.374-1.766Z"/></svg></span>
+      <h2 class="m-title" id="deactivateTitle">Deactivate account?</h2>
+      <p class="m-text">Do you want to deactivate this account?</p>
+      <p id="deactivateAccountInfo" class="m-chip"></p>
+      <div class="m-actions">
+        <button id="cancelDeactivateBtn" class="mbtn mbtn-ghost" type="button">No</button>
+        <button id="confirmDeactivateBtn" class="mbtn mbtn-danger" type="button">Yes, deactivate</button>
       </div>
     </div>
   </div>
 
   <!-- Activate Account Confirmation Modal -->
   <div id="activateModal" class="modal-overlay" style="display: none;">
-    <div class="logout-card">
-      <h1 class="brand-name">NovaSight</h1>
-      <p class="confirmation-text">Do you want to activate this account?</p>
-      <p id="activateAccountInfo" class="confirmation-text" style="font-weight:700; margin-top:-10px;"></p>
-      <div class="button-group">
-        <button id="confirmActivateBtn" class="btn-new btn-primary">Yes</button>
-        <button id="cancelActivateBtn" class="btn-new btn-primary">No</button>
+    <div class="logout-card modal-card tone-success" role="dialog" aria-modal="true" aria-labelledby="activateTitle">
+      <span class="m-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z"/></svg></span>
+      <h2 class="m-title" id="activateTitle">Activate account?</h2>
+      <p class="m-text">Do you want to activate this account?</p>
+      <p id="activateAccountInfo" class="m-chip"></p>
+      <div class="m-actions">
+        <button id="cancelActivateBtn" class="mbtn mbtn-ghost" type="button">No</button>
+        <button id="confirmActivateBtn" class="mbtn mbtn-success" type="button">Yes, activate</button>
       </div>
     </div>
   </div>
 
   <!-- Account Created Modal (auto-closes after 3s) -->
   <div id="accountCreatedModal" class="modal-overlay" style="display: none;">
-    <div class="logout-card">
-      <h1 class="brand-name">NovaSight</h1>
-      <p class="confirmation-text" id="accountSuccessText">Account successfully created!</p>
+    <div class="logout-card modal-card tone-success" role="alertdialog" aria-modal="true" aria-labelledby="accountCreatedTitle">
+      <span class="m-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></span>
+      <h2 class="m-title" id="accountCreatedTitle">Success</h2>
+      <p class="m-text" id="accountSuccessText">Account successfully created!</p>
+      <span class="m-progress" aria-hidden="true"></span>
     </div>
   </div>
 
@@ -440,9 +445,11 @@
        straight from the flash() message set in admin.py, so it always
        matches the real reason (not a guess). -->
   <div id="accountErrorModal" class="modal-overlay" style="display: none;">
-    <div class="logout-card">
-      <h1 class="brand-name">NovaSight</h1>
-      <p class="confirmation-text" id="accountErrorText" style="color:#cc0000;"></p>
+    <div class="logout-card modal-card tone-danger" role="alertdialog" aria-modal="true" aria-labelledby="accountErrorTitle">
+      <span class="m-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></span>
+      <h2 class="m-title" id="accountErrorTitle">Couldn&rsquo;t complete that</h2>
+      <p class="m-text" id="accountErrorText"></p>
+      <span class="m-progress" aria-hidden="true"></span>
     </div>
   </div>
 
@@ -467,5 +474,6 @@
 
 <script src="{{ url_for('static', filename='js/tutorial.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/sidebar-collapse.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/adminpage-skeleton.js') }}" defer></script>
 </body>
 </html>

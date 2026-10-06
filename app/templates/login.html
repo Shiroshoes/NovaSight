@@ -26,7 +26,7 @@
 
             <nav class="top-links" aria-label="Page links">
                 <a href="{{ url_for('home') }}">Home</a>
-                <a href="{{ url_for('home') }}#help">Help</a>
+                <a href="#help" data-open-modal="helpModal">Help</a>
             </nav>
         </header>
 
@@ -53,21 +53,21 @@
                     <form action="/login" method="POST" class="login-form">
                         <div class="input-field">
                             <label for="account">Email</label>
-                            <!-- Only email characters are accepted: letters, numbers and . _ % + - @
+                            <!-- Only letters, numbers and . - @ are accepted in the email
                                  (anything else is removed as you type or paste) -->
                             <input type="email" name="account" id="account" placeholder="Account@bpsu.edu.ph"
                                    autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="email"
                                    maxlength="254"
-                                   pattern="[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"
-                                   title="Enter a valid email address. Only letters, numbers and . _ % + - @ are allowed."
+                                   pattern="[A-Za-z0-9.\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"
+                                   title="Enter a valid email address. Only letters, numbers and . - @ are allowed."
                                    required autofocus>
-                            <p class="field-hint" id="accountHint" role="status" style="display:none;">Only letters, numbers and . _ % + - @ are allowed in the email.</p>
+                            <p class="field-hint" id="accountHint" role="status" style="display:none;">Only letters, numbers and . - @ are allowed in the email.</p>
                         </div>
 
                         <div class="input-field">
                             <label for="password">Password</label>
                             <div class="pw-wrap">
-                                <input type="password" name="password" id="password" placeholder="Your password" autocomplete="current-password" maxlength="128" required>
+                                <input type="password" name="password" id="password" placeholder="Your password" autocomplete="current-password" maxlength="128" title="Emoji are not allowed in the password." required>
 
                                 <!-- Toggle Button -->
                                 <button type="button" id="togglePassword" class="pw-toggle" aria-label="Show or hide password">
@@ -84,6 +84,7 @@
                                     </svg>
                                 </button>
                             </div>
+                            <p class="field-hint" id="passwordHint" role="status" style="display:none;">Emoji are not allowed in the password.</p>
                             <p class="field-hint">Forgot your password? Please contact the Academic Affairs.</p>
                         </div>
 
@@ -96,7 +97,7 @@
                 </section>
 
                 <p class="below-card">
-                    Need help signing in? <a href="{{ url_for('home') }}#help">Open the Help Center</a>
+                    Need help signing in? <a href="#help" data-open-modal="helpModal">Open the Help Center</a>
                 </p>
             </div>
 
@@ -153,16 +154,213 @@
 
         <footer class="foot">
             <p>&copy; 2026 NovaSight Dev Team. All rights reserved.</p>
-            <p>Group 5 / BSDS - 4A &middot; Bataan Peninsula State University</p>
+            <p>Group 5 / BSDS - 4A &middot; Bataan Peninsula State University &middot; <a class="foot-link" href="#privacy" data-open-modal="privacyModal">Privacy Policy</a></p>
         </footer>
     </div>
+
+    <!-- Help Center popup (opens on this page, no redirect to home) -->
+    <div class="info-modal" id="helpModal" data-hash="help" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle" aria-hidden="true">
+        <div class="info-modal-panel">
+            <button type="button" class="info-modal-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <div class="info-modal-scroll">
+                <div class="help-hero">
+                    <span class="role-badge">Public Access</span>
+                    <h2 id="helpModalTitle">Help Center</h2>
+                    <p class="help-intro">Everything you need to sign in to NovaSight, and what to do if you can&rsquo;t.</p>
+                </div>
+
+                <div class="help-section">
+                    <span class="help-section-tag">Getting Started</span>
+                    <h3>Logging In</h3>
+                    <ol>
+                        <li>Enter your BPSU email (for example <code>Account@bpsu.edu.ph</code>) and your password. Use the eye icon to show or hide what you type.</li>
+                        <li>Press <strong>LOGIN</strong>.</li>
+                    </ol>
+                    <p>Accounts are created only for verified BPSU personnel; there is no self-registration. If you do not have an account yet, please contact the Academic Affairs.</p>
+                </div>
+
+                <div class="help-section">
+                    <span class="help-section-tag">Troubleshooting</span>
+                    <h3>Common Issues</h3>
+                    <details>
+                        <summary>I can&rsquo;t log in.</summary>
+                        <p>Enter your full BPSU email and check that Caps Lock is off; use the eye icon to make sure the password is what you meant to type. If both are correct, your account may have been deactivated &ndash; please contact the Academic Affairs.</p>
+                    </details>
+                    <details>
+                        <summary>I forgot my password.</summary>
+                        <p>Please contact the Academic Affairs. An administrator can set a new password for your account.</p>
+                    </details>
+                    <details>
+                        <summary>It says my role was updated and I have to log in again.</summary>
+                        <p>When the role on your account changes, NovaSight signs you out so that your pages match your new role. Log in again to continue.</p>
+                    </details>
+                    <details>
+                        <summary>My email or password won&rsquo;t accept some characters.</summary>
+                        <p>The email field accepts only letters, numbers and . _ % + - @. The password field accepts standard keyboard characters only; emoji and other special symbols are removed automatically.</p>
+                    </details>
+                </div>
+
+                <div class="help-section help-callout">
+                    <span class="help-section-tag">Support</span>
+                    <h3>Need Assistance?</h3>
+                    <p>If the problem persists, please contact the <a class="email-link" href="https://mail.google.com/mail/u/0/?view=cm&to=jieperdio23@bpsu.edu.ph" target="_blank" rel="noopener">NovaSight development team</a> for further assistance.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Privacy Policy popup -->
+    <div class="info-modal" id="privacyModal" data-hash="privacy" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle" aria-hidden="true">
+        <div class="info-modal-panel">
+            <button type="button" class="info-modal-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <div class="info-modal-scroll">
+                <div class="help-hero">
+                    <span class="role-badge">Public Access</span>
+                    <h2 id="privacyModalTitle">Privacy Policy</h2>
+                    <p class="help-intro">This page explains what information NovaSight collects, how it&rsquo;s used, and how it&rsquo;s protected. It applies to every account type like MISO, Academic Affairs, Registrar, SASO, and college deans, as well as anyone visiting the public pages of this site. Last updated: <strong>September 21, 2026</strong>.</p>
+                </div>
+
+                <div class="help-section">
+                    <span class="help-section-tag">Terms</span>
+                    <h3>General</h3>
+                    <p>The Terms and Conditions contained herein on this Website Dashboard (the &ldquo;NovaSight&rdquo;) shall govern your use of this System, including all pages to which you may be redirected. These terms apply in full force and effect to your use of this System. Your personal data, whenever provided within the System, shall be processed and shall be governed by the provisions of Republic Act No. 10173, or the Data Privacy Act of 2012 (DPA), and all other applicable laws. Whenever used herein, &ldquo;NovaSight&rdquo; shall mean the Researchers and Developers responsible for the creation and maintenance of the NovaSight application, in coordination with Bataan Peninsula State University.</p>
+                </div>
+
+                <div class="help-section">
+                    <span class="help-section-tag">Terms</span>
+                    <h3>Authority</h3>
+                    <p>By logging into the System, you warrant that you are a duly authorized BPSU personnel member, granted access by MISO on behalf of your assigned role. NovaSight may, at its sole discretion, request additional or supporting verification to confirm such authority. You also warrant that all information you supply or upload, including any academic dataset submitted through the System, is verified, true, and correct to the best of your knowledge.</p>
+                </div>
+
+                <div class="help-section">
+                    <span class="help-section-tag">Terms</span>
+                    <h3>Use</h3>
+                    <p>Through registration and by having access to the System, you hereby warrant that the System shall only be used for the following purposes:</p>
+                    <ul>
+                        <li>Accessing academic performance dashboards (Main Dashboard) and predictive analytics (Prediction Analysis) for your assigned college, department, or area of responsibility.</li>
+                        <li>Uploading official academic grade-sheet datasets for processing, limited to authorized Academic Affairs and MISO accounts.</li>
+                        <li>Viewing recorded indicators such as risk heatmaps, status breakdowns, GWA, and hardest subjects, together with forecasts of enrollment, GWA, at-risk counts, and subject difficulty generated by the System&rsquo;s machine learning models.</li>
+                        <li>Managing your own account profile, password, and related account settings.</li>
+                        <li>Any other academic reporting or decision-support function related to student performance monitoring offered by the NovaSight.</li>
+                    </ul>
+                </div>
+
+                <div class="help-section help-policy">
+                    <span class="help-section-tag">Policy</span>
+                    <h3>1. Who This Applies To</h3>
+                    <p>NovaSight is an internal academic prediction system built for Bataan Peninsula State University staff. It is not a public registration service, accounts are created only by MISO for verified BPSU personnel. This policy covers both those account holders and anyone browsing the public, no-login pages of the site (such as this one).</p>
+
+                    <h3>2. Information We Collect</h3>
+                    <p><strong>Account information</strong>, for every staff account MISO creates: first name, last name, middle initial/suffix (if provided), BPSU account email, a securely hashed password (never stored in plain text), assigned role, and an optional profile picture, plus small interface settings such as the default avatar color assigned to your role or department and whether you have already seen a page&rsquo;s tutorial video. This information identifies real staff members and is used solely to operate their account within the system.</p>
+                    <p><strong>Uploaded academic datasets</strong>, submitted only by Academic Affairs and MISO accounts, which power every dashboard and prediction in the system. Each upload is processed as one semester. The original file, the cleaned student and grade records for that semester, and a small database record (academic year, semester, number of rows, parsing accuracy, and who uploaded it) are kept on secured, university-managed storage, accessible only to the same MISO/Academic Affairs roles authorized to upload them in the first place, for record keeping and to allow re-processing if needed. On every dashboard, individual student records are shown only by an anonymized student ID (never by name) so no student identity is exposed to deans, Registrar, or SASO through the dashboards themselves.</p>
+                    <p><strong>Trained models and forecasts</strong>. The prediction models are trained from the uploaded semesters. They store statistical parameters and aggregated figures, for example headcount, average GWA, and status rates per college, course, year level, and subject, not copies of student records. The Prediction Analysis page displays only these aggregates and never an individual student.</p>
+                    <p><strong>Session data</strong>: a single authentication cookie that keeps you signed in. It is not used for tracking, does not follow you across other sites, and carries no advertising or analytics identifiers, because NovaSight does not run any analytics, tracking, or advertising scripts of any kind.</p>
+                    <p><strong>Uploaded profile pictures</strong> are re-processed on upload, decoded, stripped of any embedded file metadata, and re-saved as a clean image before being stored, so no hidden metadata from the original file (such as device or location information some images carry) is retained.</p>
+
+                    <h3>3. How Information Is Used</h3>
+                    <p>Account information is used only to operate the system: authenticating logins, displaying who uploaded a dataset for audit purposes, and personalizing each account&rsquo;s profile. Uploaded academic data is used only to generate the dashboards, trends, and predictions NovaSight was built to provide; forecasts are recalculated from all uploaded semesters each time new data arrives. NovaSight does not sell, rent, or share any information collected here with third parties, and does not use it for any purpose beyond operating the system for BPSU.</p>
+
+                    <h3>4. Predictions Are Decision Support, Not Evaluation</h3>
+                    <p>NovaSight&rsquo;s predictions are built to help flag student cohorts who may benefit from additional academic support. They are not a performance score for any college, department, or dean, and information collected through this system is never used to rank or compare colleges against one another.</p>
+
+                    <h3>5. How Information Is Protected</h3>
+                    <ul>
+                        <li>Passwords are never stored in plain text, only a one-way secure hash.</li>
+                        <li>Student records are referenced only by an anonymized ID on every dashboard, never by name, and forecast pages show aggregated figures only.</li>
+                        <li>Login sessions are transmitted only over an encrypted (HTTPS) connection.</li>
+                        <li>Access to uploading academic data and to the admin account-management tools is restricted by role; most accounts can only view dashboards, not modify data or other users.</li>
+                        <li>Regular backups are kept so academic records and account data are not lost to a technical failure.</li>
+                    </ul>
+
+                    <h3>6. Third-Party Resources</h3>
+                    <p>To draw charts and display fonts, some pages load open-source libraries (Chart.js and its labels plugin) from the jsDelivr content delivery network and typefaces from Google Fonts. When your browser requests these files, those providers can see standard connection details such as your IP address, browser type, and the page that requested the file. No account details, student records, or academic data are sent to them, and NovaSight does not use them for analytics or advertising.</p>
+
+                    <h3>7. Data Retention</h3>
+                    <p>Account and academic dataset records are retained for as long as needed to support BPSU&rsquo;s academic reporting and record-keeping requirements. Deactivated (&ldquo;archived&rdquo;) accounts are retained rather than immediately erased, so historical audit trails (such as who uploaded a given dataset) remain intact. Prediction models are recalculated from the stored semester records whenever new data is uploaded. If you wish to have your account deactivated, please contact the Academic Affairs.</p>
+
+                    <h3>8. Your Choices and Rights</h3>
+                    <p>Account holders can update their profile picture and password at any time from their Profile page. For any other change, such as correcting account details, deactivating an account, or questions about what information is held, please contact the Academic Affairs.</p>
+                    <p>Under the Data Privacy Act of 2012 you may also have the right to be informed about how your personal data is processed, to access and correct it, to object to its processing, to request its erasure or blocking where the law allows, and to file a complaint with the National Privacy Commission (<a class="email-link" href="https://privacy.gov.ph" target="_blank" rel="noopener">privacy.gov.ph</a>).</p>
+
+                    <h3>9. Changes to This Policy</h3>
+                    <p>If this policy changes, the &ldquo;Last updated&rdquo; date at the top of this page will change accordingly. Significant changes will be communicated to account holders directly where practical.</p>
+                </div>
+
+                <div class="help-section help-callout">
+                    <span class="help-section-tag">Contact</span>
+                    <h3>10. Contact</h3>
+                    <p>Questions or concerns about this policy or about information NovaSight holds can be directed to the NovaSight system Developer or Academic Affairs.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    /* Help Center + Privacy Policy popups: open on this page, close with X, Esc or a
+       click outside. #help and #privacy in the address bar open them too. */
+    (function () {
+        'use strict';
+        var modals = {}, current = null, lastFocus = null;
+        document.querySelectorAll('.info-modal').forEach(function (m) { modals[m.id] = m; });
+        var byHash = { help: 'helpModal', privacy: 'privacyModal' };
+
+        function setHash(h) {
+            try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (e) {}
+        }
+        function openModal(id, trigger) {
+            var m = modals[id];
+            if (!m || m === current) return;
+            if (current) { current.classList.remove('is-open'); current.setAttribute('aria-hidden', 'true'); }
+            else { lastFocus = trigger || document.activeElement; }
+            m.classList.add('is-open');
+            m.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('modal-open');
+            m.querySelector('.info-modal-scroll').scrollTop = 0;
+            current = m;
+            m.querySelector('.info-modal-close').focus({ preventScroll: true });
+            setHash(m.getAttribute('data-hash'));
+        }
+        function closeModal() {
+            if (!current) return;
+            current.classList.remove('is-open');
+            current.setAttribute('aria-hidden', 'true');
+            current = null;
+            document.body.classList.remove('modal-open');
+            setHash('');
+            if (lastFocus && lastFocus.focus) { try { lastFocus.focus({ preventScroll: true }); } catch (e) {} }
+            lastFocus = null;
+        }
+        document.addEventListener('click', function (e) {
+            var opener = e.target.closest && e.target.closest('[data-open-modal]');
+            if (opener) { e.preventDefault(); openModal(opener.getAttribute('data-open-modal'), opener); return; }
+            if (!current) return;
+            if (e.target === current || (e.target.closest && e.target.closest('.info-modal-close'))) closeModal();
+        });
+        document.addEventListener('keydown', function (e) {
+            if (!current) return;
+            if (e.key === 'Escape') { closeModal(); return; }
+            if (e.key !== 'Tab') return;
+            var f = current.querySelectorAll('a[href], button, summary');
+            if (!f.length) return;
+            var first = f[0], last = f[f.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        });
+        window.addEventListener('hashchange', function () {
+            var id = byHash[location.hash.replace('#', '')];
+            if (id) openModal(id); else if (current && !location.hash) closeModal();
+        });
+        var start = byHash[location.hash.replace('#', '')];
+        if (start) openModal(start);
+    })();
+    </script>
 
     <script src="{{ url_for('static', filename='js/togglepassword.js') }}"></script>
     <script>
     /* Login input hygiene (client side only; the server still validates and uses
-       parameterised queries). Email: keep only characters valid in an email address.
-       Password: keep every symbol (so existing passwords still work), but drop
-       control characters and cap the length. */
+       parameterised queries). Email: letters, numbers and . - @ only.
+       Password: every character is allowed except emoji. */
     (function () {
         'use strict';
         var form    = document.querySelector('.login-form');
@@ -171,9 +369,17 @@
         var hint    = document.getElementById('accountHint');
         if (!form || !account || !pw) return;
 
-        var BAD_EMAIL_CHARS = /[^A-Za-z0-9._%+\-@]/g;   // everything except email characters
-        var CONTROL_CHARS   = /[\u0000-\u001F\u007F]/g;  // control characters (incl. newlines, tabs, NUL)
-        var hintTimer = null;
+        var BAD_EMAIL_CHARS = /[^A-Za-z0-9.\-@]/g;      // everything except letters, numbers and . - @
+        var BAD_PW_CHARS    = /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}\uFE0F\u200D\u20E3]/gu;   // emoji only; every other character is allowed
+        var pwHint  = document.getElementById('passwordHint');
+        var hintTimer = null, pwHintTimer = null;
+
+        function showPwHint() {
+            if (!pwHint) return;
+            pwHint.style.display = '';
+            clearTimeout(pwHintTimer);
+            pwHintTimer = setTimeout(function () { pwHint.style.display = 'none'; }, 3500);
+        }
 
         function showHint() {
             if (!hint) return;
@@ -192,8 +398,11 @@
         }
 
         function cleanPassword() {
-            var after = pw.value.replace(CONTROL_CHARS, '');
-            if (after !== pw.value) pw.value = after;
+            var after = pw.value.replace(BAD_PW_CHARS, '');
+            if (after !== pw.value) {
+                pw.value = after;
+                showPwHint();
+            }
         }
 
         account.addEventListener('input', cleanEmail);

@@ -1156,19 +1156,27 @@ def api_training_state():
 
 _MODEL_LABELS = {
     # New DS01-DS06 models
-    'at_risk':                  'At-Risk Classification',
-    'gwa_regression':           'GWA Prediction',
-    'completion_rate_forecast': 'Completion Rate Forecast',
+    'at_risk':                  'At-Risk Classification (next semester)',
+    'gwa_regression':           'GWA Prediction (next semester)',
+    'completion_rate_forecast': 'Completion Rate Forecast (next semester)',
     'subject_Fail_Rate':        'Subject Fail Rate',
     'subject_Avg_Grade':        'Subject Average Grade',
     'at_risk_forecast':         'At-Risk Forecast (per Group)',
     'gwa_trend_forecast':       'GWA Trend Forecast (per Group)',
 }
 
+# NOTE (updated): at_risk / gwa_regression / completion_rate_forecast are now
+# trained on LAGGED per-student pairs (this semester's features -> that SAME
+# student's NEXT semester's target — see _build_lagged_pairs() in
+# auto_train.py), and are read by student_risk_watchlist.pkl, which
+# prediction_api.py's /api/pred/watchlist serves as a per-student (not
+# per-group) "who needs attention next semester" list — distinct from
+# pred_cube/pred_subjects, which only ever give college/course/subject-level
+# aggregate trends.
 _CHART_USAGE = {
-    'at_risk':                  'Student Status Donut / At-Risk Flag',
-    'gwa_regression':           'GWA KPI Tile / GWA Trend Chart',
-    'completion_rate_forecast': 'Completion Rate KPI Tile',
+    'at_risk':                  'At-Risk Student Watchlist',
+    'gwa_regression':           'At-Risk Student Watchlist',
+    'completion_rate_forecast': 'At-Risk Student Watchlist',
     'subject_Fail_Rate':        'Hardest Subjects Chart (Fail Rate)',
     'subject_Avg_Grade':        'Hardest Subjects Chart (Avg Grade)',
     'at_risk_forecast':         'At-Risk Forecast Line Chart (DS05)',

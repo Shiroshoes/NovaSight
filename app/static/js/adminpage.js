@@ -1,5 +1,69 @@
 document.addEventListener('DOMContentLoaded', function () {
 
+    // ---------------- SELF-DEACTIVATION GUARD ----------------
+    // An admin can never deactivate the account they are logged in with.
+    // (The server route must enforce this too; this just hides the option.)
+    const currentUserId = String(document.body.dataset.currentUserId || '');
+    function isSelf(id) { return currentUserId !== '' && String(id) === currentUserId; }
+
+    // ---------------- INPUT HYGIENE (client side only; the server must validate too) ----------------
+    // Account / email-style fields: letters, numbers and . - @ only.
+    // Name, MI and suffix fields: same set (plus a space in first/last names).
+    // Password fields: every character is allowed except emoji.
+    (function () {
+        'use strict';
+        var EMOJI     = /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}\uFE0F\u200D\u20E3]/gu;
+        var EMAIL_BAD = /[^A-Za-z0-9.\-@]/g;
+        var NAME_BAD  = /[^A-Za-z0-9.\-@ ]/g;
+
+        var tip = document.createElement('div');
+        tip.setAttribute('role', 'status');
+        tip.className = 'admin-input-tip';
+        tip.style.cssText = 'position:fixed;z-index:99999;display:none;max-width:290px;padding:9px 13px;' +
+                            'border-radius:12px;background:rgba(36,24,26,.96);color:#fff;font-size:12.5px;line-height:1.4;' +
+                            'font-weight:500;pointer-events:none;border:1px solid rgba(255,255,255,.08);' +
+                            'box-shadow:0 12px 28px -8px rgba(0,0,0,.45);';
+        document.body.appendChild(tip);
+        var tipTimer = null;
+        function showTip(input, text) {
+            var r = input.getBoundingClientRect();
+            tip.textContent = text;
+            tip.style.left = Math.max(8, r.left) + 'px';
+            tip.style.top  = (r.bottom + 6) + 'px';
+            tip.style.display = 'block';
+            clearTimeout(tipTimer);
+            tipTimer = setTimeout(function () { tip.style.display = 'none'; }, 3000);
+        }
+
+        function guard(input, badRe, message) {
+            if (!input) return;
+            function clean() {
+                var before = input.value;
+                var after  = before.replace(badRe, '');
+                if (after !== before) { input.value = after; showTip(input, message); }
+            }
+            input.addEventListener('input', clean);
+            input.addEventListener('blur', clean);
+            if (input.form) input.form.addEventListener('submit', clean, true);
+        }
+
+        var EMAIL_MSG = 'Only letters, numbers and . - @ are allowed.';
+        var NAME_MSG  = 'Only letters, numbers, spaces and . - @ are allowed.';
+        var SHORT_MSG = 'Only letters, numbers and . - @ are allowed.';
+        var PW_MSG    = 'Emoji are not allowed in the password.';
+
+        ['password_input', 'confirm_password_input', 'editPassword', 'editConfirmPassword', 'resetPasswordInput'].forEach(function (id) { guard(document.getElementById(id), EMOJI, PW_MSG); });
+        ['input[name="first_name"]', 'input[name="last_name"]'].forEach(function (sel) {
+            document.querySelectorAll(sel).forEach(function (el) { guard(el, NAME_BAD, NAME_MSG); });
+        });
+        ['input[name="mi"]', 'input[name="suffix"]'].forEach(function (sel) {
+            document.querySelectorAll(sel).forEach(function (el) { guard(el, EMAIL_BAD, SHORT_MSG); });
+        });
+        ['input[name="account"]:not([readonly])'].forEach(function (sel) {
+            document.querySelectorAll(sel).forEach(function (el) { guard(el, EMAIL_BAD, EMAIL_MSG); });
+        });
+    })();
+
     // ---------------- PASSWORD EYE TOGGLE (shared helper) ----------------
     function wirePasswordToggle(toggleBtnId, inputId, eyeOpenId, eyeClosedId) {
         const toggleBtn = document.getElementById(toggleBtnId);
@@ -38,7 +102,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function showModal(overlay) {
-        if (overlay) overlay.style.display = 'flex';
+        if (!overlay) return;
+        overlay.style.display = 'flex';
+        // Move focus into the dialog: the password box if there is one, otherwise
+        // the safe (Back / No) button. Status toasts have neither, so nothing moves.
+        const target = overlay.querySelector('input, .mbtn-ghost');
+        if (target) setTimeout(() => target.focus({ preventScroll: true }), 40);
     }
     function hideModal(overlay) {
         if (overlay) overlay.style.display = 'none';
@@ -50,6 +119,17 @@ document.addEventListener('DOMContentLoaded', function () {
             if (e.target === overlay) hideModal(overlay);
         });
     }
+
+    // Esc closes the front-most open modal (same result as the X / Back button).
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const open = Array.from(document.querySelectorAll('.modal-overlay'))
+            .filter(o => getComputedStyle(o).display !== 'none');
+        const top = open[open.length - 1];
+        if (!top) return;
+        const closeX = top.querySelector('.modal-close-x');
+        if (closeX) closeX.click(); else hideModal(top);
+    });
 
     // ---------------- DEACTIVATE CONFIRMATION MODAL ----------------
     const deactivateModal      = document.getElementById('deactivateModal');
@@ -136,6 +216,48 @@ document.addEventListener('DOMContentLoaded', function () {
     const editSection  = document.getElementById('editUserSection');
     const editForm     = document.getElementById('editUserForm');
 
+    // Save stays disabled until something is actually changed, so clicking it
+    // with nothing edited is simply not possible (no pointless submit/reload,
+    // no "nothing to save" alert needed either).
+    const editSaveBtn = editForm ? editForm.querySelector('button[type="submit"]') : null;
+    const EDIT_TRACKED_FIELDS = [
+        'editFirstName', 'editLastName', 'editMI', 'editSuffix',
+        'editRole', 'editPassword', 'editConfirmPassword',
+    ];
+    let editInitialSnapshot = null;
+
+    function snapshotEditForm() {
+        const snap = {};
+        EDIT_TRACKED_FIELDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) snap[id] = el.value;
+        });
+        editInitialSnapshot = snap;
+    }
+
+    function isEditFormDirty() {
+        if (!editInitialSnapshot) return false;
+        return EDIT_TRACKED_FIELDS.some(id => {
+            const el = document.getElementById(id);
+            return el && el.value !== editInitialSnapshot[id];
+        });
+    }
+
+    function refreshEditSaveState() {
+        if (editSaveBtn) editSaveBtn.disabled = !isEditFormDirty();
+    }
+
+    // One shared listener set (not re-attached per Edit click) — every open
+    // just re-snapshots the freshly-loaded values and disables Save again.
+    EDIT_TRACKED_FIELDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', refreshEditSaveState);
+    });
+    if (editForm) {
+        const roleSelect = document.getElementById('editRole');
+        if (roleSelect) roleSelect.addEventListener('change', refreshEditSaveState);
+    }
+
     editButtons.forEach(button => {
         button.addEventListener('click', function () {
             const userId = this.getAttribute('data-user-id');
@@ -172,6 +294,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (ecp) { ecp.value = ''; ecp.style.borderColor = ''; ecp.setCustomValidity(''); }
                     if (ecm) ecm.style.display = 'none';
 
+                    // Freshly loaded = the "unchanged" baseline — Save starts disabled.
+                    snapshotEditForm();
+                    refreshEditSaveState();
+
                     const deactivatedText = document.getElementById('editDeactivatedText');
                     const deactivateBtn   = document.getElementById('deactivateUserBtn');
                     const activateBtn     = document.getElementById('activateUserBtn');
@@ -184,14 +310,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     } else {
                         // Active user: hide red text + Activate; show Deactivate only
                         if (deactivatedText) deactivatedText.style.display = 'none';
-                        if (deactivateBtn)   deactivateBtn.style.display   = 'inline-block';
+                        if (deactivateBtn)   deactivateBtn.style.display   = isSelf(data.acaduser_id) ? 'none' : 'inline-block';
                         if (activateBtn)     activateBtn.style.display     = 'none';
                     }
+
+                    // Own account: no Deactivate button, show a short note instead
+                    const selfNote = document.getElementById('editSelfNote');
+                    if (selfNote) selfNote.style.display = (!data.is_archived && isSelf(data.acaduser_id)) ? 'block' : 'none';
 
                     editForm.action = `/NovaSight/admin/update_user/${userId}`;
 
                     if (deactivateBtn) {
                         deactivateBtn.onclick = () => {
+                            if (isSelf(data.acaduser_id)) return;
                             if (deactivateAccountInfo) deactivateAccountInfo.textContent = formatUserLabel(data);
                             pendingDeactivateRequest = () => {
                                 fetch(`/NovaSight/admin/archive_user/${userId}`, {
@@ -248,12 +379,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('editDateCreated').value = data.date_created;
                     editForm.action = `/NovaSight/admin/update_user/${userId}`;
 
+                    // Freshly loaded = the "unchanged" baseline — Save starts disabled.
+                    snapshotEditForm();
+                    refreshEditSaveState();
+
                     // Always archived — show red text + Activate only
                     const deactivatedText = document.getElementById('editDeactivatedText');
                     const deactivateBtn   = document.getElementById('deactivateUserBtn');
                     const activateBtn     = document.getElementById('activateUserBtn');
                     if (deactivatedText) deactivatedText.style.display = 'block';
                     if (deactivateBtn)   deactivateBtn.style.display   = 'none';
+                    const selfNoteArchived = document.getElementById('editSelfNote');
+                    if (selfNoteArchived) selfNoteArchived.style.display = 'none';
                     if (activateBtn) {
                         activateBtn.style.display = 'inline-block';
                         activateBtn.onclick = () => {
@@ -502,6 +639,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 editConfirmPwdInput.setCustomValidity('');
                 if (editConfirmMismatch) editConfirmMismatch.style.display = 'none';
             }
+
+            // Setting .value in JS doesn't fire 'input', so the dirty-check
+            // wouldn't otherwise notice a generated password.
+            refreshEditSaveState();
         });
     }
 
