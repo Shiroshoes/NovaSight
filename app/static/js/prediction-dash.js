@@ -1847,6 +1847,20 @@ document.addEventListener('DOMContentLoaded', function () {
     if (metaEl) metaEl.textContent = '';
     setBadge('', '');
     textArea.textContent = ''; textArea.contentEditable = 'true';
+
+    // kpiCard here is stat tiles too, not a canvas — same silent-failure gap
+    // as the main dashboard's version. Disable + uncheck + explain instead
+    // of letting Download as Word produce a doc with no image and no reason.
+    const includeChartEl = _$('aiInsightsIncludeChart');
+    if (includeChartEl) {
+      const hasChart = !!document.querySelector('#' + id + ' .chart-area:not(.hidden) canvas');
+      includeChartEl.disabled = !hasChart;
+      if (!hasChart) includeChartEl.checked = false;
+      const label = includeChartEl.closest('label');
+      if (label) label.title = hasChart ? '' : 'This card has no chart image to include.';
+      label?.classList.toggle('disabled-note', !hasChart);
+    }
+
     modal.classList.remove('hidden');
     try { hideSpinner(); } catch (e) {}
     const saved = await loadInsight(id);

@@ -3360,6 +3360,22 @@ document.addEventListener('DOMContentLoaded', function () {
     if (metaEl) metaEl.textContent = '';
     setBadge('', '');
     if (textArea) { textArea.textContent = ''; textArea.contentEditable = 'true'; }
+
+    // Some cards (kpiCard is stat tiles, not a Chart.js canvas) have nothing
+    // for "Include chart image" to actually capture — previously the
+    // checkbox stayed checked and enabled regardless, so Download as Word
+    // silently produced a document with NO <img> at all and no indication
+    // why. Disable + uncheck + explain instead of failing silently.
+    const includeChartEl = _$('aiInsightsIncludeChart');
+    if (includeChartEl) {
+      const hasChart = !!document.querySelector('#' + cardId + ' .chart-area canvas');
+      includeChartEl.disabled = !hasChart;
+      if (!hasChart) includeChartEl.checked = false;
+      const label = includeChartEl.closest('label');
+      if (label) label.title = hasChart ? '' : 'This card has no chart image to include.';
+      label?.classList.toggle('disabled-note', !hasChart);
+    }
+
     modal.classList.remove('hidden');
 
     if (loadEl) loadEl.classList.add('active');
