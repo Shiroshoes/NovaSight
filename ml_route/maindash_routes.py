@@ -1498,7 +1498,8 @@ def api_get_insight():
         return jsonify({'found': True, 'legacy': legacy, 'id': row[0], 'insight_text': row[1], 'filter_label': row[2],
                         'updated_at': str(row[3]), 'updated_by': row[4]})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"[api_get_insight] load failed for chart_key={chart_key!r} dashboard={dashboard!r}: {e}")
+        return jsonify({'error': 'load_failed', 'reason': str(e)}), 500
 
 
 @maindash_bp.route('/api/dash/insights', methods=['POST'])
@@ -1510,7 +1511,12 @@ def api_save_insight():
     filter_label = str(body.get('filter_label', '')).strip() or None
     f, fh = _insight_scope(body.get('filters') if isinstance(body.get('filters'), dict) else {})
     if fh is None:
-        return jsonify({'error': 'not allowed'}), 403
+        # Was a bare 403 with no detail — made a real permission failure
+        # indistinguishable from "not logged in" / "role not recognized" /
+        # anything else routed through this same branch. Now it says which.
+        role = _session.get('role')
+        reason = ('not logged in' if not role else f"role '{role}' has no data access")
+        return jsonify({'error': 'not allowed', 'reason': reason}), 403
     if not chart_key or not insight_text:
         return jsonify({'error': 'chart_key and insight_text required'}), 400
 
@@ -1538,7 +1544,13 @@ def api_save_insight():
         return jsonify({'saved': True, 'id': rec_id})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        # Printed server-side (visible in the Flask console / log file) AND
+        # returned to the client — this used to only do the latter via a
+        # generic 500, so the real cause (FK violation, bad column, etc.)
+        # was only ever visible by someone manually reading server logs.
+        print(f"[api_save_insight] save failed for chart_key={chart_key!r} "
+              f"dashboard={dashboard!r} user_id={user_id!r}: {e}")
+        return jsonify({'error': 'save_failed', 'reason': str(e)}), 500
 
 
 # -- Free AI draft (Google Gemini free tier). Key stays on the server. ----------------------

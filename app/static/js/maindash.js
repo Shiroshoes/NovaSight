@@ -3343,8 +3343,8 @@ document.addEventListener('DOMContentLoaded', function () {
         setBadge('saved', 'Saved — visible to all users');
         setDirty(false);
         if (metaEl) metaEl.textContent = 'Just saved by you';
-      } else { setBadge('error', 'Save failed'); }
-    } catch { setBadge('error', 'Save failed'); }
+      } else { setBadge('error', 'Save failed' + (d.reason ? ': ' + d.reason : '')); }
+    } catch (e) { setBadge('error', 'Save failed: ' + (e?.message || 'network error')); }
   }
 
   /* ── Open modal ──────────────────────────────────────────────────────── */

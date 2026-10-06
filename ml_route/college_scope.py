@@ -45,6 +45,17 @@ DEAN_ROLE_COLLEGE.update({r: "CAHS" for r in CAHS_ROLES})     # all four CAHS ro
 # (fail closed), so a brand-new role must be added here on purpose.
 FULL_ACCESS_ROLES = {"Academic_Affair", "Registrar", "MISO"}
 
+# Case/whitespace-tolerant lookup tables, built once from the two above. A role stored or
+# read back with different casing or stray whitespace (e.g. a DB edit, a copy-paste, a
+# migration) would silently fail an exact-match lookup and fall through to "no data" below —
+# this was a live suspect for a save-permission bug that affected every role identically, so
+# matching is normalized instead of assumed to always be byte-for-byte exact.
+def _norm(s):
+    return (s or "").strip().casefold()
+
+_DEAN_ROLE_COLLEGE_NORM = {_norm(k): v for k, v in DEAN_ROLE_COLLEGE.items()}
+_FULL_ACCESS_ROLES_NORM = {_norm(r) for r in FULL_ACCESS_ROLES}
+
 NO_COLLEGE = "__NO_COLLEGE__"           # matches no data -> empty result
 
 _resolver = None
@@ -65,9 +76,10 @@ def forced_college():
     role = session.get("role")
     if not role:
         return NO_COLLEGE                               # not logged in -> nothing
-    if role in DEAN_ROLE_COLLEGE:
-        return DEAN_ROLE_COLLEGE[role]
-    if role in FULL_ACCESS_ROLES:
+    key = _norm(role)
+    if key in _DEAN_ROLE_COLLEGE_NORM:
+        return _DEAN_ROLE_COLLEGE_NORM[key]
+    if key in _FULL_ACCESS_ROLES_NORM:
         return None
     return NO_COLLEGE                                   # unknown role -> nothing (fail closed)
 

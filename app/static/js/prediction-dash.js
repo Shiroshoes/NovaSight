@@ -1837,8 +1837,8 @@ document.addEventListener('DOMContentLoaded', function () {
         body: JSON.stringify({ chart_key: _card, dashboard: DASH, insight_text: text, filter_label: subOf(_card), filters: filtersOf(_card) }) });
       const d = await r.json();
       if (d.saved) { _savedText = text; setBadge('saved', 'Saved \u2014 visible to all users'); setDirty(false); if (metaEl) metaEl.textContent = 'Just saved by you'; }
-      else setBadge('error', 'Save failed');
-    } catch { setBadge('error', 'Save failed'); }
+      else setBadge('error', 'Save failed' + (d.reason ? ': ' + d.reason : ''));
+    } catch (e) { setBadge('error', 'Save failed: ' + (e?.message || 'network error')); }
   }
   async function openModal(id) {
     _card = id; _savedText = ''; setDirty(false);
