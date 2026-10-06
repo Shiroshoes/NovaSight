@@ -94,7 +94,21 @@
     el.classList.remove('step--waiting','step--running','step--done','step--error');
     el.classList.add('step--' + state);
   }
-  function resetSteps() { STEP_IDS.forEach(id => setStep(id, 'waiting')); }
+  function resetSteps() {
+    STEP_IDS.forEach(id => setStep(id, 'waiting'));
+    showTrainStep(false);
+  }
+  // The "Model training" step is only shown when a training run really happens
+  // (6 semesters for the first training, then every 2 new semesters).
+  // Otherwise it stays hidden so the pipeline doesn't show a step that never runs.
+  function showTrainStep(show) {
+    const el = document.getElementById('step-train');
+    if (el) el.classList.toggle('step--off', !show);
+  }
+  function showTrainStepOn(card, show) {
+    const el = card.querySelector('[data-step="train"]');
+    if (el) el.classList.toggle('step--off', !show);
+  }
 
   // ── Per-card step helpers ──────────────────────────────────
   function setStepOn(card, key, state) {
@@ -230,7 +244,7 @@
       </div>
       <div class="pipeline-steps" style="display:none">
         ${steps.map(([key, label, desc]) => `
-          <div class="pipeline-step step--waiting" data-step="${key}">
+          <div class="pipeline-step step--waiting${key === 'train' ? ' step--off' : ''}" data-step="${key}">
             <div class="step-dot"><span class="step-spinner"></span></div>
             <div class="step-info">
               <span class="step-label">${label}</span>
@@ -402,6 +416,7 @@
 
     const card = createQueueCard(file.name, file.size ? fmt(file.size) : '');
 
+    freeStaleSlot();
     if (!activeCard && fileQueue.length === 0) {
       startUpload(file, card);
     } else {
@@ -474,8 +489,18 @@
       });
   }
 
+  // Safety net: a card that was discarded or is no longer on the page can't own the
+  // processing slot. Clears it so a new upload starts instead of sitting on "Queued".
+  function freeStaleSlot() {
+    if (activeCard && (activeCard._discarded || !activeCard.isConnected)) {
+      activeCard._released = true;
+      activeCard = null;
+    }
+  }
+
   // Drain next item from fileQueue when the active upload finishes
   function drainQueue() {
+    freeStaleSlot();
     if (activeCard) return;                       // slot busy — one at a time
     if (fileQueue.length === 0) { isProcessing = false; return; }
     const front = fileQueue[0];
@@ -604,6 +629,7 @@
 
   // ── Queue status handler ───────────────────────────────────
   function onQueueStatusUpdate(uploadId, card, data) {
+    if (card && card._discarded) { stopQueuePoll(uploadId); return; }   // late poll for a discarded upload
     if (data.status === 'processing') {
       setStepOn(card, 'clean', 'running');
       return;
@@ -645,7 +671,7 @@
         `<strong>${esc(data.original_filename || 'File')}</strong> uploaded successfully` +
         (data.row_count ? ` — ${fmtNum(data.row_count)} student rows.` : '.'), 'success', card);
       refreshAllTables();            // one reload: upload succeeded
-      setStepOn(card, 'train', 'running');
+      // Train step stays hidden until /api/training-run says a run really exists.
       // Don't drain the queue yet — wait until training finishes
       fetch('/api/training-run')
         .then(r => r.json())
@@ -706,12 +732,12 @@
     }
     const st = run && run.status;
     if (!st || st === 'none') {
-      setStepOn(card, 'train', 'waiting');
-      if (stepDesc) stepDesc.textContent = 'No training run was recorded for this upload.';
+      showTrainStepOn(card, false);     // nothing to train -> no step
       revealCardClose(card);
       releaseSlot(card);   // training skipped/absent — start next
       return;
     }
+    showTrainStepOn(card, st !== 'skipped');   // skipped = not enough semesters -> hide
     if (st === 'queued') {
       setStepOn(card, 'train', 'running');
       if (stepDesc) stepDesc.textContent = 'Waiting for an earlier training run to finish…';
@@ -719,8 +745,6 @@
       setStepOn(card, 'train', 'running');
       if (stepDesc) stepDesc.textContent = 'Training models on all uploaded semesters — this can take a few minutes.';
     } else if (st === 'skipped') {
-      setStepOn(card, 'train', 'waiting');
-      if (stepDesc) stepDesc.textContent = run.message || 'Not enough semesters yet — training skipped.';
       revealCardClose(card);
       releaseSlot(card);   // training skipped — start next
     } else if (st === 'done') {
@@ -804,11 +828,11 @@
   function applyTraining(run) {
     const st = run && run.status;
     if (!st || st === 'none') {                       // nothing recorded for this upload
-      setStep('step-train', 'waiting');
-      setTrainDesc('No training run was recorded for this upload.');
+      showTrainStep(false);
       scheduleCardHide();
       return;
     }
+    if (st && st !== 'none' && st !== 'skipped') showTrainStep(true);
     if (st === 'queued') {
       cancelCardHide();
       setStep('step-train', 'running');
@@ -818,8 +842,7 @@
       setStep('step-train', 'running');
       setTrainDesc('Training the models on all uploaded semesters — this can take a few minutes.');
     } else if (st === 'skipped') {
-      setStep('step-train', 'waiting');
-      setTrainDesc(run.message || 'Not enough semesters yet — training skipped.');
+      showTrainStep(false);             // not enough semesters yet -> hide the step
       scheduleCardHide();
     } else if (st === 'done') {
       setStep('step-train', 'done');
@@ -927,6 +950,22 @@
   const preprocMeta    = document.getElementById('preprocMeta');
   const confirmBtn     = document.getElementById('preprocConfirmBtn');
   const cancelBtn      = document.getElementById('preprocCancelBtn');
+  const dlFlagsBtn     = document.getElementById('preprocDownloadBtn');
+  let   warnFileName   = 'flags';
+
+  // Download ONLY the flag list (Missing / Needs review / Fixed) as an Excel file with one
+  // tab per sheet, so the user can still find every null in their spreadsheet after cancelling.
+  if (dlFlagsBtn) dlFlagsBtn.addEventListener('click', () => {
+    if (!(window.FlagReview && window.FlagReview.hasData())) return;
+    const blob = window.FlagReview.xlsx();          // Excel file, one tab per sheet
+    if (!blob) return;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = warnFileName.replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '_') + '_flags.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
 
   let modalUploadId   = null;
   let modalCard       = null;
@@ -969,10 +1008,23 @@
         (trRows ? `<span class="wstat wstat-rows"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12A1.5 1.5 0 0 1 17 6.622V12.5a1.5 1.5 0 0 1-1.5 1.5h-1v-3.379a3 3 0 0 0-.879-2.121L10.5 5.379A3 3 0 0 0 8.379 4.5H7v-1Z"/><path d="M4.5 6A1.5 1.5 0 0 0 3 7.5v9A1.5 1.5 0 0 0 4.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L9.44 6.439A1.5 1.5 0 0 0 8.378 6H4.5Z"/></svg>${trRows} training rows</span>` : '') +
       `</div>`;
 
+    // Readable, collapsible flag list (fileupload.flags.js). It brings its own tabs,
+    // so the old pill bar is hidden. Falls back to the old table if the script is missing.
+    if (window.FlagReview) {
+      preprocTabBar.innerHTML = '';
+      preprocTabBar.style.display = 'none';
+      window.FlagReview.render(preprocBody, data, { mode: 'grouped', confirm: true });
+      warnFileName = data.original_filename || statusData.original_filename || 'flags';
+      if (dlFlagsBtn) { dlFlagsBtn.style.display = ''; dlFlagsBtn.disabled = !window.FlagReview.hasData(); }
+      return;
+    }
+    if (dlFlagsBtn) dlFlagsBtn.style.display = 'none';
+    preprocTabBar.style.display = '';
+
     // Tier tabs
     // 3 pill buttons — Null / Highlight / Resolved
     preprocTabBar.innerHTML =
-      [['null','Null'], ['highlight','Highlight'], ['resolved','Resolved']].map(([t, label], i) => {
+      [['null','Missing'], ['highlight','Needs Review'], ['resolved','Fixed Automatically']].map(([t, label], i) => {
         const cnt = warnData[t].length;
         return `<button class="warn-pill${i===0?' active':''}" data-tier="${t}">
           <span class="pill-dot pill-dot-${t}"></span>
@@ -1081,9 +1133,19 @@
     discardConfirmBtn.textContent = 'Discarding…';
 
     fetch('/api/upload-record/' + uploadId, { method:'DELETE' })
-      .then(() => {
+      .then(async r => {
+        // 404 = the record is already gone, which is what we wanted anyway.
+        if (!r.ok && r.status !== 404) {
+          const d = await r.json().catch(() => ({}));
+          throw new Error(d.error || 'Could not discard this upload.');
+        }
         discardModal.classList.remove('open');
         preprocModal.classList.remove('open');
+        // Free the processing slot. Without this the discarded card kept owning it, so the
+        // next file was shown as "Queued" and drainQueue() never started it.
+        if (card) card._discarded = true;
+        stopQueuePoll(uploadId);
+        releaseSlot(card || (activeCard && activeCard._uploadId === uploadId ? activeCard : null));
         if (card) {
           stopQueuePoll(uploadId);
           clearAlertFor(card);
@@ -1095,7 +1157,12 @@
         showAlert('Upload cancelled and removed.','warning');
         refreshAllTables();
       })
-      .catch(() => { discardModal.classList.remove('open'); preprocModal.classList.remove('open'); })
+      .catch(err => {
+        // Delete failed: keep the review open so the user can try again (the record still exists).
+        discardModal.classList.remove('open');
+        modalUploadId = uploadId; modalCard = card;
+        showAlert(esc((err && err.message) || 'Could not discard this upload.'), 'error');
+      })
       .finally(() => { discardConfirmBtn.disabled = false; discardConfirmBtn.textContent = 'Discard upload'; });
     modalUploadId = null; modalCard = null;
   });
@@ -1200,11 +1267,11 @@
   csvToggleViewBtn?.addEventListener('click', () => {
     if (!csvCtx) return;
     if (csvMode === 'warnings') {
-      csvMode = 'raw';
+      csvMode = 'raw'; setDlLabel();
       csvToggleViewBtn.textContent = 'Show flagged rows only';
       _loadRawCsv(csvCtx.title, csvCtx.apiUrl, csvCtx.dlUrl);
     } else {
-      csvMode = 'warnings';
+      csvMode = 'warnings'; setDlLabel();
       csvToggleViewBtn.textContent = 'View full CSV';
       _loadWarnings(csvCtx.title, csvCtx.upload_id);
     }
@@ -1214,7 +1281,7 @@
   // CSV" toggle from the flagged-rows view).
   function openCsvViewer(title, apiUrl, dlUrl) {
     csvCtx = { title, upload_id: null, apiUrl, dlUrl };
-    csvMode = 'raw';
+    csvMode = 'raw'; setDlLabel();
     csvToggleViewBtn.style.display = 'none';
     _loadRawCsv(title, apiUrl, dlUrl);
   }
@@ -1224,7 +1291,7 @@
   // full CSV via the toggle button if they need it.
   function openFlaggedViewer(title, uploadId, apiUrl, dlUrl) {
     csvCtx = { title, upload_id: uploadId, apiUrl, dlUrl };
-    csvMode = 'warnings';
+    csvMode = 'warnings'; setDlLabel();
     csvToggleViewBtn.style.display = '';
     csvToggleViewBtn.textContent = 'View full CSV';
     _loadWarnings(title, uploadId);
@@ -1242,8 +1309,7 @@
   };
   function csvSubtitleFor(mode, apiUrl) {
     if (mode === 'warnings') {
-      return 'Rows flagged while preprocessing this file — null (required value missing), '
-           + 'highlight (needs review) and resolved (auto-corrected).';
+      return 'Every issue found while checking this file: where it is, what was found, and what to do about it.';
     }
     let q;
     try { q = new URL(apiUrl, window.location.origin).searchParams; } catch (e) { return ''; }
@@ -1255,6 +1321,7 @@
   const escAttr = (s) => esc(s).replace(/"/g, '&quot;');
 
   function _loadRawCsv(title, apiUrl, dlUrl) {
+    csvModal.classList.remove('csv-modal--flags');
     csvModal.classList.add('open');
     csvTitle.textContent = title;
     csvSubtitle.textContent = csvSubtitleFor('raw', apiUrl);
@@ -1278,6 +1345,7 @@
   }
 
   function _loadWarnings(title, uploadId) {
+    csvModal.classList.toggle('csv-modal--flags', !!window.FlagReview);
     csvModal.classList.add('open');
     csvTitle.textContent = title;
     csvSubtitle.textContent = csvSubtitleFor('warnings');
@@ -1309,7 +1377,11 @@
         csvMeta.textContent =
           `${csvAllRows.length.toLocaleString()} flag(s) — ` +
           `${c.null||0} null · ${c.highlight||0} highlight · ${c.resolved||0} resolved`;
-        initCsvColumns();
+        if (window.FlagReview) {            // readable grouped view (fileupload.flags.js)
+          window.FlagReview.render(csvWrap, data, { mode: 'grouped' });   // same by-issue sections as the confirmation
+          return;
+        }
+        initCsvColumns();                   // fallback: old flat table
         applySearch();
         renderCsvPage(true);
       })
@@ -1318,15 +1390,38 @@
       });
   }
 
+  // Flag review downloads an Excel file; everything else is still a CSV — label the button to match.
+  function setDlLabel() {
+    const flags = csvMode === 'warnings';
+    const el = document.getElementById('csvDlLabel');
+    if (el) el.textContent = flags ? 'Download Excel' : 'Download CSV';
+    if (csvDlBtn) csvDlBtn.title = flags ? 'Download the flags as an Excel file (one tab per tier)' : 'Download this CSV';
+  }
+
   function downloadWarningsCsv() {
+    // Flag review → Excel only (one tab per sheet). The plain CSV below is just the
+    // fallback for non-flag files (no flag viewer loaded).
+    if (window.FlagReview && window.FlagReview.hasData()) {
+      const xl = window.FlagReview.xlsx();
+      if (xl) {
+        const url = URL.createObjectURL(xl), a = document.createElement('a');
+        a.href = url;
+        a.download = (csvCtx?.title || 'flagged-rows').replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '_') + '_flags.xlsx';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        return;
+      }
+    }
     if (!csvAllRows.length) return;
     const escCell = (v) => {
       const s = String(v ?? '');
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const lines = [csvHeaders.map(escCell).join(',')]
-      .concat(csvAllRows.map(row => row.map(escCell).join(',')));
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const csvText = (window.FlagReview && window.FlagReview.hasData())
+      ? window.FlagReview.csv()
+      : [csvHeaders.map(escCell).join(',')]
+          .concat(csvAllRows.map(row => row.map(escCell).join(','))).join('\n');
+    const blob = new Blob([csvText], { type: 'text/csv' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     const safeTitle = (csvCtx?.title || 'flagged-rows').replace(/[^\w.-]+/g, '_');

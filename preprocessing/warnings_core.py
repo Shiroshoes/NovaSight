@@ -75,6 +75,10 @@ class WarningCollector:
     "Proceed anyway?" button, done via console input for now.
     """
     items: list = field(default_factory=list)
+    # "Sheet!rowN" -> the student's program/course, so a flag can say WHICH program the
+    # row belongs to (shown in the flag review). Filled by the parser, read when the
+    # warnings are finalised; never affects tiers or counts.
+    row_course: dict = field(default_factory=dict)
 
     def add(self, category: str, message: str, ref: str | None = None):
         self.items.append({"category": category, "message": message, "ref": ref})

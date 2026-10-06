@@ -1045,6 +1045,9 @@ def parse_workbook_wide(path: str, academic_year_hint: str | None, semester_hint
                                 ref,
                             )
 
+                if current_course:
+                    warn.row_course[ref] = course_acronym(str(current_course).upper()) or str(current_course)
+
                 key = (current_course, seq_raw)
                 seen_seq_in_course.setdefault(key, []).append(current_student)
                 pending_codes = None
@@ -1394,8 +1397,8 @@ def _warning_sheet(ref) -> str:
     return s.split("!", 1)[0] if "!" in s else "—"
 
 
-def _aggregate_warnings(items, keep_individual: int = 3, max_refs: int = 15,
-                        max_len: int = 1500) -> list[dict]:
+def _aggregate_warnings(items, keep_individual: int = 100000, max_refs: int = 15,
+                        max_len: int = 1500, row_course: dict | None = None) -> list[dict]:
     """
     v2 raises one warning per offending CELL (thousands on a real file);
     the modal / preprocessing_warnings table works per (category, sheet).
@@ -1428,10 +1431,15 @@ def _aggregate_warnings(items, keep_individual: int = 3, max_refs: int = 15,
     # save_preprocessing_warnings() bulk-inserts without clipping, so one
     # over-long value would fail the WHOLE insert (and the modal would show
     # no warnings at all). Clip here instead.
+    rc = row_course or {}
     for o in out:
         o["category"] = str(o["category"])[:100]
         if o.get("ref") is not None:
-            o["ref"] = str(o["ref"])[:200]
+            r = str(o["ref"])
+            # tag the row's program as a trailing " @@PROGRAM" (read by fileupload.flags.js)
+            m = re.match(r"^(.*?!row\d+)", r)
+            sfx = (" @@" + str(rc[m.group(1)])[:60]) if (m and rc.get(m.group(1))) else ""
+            o["ref"] = r[:200 - len(sfx)] + sfx
     return out
 
 
@@ -1614,7 +1622,7 @@ def parse_workbook(filepath: str, warnings: list | None = None,
 
     def _flush():
         if warnings is not None:
-            warnings.extend(_aggregate_warnings(warn.items))
+            warnings.extend(_aggregate_warnings(warn.items, row_course=warn.row_course))
 
     if info is not None:
         info.setdefault("excluded_students", 0)

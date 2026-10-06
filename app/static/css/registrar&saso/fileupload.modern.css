@@ -420,3 +420,16 @@
 .skel--dot { width: 28px; height: 28px; border-radius: 50%; flex: 0 0 auto; }
 .up-skel-row:nth-child(2) .skel { animation-delay: .12s; }
 .up-skel-row:nth-child(3) .skel { animation-delay: .24s; }
+/* "Model training" step is hidden until a training run really happens */
+.pipeline-step.step--off { display: none; }
+.pipeline-step:has(+ .step--off:last-child)::before { display: none; }   /* no dangling rail */
+
+/* Confirmation modal: download only the flag list */
+.btn-flags-dl {
+  margin-right: auto; padding: 10px 18px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--fu-brand, #800000); background: #fff; color: var(--fu-brand, #800000);
+  font: inherit; font-size: 13px; font-weight: 600; transition: background .2s;
+}
+.btn-flags-dl:hover:not(:disabled) { background: var(--fu-brand-soft, #fbeced); }
+.btn-flags-dl:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 720px) { .btn-flags-dl { width: 100%; margin-right: 0; } }
