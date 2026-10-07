@@ -199,7 +199,46 @@
                                       </svg>
                                   </button>
                               </div>
-                              <span class="password-hint">Password must be 8-16 characters long, containing at least one uppercase letter, one number, and one special character.</span>
+                              <ul class="pw-requirements" id="editPwRequirements" aria-live="polite">
+                                  <li class="pw-req" data-rule="length"><span class="pw-req-icon"></span><span class="pw-req-text">8&ndash;16 characters</span></li>
+                                  <li class="pw-req" data-rule="upper"><span class="pw-req-icon"></span><span class="pw-req-text">At least one uppercase letter</span></li>
+                                  <li class="pw-req" data-rule="number"><span class="pw-req-icon"></span><span class="pw-req-text">At least one number</span></li>
+                                  <li class="pw-req" data-rule="special"><span class="pw-req-icon"></span><span class="pw-req-text">At least one special character</span></li>
+                              </ul>
+                              <span id="editPwSameAsCurrent" class="pw-mismatch-msg">This is the user&rsquo;s current password &mdash; please choose a new one.</span>
+                          </div>
+                      </div>
+                      <div class="form-group align-start">
+                          <label for="editConfirmPassword">Confirm Password:</label>
+                          <div class="password-field-container">
+                              <div class="password-wrapper" style="position: relative;">
+                                  <input
+                                    type="password"
+                                    id="editConfirmPassword"
+                                    name="confirm_password"
+                                    placeholder="Re-enter new password"
+                                    autocomplete="new-password"
+                                    minlength="8"
+                                    maxlength="16"
+                                    style="padding-right: 40px;"
+                                  >
+                                  <button type="button" id="editToggleConfirmPassword" aria-label="Show or hide password"
+                                      style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+                                            background: none; border: none; cursor: pointer; color: #666; width: 24px; height: 24px; padding: 0;">
+                                      <!-- Eye (Open) -->
+                                      <svg id="edit-confirm-eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon-eye">
+                                          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                                          <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
+                                      </svg>
+                                      <!-- Eye (Closed) -->
+                                      <svg id="edit-confirm-eye-closed" class="icon-eye" style="display:none;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M3.53 2.47a.75.75 0 0 0-1.06 1.06l18 18a.75.75 0 1 0 1.06-1.06l-18-18ZM22.676 12.553a11.249 11.249 0 0 1-2.631 4.31l-3.099-3.099a5.25 5.25 0 0 0-6.71-6.71L7.759 4.577a11.217 11.217 0 0 1 4.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113Z" />
+                                          <path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0 1 15.75 12ZM12.53 15.713l-4.243-4.244a3.75 3.75 0 0 0 4.244 4.243Z" />
+                                          <path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 0 0-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 0 1 6.75 12Z" />
+                                      </svg>
+                                  </button>
+                              </div>
+                              <span id="editConfirmMismatch" class="pw-mismatch-msg">Passwords do not match.</span>
                           </div>
                       </div>
                       <div class="form-group">
@@ -300,7 +339,46 @@
                                   </button>
                                   <button type="button" id="generatePasswordBtn" class="generateBtn" title="Generate Random Password">Generate Password</button>
                               </div>
-                              <span class="password-hint">Password must be 8-16 characters long, containing at least one uppercase letter, one number, and one special character.</span>
+                              <ul class="pw-requirements" id="addPwRequirements" aria-live="polite">
+                                  <li class="pw-req" data-rule="length"><span class="pw-req-icon"></span><span class="pw-req-text">8&ndash;16 characters</span></li>
+                                  <li class="pw-req" data-rule="upper"><span class="pw-req-icon"></span><span class="pw-req-text">At least one uppercase letter</span></li>
+                                  <li class="pw-req" data-rule="number"><span class="pw-req-icon"></span><span class="pw-req-text">At least one number</span></li>
+                                  <li class="pw-req" data-rule="special"><span class="pw-req-icon"></span><span class="pw-req-text">At least one special character</span></li>
+                              </ul>
+                          </div>
+                      </div>
+                      <div class="form-group align-start">
+                          <label for="confirm_password_input">Confirm Password:</label>
+                          <div class="password-field-container">
+                              <div class="password-wrapper" style="position: relative;">
+                                  <input
+                                    type="password"
+                                    id="confirm_password_input"
+                                    name="confirm_password"
+                                    placeholder="Re-enter password"
+                                    autocomplete="new-password"
+                                    minlength="8"
+                                    maxlength="16"
+                                    required
+                                    style="padding-right: 40px;"
+                                  >
+                                  <button type="button" id="addToggleConfirmPassword" aria-label="Show or hide password"
+                                      style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+                                            background: none; border: none; cursor: pointer; color: #666; width: 24px; height: 24px; padding: 0;">
+                                      <!-- Eye (Open) -->
+                                      <svg id="add-confirm-eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon-eye">
+                                          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                                          <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
+                                      </svg>
+                                      <!-- Eye (Closed) -->
+                                      <svg id="add-confirm-eye-closed" class="icon-eye" style="display:none;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M3.53 2.47a.75.75 0 0 0-1.06 1.06l18 18a.75.75 0 1 0 1.06-1.06l-18-18ZM22.676 12.553a11.249 11.249 0 0 1-2.631 4.31l-3.099-3.099a5.25 5.25 0 0 0-6.71-6.71L7.759 4.577a11.217 11.217 0 0 1 4.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113Z" />
+                                          <path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0 1 15.75 12ZM12.53 15.713l-4.243-4.244a3.75 3.75 0 0 0 4.244 4.243Z" />
+                                          <path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 0 0-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 0 1 6.75 12Z" />
+                                      </svg>
+                                  </button>
+                              </div>
+                              <span id="addConfirmMismatch" class="pw-mismatch-msg">Passwords do not match.</span>
                           </div>
                       </div>
 

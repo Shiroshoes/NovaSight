@@ -986,7 +986,7 @@ footer{
 .management-card .add-header + .card-hr { display: none; }
 
 /* forms: small label above a soft, full-width field */
-.management-card .slide-hidden.open { max-height: 1200px; margin-top: 16px; margin-bottom: 4px; }
+.management-card .slide-hidden.open { max-height: 1600px; margin-top: 16px; margin-bottom: 4px; }
 .management-card .form-group,
 .management-card .form-group.align-start { flex-direction: column; align-items: stretch; gap: 6px; margin-bottom: 14px; }
 .management-card .form-group label,
@@ -1047,7 +1047,8 @@ footer{
   transform: none;
 }
 .management-card .password-wrapper > input { grid-area: 1 / 1; padding-right: 44px !important; }
-.management-card .password-wrapper > button[id$="TogglePassword"] {
+.management-card .password-wrapper > button[id$="TogglePassword"],
+.management-card .password-wrapper > button[id$="ConfirmPassword"] {
   grid-area: 1 / 1;
   justify-self: end;
   position: static !important;
@@ -1055,7 +1056,8 @@ footer{
   margin: 0 12px 0 0 !important;
   color: #6b7280 !important;
 }
-.management-card .password-wrapper > button[id$="TogglePassword"]:hover { color: #800000 !important; }
+.management-card .password-wrapper > button[id$="TogglePassword"]:hover,
+.management-card .password-wrapper > button[id$="ConfirmPassword"]:hover { color: #800000 !important; }
 .management-card .password-wrapper > .generateBtn {
   grid-area: 1 / 2;
   width: auto;
@@ -1626,4 +1628,58 @@ html.is-loading .main-scroll > .dashboard-grid:not(.sk-grid) { display: none; }
   .sk, .sk-grid, .sk-grid.sk-leaving,
   html.is-loading .admin-head h2, html.is-loading .admin-head p { animation: none !important; }
   .sk, html.is-loading .admin-head h2, html.is-loading .admin-head p { background: #f1eeea; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIVE PASSWORD GUIDE (Add User / Edit User)
+   Same behaviour as the Profile page: each rule starts grey and
+   turns green the moment it is satisfied.
+   ═══════════════════════════════════════════════════════════ */
+.management-card .pw-requirements {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #faf8f5;
+  border: 1px solid #F0EAE2;
+  border-radius: 12px;
+}
+.management-card .pw-req {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #9ca3af;
+  transition: color 0.15s ease;
+}
+.management-card .pw-req-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.management-card .pw-req-icon svg { width: 100%; height: 100%; }
+.management-card .pw-req.met { color: #1a7f37; }
+
+/* Red inline messages: "Passwords do not match" / "current password" */
+.management-card .pw-mismatch-msg {
+  display: none;
+  color: #cc0000;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+#editPwSameAsCurrent { margin: 6px 0 14px; }
+
+/* Add / Save greyed out while the password part is incomplete */
+.management-card .btn[type="submit"]:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  pointer-events: none;
 }

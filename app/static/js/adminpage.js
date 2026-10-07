@@ -89,8 +89,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const setAddPasswordRevealed  = wirePasswordToggle('addTogglePassword', 'password_input', 'add-eye-open', 'add-eye-closed');
     const setEditPasswordRevealed = wirePasswordToggle('editTogglePassword', 'editPassword', 'edit-eye-open', 'edit-eye-closed');
-    wirePasswordToggle('addToggleConfirmPassword', 'confirm_password_input', 'add-confirm-eye-open', 'add-confirm-eye-closed');
-    wirePasswordToggle('editToggleConfirmPassword', 'editConfirmPassword', 'edit-confirm-eye-open', 'edit-confirm-eye-closed');
+    const setAddConfirmRevealed  = wirePasswordToggle('addToggleConfirmPassword', 'confirm_password_input', 'add-confirm-eye-open', 'add-confirm-eye-closed');
+    const setEditConfirmRevealed = wirePasswordToggle('editToggleConfirmPassword', 'editConfirmPassword', 'edit-confirm-eye-open', 'edit-confirm-eye-closed');
 
     // ---------------- CUSTOM MODAL HELPERS ----------------
     function formatUserLabel(data) {
@@ -244,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function refreshEditSaveState() {
-        if (editSaveBtn) editSaveBtn.disabled = !isEditFormDirty();
+        if (editSaveBtn) editSaveBtn.disabled = !isEditFormDirty() || !editPasswordOk();
     }
 
     // One shared listener set (not re-attached per Edit click) — every open
@@ -284,15 +284,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('editRole').value          = data.role;
                     document.getElementById('editDateCreated').value   = data.date_created;
 
-                    // Reset password field
-                    const ep = document.getElementById('editPassword');
-                    if (ep) { ep.value = ''; ep.style.borderColor = ''; ep.setCustomValidity(''); }
-                    if (setEditPasswordRevealed) setEditPasswordRevealed(false);
-
-                    const ecp = document.getElementById('editConfirmPassword');
-                    const ecm = document.getElementById('editConfirmMismatch');
-                    if (ecp) { ecp.value = ''; ecp.style.borderColor = ''; ecp.setCustomValidity(''); }
-                    if (ecm) ecm.style.display = 'none';
+                    // Reset password fields, checklist and warnings
+                    resetEditPasswordUI();
 
                     // Freshly loaded = the "unchanged" baseline — Save starts disabled.
                     snapshotEditForm();
@@ -378,6 +371,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('editRole').value        = data.role;
                     document.getElementById('editDateCreated').value = data.date_created;
                     editForm.action = `/NovaSight/admin/update_user/${userId}`;
+                    resetEditPasswordUI();
 
                     // Freshly loaded = the "unchanged" baseline — Save starts disabled.
                     snapshotEditForm();
@@ -411,52 +405,124 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
 
-    // ---------------- PASSWORD GENERATOR & JS VALIDATION ----------------
-    const pwdInput    = document.getElementById('password_input');
-    const generateBtn = document.getElementById('generatePasswordBtn');
-    const confirmPwdInput   = document.getElementById('confirm_password_input');
-    const addConfirmMismatch = document.getElementById('addConfirmMismatch');
+    // ---------------- PASSWORD RULES + LIVE CHECKLIST (shared by Add / Edit) ----------------
+    // Same rules and same behaviour as the Profile page: every rule starts grey
+    // and turns green the instant it is satisfied, so the admin sees what is
+    // still missing while typing instead of finding out after pressing Save.
+    const PW_SPECIAL_RE = /[!@#$%^&*()_+\-={}|:;"'<>?,./]/;
+    const PW_RULES = [
+        { key: 'length',  test: v => v.length >= 8 && v.length <= 16 },
+        { key: 'upper',   test: v => /[A-Z]/.test(v) },
+        { key: 'number',  test: v => /[0-9]/.test(v) },
+        { key: 'special', test: v => PW_SPECIAL_RE.test(v) },
+    ];
+    const PW_CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+    const PW_CROSS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
-    // Regex: 8-16 chars, at least one uppercase, one digit, one special char
-    const pwdRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-={}|:;"'<>?,./]).{8,16}$/;
+    function updatePwChecklist(listEl, value) {
+        if (!listEl) return;
+        PW_RULES.forEach(rule => {
+            const li = listEl.querySelector('[data-rule="' + rule.key + '"]');
+            if (!li) return;
+            const met = rule.test(value);
+            li.classList.toggle('met', met);
+            const icon = li.querySelector('.pw-req-icon');
+            if (icon) icon.innerHTML = met ? PW_CHECK_ICON : PW_CROSS_ICON;
+        });
+    }
 
-    function validatePassword(value) {
+    function pwFormatError(value) {
         if (!value) return 'Password is required.';
         if (value.length < 8 || value.length > 16) return 'Password must be 8–16 characters.';
         if (!/[A-Z]/.test(value))   return 'Password must include at least one uppercase letter.';
         if (!/[0-9]/.test(value))   return 'Password must include at least one number.';
-        if (!/[!@#$%^&*()_+\-={}|:;"'<>?,./]/.test(value)) return 'Password must include at least one special character.';
+        if (!PW_SPECIAL_RE.test(value)) return 'Password must include at least one special character.';
         return ''; // valid
     }
 
+    function generatePassword() {
+        const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const lowercase = "abcdefghijklmnopqrstuvwxyz";
+        const numbers   = "0123456789";
+        const symbols   = "!@#$%^&*()_+";
+        const allChars  = uppercase + lowercase + numbers + symbols;
+
+        let password = "";
+        // Guarantee one of each required category
+        password += uppercase[Math.floor(Math.random() * uppercase.length)];
+        password += lowercase[Math.floor(Math.random() * lowercase.length)];
+        password += numbers[Math.floor(Math.random() * numbers.length)];
+        password += symbols[Math.floor(Math.random() * symbols.length)];
+
+        const targetLength = 12;
+        for (let i = password.length; i < targetLength; i++) {
+            password += allChars[Math.floor(Math.random() * allChars.length)];
+        }
+        return password.split('').sort(() => 0.5 - Math.random()).join('');
+    }
+
+    // ---------------- ADD USER: PASSWORD ----------------
+    const pwdInput          = document.getElementById('password_input');
+    const generateBtn       = document.getElementById('generatePasswordBtn');
+    const confirmPwdInput   = document.getElementById('confirm_password_input');
+    const addConfirmMismatch = document.getElementById('addConfirmMismatch');
+    const addPwRequirements = document.getElementById('addPwRequirements');
+    const addUserForm       = document.querySelector('#addUserSection form');
+    const addSubmitBtn      = addUserForm ? addUserForm.querySelector('button[type="submit"]') : null;
+
+    // Add stays greyed out until the password passes every rule and Confirm matches.
+    function addPasswordOk() {
+        if (!pwdInput) return true;
+        const v = pwdInput.value;
+        const confirmOk = !confirmPwdInput || (confirmPwdInput.value !== '' && confirmPwdInput.value === v);
+        return !pwFormatError(v) && confirmOk;
+    }
+    function refreshAddSaveState() {
+        if (addSubmitBtn) addSubmitBtn.disabled = !addPasswordOk();
+    }
+
     function checkAddPasswordsMatch() {
-        if (!confirmPwdInput || !pwdInput) return true;
-        if (confirmPwdInput.value === '') {
+        let matches = true;
+        if (!confirmPwdInput || !pwdInput) {
+            matches = true;
+        } else if (confirmPwdInput.value === '') {
             confirmPwdInput.style.borderColor = '';
             confirmPwdInput.setCustomValidity('');
             if (addConfirmMismatch) addConfirmMismatch.style.display = 'none';
-            return true;
+        } else {
+            matches = confirmPwdInput.value === pwdInput.value;
+            confirmPwdInput.style.borderColor = matches ? '#2ecc71' : '#ff4d4d';
+            confirmPwdInput.setCustomValidity(matches ? '' : 'Passwords do not match.');
+            if (addConfirmMismatch) addConfirmMismatch.style.display = matches ? 'none' : 'block';
         }
-        const matches = confirmPwdInput.value === pwdInput.value;
-        confirmPwdInput.style.borderColor = matches ? '#2ecc71' : '#ff4d4d';
-        confirmPwdInput.setCustomValidity(matches ? '' : 'Passwords do not match.');
-        if (addConfirmMismatch) addConfirmMismatch.style.display = matches ? 'none' : 'block';
+        refreshAddSaveState();
         return matches;
     }
 
-    if (pwdInput) {
-        // Live feedback as user types
-        pwdInput.addEventListener('input', function () {
-            const msg = validatePassword(pwdInput.value);
-            pwdInput.setCustomValidity(msg);
+    function resetAddPasswordUI() {
+        if (pwdInput) {
+            pwdInput.style.borderColor = '';
+            pwdInput.setCustomValidity('');
+            if (setAddPasswordRevealed) setAddPasswordRevealed(false);
+        }
+        if (confirmPwdInput) {
+            confirmPwdInput.style.borderColor = '';
+            confirmPwdInput.setCustomValidity('');
+            if (setAddConfirmRevealed) setAddConfirmRevealed(false);
+        }
+        if (addConfirmMismatch) addConfirmMismatch.style.display = 'none';
+        updatePwChecklist(addPwRequirements, pwdInput ? pwdInput.value : '');
+        refreshAddSaveState();
+    }
 
-            // Visual border feedback
-            if (msg) {
-                pwdInput.style.borderColor = '#ff4d4d';
-            } else {
-                pwdInput.style.borderColor = '#2ecc71';
-            }
-            checkAddPasswordsMatch();
+    if (pwdInput) {
+        pwdInput.addEventListener('input', function () {
+            const value = pwdInput.value;
+            const msg = pwFormatError(value);
+            pwdInput.setCustomValidity(msg);
+            updatePwChecklist(addPwRequirements, value);
+            pwdInput.style.borderColor = value === '' ? '' : (msg ? '#ff4d4d' : '#2ecc71');
+            checkAddPasswordsMatch();   // also refreshes the Add button
         });
     }
 
@@ -465,14 +531,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Intercept the Add User form submit and enforce validation before sending
-    const addUserForm = document.querySelector('#addUserSection form');
     if (addUserForm && pwdInput) {
         addUserForm.addEventListener('submit', function (e) {
             // Re-sync type to password so value is accessible
-            const currentType = pwdInput.type;
             pwdInput.type = 'password';
 
-            const msg = validatePassword(pwdInput.value);
+            const msg = pwFormatError(pwdInput.value);
             if (msg) {
                 e.preventDefault();
                 pwdInput.setCustomValidity(msg);
@@ -492,87 +556,159 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (generateBtn && pwdInput) {
         generateBtn.addEventListener('click', function () {
-            const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            const lowercase = "abcdefghijklmnopqrstuvwxyz";
-            const numbers   = "0123456789";
-            const symbols   = "!@#$%^&*()_+";
-            const allChars  = uppercase + lowercase + numbers + symbols;
-
-            let password = "";
-            // Guarantee one of each required category
-            password += uppercase[Math.floor(Math.random() * uppercase.length)];
-            password += lowercase[Math.floor(Math.random() * lowercase.length)];
-            password += numbers[Math.floor(Math.random() * numbers.length)];
-            password += symbols[Math.floor(Math.random() * symbols.length)];
-
-            const targetLength = 12;
-            for (let i = password.length; i < targetLength; i++) {
-                password += allChars[Math.floor(Math.random() * allChars.length)];
-            }
-            password = password.split('').sort(() => 0.5 - Math.random()).join('');
+            const password = generatePassword();
 
             pwdInput.value = password;
             if (setAddPasswordRevealed) { setAddPasswordRevealed(true); } else { pwdInput.type = "text"; }
-            pwdInput.setCustomValidity(''); // Clear any previous error
-            pwdInput.style.borderColor = '#2ecc71'; // Show green border
+            pwdInput.setCustomValidity('');          // Clear any previous error
+            pwdInput.style.borderColor = '#2ecc71';  // Show green border
 
             // Auto-fill + reveal the confirm field too — the admin didn't
             // type this one, so there's nothing for them to mistype.
             if (confirmPwdInput) {
                 confirmPwdInput.value = password;
+                confirmPwdInput.setCustomValidity('');
                 confirmPwdInput.style.borderColor = '#2ecc71';
+                if (setAddConfirmRevealed) setAddConfirmRevealed(true);
                 if (addConfirmMismatch) addConfirmMismatch.style.display = 'none';
             }
+
+            // Setting .value in JS doesn't fire 'input', so refresh by hand.
+            updatePwChecklist(addPwRequirements, password);
+            refreshAddSaveState();
         });
     }
 
+    // Initial paint: every rule grey, Add disabled until the password is complete.
+    resetAddPasswordUI();
 
 
-    // ---------------- EDIT PASSWORD GENERATOR & VALIDATION ----------------
-    const editPwdInput    = document.getElementById('editPassword');
-    const generateEditBtn = document.getElementById('generateEditPasswordBtn');
+    // ---------------- EDIT USER: PASSWORD ----------------
+    const editPwdInput       = document.getElementById('editPassword');
+    const generateEditBtn    = document.getElementById('generateEditPasswordBtn');
     const editConfirmPwdInput = document.getElementById('editConfirmPassword');
     const editConfirmMismatch = document.getElementById('editConfirmMismatch');
+    const editPwRequirements = document.getElementById('editPwRequirements');
+    const editPwSameAsCurrent = document.getElementById('editPwSameAsCurrent');
+
+    const SAME_PW_MSG = 'This is the user\u2019s current password \u2014 please choose a new one.';
 
     function validateEditPassword(value) {
         if (!value) return ''; // blank = keep current, that's OK
-        if (value.length < 8 || value.length > 16) return 'Password must be 8–16 characters.';
-        if (!/[A-Z]/.test(value))   return 'Password must include at least one uppercase letter.';
-        if (!/[0-9]/.test(value))   return 'Password must include at least one number.';
-        if (!/[!@#$%^&*()_+\-={}|:;"'<>?,./]/.test(value)) return 'Password must include at least one special character.';
-        return '';
+        return pwFormatError(value);
     }
 
-    // Blank password = "keep current", so a blank confirm field is fine
-    // too in that case — the mismatch check only applies once a new
-    // password is actually being typed.
+    // ---- "Same as current password" live check ----
+    // The comparison can only happen on the server (the stored password is a hash).
+    // Same idea as the Profile page: only asked once the new password already
+    // passes every format rule, debounced, and a token drops stale responses.
+    let editIsSameAsCurrent = false;
+    let editReuseDebounce   = null;
+    let editReuseToken      = 0;
+
+    function applyEditSameAsCurrentUI() {
+        if (editPwSameAsCurrent) editPwSameAsCurrent.style.display = editIsSameAsCurrent ? 'block' : 'none';
+        if (editPwdInput) {
+            editPwdInput.setCustomValidity(editIsSameAsCurrent ? SAME_PW_MSG : validateEditPassword(editPwdInput.value));
+            if (editIsSameAsCurrent) editPwdInput.style.borderColor = '#ff4d4d';
+        }
+        refreshEditSaveState();
+    }
+
+    async function checkEditPasswordReuse(value) {
+        const userId = (document.getElementById('editUserId') || {}).value;
+        if (!userId) return;
+        const myToken = ++editReuseToken;
+        try {
+            const res = await fetch(`/NovaSight/admin/check_password_reuse/${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: value }),
+            });
+            if (!res.ok) return;                       // server still enforces this on save
+            const data = await res.json();
+            if (myToken !== editReuseToken) return;    // a newer check superseded this one
+            editIsSameAsCurrent = !!data.same;
+            applyEditSameAsCurrentUI();
+        } catch (err) {
+            console.error('Password reuse check failed:', err);
+        }
+    }
+
+    function scheduleEditReuseCheck() {
+        // Never leave a stale warning up while the admin is still typing.
+        editIsSameAsCurrent = false;
+        editReuseToken++;                              // invalidate any in-flight check
+        clearTimeout(editReuseDebounce);
+        if (editPwSameAsCurrent) editPwSameAsCurrent.style.display = 'none';
+        const v = editPwdInput ? editPwdInput.value : '';
+        if (v !== '' && !validateEditPassword(v)) {
+            editReuseDebounce = setTimeout(() => checkEditPasswordReuse(v), 400);
+        }
+    }
+
+    // Blank password = "keep current", so a blank confirm field is fine too in
+    // that case — the mismatch check only applies once a new password is typed.
     function checkEditPasswordsMatch() {
-        if (!editConfirmPwdInput || !editPwdInput) return true;
-        if (editPwdInput.value === '' || editConfirmPwdInput.value === '') {
+        let result;
+        if (!editConfirmPwdInput || !editPwdInput) {
+            result = true;
+        } else if (editPwdInput.value === '' || editConfirmPwdInput.value === '') {
             editConfirmPwdInput.style.borderColor = '';
             editConfirmPwdInput.setCustomValidity('');
             if (editConfirmMismatch) editConfirmMismatch.style.display = 'none';
-            return editPwdInput.value === '' ? true : false;
+            result = editPwdInput.value === '';
+        } else {
+            const matches = editConfirmPwdInput.value === editPwdInput.value;
+            editConfirmPwdInput.style.borderColor = matches ? '#2ecc71' : '#ff4d4d';
+            editConfirmPwdInput.setCustomValidity(matches ? '' : 'Passwords do not match.');
+            if (editConfirmMismatch) editConfirmMismatch.style.display = matches ? 'none' : 'block';
+            result = matches;
         }
-        const matches = editConfirmPwdInput.value === editPwdInput.value;
-        editConfirmPwdInput.style.borderColor = matches ? '#2ecc71' : '#ff4d4d';
-        editConfirmPwdInput.setCustomValidity(matches ? '' : 'Passwords do not match.');
-        if (editConfirmMismatch) editConfirmMismatch.style.display = matches ? 'none' : 'block';
-        return matches;
+        refreshEditSaveState();
+        return result;
+    }
+
+    // Password part of "can Save be pressed?" — blank is fine (keep current);
+    // otherwise it must pass every rule, match Confirm and differ from the current one.
+    function editPasswordOk() {
+        if (!editPwdInput) return true;
+        const v = editPwdInput.value;
+        if (v === '') return true;
+        const confirmOk = !editConfirmPwdInput || (editConfirmPwdInput.value !== '' && editConfirmPwdInput.value === v);
+        return !validateEditPassword(v) && confirmOk && !editIsSameAsCurrent;
+    }
+
+    function resetEditPasswordUI() {
+        clearTimeout(editReuseDebounce);
+        editReuseToken++;
+        editIsSameAsCurrent = false;
+        if (editPwdInput) {
+            editPwdInput.value = '';
+            editPwdInput.style.borderColor = '';
+            editPwdInput.setCustomValidity('');
+            if (setEditPasswordRevealed) setEditPasswordRevealed(false);
+        }
+        if (editConfirmPwdInput) {
+            editConfirmPwdInput.value = '';
+            editConfirmPwdInput.style.borderColor = '';
+            editConfirmPwdInput.setCustomValidity('');
+            if (setEditConfirmRevealed) setEditConfirmRevealed(false);
+        }
+        if (editConfirmMismatch) editConfirmMismatch.style.display = 'none';
+        if (editPwSameAsCurrent) editPwSameAsCurrent.style.display = 'none';
+        updatePwChecklist(editPwRequirements, '');
     }
 
     if (editPwdInput) {
         editPwdInput.addEventListener('input', function () {
-            const msg = validateEditPassword(editPwdInput.value);
+            const value = editPwdInput.value;
+            const msg = validateEditPassword(value);
             editPwdInput.setCustomValidity(msg);
-            if (editPwdInput.value === '') {
-                editPwdInput.style.borderColor = '';
-            } else if (msg) {
-                editPwdInput.style.borderColor = '#ff4d4d';
-            } else {
-                editPwdInput.style.borderColor = '#2ecc71';
-            }
-            checkEditPasswordsMatch();
+            updatePwChecklist(editPwRequirements, value);
+            editPwdInput.style.borderColor = value === '' ? '' : (msg ? '#ff4d4d' : '#2ecc71');
+            scheduleEditReuseCheck();
+            checkEditPasswordsMatch();   // also refreshes the Save button
         });
     }
 
@@ -594,6 +730,12 @@ document.addEventListener('DOMContentLoaded', function () {
             editPwdInput.setCustomValidity('');
 
             if (editPwdInput.value !== '') {
+                if (editIsSameAsCurrent) {
+                    e.preventDefault();
+                    editPwdInput.setCustomValidity(SAME_PW_MSG);
+                    editPwdInput.reportValidity();
+                    return;
+                }
                 if (editConfirmPwdInput && editConfirmPwdInput.value === '') {
                     e.preventDefault();
                     editConfirmPwdInput.setCustomValidity('Please confirm the new password.');
@@ -611,40 +753,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (generateEditBtn && editPwdInput) {
         generateEditBtn.addEventListener('click', function () {
-            const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            const lowercase = "abcdefghijklmnopqrstuvwxyz";
-            const numbers   = "0123456789";
-            const symbols   = "!@#$%^&*()_+";
-            const allChars  = uppercase + lowercase + numbers + symbols;
-            let password = "";
-            password += uppercase[Math.floor(Math.random() * uppercase.length)];
-            password += lowercase[Math.floor(Math.random() * lowercase.length)];
-            password += numbers[Math.floor(Math.random() * numbers.length)];
-            password += symbols[Math.floor(Math.random() * symbols.length)];
-            const targetLength = 12;
-            for (let i = password.length; i < targetLength; i++) {
-                password += allChars[Math.floor(Math.random() * allChars.length)];
-            }
-            password = password.split('').sort(() => 0.5 - Math.random()).join('');
+            const password = generatePassword();
             editPwdInput.value = password;
             if (setEditPasswordRevealed) { setEditPasswordRevealed(true); } else { editPwdInput.type = "text"; }
             editPwdInput.setCustomValidity('');
             editPwdInput.style.borderColor = '#2ecc71';
 
-            // Auto-fill + reveal the confirm field too, same reasoning as
-            // the Add User generator.
+            // Auto-fill + reveal the confirm field too, same reasoning as Add User.
             if (editConfirmPwdInput) {
                 editConfirmPwdInput.value = password;
                 editConfirmPwdInput.style.borderColor = '#2ecc71';
                 editConfirmPwdInput.setCustomValidity('');
+                if (setEditConfirmRevealed) setEditConfirmRevealed(true);
                 if (editConfirmMismatch) editConfirmMismatch.style.display = 'none';
             }
 
-            // Setting .value in JS doesn't fire 'input', so the dirty-check
-            // wouldn't otherwise notice a generated password.
+            // Setting .value in JS doesn't fire 'input', so refresh by hand.
+            updatePwChecklist(editPwRequirements, password);
+            scheduleEditReuseCheck();
             refreshEditSaveState();
         });
     }
+
+    // Initial paint: all rules grey.
+    updatePwChecklist(editPwRequirements, '');
 
 
     const backUserBtn = document.getElementById('backuserbtn');
@@ -669,15 +801,7 @@ document.addEventListener('DOMContentLoaded', function () {
         clearAddBtn.addEventListener('click', () => {
             if (addUserForm) {
                 addUserForm.reset();
-                if (pwdInput) {
-                    pwdInput.style.borderColor = '';
-                    pwdInput.setCustomValidity('');
-                }
-                if (confirmPwdInput) {
-                    confirmPwdInput.style.borderColor = '';
-                    confirmPwdInput.setCustomValidity('');
-                }
-                if (addConfirmMismatch) addConfirmMismatch.style.display = 'none';
+                resetAddPasswordUI();
             }
         });
     }
